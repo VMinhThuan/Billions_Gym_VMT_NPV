@@ -1,14 +1,20 @@
 const LichTap = require('../models/LichTap');
 const BuoiTap = require('../models/BuoiTap');
 const { HoiVien } = require('../models/NguoiDung');
+const mongoose = require('mongoose');
 
 const createLichTap = async (data) => {
-    const { maHoiVien } = data;
-    const hoiVien = await HoiVien.findById(maHoiVien);
-    if (!hoiVien) {
+    const { hoiVien } = data;
+
+    if (!mongoose.Types.ObjectId.isValid(hoiVien)) {
+        throw new Error('ID hội viên không đúng định dạng');
+    }
+
+    const hoiVienDoc = await HoiVien.findById(hoiVien);
+    if (!hoiVienDoc) {
         throw new Error('Không tìm thấy hội viên');
     }
-    const existedLichTap = await LichTap.findOne({ maHoiVien });
+    const existedLichTap = await LichTap.findOne({ hoiVien });
     if (existedLichTap) {
         throw new Error('Hội viên này đã có lịch tập.');
     }
@@ -18,10 +24,10 @@ const createLichTap = async (data) => {
 };
 
 const getLichTapByHoiVien = async (maHoiVien) => {
-    const lichTap = await LichTap.findOne({ maHoiVien }).populate({
-        path: 'buoiTaps',
+    const lichTap = await LichTap.findOne({ hoiVien: maHoiVien }).populate({
+        path: 'cacBuoiTap',
         populate: {
-            path: 'baiTaps.baiTap',
+            path: 'cacBaiTap.baiTap',
             model: 'BaiTap'
         }
     });
@@ -36,7 +42,7 @@ const addBuoiTap = async (lichTapId, buoiTapData) => {
     await buoiTap.save();
     const lichTap = await LichTap.findByIdAndUpdate(
         lichTapId,
-        { $push: { buoiTaps: buoiTap._id } },
+        { $push: { cacBuoiTap: buoiTap._id } },
         { new: true }
     );
     if (!lichTap) {
@@ -57,7 +63,7 @@ const deleteBuoiTap = async (lichTapId, buoiTapId) => {
     await BuoiTap.findByIdAndDelete(buoiTapId);
     const lichTap = await LichTap.findByIdAndUpdate(
         lichTapId,
-        { $pull: { buoiTaps: buoiTapId } }
+        { $pull: { cacBuoiTap: buoiTapId } }
     );
     if (!lichTap) {
         throw new Error('Không tìm thấy lịch tập');

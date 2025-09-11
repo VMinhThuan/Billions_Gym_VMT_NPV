@@ -27,8 +27,6 @@ const updateBaiTap = async (id, data) => {
 };
 
 const deleteBaiTap = async (id) => {
-    // Cần kiểm tra xem bài tập có đang được sử dụng trong buổi tập nào không trước khi xóa
-    // Tạm thời xóa trực tiếp
     const baiTap = await BaiTap.findByIdAndDelete(id);
     if (!baiTap) {
         throw new Error('Không tìm thấy bài tập');

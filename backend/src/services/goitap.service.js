@@ -17,6 +17,10 @@ const getAllGoiTap = async () => {
     return await GoiTap.find();
 };
 
+const getGoiTapById = async (id) => {
+    return await GoiTap.findById(id);
+};
+
 const updateGoiTap = async (id, data) => {
     if (data.ngayBatDau) data.ngayBatDau = toVNTime(data.ngayBatDau);
     if (data.ngayKetThuc) data.ngayKetThuc = toVNTime(data.ngayKetThuc);
@@ -35,6 +39,7 @@ const deleteGoiTap = async (id) => {
 module.exports = {
     createGoiTap,
     getAllGoiTap,
+    getGoiTapById,
     updateGoiTap,
     deleteGoiTap
 };

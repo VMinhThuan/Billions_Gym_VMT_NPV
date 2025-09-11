@@ -18,6 +18,16 @@ exports.getAllGoiTap = async (req, res) => {
     }
 };
 
+exports.getGoiTapById = async (req, res) => {
+    try {
+        const goiTap = await goiTapService.getGoiTapById(req.params.id);
+        if (!goiTap) return res.status(404).json({ message: 'Không tìm thấy gói tập' });
+        res.json(goiTap);
+    } catch (err) {
+        res.status(500).json({ message: 'Lỗi server', error: err.message });
+    }
+};
+
 exports.updateGoiTap = async (req, res) => {
     try {
         const goiTap = await goiTapService.updateGoiTap(req.params.id, req.body);
