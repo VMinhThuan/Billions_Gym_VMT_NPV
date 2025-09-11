@@ -44,9 +44,16 @@ const deleteChiTietGoiTap = async (id) => {
     return await ChiTietGoiTap.findByIdAndDelete(id);
 };
 
+const getChiTietGoiTapByHoiVien = async (maHoiVien) => {
+    return await ChiTietGoiTap.find({ maHoiVien })
+        .populate('maGoiTap')
+        .sort({ ngayDangKy: -1 });
+};
+
 module.exports = {
     createChiTietGoiTap,
     getAllChiTietGoiTap,
     updateChiTietGoiTap,
-    deleteChiTietGoiTap
+    deleteChiTietGoiTap,
+    getChiTietGoiTapByHoiVien
 };

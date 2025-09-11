@@ -1,10 +1,20 @@
 const lichTapService = require('../services/lichtap.service');
+const { HoiVien, PT } = require('../models/NguoiDung');
 
 exports.createLichTap = async (req, res) => {
     try {
+        console.log('Request body:', req.body);
+
+        const hoiVien = await HoiVien.findById(req.body.hoiVien);
+        console.log('Hội viên found:', hoiVien);
+
+        const pt = await PT.findById(req.body.pt);
+        console.log('PT found:', pt);
+
         const lichTap = await lichTapService.createLichTap(req.body);
         res.status(201).json(lichTap);
     } catch (err) {
+        console.error('Error creating lichtap:', err);
         res.status(400).json({ message: err.message });
     }
 };
