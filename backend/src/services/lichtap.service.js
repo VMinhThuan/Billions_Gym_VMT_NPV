@@ -23,6 +23,15 @@ const createLichTap = async (data) => {
     return lichTap;
 };
 
+const getAllLichTapHoiVien = async () => {
+    let query = {};
+    const lichTaps = await LichTap.find(query).populate('hoiVien', 'hoTen').populate('pt', 'hoTen');
+    if (!lichTaps) {
+        throw new Error('Chưa có lịch tập nào');
+    }
+    return lichTaps;
+};
+
 const getLichTapByHoiVien = async (maHoiVien) => {
     const lichTap = await LichTap.findOne({ hoiVien: maHoiVien }).populate({
         path: 'cacBuoiTap',
@@ -77,4 +86,5 @@ module.exports = {
     addBuoiTap,
     updateBuoiTap,
     deleteBuoiTap,
+    getAllLichTapHoiVien
 };
