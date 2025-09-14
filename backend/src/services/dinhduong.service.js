@@ -39,6 +39,18 @@ const thucPhamDatabase = {
     ]
 };
 
+// Lấy thông tin dinh dưỡng của hội viên
+const getThongTinDinhDuongHoiVien = async (maHoiVien) => {
+    try {
+        const dinhDuong = await DinhDuong.find({ hoiVien: maHoiVien }).sort({ createdAt: -1 }).limit(5);
+        const thucDon = await ThucDon.find({ hoiVien: maHoiVien }).sort({ createdAt: -1 }).limit(5);
+        return { dinhDuong, thucDon };
+    } catch (error) {
+        console.error('Lỗi lấy thông tin dinh dưỡng:', error);
+        throw error;
+    }
+};
+
 // AI - Tính toán nhu cầu calories dựa trên thông tin cá nhân
 const tinhNhuCauCalories = (canNang, chieuCao, tuoi, gioiTinh, hoatDong, mucTieu) => {
     let bmr;
@@ -507,6 +519,7 @@ const capNhatPhanHoiGoiY = async (goiYId, danhGia, phanHoi, trangThai) => {
 };
 
 module.exports = {
+    getThongTinDinhDuongHoiVien,
     taoGoiYDinhDuongAI,
     taoThucDonTuDong,
     getGoiYDinhDuongByHoiVien,

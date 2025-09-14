@@ -5,6 +5,9 @@ const verifyToken = require('../middlewares/auth.middleware');
 
 router.use(verifyToken);
 
+// Lấy thông tin dinh dưỡng của hội viên
+router.get('/info/:maHoiVien', dinhDuongController.getThongTinDinhDuong);
+
 // Tạo gợi ý dinh dưỡng AI
 router.post('/goi-y', dinhDuongController.taoGoiYDinhDuong);
 

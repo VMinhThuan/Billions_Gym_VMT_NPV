@@ -1,5 +1,31 @@
 const dinhDuongService = require('../services/dinhduong.service');
 
+// Lấy thông tin dinh dưỡng của hội viên
+const getThongTinDinhDuong = async (req, res) => {
+    try {
+        const { maHoiVien } = req.params;
+        if (!maHoiVien) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu mã hội viên'
+            });
+        }
+        const result = await dinhDuongService.getThongTinDinhDuongHoiVien(maHoiVien);
+        res.status(200).json({
+            success: true,
+            message: 'Lấy thông tin dinh dưỡng thành công',
+            data: result
+        });
+    }
+    catch (error) {
+        console.error('Lỗi lấy thông tin dinh dưỡng:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi server khi lấy thông tin dinh dưỡng'
+        });
+    }
+}
+
 // Tạo gợi ý dinh dưỡng AI cho hội viên
 const taoGoiYDinhDuong = async (req, res) => {
     try {
@@ -419,6 +445,7 @@ const tinhNhuCauCalories = async (req, res) => {
 };
 
 module.exports = {
+    getThongTinDinhDuong,
     taoGoiYDinhDuong,
     taoThucDonTuDong,
     getGoiYDinhDuong,

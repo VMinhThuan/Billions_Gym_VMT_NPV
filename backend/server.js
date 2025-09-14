@@ -33,6 +33,7 @@ const goiTapRouter = require('./src/routes/goitap.route');
 const chiTietGoiTapRouter = require('./src/routes/chitietgoitap.route');
 const buoiTapRouter = require('./src/routes/buoitap.route');
 const lichSuTapRouter = require('./src/routes/lichsutap.route');
+const dinhDuongRouter = require('./src/routes/dinhduong.route');
 
 app.use('/api/auth', authRouter);
 app.use('/api/user', userRouter);
@@ -42,6 +43,7 @@ app.use('/api/goitap', goiTapRouter);
 app.use('/api/chitietgoitap', chiTietGoiTapRouter);
 app.use('/api/buoitap', buoiTapRouter);
 app.use('/api/lichsutap', lichSuTapRouter);
+app.use('/api/dinhduong', dinhDuongRouter);
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
