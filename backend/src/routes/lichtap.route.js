@@ -6,6 +6,7 @@ const authorize = require('../middlewares/role.middleware');
 
 const ptAndOngChu = ['PT', 'OngChu'];
 
+router.get('/', auth, lichTapController.getAllLichTapHoiVien);
 router.post('/', auth, authorize(ptAndOngChu), lichTapController.createLichTap);
 router.get('/hoivien/:maHoiVien', auth, lichTapController.getLichTapByHoiVien);
 router.post('/:lichTapId/buoitap', auth, authorize(ptAndOngChu), lichTapController.addBuoiTap);

@@ -19,6 +19,15 @@ exports.createLichTap = async (req, res) => {
     }
 };
 
+exports.getAllLichTapHoiVien = async (req, res) => {
+    try {
+        const lichTaps = await lichTapService.getAllLichTapHoiVien();
+        res.json(lichTaps);
+    } catch (err) {
+        res.status(404).json({ message: err.message });
+    };
+};
+
 exports.getLichTapByHoiVien = async (req, res) => {
     try {
         const { maHoiVien } = req.params;

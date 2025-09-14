@@ -4,13 +4,15 @@
     "description": "This Node.js project is structured based on the provided UML diagram. It includes folders for models, controllers, routes, and utilities.",
     "main": "index.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "nodemon ./server.js"
     },
     "keywords": [],
     "author": "",
     "license": "ISC",
     "dependencies": {
         "bcryptjs": "^3.0.2",
+        "cors": "^2.8.5",
         "dayjs": "^1.11.18",
         "dayjs-plugin-utc": "^0.1.2",
         "dotenv": "^17.2.2",
