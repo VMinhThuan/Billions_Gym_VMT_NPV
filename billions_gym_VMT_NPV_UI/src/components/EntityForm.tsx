@@ -34,7 +34,7 @@ const EntityForm = ({ title, fields, onClose, onSave }: EntityFormProps) => {
                     <h2>{title}</h2>
                     <Button variant="ghost" size="small" onClick={onClose}>×</Button>
                 </div>
-                
+
                 <form onSubmit={handleSubmit} className="entity-form">
                     {fields.map(field => (
                         <div key={field.name} className="form-group">
@@ -47,7 +47,7 @@ const EntityForm = ({ title, fields, onClose, onSave }: EntityFormProps) => {
                             />
                         </div>
                     ))}
-                    
+
                     <div className="form-actions">
                         <Button type="button" variant="ghost" onClick={onClose}>
                             Hủy

@@ -36,10 +36,34 @@ const deleteGoiTap = async (id) => {
     }
 };
 
+// Get monthly packages only
+const getMonthlyPackages = async () => {
+    return await GoiTap.find({
+        donViThoiHan: 'Thang',
+        kichHoat: true
+    }).sort({ donGia: 1 });
+};
+
+// Get packages by time unit
+const getPackagesByTimeUnit = async (donViThoiHan) => {
+    return await GoiTap.find({
+        donViThoiHan: donViThoiHan,
+        kichHoat: true
+    }).sort({ donGia: 1 });
+};
+
+// Get active packages only
+const getActivePackages = async () => {
+    return await GoiTap.find({ kichHoat: true }).sort({ donGia: 1 });
+};
+
 module.exports = {
     createGoiTap,
     getAllGoiTap,
     getGoiTapById,
     updateGoiTap,
-    deleteGoiTap
+    deleteGoiTap,
+    getMonthlyPackages,
+    getPackagesByTimeUnit,
+    getActivePackages
 };

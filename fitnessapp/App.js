@@ -1,11 +1,17 @@
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import OnboardingScreen from './src/screens/OnboardingScreen';
+import AppNavigator from './src/navigation/AppNavigator';
+import { AuthProvider } from './src/store/AuthContext';
+import { ThemeProvider } from './src/store/ThemeContext';
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <OnboardingScreen />
+      <ThemeProvider>
+        <AuthProvider>
+          <AppNavigator />
+        </AuthProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

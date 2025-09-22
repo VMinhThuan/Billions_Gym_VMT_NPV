@@ -182,3 +182,64 @@ exports.deleteLichHenPT = async (req, res) => {
         res.status(400).json({ message: 'Xóa lịch hẹn PT thất bại', error: err.message });
     }
 };
+
+// Get PT's own bookings
+exports.getMyPTBookings = async (req, res) => {
+    try {
+        // Debug logging
+        console.log('getMyPTBookings - req.user:', JSON.stringify(req.user, null, 2));
+
+        // Check if user is authenticated
+        if (!req.user) {
+            console.error('No user in request');
+            return res.status(401).json({ message: 'Chưa đăng nhập' });
+        }
+
+        // Check if user has PT role - Allow HoiVien to test for now
+        if (req.user.vaiTro !== 'PT' && req.user.vaiTro !== 'OngChu' && req.user.vaiTro !== 'HoiVien') {
+            console.error('User does not have allowed role:', req.user.vaiTro);
+            return res.status(403).json({ message: 'Không có quyền truy cập' });
+        }
+
+        // If user is HoiVien, return their bookings as a member instead
+        if (req.user.vaiTro === 'HoiVien') {
+            console.log('HoiVien accessing PT bookings, redirecting to member bookings');
+            const hoiVienId = req.user.id;
+            const lichHenPT = await lichHenPTService.getLichHenPTByHoiVien(hoiVienId);
+            return res.json(lichHenPT);
+        }
+
+        const ptId = req.user.id; // Get PT ID from authenticated user
+        console.log('PT ID from token:', ptId, 'Type:', typeof ptId);
+
+        // Validate PT ID
+        if (!ptId) {
+            console.error('No PT ID found in token:', req.user);
+            return res.status(400).json({ message: 'Không tìm thấy ID người dùng' });
+        }
+
+        if (!isValidObjectId(ptId)) {
+            console.error('Invalid PT ID:', ptId, 'Type:', typeof ptId);
+            return res.status(400).json({ message: 'ID PT không hợp lệ' });
+        }
+
+        // Convert string ID to ObjectId for database query
+        let ptObjectId;
+        try {
+            ptObjectId = new mongoose.Types.ObjectId(ptId);
+        } catch (error) {
+            console.error('Error creating ObjectId from ptId:', ptId, error);
+            return res.status(400).json({ message: 'ID PT không hợp lệ' });
+        }
+
+        console.log('Fetching PT bookings for PT ID:', ptId);
+        const lichHenPT = await lichHenPTService.getLichHenPTByPT(ptObjectId);
+
+        res.json(lichHenPT);
+    } catch (err) {
+        console.error('Error in getMyPTBookings:', err);
+        res.status(500).json({ message: 'Lấy lịch hẹn PT thất bại', error: err.message });
+    }
+};
+
+// All functions are already exported using exports.functionName

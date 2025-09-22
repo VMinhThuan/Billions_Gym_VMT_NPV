@@ -222,13 +222,10 @@ exports.getMyLatestChiSo = async (req, res) => {
     try {
         // API dành riêng cho HoiVien xem chỉ số mới nhất của mình
         const chiSoCoThe = await chiSoCoTheService.getLatestChiSoByHoiVien(req.user.id);
-        if (!chiSoCoThe) {
-            return res.status(404).json({ message: 'Bạn chưa có chỉ số cơ thể nào' });
-        }
 
         res.json({
-            message: 'Lấy chỉ số cơ thể mới nhất thành công',
-            data: chiSoCoThe
+            message: chiSoCoThe ? 'Lấy chỉ số cơ thể mới nhất thành công' : 'Chưa có chỉ số cơ thể nào',
+            data: chiSoCoThe || null
         });
     } catch (err) {
         res.status(500).json({ message: 'Lỗi server', error: err.message });

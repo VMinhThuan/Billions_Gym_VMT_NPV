@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const NguoiDungSchema = new mongoose.Schema({
     soCCCD: { type: String, unique: true },
     hoTen: { type: String, required: true },
-    ngaySinh: { type: Date, required: true },
+    ngaySinh: { type: Date },
     diaChi: { type: String },
     gioiTinh: { type: String, required: true },
     anhDaiDien: { type: String },
@@ -16,7 +16,16 @@ const HoiVienSchema = new mongoose.Schema({
     ngayThamGia: { type: Date, default: Date.now },
     ngayHetHan: { type: Date },
     trangThaiHoiVien: { type: String, enum: ['DANG_HOAT_DONG', 'TAM_NGUNG', 'HET_HAN'], default: 'DANG_HOAT_DONG' },
-    cacChiSoCoThe: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ChiSoCoThe' }]
+    cacChiSoCoThe: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ChiSoCoThe' }],
+    hangHoiVien: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'HangHoiVien',
+        default: null
+    },
+    ngayDatHang: { type: Date }, // Ngày đạt hạng hiện tại
+    soTienTichLuy: { type: Number, default: 0 }, // Tổng số tiền đã chi
+    soThangLienTuc: { type: Number, default: 0 }, // Số tháng liên tục là hội viên
+    soBuoiTapDaTap: { type: Number, default: 0 } // Số buổi tập đã thực hiện
 });
 
 const HoiVien = NguoiDung.discriminator('HoiVien', HoiVienSchema);
@@ -36,6 +45,5 @@ const PTSchema = new mongoose.Schema({
 });
 
 const PT = NguoiDung.discriminator('PT', PTSchema);
-
 
 module.exports = { NguoiDung, HoiVien, OngChu, PT };

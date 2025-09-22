@@ -74,17 +74,52 @@ const getAllHoiVien = async () => {
     return HoiVien.find();
 };
 
+const getHoiVienById = async (id) => {
+    return HoiVien.findById(id);
+}
+
+const getPTById = async (id) => {
+    return PT.findById(id);
+}
+
 const updateHoiVien = async (id, data) => {
-    if (data.ngaySinh) data.ngaySinh = toVNTime(data.ngaySinh);
-    if (data.ngayThamGia) data.ngayThamGia = toVNTime(data.ngayThamGia);
-    if (data.ngayHetHan) data.ngayHetHan = toVNTime(data.ngayHetHan);
+    console.log('🔧 SERVICE - updateHoiVien called with:', { id, data });
+
+    // ✅ SỬA: Chỉ convert date nếu có giá trị
+    if (data.ngaySinh && data.ngaySinh !== null) {
+        data.ngaySinh = toVNTime(data.ngaySinh);
+    }
+    if (data.ngayThamGia && data.ngayThamGia !== null) {
+        data.ngayThamGia = toVNTime(data.ngayThamGia);
+    }
+    if (data.ngayHetHan && data.ngayHetHan !== null) {
+        data.ngayHetHan = toVNTime(data.ngayHetHan);
+    }
 
     const oldHoiVien = await HoiVien.findById(id);
-    if (!oldHoiVien) return null;
+    console.log('🔧 SERVICE - Found oldHoiVien:', oldHoiVien ? 'Yes' : 'No');
+    if (!oldHoiVien) {
+        console.log('❌ SERVICE - HoiVien not found with id:', id);
+        return null;
+    }
 
-    if (data.email && data.email !== oldHoiVien.email) {
-        const existed = await HoiVien.findOne({ email: data.email, _id: { $ne: id } }) || await PT.findOne({ email: data.email });
-        if (existed) {
+    console.log('🔧 SERVICE - Old HoiVien data:', {
+        hoTen: oldHoiVien.hoTen,
+        email: oldHoiVien.email,
+        sdt: oldHoiVien.sdt,
+        gioiTinh: oldHoiVien.gioiTinh
+    });
+
+    // ✅ SỬA: Kiểm tra email đã tồn tại - chỉ khi có thay đổi
+    if (data.email !== undefined && data.email !== oldHoiVien.email) {
+        console.log('🔧 SERVICE - Checking email uniqueness for:', data.email);
+        const existedHoiVien = await HoiVien.findOne({ email: data.email, _id: { $ne: id } });
+        const existedPT = await PT.findOne({ email: data.email });
+
+        console.log('🔧 SERVICE - Email check results:', { existedHoiVien: !!existedHoiVien, existedPT: !!existedPT });
+
+        if (existedHoiVien || existedPT) {
+            console.log('🔧 SERVICE - Email already exists, throwing error');
             const err = new Error('Email đã tồn tại, vui lòng chọn email khác.');
             err.code = 11000;
             err.keyPattern = { email: 1 };
@@ -92,17 +127,94 @@ const updateHoiVien = async (id, data) => {
         }
     }
 
-    if (data.sdt && data.sdt !== oldHoiVien.sdt) {
-        const existedTK = await TaiKhoan.findOne({ sdt: data.sdt, nguoiDung: { $ne: id } });
+    // ✅ SỬA: Kiểm tra số điện thoại - chỉ khi có thay đổi
+    if (data.sdt !== undefined && data.sdt !== oldHoiVien.sdt) {
+        console.log('🔧 SERVICE - Checking phone uniqueness for:', data.sdt);
+        const existedTK = await TaiKhoan.findOne({
+            sdt: data.sdt,
+            nguoiDung: { $ne: id }
+        });
+        console.log('🔧 SERVICE - Phone check result:', !!existedTK);
+
         if (existedTK) {
+            console.log('🔧 SERVICE - Phone already exists, throwing error');
             const err = new Error('Số điện thoại đã tồn tại ở tài khoản khác');
             err.code = 11000;
             err.keyPattern = { sdt: 1 };
             throw err;
         }
+        // ✅ THÊM: Cập nhật số điện thoại trong TaiKhoan
+        console.log('🔧 SERVICE - Updating phone in TaiKhoan');
         await TaiKhoan.updateOne({ nguoiDung: id }, { sdt: data.sdt });
     }
-    return HoiVien.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+
+    // ✅ SỬA: Chỉ cập nhật những trường có giá trị và khác với giá trị cũ
+    const updateData = {};
+
+    // Chỉ cập nhật những trường có trong data và khác với giá trị cũ
+    if (data.hoTen !== undefined && data.hoTen !== oldHoiVien.hoTen) {
+        if (data.hoTen && data.hoTen.trim() !== '') {
+            updateData.hoTen = data.hoTen.trim();
+        }
+    }
+
+    if (data.email !== undefined && data.email !== oldHoiVien.email) {
+        // ✅ SỬA: Chỉ cập nhật email nếu có giá trị, không cho phép xóa
+        if (data.email && data.email.trim() !== '') {
+            updateData.email = data.email.trim();
+        }
+    }
+
+    if (data.sdt !== undefined && data.sdt !== oldHoiVien.sdt) {
+        // ✅ SỬA: Không cho phép xóa sdt vì cần để đăng nhập
+        if (data.sdt && data.sdt.trim() !== '') {
+            updateData.sdt = data.sdt.trim();
+        } else {
+            // Nếu cố gắng xóa sdt, giữ nguyên giá trị cũ
+            console.log('🔧 SERVICE - Cannot delete sdt, keeping original value');
+        }
+    }
+
+    if (data.gioiTinh !== undefined && data.gioiTinh !== oldHoiVien.gioiTinh) {
+        updateData.gioiTinh = data.gioiTinh;
+    }
+
+    if (data.diaChi !== undefined && data.diaChi !== oldHoiVien.diaChi) {
+        updateData.diaChi = data.diaChi;
+    }
+
+    if (data.avatar !== undefined && data.avatar !== oldHoiVien.avatar) {
+        updateData.avatar = data.avatar;
+    }
+
+    // Xử lý ngaySinh - chỉ update nếu có giá trị mới
+    if (data.ngaySinh !== undefined && data.ngaySinh !== null) {
+        updateData.ngaySinh = data.ngaySinh;
+    }
+
+    console.log('🔧 SERVICE - Fields to update:', Object.keys(updateData));
+
+    // Nếu không có trường nào cần cập nhật
+    if (Object.keys(updateData).length === 0) {
+        console.log('🔧 SERVICE - No fields to update, returning current data');
+        return oldHoiVien;
+    }
+
+    console.log('🔧 SERVICE - About to update HoiVien with data:', updateData);
+
+    try {
+        const result = await HoiVien.findByIdAndUpdate(id, updateData, {
+            new: true,
+            runValidators: true,
+            context: 'query'
+        });
+        console.log('🔧 SERVICE - Update result:', result ? 'Success' : 'Failed');
+        return result;
+    } catch (updateError) {
+        console.log('❌ SERVICE - Update failed with error:', updateError.message);
+        console.log('❌ SERVICE - Update error details:', updateError);
+        throw updateError;
+    }
 };
 
 const deleteHoiVien = async (id) => {
@@ -111,6 +223,8 @@ const deleteHoiVien = async (id) => {
 };
 
 const createPT = async (data) => {
+    console.log('📝 CreatePT - Received data:', JSON.stringify(data, null, 2));
+
     if (data.ngaySinh) data.ngaySinh = toVNTime(data.ngaySinh);
 
     const requiredFields = {
@@ -245,9 +359,41 @@ const unlockTaiKhoan = async (nguoiDungId) => {
     return tk;
 };
 
+const checkEmailExists = async (email, excludeId = null) => {
+    try {
+        let query = { email };
+        if (excludeId) {
+            query._id = { $ne: excludeId };
+        }
+
+        const hoiVien = await HoiVien.findOne(query);
+        const pt = await PT.findOne(query);
+
+        return !!(hoiVien || pt);
+    } catch (error) {
+        throw error;
+    }
+};
+
+const checkPhoneExists = async (sdt, excludeId = null) => {
+    try {
+        let query = { sdt };
+        if (excludeId) {
+            query.nguoiDung = { $ne: excludeId };
+        }
+
+        const taiKhoan = await TaiKhoan.findOne(query);
+        return !!taiKhoan;
+    } catch (error) {
+        throw error;
+    }
+};
+
 module.exports = {
     createHoiVien,
     getAllHoiVien,
+    getHoiVienById,
+    getPTById,
     updateHoiVien,
     deleteHoiVien,
     createPT,
@@ -255,5 +401,7 @@ module.exports = {
     updatePT,
     deletePT,
     lockTaiKhoan,
-    unlockTaiKhoan
+    unlockTaiKhoan,
+    checkEmailExists,
+    checkPhoneExists
 };

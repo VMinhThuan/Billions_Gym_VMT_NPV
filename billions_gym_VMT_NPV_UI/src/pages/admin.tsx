@@ -202,7 +202,7 @@ const AdminDashboard = () => {
     useEffect(() => {
         const fetchOverviewData = async () => {
             if (section !== 'overview') return;
-            
+
             setIsLoading(true);
             try {
                 // Fetch all data in parallel - using available backend endpoints
@@ -211,7 +211,7 @@ const AdminDashboard = () => {
                     api.get('/api/user/pt'),
                     api.get('/api/goitap')
                 ]);
-                
+
                 // These endpoints don't exist in backend yet, so we'll use empty arrays
                 const appointmentsRes: any[] = [];
                 const paymentsRes: any[] = [];
@@ -229,7 +229,7 @@ const AdminDashboard = () => {
                     const today = new Date().toDateString();
                     return new Date(a.ngayHen).toDateString() === today;
                 }).length;
-                
+
                 const monthlyRevenue = payments.reduce((sum: number, p: any) => {
                     const paymentDate = new Date(p.ngayThanhToan);
                     const currentMonth = new Date().getMonth();
@@ -250,7 +250,7 @@ const AdminDashboard = () => {
 
                 // Set recent appointments (empty for now)
                 setRecentAppointments([]);
-                
+
                 // Set recent payments (empty for now)
                 setRecentPayments([]);
 
@@ -259,7 +259,7 @@ const AdminDashboard = () => {
                     ...pt,
                     appointmentCount: Math.max(0, 50 - index * 8) // Mock appointment count
                 }));
-                
+
                 setTopPTs(ptAppointmentCount);
 
             } catch (error) {
@@ -388,9 +388,9 @@ const AdminDashboard = () => {
                         <Button variant="primary" size="small">
                             🔍 Tìm kiếm
                         </Button>
-                        <Button 
-                            variant="ghost" 
-                            size="small" 
+                        <Button
+                            variant="ghost"
+                            size="small"
                             onClick={() => {
                                 auth.clearToken();
                                 window.location.href = '#/login';
@@ -404,7 +404,7 @@ const AdminDashboard = () => {
                 {section === 'overview' && (
                     <section className="stats-grid">
                         {isLoading ? (
-                            <div style={{gridColumn: '1 / -1', textAlign: 'center', padding: '40px'}}>
+                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px' }}>
                                 <Loading text="Đang tải dữ liệu tổng quan..." />
                             </div>
                         ) : (
@@ -455,7 +455,7 @@ const AdminDashboard = () => {
                                         </tr>
                                     )) : (
                                         <tr>
-                                            <td colSpan={5} style={{textAlign: 'center', padding: '20px', color: '#666'}}>
+                                            <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
                                                 {isLoading ? 'Đang tải...' : 'Chưa có lịch hẹn nào'}
                                             </td>
                                         </tr>
@@ -493,7 +493,7 @@ const AdminDashboard = () => {
                                         </tr>
                                     )) : (
                                         <tr>
-                                            <td colSpan={5} style={{textAlign: 'center', padding: '20px', color: '#666'}}>
+                                            <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
                                                 {isLoading ? 'Đang tải...' : 'Chưa có thanh toán nào'}
                                             </td>
                                         </tr>
@@ -515,7 +515,7 @@ const AdminDashboard = () => {
                                     </li>
                                 )) : (
                                     <li className="list-row">
-                                        <span style={{color: '#666'}}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu PT'}</span>
+                                        <span style={{ color: '#666' }}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu PT'}</span>
                                     </li>
                                 )}
                             </ul>
@@ -534,7 +534,7 @@ const AdminDashboard = () => {
                                     </li>
                                 )) : (
                                     <li className="list-row">
-                                        <span style={{color: '#666'}}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu'}</span>
+                                        <span style={{ color: '#666' }}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu'}</span>
                                     </li>
                                 )}
                             </ul>
@@ -543,7 +543,7 @@ const AdminDashboard = () => {
                         <Card title="Thông báo hệ thống" className="panel">
                             <ul className="list">
                                 <li className="list-row">
-                                    <span style={{color: '#666'}}>Chưa có thông báo hệ thống</span>
+                                    <span style={{ color: '#666' }}>Chưa có thông báo hệ thống</span>
                                 </li>
                             </ul>
                         </Card>
@@ -649,16 +649,16 @@ const MembersPage = () => {
                                 </span>
                             </td>
                             <td>
-                                    <div className="action-buttons">
-                                        <button className="btn-icon btn-edit" onClick={() => setShow(true)}>
-                                            ✏️ Sửa
-                                        </button>
-                                        <button className="btn-icon btn-delete" onClick={() => setRows(rows.filter(x => x._id !== r._id))}>
-                                            🗑️ Xóa
-                                        </button>
-                                    </div>
+                                <div className="action-buttons">
+                                    <button className="btn-icon btn-edit" onClick={() => setShow(true)}>
+                                        ✏️ Sửa
+                                    </button>
+                                    <button className="btn-icon btn-delete" onClick={() => setRows(rows.filter(x => x._id !== r._id))}>
+                                        🗑️ Xóa
+                                    </button>
+                                </div>
                             </td>
-                            
+
                         </tr>
                     ))}
                 </tbody>
@@ -838,7 +838,7 @@ const SchedulesPage = () => {
         const hoiVienName = typeof r.hoiVien === 'object' ? r.hoiVien?.hoTen || '' : r.hoiVien || '';
         const ptName = typeof r.pt === 'object' ? r.pt?.hoTen || '' : r.pt || '';
         return hoiVienName.toLowerCase().includes(q.toLowerCase()) ||
-               ptName.toLowerCase().includes(q.toLowerCase());
+            ptName.toLowerCase().includes(q.toLowerCase());
     });
 
     return (
@@ -985,15 +985,15 @@ const PTPage = () => {
                                 </span>
                             </td>
                             <td>
-                                    <div className="action-buttons">
-                                        <button className="btn-icon btn-edit" onClick={() => setShow(true)}>
-                                            ✏️ Sửa
-                                        </button>
-                                        <button className="btn-icon btn-delete" onClick={() => setRows(rows.filter(x => x._id !== r._id))}>
-                                            🗑️ Xóa
-                                        </button>
-                                    </div>
-                                </td>
+                                <div className="action-buttons">
+                                    <button className="btn-icon btn-edit" onClick={() => setShow(true)}>
+                                        ✏️ Sửa
+                                    </button>
+                                    <button className="btn-icon btn-delete" onClick={() => setRows(rows.filter(x => x._id !== r._id))}>
+                                        🗑️ Xóa
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
                     ))}
                 </tbody>
@@ -1202,10 +1202,10 @@ const ExercisesPage = () => {
                 ))}
             </div>
             {rows.length === 0 && !isLoading && (
-                <div style={{padding: '3rem', textAlign: 'center', color: '#64748b'}}>
-                    <div style={{fontSize: '48px', marginBottom: '1rem'}}>🏋️</div>
-                    <div style={{fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem'}}>Chưa có bài tập nào</div>
-                    <div style={{fontSize: '14px'}}>Thêm bài tập đầu tiên vào thư viện</div>
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '1rem' }}>🏋️</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem' }}>Chưa có bài tập nào</div>
+                    <div style={{ fontSize: '14px' }}>Thêm bài tập đầu tiên vào thư viện</div>
                 </div>
             )}
             {show && <EntityForm title="Bài tập" fields={[
@@ -1297,10 +1297,10 @@ const BodyMetricsPage = () => {
                 </tbody>
             </table>
             {rows.length === 0 && !isLoading && (
-                <div style={{padding: '3rem', textAlign: 'center', color: '#64748b'}}>
-                    <div style={{fontSize: '48px', marginBottom: '1rem'}}>📊</div>
-                    <div style={{fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem'}}>Chưa có dữ liệu chỉ số cơ thể</div>
-                    <div style={{fontSize: '14px'}}>Thêm chỉ số đầu tiên để theo dõi sức khỏe</div>
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '1rem' }}>📊</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem' }}>Chưa có dữ liệu chỉ số cơ thể</div>
+                    <div style={{ fontSize: '14px' }}>Thêm chỉ số đầu tiên để theo dõi sức khỏe</div>
                 </div>
             )}
             {show && <EntityForm title="Chỉ số cơ thể" fields={[
@@ -1379,10 +1379,10 @@ const NutritionPage = () => {
                 </tbody>
             </table>
             {rows.length === 0 && !isLoading && (
-                <div style={{padding: '3rem', textAlign: 'center', color: '#64748b'}}>
-                    <div style={{fontSize: '48px', marginBottom: '1rem'}}>🥗</div>
-                    <div style={{fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem'}}>Chưa có gợi ý dinh dưỡng</div>
-                    <div style={{fontSize: '14px'}}>Tạo gợi ý dinh dưỡng đầu tiên</div>
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '1rem' }}>🥗</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem' }}>Chưa có gợi ý dinh dưỡng</div>
+                    <div style={{ fontSize: '14px' }}>Tạo gợi ý dinh dưỡng đầu tiên</div>
                 </div>
             )}
             {show && <EntityForm title="Dinh dưỡng" fields={[
@@ -1649,7 +1649,7 @@ const NotificationsPage = () => {
             </div>
             <div className="notifications-grid">
                 {rows.length === 0 && !isLoading ? (
-                    <div style={{padding: '2rem', textAlign: 'center', color: '#666'}}>
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
                         Chưa có thông báo nào
                     </div>
                 ) : (
@@ -1742,5 +1742,4 @@ const AISuggestionsPage = () => {
         </Card>
     );
 };
-
 

@@ -4,6 +4,15 @@ const chiSoCoTheController = require('../controllers/chisocothe.controller');
 const auth = require('../middlewares/auth.middleware');
 const authorize = require('../middlewares/role.middleware');
 
+// Test endpoint without authentication for debugging
+router.get('/test', (req, res) => {
+    res.json({
+        message: 'ChiSoCoThe API is working!',
+        timestamp: new Date().toISOString(),
+        endpoint: 'chisocothe/test'
+    });
+});
+
 // API dành cho HoiVien tự quản lý chỉ số của mình
 router.get('/my', auth, authorize(['HoiVien']), chiSoCoTheController.getMyChiSoCoThe);
 router.get('/my/latest', auth, authorize(['HoiVien']), chiSoCoTheController.getMyLatestChiSo);

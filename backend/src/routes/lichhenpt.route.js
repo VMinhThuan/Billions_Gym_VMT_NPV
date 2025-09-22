@@ -14,6 +14,9 @@ router.delete('/:id', auth, authorize(['HoiVien', 'PT', 'OngChu']), lichHenPTCon
 // Lịch hẹn theo hội viên
 router.get('/hoivien/:hoiVienId', auth, lichHenPTController.getLichHenPTByHoiVien);
 
+// Lịch hẹn của PT hiện tại (phải đặt trước route với parameter)
+router.get('/pt/my', auth, authorize(['PT', 'OngChu', 'HoiVien']), lichHenPTController.getMyPTBookings);
+
 // Lịch hẹn theo PT
 router.get('/pt/:ptId', auth, lichHenPTController.getLichHenPTByPT);
 

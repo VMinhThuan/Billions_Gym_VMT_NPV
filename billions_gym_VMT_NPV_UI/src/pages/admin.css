@@ -674,8 +674,10 @@
 .mobile-sidebar.active .mobile-sidebar-content {
     transform: translateX(0);
 }
+
 /* Schedule and Session Pages Styling */
-.schedule-card, .session-card {
+.schedule-card,
+.session-card {
     background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
     border: 1px solid #334155;
     border-radius: 12px;
@@ -684,27 +686,31 @@
     transition: all 0.3s ease;
 }
 
-.schedule-card:hover, .session-card:hover {
+.schedule-card:hover,
+.session-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
     border-color: #60a5fa;
 }
 
-.schedule-header, .session-header {
+.schedule-header,
+.session-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
 }
 
-.schedule-title, .session-title {
+.schedule-title,
+.session-title {
     font-size: 18px;
     font-weight: 700;
     color: #f1f5f9;
     margin: 0;
 }
 
-.schedule-meta, .session-meta {
+.schedule-meta,
+.session-meta {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 12px;
@@ -901,6 +907,7 @@
     background: rgba(239, 68, 68, 0.2);
     transform: translateY(-1px);
 }
+
 @media (max-width: 1200px) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
