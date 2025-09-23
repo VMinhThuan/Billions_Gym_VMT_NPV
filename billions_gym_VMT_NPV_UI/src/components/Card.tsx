@@ -13,6 +13,7 @@ interface CardProps {
     header?: React.ReactNode;
     footer?: React.ReactNode;
     variant?: 'default' | 'elevated' | 'outlined' | 'filled';
+    style?: React.CSSProperties;
 }
 
 const Card: React.FC<CardProps> = ({
@@ -26,7 +27,8 @@ const Card: React.FC<CardProps> = ({
     onClick,
     header,
     footer,
-    variant = 'default'
+    variant = 'default',
+    style
 }) => {
     const baseClass = 'card';
     const variantClass = `card-${variant}`;
@@ -42,7 +44,7 @@ const Card: React.FC<CardProps> = ({
     ].filter(Boolean).join(' ');
 
     return (
-        <div className={cardClass} onClick={onClick}>
+        <div className={cardClass} onClick={onClick} style={style}>
             {image && (
                 <div className="card-image">
                     <img src={image} alt={imageAlt || title || 'Card image'} />
