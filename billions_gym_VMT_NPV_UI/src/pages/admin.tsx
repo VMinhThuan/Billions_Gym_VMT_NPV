@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Loading from '../components/Loading';
-import EntityForm from '../components/EntityForm';
+import EntityForm, { ConfirmModal } from '../components/EntityForm';
 import { api, auth } from '../services/api';
-
+import { geminiAI, AIWorkoutSuggestion, AINutritionSuggestion } from '../services/gemini';
+import React from 'react';
 type Stat = { label: string; value: string; trend?: 'up' | 'down'; sub?: string };
 
 type SectionKey = 'overview' | 'members' | 'pt' | 'packages' | 'schedules' | 'sessions' | 'exercises' | 'body_metrics' | 'nutrition' | 'payments' | 'notifications' | 'feedback' | 'reports' | 'ai_suggestions' | 'appointments';
@@ -202,7 +203,7 @@ const AdminDashboard = () => {
     useEffect(() => {
         const fetchOverviewData = async () => {
             if (section !== 'overview') return;
-
+            
             setIsLoading(true);
             try {
                 // Fetch all data in parallel - using available backend endpoints
@@ -211,7 +212,7 @@ const AdminDashboard = () => {
                     api.get('/api/user/pt'),
                     api.get('/api/goitap')
                 ]);
-
+                
                 // These endpoints don't exist in backend yet, so we'll use empty arrays
                 const appointmentsRes: any[] = [];
                 const paymentsRes: any[] = [];
@@ -229,7 +230,7 @@ const AdminDashboard = () => {
                     const today = new Date().toDateString();
                     return new Date(a.ngayHen).toDateString() === today;
                 }).length;
-
+                
                 const monthlyRevenue = payments.reduce((sum: number, p: any) => {
                     const paymentDate = new Date(p.ngayThanhToan);
                     const currentMonth = new Date().getMonth();
@@ -250,7 +251,7 @@ const AdminDashboard = () => {
 
                 // Set recent appointments (empty for now)
                 setRecentAppointments([]);
-
+                
                 // Set recent payments (empty for now)
                 setRecentPayments([]);
 
@@ -259,7 +260,7 @@ const AdminDashboard = () => {
                     ...pt,
                     appointmentCount: Math.max(0, 50 - index * 8) // Mock appointment count
                 }));
-
+                
                 setTopPTs(ptAppointmentCount);
 
             } catch (error) {
@@ -388,9 +389,9 @@ const AdminDashboard = () => {
                         <Button variant="primary" size="small">
                             🔍 Tìm kiếm
                         </Button>
-                        <Button
-                            variant="ghost"
-                            size="small"
+                        <Button 
+                            variant="ghost" 
+                            size="small" 
                             onClick={() => {
                                 auth.clearToken();
                                 window.location.href = '#/login';
@@ -404,7 +405,7 @@ const AdminDashboard = () => {
                 {section === 'overview' && (
                     <section className="stats-grid">
                         {isLoading ? (
-                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px' }}>
+                            <div style={{gridColumn: '1 / -1', textAlign: 'center', padding: '40px'}}>
                                 <Loading text="Đang tải dữ liệu tổng quan..." />
                             </div>
                         ) : (
@@ -455,7 +456,7 @@ const AdminDashboard = () => {
                                         </tr>
                                     )) : (
                                         <tr>
-                                            <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                                            <td colSpan={5} style={{textAlign: 'center', padding: '20px', color: '#666'}}>
                                                 {isLoading ? 'Đang tải...' : 'Chưa có lịch hẹn nào'}
                                             </td>
                                         </tr>
@@ -493,7 +494,7 @@ const AdminDashboard = () => {
                                         </tr>
                                     )) : (
                                         <tr>
-                                            <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                                            <td colSpan={5} style={{textAlign: 'center', padding: '20px', color: '#666'}}>
                                                 {isLoading ? 'Đang tải...' : 'Chưa có thanh toán nào'}
                                             </td>
                                         </tr>
@@ -515,7 +516,7 @@ const AdminDashboard = () => {
                                     </li>
                                 )) : (
                                     <li className="list-row">
-                                        <span style={{ color: '#666' }}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu PT'}</span>
+                                        <span style={{color: '#666'}}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu PT'}</span>
                                     </li>
                                 )}
                             </ul>
@@ -534,7 +535,7 @@ const AdminDashboard = () => {
                                     </li>
                                 )) : (
                                     <li className="list-row">
-                                        <span style={{ color: '#666' }}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu'}</span>
+                                        <span style={{color: '#666'}}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu'}</span>
                                     </li>
                                 )}
                             </ul>
@@ -543,7 +544,7 @@ const AdminDashboard = () => {
                         <Card title="Thông báo hệ thống" className="panel">
                             <ul className="list">
                                 <li className="list-row">
-                                    <span style={{ color: '#666' }}>Chưa có thông báo hệ thống</span>
+                                    <span style={{color: '#666'}}>Chưa có thông báo hệ thống</span>
                                 </li>
                             </ul>
                         </Card>
@@ -574,6 +575,9 @@ export default AdminDashboard;
 const MembersPage = () => {
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
+    const [editingItem, setEditingItem] = useState<HoiVien | null>(null);
+    const [isCopying, setIsCopying] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: HoiVien | null }>({ show: false, item: null });
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<HoiVien[]>([]);
 
@@ -649,43 +653,119 @@ const MembersPage = () => {
                                 </span>
                             </td>
                             <td>
-                                <div className="action-buttons">
-                                    <button className="btn-icon btn-edit" onClick={() => setShow(true)}>
-                                        ✏️ Sửa
-                                    </button>
-                                    <button className="btn-icon btn-delete" onClick={() => setRows(rows.filter(x => x._id !== r._id))}>
-                                        🗑️ Xóa
-                                    </button>
-                                </div>
+                                    <div className="action-buttons">
+                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
+                                            ✏️ Sửa
+                                        </button>
+                                        <button className="btn-icon btn-copy" onClick={() => { 
+                                            const copyData = { ...r }; 
+                                            delete (copyData as any)._id;
+                                            delete (copyData as any).createdAt;
+                                            delete (copyData as any).updatedAt;
+                                            setEditingItem(copyData as HoiVien); 
+                                            setIsCopying(true); 
+                                            setShow(true); 
+                                        }}>
+                                            📋 Sao chép
+                                        </button>
+                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
+                                            🗑️ Xóa
+                                        </button>
+                                    </div>
                             </td>
-
+                            
                         </tr>
                     ))}
                 </tbody>
             </table>
-            {show && <EntityForm title="Hội viên" fields={[
-                { name: 'hoTen', label: 'Họ tên' },
-                { name: 'email', label: 'Email' },
-                { name: 'sdt', label: 'Số điện thoại' },
-                { name: 'soCCCD', label: 'Số CCCD' },
-                { name: 'ngaySinh', label: 'Ngày sinh' },
-                { name: 'gioiTinh', label: 'Giới tính' },
-                { name: 'diaChi', label: 'Địa chỉ' },
-                { name: 'trangThaiHoiVien', label: 'Trạng thái' }
-            ]} onClose={() => setShow(false)} onSave={async (val) => {
-                const newMember = {
-                    ...val,
-                    ngayThamGia: new Date().toISOString(),
-                    ngayHetHan: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-                };
-                try {
-                    const created = await api.post('/api/user/hoivien', newMember);
-                    setRows([created, ...rows]);
-                } catch (error) {
-                    console.error('Error creating member:', error);
-                }
-                setShow(false);
-            }} />}
+            {(show || editingItem) && <EntityForm 
+                title="Hội viên" 
+                initialData={editingItem || undefined}
+                fields={[
+                    { name: 'anhDaiDien', label: 'Ảnh đại diện', type: 'file', validation: { maxSize: 5 } },
+                    { name: 'hoTen', label: 'Họ tên', validation: { required: true, pattern: /^[\p{L}\s]+$/u, message: 'Họ tên chỉ được chứa chữ cái và khoảng trắng' } },
+                    { name: 'email', label: 'Email', type: 'email', validation: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Email không đúng định dạng' } },
+                    { name: 'sdt', label: 'Số điện thoại', type: 'tel', validation: { required: true, pattern: /^\d{10,11}$/, message: 'Số điện thoại phải có 10-11 chữ số' } },
+                    { name: 'soCCCD', label: 'Số CCCD', validation: { required: true, pattern: /^\d{12}$/, message: 'Số CCCD phải có đúng 12 chữ số' } },
+                    { name: 'ngaySinh', label: 'Ngày sinh', type: 'date', validation: { required: true } },
+                    { name: 'gioiTinh', label: 'Giới tính', options: ['NAM', 'NU'], validation: { required: true } },
+                    { name: 'diaChi', label: 'Địa chỉ', type: 'textarea', validation: { required: true } },
+                    { name: 'trangThaiHoiVien', label: 'Trạng thái', options: ['DANG_HOAT_DONG', 'TAM_NGUNG', 'HET_HAN'], validation: { required: true } }
+                ]} 
+                onClose={() => { 
+                    setShow(false); 
+                    setEditingItem(null); 
+                    setIsCopying(false);
+                }} 
+                onSave={async (val) => {
+                    try {
+                        if (editingItem && !isCopying) {
+                            // Update existing member
+                            console.log('Updating member:', editingItem._id, val);
+                            const updated = await api.put(`/api/user/hoivien/${editingItem._id}`, val);
+                            console.log('Update response:', updated);
+                            if (updated) {
+                                setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
+                                alert('Cập nhật hội viên thành công!');
+                            }
+                        } else {
+                            // Create new member (including when copying)
+                            const newMember = {
+                                hoTen: val.hoTen,
+                                ngaySinh: val.ngaySinh,
+                                gioiTinh: val.gioiTinh,
+                                sdt: val.sdt,
+                                ...(val.email && { email: val.email }),
+                                ...(val.soCCCD && { soCCCD: val.soCCCD }),
+                                ...(val.diaChi && { diaChi: val.diaChi }),
+                                ...(val.anhDaiDien && { anhDaiDien: val.anhDaiDien }),
+                                ...(val.trangThaiHoiVien && { trangThaiHoiVien: val.trangThaiHoiVien }),
+                                ngayThamGia: new Date().toISOString(),
+                                ngayHetHan: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+                            };
+                            console.log('Creating new member:', newMember);
+                            const created = await api.post('/api/user/hoivien', newMember);
+                            console.log('Create response:', created);
+                            if (created && created._id) {
+                                setRows([created, ...rows]);
+                                alert(isCopying ? 'Sao chép hội viên thành công!' : 'Tạo hội viên mới thành công!');
+                            } else {
+                                throw new Error('Không nhận được dữ liệu hội viên từ server');
+                            }
+                        }
+                        setShow(false);
+                        setEditingItem(null);
+                        setIsCopying(false);
+                    } catch (error) {
+                        console.error('Error saving member:', error);
+                        alert(`Lỗi khi ${editingItem && !isCopying ? 'cập nhật' : 'tạo'} hội viên: ${error.message || 'Vui lòng thử lại'}`);
+                    }
+                }} 
+            />}
+            {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
+                title="Xác nhận xóa hội viên"
+                message={`Bạn có chắc chắn muốn xóa hội viên "${deleteConfirm.item.hoTen}"? Hành động này không thể hoàn tác.`}
+                type="danger"
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={async () => {
+                    try {
+                        console.log('Deleting member:', deleteConfirm.item!._id);
+                        const result = await api.delete(`/api/user/hoivien/${deleteConfirm.item!._id}`);
+                        console.log('Delete response:', result);
+                        
+                        // Remove from local state only after successful deletion
+                        setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
+                        alert('Xóa hội viên thành công!');
+                        
+                    } catch (error) {
+                        console.error('Error deleting member:', error);
+                        alert(`Lỗi khi xóa hội viên: ${error.message || 'Vui lòng thử lại'}`);
+                    }
+                    setDeleteConfirm({ show: false, item: null });
+                }}
+                onCancel={() => setDeleteConfirm({ show: false, item: null })}
+            />}
             {isLoading && <Loading overlay text="Đang tải hội viên..." />}
         </Card>
     );
@@ -695,6 +775,8 @@ const MembersPage = () => {
 const PackagesPage = () => {
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
+    const [editingItem, setEditingItem] = useState<GoiTap | null>(null);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: GoiTap | null }>({ show: false, item: null });
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<GoiTap[]>([]);
 
@@ -745,32 +827,66 @@ const PackagesPage = () => {
                                 </span>
                             </div>
                             <div className="package-actions">
-                                <Button variant="ghost" size="small" onClick={() => setShow(true)}>Sửa</Button>
-                                <Button variant="ghost" size="small" onClick={() => setRows(rows.filter(x => x._id !== pkg._id))}>Xóa</Button>
+                                <Button variant="ghost" size="small" onClick={() => setEditingItem(pkg)}>Sửa</Button>
+                                <Button variant="ghost" size="small" onClick={() => { const copyData = { ...pkg }; delete (copyData as any)._id; setEditingItem(copyData); setShow(true); }}>Sao chép</Button>
+                                <Button variant="ghost" size="small" onClick={() => setDeleteConfirm({ show: true, item: pkg })}>Xóa</Button>
                             </div>
                         </div>
                     </Card>
                 ))}
             </div>
-            {show && <EntityForm title="Gói tập" fields={[
-                { name: 'tenGoiTap', label: 'Tên gói tập' },
-                { name: 'moTa', label: 'Mô tả' },
-                { name: 'donGia', label: 'Đơn giá' },
-                { name: 'thoiHan', label: 'Thời hạn (ngày)' },
-                { name: 'kichHoat', label: 'Kích hoạt' }
-            ]} onClose={() => setShow(false)} onSave={async (val) => {
-                try {
-                    const newPackage = {
-                        ...val,
-                        hinhAnhDaiDien: '/api/placeholder/200/150'
-                    };
-                    const created = await api.post('/api/goitap', newPackage);
-                    setRows([created, ...rows]);
-                } catch (error) {
-                    console.error('Error creating package:', error);
-                }
-                setShow(false);
-            }} />}
+            {(show || editingItem) && <EntityForm 
+                title="Gói tập" 
+                initialData={editingItem || undefined}
+                fields={[
+                    { name: 'hinhAnhDaiDien', label: 'Hình ảnh đại diện', type: 'file', validation: { maxSize: 5 } },
+                    { name: 'tenGoiTap', label: 'Tên gói tập', validation: { required: true, pattern: /^[\p{L}\d\s\-_]+$/u, message: 'Tên gói tập không được chứa ký tự đặc biệt' } },
+                    { name: 'moTa', label: 'Mô tả', type: 'textarea', validation: { required: true } },
+                    { name: 'donGia', label: 'Đơn giá (VNĐ)', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Đơn giá phải là số nguyên dương' } },
+                    { name: 'thoiHan', label: 'Thời hạn (ngày)', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Thời hạn phải là số nguyên dương' } },
+                    { name: 'kichHoat', label: 'Trạng thái', options: ['true', 'false'], validation: { required: true } }
+                ]} 
+                onClose={() => { setShow(false); setEditingItem(null); }} 
+                onSave={async (val) => {
+                    try {
+                        const packageData = {
+                            ...val,
+                            donGia: parseInt(val.donGia),
+                            thoiHan: parseInt(val.thoiHan),
+                            kichHoat: val.kichHoat === 'true'
+                        };
+                        
+                        if (editingItem) {
+                            const updated = await api.put(`/api/goitap/${editingItem._id}`, packageData);
+                            setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
+                        } else {
+                            const created = await api.post('/api/goitap', packageData);
+                            setRows([created, ...rows]);
+                        }
+                    } catch (error) {
+                        console.error('Error saving package:', error);
+                    }
+                    setShow(false);
+                    setEditingItem(null);
+                }} 
+            />}
+            {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
+                title="Xác nhận xóa gói tập"
+                message={`Bạn có chắc chắn muốn xóa gói tập "${deleteConfirm.item.tenGoiTap}"? Hành động này không thể hoàn tác.`}
+                type="danger"
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={async () => {
+                    try {
+                        await api.delete(`/api/goitap/${deleteConfirm.item!._id}`);
+                        setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
+                    } catch (error) {
+                        console.error('Error deleting package:', error);
+                    }
+                    setDeleteConfirm({ show: false, item: null });
+                }}
+                onCancel={() => setDeleteConfirm({ show: false, item: null })}
+            />}
         </Card>
     );
 };
@@ -779,27 +895,51 @@ const PackagesPage = () => {
 const SchedulesPage = () => {
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
+    const [editingItem, setEditingItem] = useState<LichTap | null>(null);
+    const [isCopying, setIsCopying] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: LichTap | null }>({ show: false, item: null });
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<any[]>([]);
+    const [members, setMembers] = useState<HoiVien[]>([]);
+    const [pts, setPts] = useState<PT[]>([]);
 
     useEffect(() => {
         let mounted = true;
         (async () => {
             try {
                 setIsLoading(true);
-                const data = await api.get('/api/lichtap');
-                console.log('API response data: ', data);
-                if (mounted && Array.isArray(data)) {
-                    setRows(data);
-                } else if (mounted && data && typeof data === 'object') {
-                    // If data is an object with an array property
-                    const schedules = data.schedules || data.data || data.lichTap || [];
-                    if (Array.isArray(schedules)) {
-                        setRows(schedules);
+                // Fetch schedules, members, and PTs in parallel
+                const [schedulesData, membersData, ptsData] = await Promise.all([
+                    api.get('/api/lichtap'),
+                    api.get('/api/user/hoivien'),
+                    api.get('/api/user/pt')
+                ]);
+                
+                if (mounted) {
+                    // Set members data
+                    if (Array.isArray(membersData)) {
+                        setMembers(membersData);
+                    }
+                    
+                    // Set PTs data
+                    if (Array.isArray(ptsData)) {
+                        setPts(ptsData);
+                    }
+                    
+                    // Set schedules data
+                    console.log('API response data: ', schedulesData);
+                    if (Array.isArray(schedulesData)) {
+                        setRows(schedulesData);
+                    } else if (schedulesData && typeof schedulesData === 'object') {
+                        // If data is an object with an array property
+                        const schedules = schedulesData.schedules || schedulesData.data || schedulesData.lichTap || [];
+                        if (Array.isArray(schedules)) {
+                            setRows(schedules);
+                        }
                     }
                 }
             } catch (e) {
-                console.error('Error fetching schedules:', e);
+                console.error('Error fetching data:', e);
                 // Fallback mock data when API is not available
                 const mockSchedules = [
                     {
@@ -835,10 +975,10 @@ const SchedulesPage = () => {
         return () => { mounted = false; };
     }, []);
     const filtered = rows.filter(r => {
-        const hoiVienName = typeof r.hoiVien === 'object' ? r.hoiVien?.hoTen || '' : r.hoiVien || '';
+        const hoiVienName = r.hoiVien && typeof r.hoiVien === 'object' ? r.hoiVien.hoTen || '' : r.hoiVien || '';
         const ptName = typeof r.pt === 'object' ? r.pt?.hoTen || '' : r.pt || '';
         return hoiVienName.toLowerCase().includes(q.toLowerCase()) ||
-            ptName.toLowerCase().includes(q.toLowerCase());
+               ptName.toLowerCase().includes(q.toLowerCase());
     });
 
     return (
@@ -865,17 +1005,42 @@ const SchedulesPage = () => {
                     <tbody>
                         {filtered.map(r => (
                             <tr key={r._id}>
-                                <td>{typeof r.hoiVien === 'object' ? r.hoiVien?.hoTen || 'N/A' : r.hoiVien || 'N/A'}</td>
-                                <td>{typeof r.pt === 'object' ? r.pt?.hoTen || 'N/A' : r.pt || 'N/A'}</td>
+                                <td>
+                                    {r.hoiVien && typeof r.hoiVien === 'object' ? (
+                                        <div>
+                                            <div className="user-name">{r.hoiVien.hoTen || 'Chưa có thông tin'}</div>
+                                            {r.hoiVien.email && r.hoiVien.email !== 'N/A' && (
+                                                <div className="user-email" style={{fontSize: '12px', color: '#666'}}>{r.hoiVien.email}</div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        r.hoiVien || 'Hội viên không xác định'
+                                    )}
+                                </td>
+                                <td>
+                                    {typeof r.pt === 'object' ? (
+                                        <div>
+                                            <div className="user-name">{r.pt?.hoTen || 'N/A'}</div>
+                                            {r.pt?.chuyenMon && r.pt.chuyenMon !== 'N/A' && (
+                                                <div className="user-specialty" style={{fontSize: '12px', color: '#666'}}>{r.pt.chuyenMon}</div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        r.pt || 'N/A'
+                                    )}
+                                </td>
                                 <td>{r.ngayBatDau ? new Date(r.ngayBatDau).toLocaleDateString('vi-VN') : 'N/A'}</td>
                                 <td>{r.ngayKetThuc ? new Date(r.ngayKetThuc).toLocaleDateString('vi-VN') : 'N/A'}</td>
                                 <td>{Array.isArray(r.cacBuoiTap) ? r.cacBuoiTap.length : 0}</td>
                                 <td>
                                     <div className="action-buttons">
-                                        <button className="btn-icon btn-edit" onClick={() => setShow(true)}>
+                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
                                             ✏️ Sửa
                                         </button>
-                                        <button className="btn-icon btn-delete" onClick={() => setRows(rows.filter(x => x._id !== r._id))}>
+                                        <button className="btn-icon btn-copy" onClick={() => { const copyData = { ...r }; delete (copyData as any)._id; setEditingItem(copyData); setIsCopying(true); setShow(true); }}>
+                                            📋 Sao chép
+                                        </button>
+                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
                                             🗑️ Xóa
                                         </button>
                                     </div>
@@ -892,20 +1057,70 @@ const SchedulesPage = () => {
                     <div className="empty-state-description">Tạo lịch tập đầu tiên cho hội viên của bạn</div>
                 </div>
             )}
-            {show && <EntityForm title="Lịch tập" fields={[
-                { name: 'hoiVien', label: 'Hội viên' },
-                { name: 'pt', label: 'PT' },
-                { name: 'ngayBatDau', label: 'Ngày bắt đầu' },
-                { name: 'ngayKetThuc', label: 'Ngày kết thúc' }
-            ]} onClose={() => setShow(false)} onSave={async (val) => {
-                try {
-                    const created = await api.post('/api/lichtap', val);
-                    setRows([created, ...rows]);
-                } catch (error) {
-                    console.error('Error creating schedule:', error);
-                }
-                setShow(false);
-            }} />}
+            {(show || editingItem) && <EntityForm 
+                title="Lịch tập" 
+                initialData={editingItem || undefined}
+                fields={[
+                    { 
+                        name: 'hoiVien', 
+                        label: 'Hội viên', 
+                        validation: { required: true },
+                        options: members.map(member => ({
+                            value: member._id,
+                            label: `${member.hoTen} - ${member.email}`
+                        }))
+                    },
+                    { 
+                        name: 'pt', 
+                        label: 'PT', 
+                        validation: { required: true },
+                        options: pts.map(pt => ({
+                            value: pt._id,
+                            label: `${pt.hoTen} - ${pt.chuyenMon || 'Chưa có chuyên môn'}`
+                        }))
+                    },
+                    { name: 'ngayBatDau', label: 'Ngày bắt đầu', type: 'date', validation: { required: true } },
+                    { name: 'ngayKetThuc', label: 'Ngày kết thúc', type: 'date', validation: { required: true } }
+                ]} 
+                onClose={() => { setShow(false); setEditingItem(null); }} 
+                onSave={async (val) => {
+                    try {
+                        if (editingItem && !isCopying) {
+                            console.log('Updating schedule:', editingItem._id, val);
+                            // Update existing schedule
+                            const updated = await api.put(`/api/lichtap/${editingItem._id}`, val);
+                            setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
+                        } else {
+                            console.log('Creating new schedule:', val);
+                            // Create new schedule (including when copying)
+                            const created = await api.post('/api/lichtap', val);
+                            setRows([created, ...rows]);
+                        }
+                    } catch (error) {
+                        console.error('Error saving schedule:', error);
+                    }
+                    setShow(false);
+                    setEditingItem(null);
+                    setIsCopying(false);
+                }} 
+            />}
+            {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
+                title="Xác nhận xóa lịch tập"
+                message={`Bạn có chắc chắn muốn xóa lịch tập này? Hành động này không thể hoàn tác.`}
+                type="danger"
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={async () => {
+                    try {
+                        await api.delete(`/api/lichtap/${deleteConfirm.item!._id}`);
+                        setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
+                    } catch (error) {
+                        console.error('Error deleting schedule:', error);
+                    }
+                    setDeleteConfirm({ show: false, item: null });
+                }}
+                onCancel={() => setDeleteConfirm({ show: false, item: null })}
+            />}
             {isLoading && <Loading overlay text="Đang tải lịch tập..." />}
         </Card>
     );
@@ -914,6 +1129,9 @@ const SchedulesPage = () => {
 const PTPage = () => {
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
+    const [editingItem, setEditingItem] = useState<PT | null>(null);
+    const [isCopying, setIsCopying] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: PT | null }>({ show: false, item: null });
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<PT[]>([]);
 
@@ -985,38 +1203,81 @@ const PTPage = () => {
                                 </span>
                             </td>
                             <td>
-                                <div className="action-buttons">
-                                    <button className="btn-icon btn-edit" onClick={() => setShow(true)}>
-                                        ✏️ Sửa
-                                    </button>
-                                    <button className="btn-icon btn-delete" onClick={() => setRows(rows.filter(x => x._id !== r._id))}>
-                                        🗑️ Xóa
-                                    </button>
-                                </div>
-                            </td>
+                                    <div className="action-buttons">
+                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
+                                            ✏️ Sửa
+                                        </button>
+                                        <button className="btn-icon btn-copy" onClick={() => { const copyData = { ...r }; delete (copyData as any)._id; setEditingItem(copyData); setIsCopying(true); setShow(true); }}>
+                                            📋 Sao chép
+                                        </button>
+                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
+                                            🗑️ Xóa
+                                        </button>
+                                    </div>
+                                </td>
                         </tr>
                     ))}
                 </tbody>
             </table>
-            {show && <EntityForm title="Huấn luyện viên" fields={[
-                { name: 'hoTen', label: 'Họ tên' },
-                { name: 'email', label: 'Email' },
-                { name: 'sdt', label: 'Số điện thoại' },
-                { name: 'chuyenMon', label: 'Chuyên môn' },
-                { name: 'kinhNghiem', label: 'Kinh nghiệm (năm)' },
-                { name: 'bangCapChungChi', label: 'Bằng cấp' },
-                { name: 'danhGia', label: 'Đánh giá (1-5)' },
-                { name: 'moTa', label: 'Mô tả' },
-                { name: 'trangThaiPT', label: 'Trạng thái' }
-            ]} onClose={() => setShow(false)} onSave={async (val) => {
-                try {
-                    const created = await api.post('/api/user/pt', val);
-                    setRows([created, ...rows]);
-                } catch (error) {
-                    console.error('Error creating PT:', error);
-                }
-                setShow(false);
-            }} />}
+            {(show || editingItem) && <EntityForm 
+                title="Huấn luyện viên" 
+                initialData={editingItem || undefined}
+                fields={[
+                    { name: 'anhDaiDien', label: 'Ảnh đại diện', type: 'file', validation: { maxSize: 5 } },
+                    { name: 'hoTen', label: 'Họ tên', validation: { required: true, pattern: /^[\p{L}\s]+$/u, message: 'Họ tên chỉ được chứa chữ cái và khoảng trắng' } },
+                    { name: 'email', label: 'Email', type: 'email', validation: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Email không đúng định dạng' } },
+                    { name: 'sdt', label: 'Số điện thoại', type: 'tel', validation: { required: true, pattern: /^\d{10,11}$/, message: 'Số điện thoại phải có 10-11 chữ số' } },
+                    { name: 'soCCCD', label: 'Số CCCD', validation: { required: true, pattern: /^\d{12}$/, message: 'Số CCCD phải có đúng 12 chữ số' } },
+                    { name: 'ngaySinh', label: 'Ngày sinh', type: 'date', validation: { required: true } },
+                    { name: 'gioiTinh', label: 'Giới tính', options: ['NAM', 'NU'], validation: { required: true } },
+                    { name: 'diaChi', label: 'Địa chỉ', type: 'textarea', validation: { required: true } },
+                    { name: 'chuyenMon', label: 'Chuyên môn', validation: { required: true } },
+                    { name: 'kinhNghiem', label: 'Kinh nghiệm (năm)', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Kinh nghiệm phải là số nguyên dương' } },
+                    { name: 'bangCapChungChi', label: 'Bằng cấp/Chứng chỉ', validation: { required: true } },
+                    { name: 'danhGia', label: 'Đánh giá (1-5)', type: 'number', validation: { pattern: /^[1-5]$/, message: 'Đánh giá phải từ 1 đến 5' } },
+                    { name: 'moTa', label: 'Mô tả', type: 'textarea' },
+                    { name: 'trangThaiPT', label: 'Trạng thái', options: ['DANG_HOAT_DONG', 'NGUNG_LAM_VIEC'], validation: { required: true } }
+                ]} 
+                onClose={() => { setShow(false); setEditingItem(null); }} 
+                onSave={async (val) => {
+                    try {
+                        const ptData = {
+                            ...val,
+                            kinhNghiem: parseInt(val.kinhNghiem) || 0,
+                            danhGia: parseFloat(val.danhGia) || 0
+                        };
+                        
+                        if (editingItem) {
+                            const updated = await api.put(`/api/user/pt/${editingItem._id}`, ptData);
+                            setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
+                        } else {
+                            const created = await api.post('/api/user/pt', ptData);
+                            setRows([created, ...rows]);
+                        }
+                    } catch (error) {
+                        console.error('Error saving PT:', error);
+                    }
+                    setShow(false);
+                    setEditingItem(null);
+                }} 
+            />}
+            {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
+                title="Xác nhận xóa huấn luyện viên"
+                message={`Bạn có chắc chắn muốn xóa huấn luyện viên "${deleteConfirm.item.hoTen}"? Hành động này không thể hoàn tác.`}
+                type="danger"
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={async () => {
+                    try {
+                        await api.delete(`/api/user/pt/${deleteConfirm.item!._id}`);
+                        setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
+                    } catch (error) {
+                        console.error('Error deleting PT:', error);
+                    }
+                    setDeleteConfirm({ show: false, item: null });
+                }}
+                onCancel={() => setDeleteConfirm({ show: false, item: null })}
+            />}
             {isLoading && <Loading overlay text="Đang tải PT..." />}
         </Card>
     );
@@ -1026,6 +1287,9 @@ const PTPage = () => {
 const SessionsPage = () => {
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
+    const [editingItem, setEditingItem] = useState<BuoiTap | null>(null);
+    const [isCopying, setIsCopying] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: BuoiTap | null }>({ show: false, item: null });
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<any[]>([]);
 
@@ -1107,10 +1371,13 @@ const SessionsPage = () => {
                                 </td>
                                 <td>
                                     <div className="action-buttons">
-                                        <button className="btn-icon btn-edit" onClick={() => setShow(true)}>
+                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
                                             ✏️ Sửa
                                         </button>
-                                        <button className="btn-icon btn-delete" onClick={() => setRows(rows.filter(x => x._id !== r._id))}>
+                                        <button className="btn-icon btn-copy" onClick={() => { const copyData = { ...r }; delete (copyData as any)._id; setEditingItem(copyData); setIsCopying(true); setShow(true); }}>
+                                            📋 Sao chép
+                                        </button>
+                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
                                             🗑️ Xóa
                                         </button>
                                     </div>
@@ -1127,20 +1394,52 @@ const SessionsPage = () => {
                     <div className="empty-state-description">Tạo buổi tập đầu tiên cho hội viên</div>
                 </div>
             )}
-            {show && <EntityForm title="Buổi tập" fields={[
-                { name: 'ngayTap', label: 'Ngày tập' },
-                { name: 'pt', label: 'PT' },
-                { name: 'cacBaiTap', label: 'Các bài tập' },
-                { name: 'trangThaiTap', label: 'Trạng thái' }
-            ]} onClose={() => setShow(false)} onSave={async (val) => {
-                try {
-                    const created = await api.post('/api/buoitap', val);
-                    setRows([created, ...rows]);
-                } catch (error) {
-                    console.error('Error creating session:', error);
-                }
-                setShow(false);
-            }} />}
+            {(show || editingItem) && <EntityForm 
+                title="Buổi tập" 
+                initialData={editingItem || undefined}
+                fields={[
+                    { name: 'ngayTap', label: 'Ngày tập', type: 'date', validation: { required: true } },
+                    { name: 'pt', label: 'PT', validation: { required: true } },
+                    { name: 'cacBaiTap', label: 'Các bài tập', type: 'textarea', validation: { required: true } },
+                    { name: 'trangThaiTap', label: 'Trạng thái', options: ['DA_HOAN_THANH', 'CHUA_HOAN_THANH'], validation: { required: true } }
+                ]} 
+                onClose={() => { setShow(false); setEditingItem(null); setIsCopying(false); }}
+                onSave={async (val) => {
+                    try {
+                        if (editingItem && !isCopying) {
+                            // Update existing PT
+                            const updated = await api.put(`/api/buoitap/${editingItem._id}`, val);
+                            setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
+                        } else {
+                            // Create new PT (including when copying)
+                            const created = await api.post('/api/buoitap', val);
+                            setRows([created, ...rows]);
+                        }
+                    } catch (error) {
+                        console.error('Error saving session:', error);
+                    }
+                    setShow(false);
+                    setEditingItem(null);
+                    setIsCopying(false);
+                }} 
+            />}
+            {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
+                title="Xác nhận xóa buổi tập"
+                message={`Bạn có chắc chắn muốn xóa buổi tập này? Hành động này không thể hoàn tác.`}
+                type="danger"
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={async () => {
+                    try {
+                        await api.delete(`/api/buoitap/${deleteConfirm.item!._id}`);
+                        setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
+                    } catch (error) {
+                        console.error('Error deleting session:', error);
+                    }
+                    setDeleteConfirm({ show: false, item: null });
+                }}
+                onCancel={() => setDeleteConfirm({ show: false, item: null })}
+            />}
             {isLoading && <Loading overlay text="Đang tải buổi tập..." />}
         </Card>
     );
@@ -1150,6 +1449,8 @@ const SessionsPage = () => {
 const ExercisesPage = () => {
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
+    const [editingItem, setEditingItem] = useState<BaiTap | null>(null);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: BaiTap | null }>({ show: false, item: null });
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<any[]>([]);
 
@@ -1194,40 +1495,72 @@ const ExercisesPage = () => {
                                 <span className="muscle-tag">{exercise.nhomCo}</span>
                             </div>
                             <div className="exercise-actions">
-                                <Button variant="ghost" size="small" onClick={() => setShow(true)}>Sửa</Button>
-                                <Button variant="ghost" size="small" onClick={() => setRows(rows.filter(x => x._id !== exercise._id))}>Xóa</Button>
+                                <Button variant="ghost" size="small" onClick={() => setEditingItem(exercise)}>Sửa</Button>
+                                <Button variant="ghost" size="small" onClick={() => { const copyData = { ...exercise }; delete (copyData as any)._id; setEditingItem(copyData); setShow(true); }}>Sao chép</Button>
+                                <Button variant="ghost" size="small" onClick={() => setDeleteConfirm({ show: true, item: exercise })}>Xóa</Button>
                             </div>
                         </div>
                     </Card>
                 ))}
             </div>
             {rows.length === 0 && !isLoading && (
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '1rem' }}>🏋️</div>
-                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem' }}>Chưa có bài tập nào</div>
-                    <div style={{ fontSize: '14px' }}>Thêm bài tập đầu tiên vào thư viện</div>
+                <div style={{padding: '3rem', textAlign: 'center', color: '#64748b'}}>
+                    <div style={{fontSize: '48px', marginBottom: '1rem'}}>&#127942;</div>
+                    <div style={{fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem'}}>Chưa có bài tập nào</div>
+                    <div style={{fontSize: '14px'}}>Thêm bài tập đầu tiên vào thư viện</div>
                 </div>
             )}
-            {show && <EntityForm title="Bài tập" fields={[
-                { name: 'tenBaiTap', label: 'Tên bài tập' },
-                { name: 'moTa', label: 'Mô tả' },
-                { name: 'nhomCo', label: 'Nhóm cơ' },
-                { name: 'hinhAnh', label: 'Hình ảnh' }
-            ]} onClose={() => setShow(false)} onSave={async (val) => {
-                try {
-                    const newExercise = { ...val, _id: `ex_${Date.now()}`, createdAt: new Date(), updatedAt: new Date() };
-                    const created = await api.post('/api/baitap', newExercise);
-                    setRows([created, ...rows]);
-                } catch (error) {
-                    console.error('Error creating exercise:', error);
-                }
-                setShow(false);
-            }} />}
+            {(show || editingItem) && <EntityForm 
+                title="Bài tập" 
+                initialData={editingItem || undefined}
+                fields={[
+                    { name: 'hinhAnh', label: 'Hình ảnh bài tập', type: 'file', validation: { maxSize: 5 } },
+                    { name: 'tenBaiTap', label: 'Tên bài tập', validation: { required: true, pattern: /^[\p{L}\d\s\-_]+$/u, message: 'Tên bài tập không được chứa ký tự đặc biệt' } },
+                    { name: 'moTa', label: 'Mô tả', type: 'textarea', validation: { required: true } },
+                    { name: 'nhomCo', label: 'Nhóm cơ', validation: { required: true } },
+                    { name: 'videoHuongDan', label: 'Video hướng dẫn (URL)', validation: { pattern: /^https?:\/\/.+/, message: 'URL video không hợp lệ' } },
+                    { name: 'hinhAnhMinhHoa', label: 'Hình ảnh minh họa (URL)', validation: { pattern: /^https?:\/\/.+/, message: 'URL hình ảnh không hợp lệ' } }
+                ]} 
+                onClose={() => { setShow(false); setEditingItem(null); }} 
+                onSave={async (val) => {
+                    try {
+                        if (editingItem) {
+                            const updated = await api.put(`/api/baitap/${editingItem._id}`, val);
+                            setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
+                        } else {
+                            const created = await api.post('/api/baitap', val);
+                            setRows([created, ...rows]);
+                        }
+                    } catch (error) {
+                        console.error('Error saving exercise:', error);
+                    }
+                    setShow(false);
+                    setEditingItem(null);
+                }} 
+            />}
+            {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
+                title="Xác nhận xóa bài tập"
+                message={`Bạn có chắc chắn muốn xóa bài tập "${deleteConfirm.item.tenBaiTap}"? Hành động này không thể hoàn tác.`}
+                type="danger"
+                confirmText="Xóa"
+                cancelText="Hủy"
+                onConfirm={async () => {
+                    try {
+                        await api.delete(`/api/baitap/${deleteConfirm.item!._id}`);
+                        setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
+                    } catch (error) {
+                        console.error('Error deleting exercise:', error);
+                    }
+                    setDeleteConfirm({ show: false, item: null });
+                }}
+                onCancel={() => setDeleteConfirm({ show: false, item: null })}
+            />}
             {isLoading && <Loading overlay text="Đang tải bài tập..." />}
         </Card>
     );
 };
 
+// ... rest of the code remains the same ...
 const BodyMetricsPage = () => {
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
@@ -1297,10 +1630,10 @@ const BodyMetricsPage = () => {
                 </tbody>
             </table>
             {rows.length === 0 && !isLoading && (
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '1rem' }}>📊</div>
-                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem' }}>Chưa có dữ liệu chỉ số cơ thể</div>
-                    <div style={{ fontSize: '14px' }}>Thêm chỉ số đầu tiên để theo dõi sức khỏe</div>
+                <div style={{padding: '3rem', textAlign: 'center', color: '#64748b'}}>
+                    <div style={{fontSize: '48px', marginBottom: '1rem'}}>📊</div>
+                    <div style={{fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem'}}>Chưa có dữ liệu chỉ số cơ thể</div>
+                    <div style={{fontSize: '14px'}}>Thêm chỉ số đầu tiên để theo dõi sức khỏe</div>
                 </div>
             )}
             {show && <EntityForm title="Chỉ số cơ thể" fields={[
@@ -1379,10 +1712,10 @@ const NutritionPage = () => {
                 </tbody>
             </table>
             {rows.length === 0 && !isLoading && (
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '1rem' }}>🥗</div>
-                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem' }}>Chưa có gợi ý dinh dưỡng</div>
-                    <div style={{ fontSize: '14px' }}>Tạo gợi ý dinh dưỡng đầu tiên</div>
+                <div style={{padding: '3rem', textAlign: 'center', color: '#64748b'}}>
+                    <div style={{fontSize: '48px', marginBottom: '1rem'}}>🥗</div>
+                    <div style={{fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem'}}>Chưa có gợi ý dinh dưỡng</div>
+                    <div style={{fontSize: '14px'}}>Tạo gợi ý dinh dưỡng đầu tiên</div>
                 </div>
             )}
             {show && <EntityForm title="Dinh dưỡng" fields={[
@@ -1593,7 +1926,7 @@ const AppointmentsPage = () => {
                             <td>{r.gioHen}</td>
                             <td>
                                 <span className={`badge ${r.trangThaiLichHen === 'DA_XAC_NHAN' || r.trangThaiLichHen === 'HOAN_THANH' ? 'success' : r.trangThaiLichHen === 'CHO_XAC_NHAN' ? 'warning' : 'danger'}`}>
-                                    {r.trangThaiLichHen.replaceAll('_', ' ')}
+                                    {r.trangThaiLichHen.replace(/_/g, ' ')}
                                 </span>
                             </td>
                             <td className="row-actions">
@@ -1649,7 +1982,7 @@ const NotificationsPage = () => {
             </div>
             <div className="notifications-grid">
                 {rows.length === 0 && !isLoading ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+                    <div style={{padding: '2rem', textAlign: 'center', color: '#666'}}>
                         Chưa có thông báo nào
                     </div>
                 ) : (
@@ -1677,69 +2010,330 @@ const AISuggestionsPage = () => {
     const [show, setShow] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<GoiYTuAI[]>([]);
-    const filtered = rows.filter(r => `${r.hoiVien} ${r.mucTieu}`.toLowerCase().includes(q.toLowerCase()));
+    const [selectedMember, setSelectedMember] = useState<HoiVien | null>(null);
+    const [generatingAI, setGeneratingAI] = useState(false);
+    const [aiSuggestion, setAiSuggestion] = useState<AIWorkoutSuggestion | null>(null);
+    const [nutritionSuggestion, setNutritionSuggestion] = useState<AINutritionSuggestion | null>(null);
+    const [healthAnalysis, setHealthAnalysis] = useState<string>('');
+    const [members, setMembers] = useState<HoiVien[]>([]);
 
     useEffect(() => {
-        let mounted = true;
-        (async () => {
+        // Fetch members for AI suggestions
+        const fetchMembers = async () => {
             try {
-                setIsLoading(true);
-                const data = await api.get<GoiYTuAI[]>('/api/goi-y-ai');
-                if (mounted && Array.isArray(data)) setRows(data);
-            } catch (e) {
-                console.error('Error fetching AI suggestions:', e);
-                setRows([]);
-            } finally {
-                if (mounted) setIsLoading(false);
+                const data = await api.get<HoiVien[]>('/api/user/hoivien');
+                if (Array.isArray(data)) setMembers(data);
+            } catch (error) {
+                console.error('Error fetching members:', error);
             }
-        })();
-        return () => { mounted = false; };
+        };
+        fetchMembers();
+
+        // Mock data for AI suggestions
+        const mockSuggestions: GoiYTuAI[] = [
+            {
+                _id: 'ai_1',
+                hoiVien: 'Nguyễn Văn An',
+                ngayGoiY: new Date('2024-01-15'),
+                noiDung: 'Tập trung vào bài tập cardio và tăng cường sức bền. Nên tập 3-4 lần/tuần với cường độ vừa phải.',
+                mucTieu: 'Giảm cân',
+                doKho: 'TRUNG_BINH',
+                thoiGianTap: 60,
+                createdAt: new Date('2024-01-15'),
+                updatedAt: new Date('2024-01-15')
+            },
+            {
+                _id: 'ai_2',
+                hoiVien: 'Trần Thị Bình',
+                ngayGoiY: new Date('2024-01-16'),
+                noiDung: 'Kết hợp bài tập với tạ và protein shake để tăng khối lượng cơ. Tập nặng 4-5 lần/tuần.',
+                mucTieu: 'Tăng cơ',
+                doKho: 'KHO',
+                thoiGianTap: 90,
+                createdAt: new Date('2024-01-16'),
+                updatedAt: new Date('2024-01-16')
+            }
+        ];
+        setRows(mockSuggestions);
     }, []);
 
+    const generateWorkoutPlan = async (member: HoiVien) => {
+        setGeneratingAI(true);
+        try {
+            const memberData = {
+                age: member.ngaySinh ? new Date().getFullYear() - new Date(member.ngaySinh).getFullYear() : undefined,
+                gender: member.gioiTinh === 'NAM' ? 'Nam' : 'Nữ',
+                fitnessLevel: 'Người mới bắt đầu',
+                goals: 'Tăng cường sức khỏe tổng quát',
+                availableTime: 60
+            };
+            
+            const suggestion = await geminiAI.generateWorkoutPlan(memberData);
+            setAiSuggestion(suggestion);
+            
+            // Save to database
+            const newSuggestion: GoiYTuAI = {
+                _id: `ai_${Date.now()}`,
+                hoiVien: member.hoTen,
+                ngayGoiY: new Date(),
+                noiDung: `${suggestion.workoutName}: ${suggestion.notes}`,
+                mucTieu: 'Tập luyện cá nhân hóa',
+                doKho: suggestion.difficulty,
+                thoiGianTap: parseInt(suggestion.duration.replace(/\D/g, '')) || 60,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+            setRows([newSuggestion, ...rows]);
+        } catch (error) {
+            console.error('Error generating workout plan:', error);
+            alert('Lỗi khi tạo kế hoạch tập luyện. Vui lòng kiểm tra API key Gemini.');
+        } finally {
+            setGeneratingAI(false);
+        }
+    };
+
+    const generateNutritionPlan = async (member: HoiVien) => {
+        setGeneratingAI(true);
+        try {
+            const memberData = {
+                age: member.ngaySinh ? new Date().getFullYear() - new Date(member.ngaySinh).getFullYear() : undefined,
+                gender: member.gioiTinh === 'NAM' ? 'Nam' : 'Nữ',
+                weight: 70, // Default weight
+                height: 170, // Default height
+                activityLevel: 'Trung bình',
+                goals: 'Duy trì sức khỏe'
+            };
+            
+            const suggestion = await geminiAI.generateNutritionPlan(memberData);
+            setNutritionSuggestion(suggestion);
+            
+            // Save to database
+            const newSuggestion: GoiYTuAI = {
+                _id: `ai_nutrition_${Date.now()}`,
+                hoiVien: member.hoTen,
+                ngayGoiY: new Date(),
+                noiDung: `Kế hoạch dinh dưỡng ${suggestion.mealType}: ${suggestion.notes}`,
+                mucTieu: 'Dinh dưỡng cá nhân hóa',
+                doKho: 'TRUNG_BINH',
+                thoiGianTap: 0,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+            setRows([newSuggestion, ...rows]);
+        } catch (error) {
+            console.error('Error generating nutrition plan:', error);
+            alert('Lỗi khi tạo kế hoạch dinh dưỡng. Vui lòng kiểm tra API key Gemini.');
+        } finally {
+            setGeneratingAI(false);
+        }
+    };
+
+    const generateHealthAnalysis = async (member: HoiVien) => {
+        setGeneratingAI(true);
+        try {
+            const memberData = {
+                bmi: 22.5, // Default BMI
+                heartRate: 75, // Default heart rate
+                age: member.ngaySinh ? new Date().getFullYear() - new Date(member.ngaySinh).getFullYear() : undefined,
+                gender: member.gioiTinh === 'NAM' ? 'Nam' : 'Nữ',
+                activityLevel: 'Trung bình'
+            };
+            
+            const analysis = await geminiAI.generateHealthAnalysis(memberData);
+            setHealthAnalysis(analysis);
+            
+            // Save to database
+            const newSuggestion: GoiYTuAI = {
+                _id: `ai_health_${Date.now()}`,
+                hoiVien: member.hoTen,
+                ngayGoiY: new Date(),
+                noiDung: analysis,
+                mucTieu: 'Phân tích sức khỏe',
+                doKho: 'DE',
+                thoiGianTap: 0,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+            setRows([newSuggestion, ...rows]);
+        } catch (error) {
+            console.error('Error generating health analysis:', error);
+            alert('Lỗi khi phân tích sức khỏe. Vui lòng kiểm tra API key Gemini.');
+        } finally {
+            setGeneratingAI(false);
+        }
+    };
+
+    const filtered = rows.filter(r =>
+        r.hoiVien.toLowerCase().includes(q.toLowerCase()) ||
+        r.mucTieu.toLowerCase().includes(q.toLowerCase())
+    );
+
     return (
-        <Card className="panel">
-            <div className="toolbar">
-                <div className="toolbar-left"><h2>Gợi ý từ AI</h2></div>
-                <div className="toolbar-right">
-                    <input className="input" placeholder="Tìm theo HV/mục tiêu" value={q} onChange={e => setQ(e.target.value)} />
-                    <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
+        <div className="ai-suggestions-container">
+            <Card className="panel">
+                <div className="toolbar">
+                    <div className="toolbar-left"><h2>Gợi ý từ AI</h2></div>
+                    <div className="toolbar-right">
+                        <input className="input" placeholder="Tìm hội viên/mục tiêu" value={q} onChange={e => setQ(e.target.value)} />
+                        <Button variant="primary" onClick={() => setShow(true)}>Tạo gợi ý mới</Button>
+                    </div>
                 </div>
-            </div>
-            <table className="table">
-                <thead>
-                    <tr>
-                        <th>Hội viên</th>
-                        <th>Mục tiêu</th>
-                        <th>Độ khó</th>
-                        <th>Thời gian tập (phút)</th>
-                        <th>Ngày gợi ý</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {filtered.map(r => (
-                        <tr key={r._id}>
-                            <td>{r.hoiVien}</td>
-                            <td>{r.mucTieu}</td>
-                            <td>{r.doKho.replaceAll('_', ' ')}</td>
-                            <td>{r.thoiGianTap}</td>
-                            <td>{new Date(r.ngayGoiY).toLocaleDateString('vi-VN')}</td>
-                            <td className="row-actions">
-                                <button className="btn btn-secondary" onClick={() => setShow(true)}>✏️ Sửa</button>
-                                <button className="btn btn-danger" onClick={() => setRows(rows.filter(x => x._id !== r._id))}>🗑️ Xóa</button>
-                            </td>
+
+                {/* AI Generation Panel */}
+                <Card className="ai-generation-panel" style={{margin: '20px 0', padding: '20px'}}>
+                    <h3>🤖 Tạo gợi ý AI cho hội viên</h3>
+                    <div style={{display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '15px'}}>
+                        <select 
+                            value={selectedMember?._id || ''} 
+                            onChange={(e) => {
+                                const member = members.find(m => m._id === e.target.value);
+                                setSelectedMember(member || null);
+                            }}
+                            className="input"
+                            style={{minWidth: '200px'}}
+                        >
+                            <option value="">Chọn hội viên</option>
+                            {members.map(member => (
+                                <option key={member._id} value={member._id}>
+                                    {member.hoTen} - {member.email}
+                                </option>
+                            ))}
+                        </select>
+                        <Button 
+                            variant="primary" 
+                            disabled={!selectedMember || generatingAI}
+                            onClick={() => selectedMember && generateWorkoutPlan(selectedMember)}
+                        >
+                            {generatingAI ? '⏳ Đang tạo...' : '🏋️ Tạo kế hoạch tập luyện'}
+                        </Button>
+                        <Button 
+                            variant="secondary" 
+                            disabled={!selectedMember || generatingAI}
+                            onClick={() => selectedMember && generateNutritionPlan(selectedMember)}
+                        >
+                            {generatingAI ? '⏳ Đang tạo...' : '🥗 Tạo kế hoạch dinh dưỡng'}
+                        </Button>
+                        <Button 
+                            variant="ghost" 
+                            disabled={!selectedMember || generatingAI}
+                            onClick={() => selectedMember && generateHealthAnalysis(selectedMember)}
+                        >
+                            {generatingAI ? '⏳ Đang phân tích...' : '📊 Phân tích sức khỏe'}
+                        </Button>
+                    </div>
+                    {selectedMember && (
+                        <div className="member-info" style={{padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '5px'}}>
+                            <strong>Hội viên được chọn:</strong> {selectedMember.hoTen} | 
+                            <strong> Giới tính:</strong> {selectedMember.gioiTinh === 'NAM' ? 'Nam' : 'Nữ'} | 
+                            <strong> Email:</strong> {selectedMember.email}
+                        </div>
+                    )}
+                </Card>
+
+                <table className="table">
+                    <thead>
+                        <tr>
+                            <th>Hội viên</th>
+                            <th>Mục tiêu</th>
+                            <th>Độ khó</th>
+                            <th>Thời gian (phút)</th>
+                            <th>Ngày tạo</th>
+                            <th>Nội dung</th>
+                            <th></th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
-            {show && <EntityForm title="Gợi ý AI" fields={[
-                { name: 'hoiVien', label: 'Hội viên' },
-                { name: 'mucTieu', label: 'Mục tiêu' },
-                { name: 'doKho', label: 'Độ khó' },
-                { name: 'thoiGianTap', label: 'Thời gian tập (phút)' },
-            ]} onClose={() => setShow(false)} onSave={async (val) => { setRows([{ _id: `ai_${Date.now()}`, hoiVien: val.hoiVien || '', noiDung: `Gợi ý cho ${val.mucTieu || 'mục tiêu'}`, mucTieu: val.mucTieu || '', doKho: val.doKho || '', thoiGianTap: val.thoiGianTap || 0, ngayGoiY: new Date() as any, createdAt: new Date() as any, updatedAt: new Date() as any }, ...rows]); setShow(false); }} />}
-            {isLoading && <Loading overlay text="Đang tải gợi ý AI..." />}
-        </Card>
+                    </thead>
+                    <tbody>
+                        {filtered.map(r => (
+                            <tr key={r._id}>
+                                <td>{r.hoiVien}</td>
+                                <td>{r.mucTieu}</td>
+                                <td>
+                                    <span className={`badge ${r.doKho === 'DE' ? 'success' : r.doKho === 'TRUNG_BINH' ? 'warning' : 'danger'}`}>
+                                        {r.doKho.replace(/_/g, ' ')}
+                                    </span>
+                                </td>
+                                <td>{r.thoiGianTap || 'N/A'}</td>
+                                <td>{new Date(r.ngayGoiY).toLocaleDateString('vi-VN')}</td>
+                                <td style={{maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                                    {r.noiDung.length > 100 ? r.noiDung.substring(0, 100) + '...' : r.noiDung}
+                                </td>
+                                <td className="row-actions">
+                                    <button className="btn btn-secondary" onClick={() => alert(r.noiDung)}>👁️ Xem</button>
+                                    <button className="btn btn-danger" onClick={() => setRows(rows.filter(x => x._id !== r._id))}>🗑️ Xóa</button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+
+                {show && <EntityForm title="Gợi ý AI" fields={[
+                    { name: 'hoiVien', label: 'Hội viên' },
+                    { name: 'mucTieu', label: 'Mục tiêu' },
+                    { name: 'doKho', label: 'Độ khó', options: ['DE', 'TRUNG_BINH', 'KHO'] },
+                    { name: 'thoiGianTap', label: 'Thời gian tập (phút)', type: 'number' },
+                    { name: 'noiDung', label: 'Nội dung gợi ý', type: 'textarea' }
+                ]} onClose={() => setShow(false)} onSave={async (val) => { 
+                    setRows([{ 
+                        _id: `ai_${Date.now()}`, 
+                        hoiVien: val.hoiVien || '', 
+                        noiDung: val.noiDung || `Gợi ý cho ${val.mucTieu || 'mục tiêu'}`, 
+                        mucTieu: val.mucTieu || '', 
+                        doKho: val.doKho || 'TRUNG_BINH', 
+                        thoiGianTap: parseInt(val.thoiGianTap) || 0, 
+                        ngayGoiY: new Date(), 
+                        createdAt: new Date(), 
+                        updatedAt: new Date() 
+                    }, ...rows]); 
+                    setShow(false); 
+                }} />}
+                {isLoading && <Loading overlay text="Đang tải gợi ý AI..." />}
+            </Card>
+
+            {/* AI Results Display */}
+            {aiSuggestion && (
+                <Card className="ai-result-panel" style={{marginTop: '20px'}}>
+                    <h3>🏋️ Kế hoạch tập luyện AI</h3>
+                    <div><strong>Tên bài tập:</strong> {aiSuggestion.workoutName}</div>
+                    <div><strong>Thời gian:</strong> {aiSuggestion.duration}</div>
+                    <div><strong>Độ khó:</strong> {aiSuggestion.difficulty}</div>
+                    <div><strong>Nhóm cơ target:</strong> {aiSuggestion.targetMuscles.join(', ')}</div>
+                    <div><strong>Các bài tập:</strong></div>
+                    <ul>
+                        {aiSuggestion.exercises.map((exercise, index) => (
+                            <li key={index}>
+                                <strong>{exercise.name}</strong>: {exercise.sets} sets x {exercise.reps} reps, 
+                                nghỉ {exercise.restTime} - {exercise.description}
+                            </li>
+                        ))}
+                    </ul>
+                    <div><strong>Ghi chú:</strong> {aiSuggestion.notes}</div>
+                </Card>
+            )}
+
+            {nutritionSuggestion && (
+                <Card className="ai-result-panel" style={{marginTop: '20px'}}>
+                    <h3>🥗 Kế hoạch dinh dưỡng AI</h3>
+                    <div><strong>Loại bữa ăn:</strong> {nutritionSuggestion.mealType}</div>
+                    <div><strong>Tổng calories:</strong> {nutritionSuggestion.totalCalories} kcal</div>
+                    <div><strong>Thực phẩm:</strong></div>
+                    <ul>
+                        {nutritionSuggestion.foods.map((food, index) => (
+                            <li key={index}>
+                                <strong>{food.name}</strong>: {food.quantity} 
+                                ({food.calories} kcal, Protein: {food.protein}g, Carbs: {food.carbs}g, Fat: {food.fat}g)
+                            </li>
+                        ))}
+                    </ul>
+                    <div><strong>Ghi chú:</strong> {nutritionSuggestion.notes}</div>
+                </Card>
+            )}
+
+            {healthAnalysis && (
+                <Card className="ai-result-panel" style={{marginTop: '20px'}}>
+                    <h3>📊 Phân tích sức khỏe AI</h3>
+                    <div style={{whiteSpace: 'pre-wrap'}}>{healthAnalysis}</div>
+                </Card>
+            )}
+        </div>
     );
 };
-

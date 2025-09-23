@@ -71,7 +71,7 @@
     padding: 24px;
     overflow-y: auto;
     background: #0f1115;
-    color: #e7e9ee;
+    color: #ffffff;
     height: 100vh;
 }
 
@@ -84,12 +84,17 @@
 
 .admin-header h1 {
     margin: 0 0 4px;
-    font-size: 22px;
+    font-size: 26px;
+    color: #ffffff;
+    font-weight: 700;
 }
 
 .admin-header p {
     margin: 0;
-    opacity: .7;
+    opacity: 1;
+    color: #cbd5e1;
+    font-size: 15px;
+    font-weight: 500;
 }
 
 .header-right {
@@ -168,21 +173,26 @@
 }
 
 .stat-label {
-    opacity: .8;
-    font-size: 13px;
+    opacity: 1;
+    font-size: 14px;
     margin-bottom: 6px;
+    color: #e2e8f0;
+    font-weight: 600;
 }
 
 .stat-value {
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 800;
     letter-spacing: .3px;
     margin-bottom: 4px;
+    color: #ffffff;
 }
 
 .stat-sub {
-    font-size: 12px;
-    opacity: .8;
+    font-size: 13px;
+    opacity: 1;
+    color: #cbd5e1;
+    font-weight: 500;
 }
 
 .stat-sub.up {
@@ -318,8 +328,8 @@
 }
 
 .table tbody td {
-    color: #f1f5f9;
-    font-weight: 500;
+    color: #ffffff;
+    font-weight: 600;
     vertical-align: middle;
     padding: 16px 24px;
 }
@@ -392,10 +402,13 @@
     justify-content: space-between;
     padding: 12px 14px;
     border-bottom: 1px solid #141a25;
+    color: #ffffff;
 }
 
 .muted {
-    opacity: .75;
+    opacity: 1;
+    color: #e2e8f0;
+    font-weight: 600;
 }
 
 /* Modal form */
@@ -501,14 +514,14 @@
 }
 
 .package-title {
-    font-size: 18px;
-    font-weight: 700;
+    font-size: 20px;
+    font-weight: 800;
     margin: 0 0 8px 0;
-    color: #f1f5f9;
+    color: #ffffff;
 }
 
 .package-description {
-    color: #94a3b8;
+    color: #cbd5e1;
     font-size: 14px;
     margin: 0 0 16px 0;
     line-height: 1.5;
@@ -569,20 +582,20 @@
 
 .notification-content h3 {
     margin: 0 0 12px 0;
-    color: #f1f5f9;
-    font-size: 16px;
-    font-weight: 600;
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 700;
 }
 
 .notification-content p {
     margin: 0 0 12px 0;
-    color: #94a3b8;
+    color: #cbd5e1;
     line-height: 1.5;
 }
 
 .notification-date {
     font-size: 12px;
-    color: #64748b;
+    color: #94a3b8;
     font-weight: 500;
 }
 
@@ -674,10 +687,8 @@
 .mobile-sidebar.active .mobile-sidebar-content {
     transform: translateX(0);
 }
-
 /* Schedule and Session Pages Styling */
-.schedule-card,
-.session-card {
+.schedule-card, .session-card {
     background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
     border: 1px solid #334155;
     border-radius: 12px;
@@ -686,31 +697,27 @@
     transition: all 0.3s ease;
 }
 
-.schedule-card:hover,
-.session-card:hover {
+.schedule-card:hover, .session-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
     border-color: #60a5fa;
 }
 
-.schedule-header,
-.session-header {
+.schedule-header, .session-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
 }
 
-.schedule-title,
-.session-title {
+.schedule-title, .session-title {
     font-size: 18px;
     font-weight: 700;
     color: #f1f5f9;
     margin: 0;
 }
 
-.schedule-meta,
-.session-meta {
+.schedule-meta, .session-meta {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 12px;
@@ -725,16 +732,16 @@
 
 .meta-label {
     font-size: 12px;
-    color: #94a3b8;
-    font-weight: 500;
+    color: #cbd5e1;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .meta-value {
-    font-size: 14px;
-    color: #e2e8f0;
-    font-weight: 600;
+    font-size: 15px;
+    color: #ffffff;
+    font-weight: 700;
 }
 
 .status-badge {
@@ -840,7 +847,7 @@
 .empty-state {
     text-align: center;
     padding: 4rem 2rem;
-    color: #94a3b8;
+    color: #e2e8f0;
     background: rgba(15, 17, 21, 0.5);
     border-radius: 16px;
     margin: 2rem;
@@ -857,12 +864,12 @@
     font-size: 20px;
     font-weight: 700;
     margin-bottom: 0.5rem;
-    color: #94a3b8;
+    color: #ffffff;
 }
 
 .empty-state-description {
     font-size: 14px;
-    color: #64748b;
+    color: #cbd5e1;
     margin-bottom: 2rem;
 }
 
@@ -908,6 +915,16 @@
     transform: translateY(-1px);
 }
 
+.btn-copy {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.btn-copy:hover {
+    background: rgba(16, 185, 129, 0.2);
+    transform: translateY(-1px);
+}
 @media (max-width: 1200px) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);

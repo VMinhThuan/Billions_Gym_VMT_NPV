@@ -1,65 +1,324 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Button from './Button';
 import Card from './Card';
+import { api } from '../services/api';
+import './EntityForm.css';
 
 interface Field {
     name: string;
     label: string;
     type?: string;
+    options?: string[] | { value: string; label: string; }[];
+    validation?: {
+        required?: boolean;
+        pattern?: RegExp;
+        message?: string;
+        maxSize?: number; // for file uploads in MB
+    };
 }
 
 interface EntityFormProps {
     title: string;
     fields: Field[];
+    initialData?: Record<string, any>;
     onClose: () => void;
     onSave: (data: Record<string, any>) => void;
 }
 
-const EntityForm = ({ title, fields, onClose, onSave }: EntityFormProps) => {
-    const [formData, setFormData] = useState<Record<string, any>>({});
+interface ConfirmModalProps {
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'danger' | 'warning' | 'info';
+}
 
-    const handleSubmit = (e: React.FormEvent) => {
+const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormProps) => {
+    const [formData, setFormData] = useState<Record<string, any>>(initialData || {});
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (initialData) {
+            setFormData(initialData);
+            // Set preview image if exists
+            if (initialData.anhDaiDien) {
+                setPreviewImage(initialData.anhDaiDien);
+            }
+        }
+    }, [initialData]);
+
+    const validateField = (field: Field, value: any): string | null => {
+        if (field.validation?.required && (!value || value.toString().trim() === '')) {
+            return `${field.label} là bắt buộc`;
+        }
+        
+        if (field.validation?.pattern && value && !field.validation.pattern.test(value)) {
+            return field.validation.message || `${field.label} không đúng định dạng`;
+        }
+        
+        return null;
+    };
+
+    const checkDuplicateEmail = async (email: string, currentId?: string): Promise<boolean> => {
+        try {
+            const [members, pts] = await Promise.all([
+                api.get('/api/user/hoivien'),
+                api.get('/api/user/pt')
+            ]);
+            
+            const allUsers = [...(Array.isArray(members) ? members : []), ...(Array.isArray(pts) ? pts : [])];
+            return allUsers.some(user => 
+                user.email === email && (!currentId || user._id !== currentId)
+            );
+        } catch (error) {
+            console.error('Error checking email:', error);
+            return false;
+        }
+    };
+
+    const checkDuplicatePhone = async (sdt: string, currentId?: string): Promise<boolean> => {
+        try {
+            const [members, pts] = await Promise.all([
+                api.get('/api/user/hoivien'),
+                api.get('/api/user/pt')
+            ]);
+            
+            const allUsers = [...(Array.isArray(members) ? members : []), ...(Array.isArray(pts) ? pts : [])];
+            return allUsers.some(user => 
+                user.sdt === sdt && (!currentId || user._id !== currentId)
+            );
+        } catch (error) {
+            console.error('Error checking phone:', error);
+            return false;
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(formData);
+        
+        // Validate all fields
+        const newErrors: Record<string, string> = {};
+        
+        for (const field of fields) {
+            const error = validateField(field, formData[field.name]);
+            if (error) {
+                newErrors[field.name] = error;
+            }
+            
+            // Check for duplicate email/phone
+            if (field.name === 'email' && formData[field.name]) {
+                const isDuplicate = await checkDuplicateEmail(formData[field.name], initialData?._id);
+                if (isDuplicate) {
+                    newErrors[field.name] = 'Email đã tồn tại trong hệ thống';
+                }
+            }
+            
+            if (field.name === 'sdt' && formData[field.name]) {
+                const isDuplicate = await checkDuplicatePhone(formData[field.name], initialData?._id);
+                if (isDuplicate) {
+                    newErrors[field.name] = 'Số điện thoại đã tồn tại trong hệ thống';
+                }
+            }
+        }
+        
+        setErrors(newErrors);
+        
+        // Only submit if no errors
+        if (Object.keys(newErrors).length === 0) {
+            onSave(formData);
+        }
     };
 
     const handleChange = (name: string, value: any) => {
         setFormData(prev => ({ ...prev, [name]: value }));
+        
+        // Clear error for this field when user starts typing
+        if (errors[name]) {
+            setErrors(prev => ({ ...prev, [name]: '' }));
+        }
+    };
+
+    const handleFileChange = (name: string, file: File | null) => {
+        if (!file) return;
+        
+        const field = fields.find(f => f.name === name);
+        const maxSize = field?.validation?.maxSize || 5; // Default 5MB
+        
+        if (file.size > maxSize * 1024 * 1024) {
+            setErrors(prev => ({ ...prev, [name]: `Kích thước file không được vượt quá ${maxSize}MB` }));
+            return;
+        }
+        
+        // Create preview URL
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const result = e.target?.result as string;
+            setPreviewImage(result);
+            setFormData(prev => ({ ...prev, [name]: result }));
+        };
+        reader.readAsDataURL(file);
+        
+        // Clear any existing error
+        if (errors[name]) {
+            setErrors(prev => ({ ...prev, [name]: '' }));
+        }
     };
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <Card className="modal-content" onClick={(e) => e?.stopPropagation()}>
+            <div className="modal-content" onClick={(e) => e?.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>{title}</h2>
-                    <Button variant="ghost" size="small" onClick={onClose}>×</Button>
+                    <div className="modal-title-section">
+                        <h2 className="modal-title">{title}</h2>
+                        <p className="modal-subtitle">{initialData ? 'Chỉnh sửa thông tin' : 'Tạo mới'}</p>
+                    </div>
+                    <button className="modal-close-btn" onClick={onClose}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                    </button>
                 </div>
-
+                
                 <form onSubmit={handleSubmit} className="entity-form">
-                    {fields.map(field => (
-                        <div key={field.name} className="form-group">
-                            <label>{field.label}</label>
-                            <input
-                                type={field.type || 'text'}
-                                value={formData[field.name] || ''}
-                                onChange={(e) => handleChange(field.name, e.target.value)}
-                                className="form-input"
-                            />
-                        </div>
-                    ))}
-
+                    <div className="form-grid">
+                        {fields.map(field => (
+                            <div key={field.name} className="form-group">
+                                <label className="form-label">{field.label}</label>
+                                {field.type === 'file' ? (
+                                    <div className="file-upload-container">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => handleFileChange(field.name, e.target.files?.[0] || null)}
+                                            className="file-input"
+                                            id={`file-${field.name}`}
+                                        />
+                                        <label htmlFor={`file-${field.name}`} className="file-upload-label">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            </svg>
+                                            <span>Chọn ảnh</span>
+                                        </label>
+                                        {field.validation?.maxSize && (
+                                            <p className="file-size-hint">Tối đa {field.validation.maxSize}MB</p>
+                                        )}
+                                        {previewImage && (
+                                            <div className="image-preview">
+                                                <img src={previewImage} alt="Preview" />
+                                                <button type="button" onClick={() => { setPreviewImage(null); setFormData(prev => ({ ...prev, [field.name]: '' })); }} className="remove-image">
+                                                    ×
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : field.options ? (
+                                    <select
+                                        value={formData[field.name] || ''}
+                                        onChange={(e) => handleChange(field.name, e.target.value)}
+                                        className={`form-input form-select ${errors[field.name] ? 'error' : ''}`}
+                                    >
+                                        <option value="">Chọn {field.label.toLowerCase()}</option>
+                                        {field.options.map(option => {
+                                            if (typeof option === 'string') {
+                                                return <option key={option} value={option}>{option}</option>;
+                                            } else {
+                                                return <option key={option.value} value={option.value}>{option.label}</option>;
+                                            }
+                                        })}
+                                    </select>
+                                ) : field.type === 'textarea' ? (
+                                    <textarea
+                                        value={formData[field.name] || ''}
+                                        onChange={(e) => handleChange(field.name, e.target.value)}
+                                        className={`form-input form-textarea ${errors[field.name] ? 'error' : ''}`}
+                                        rows={3}
+                                        placeholder={`Nhập ${field.label.toLowerCase()}...`}
+                                    />
+                                ) : field.type === 'date' ? (
+                                    <input
+                                        type="date"
+                                        value={formData[field.name] ? new Date(formData[field.name]).toISOString().split('T')[0] : ''}
+                                        onChange={(e) => handleChange(field.name, e.target.value ? new Date(e.target.value).toISOString() : '')}
+                                        className={`form-input ${errors[field.name] ? 'error' : ''}`}
+                                    />
+                                ) : (
+                                    <input
+                                        type={field.type || 'text'}
+                                        value={formData[field.name] || ''}
+                                        onChange={(e) => handleChange(field.name, e.target.value)}
+                                        className={`form-input ${errors[field.name] ? 'error' : ''}`}
+                                        placeholder={`Nhập ${field.label.toLowerCase()}...`}
+                                    />
+                                )}
+                                {errors[field.name] && (
+                                    <span className="error-message">{errors[field.name]}</span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    
                     <div className="form-actions">
                         <Button type="button" variant="ghost" onClick={onClose}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                            </svg>
                             Hủy
                         </Button>
                         <Button type="submit" variant="primary">
-                            Lưu
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            {initialData ? 'Cập nhật' : 'Tạo mới'}
                         </Button>
                     </div>
                 </form>
-            </Card>
+            </div>
+        </div>
+    );
+};
+
+const ConfirmModal = ({ title, message, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', type = 'danger' }: ConfirmModalProps) => {
+    return (
+        <div className="modal-overlay" onClick={onCancel}>
+            <div className="confirm-modal-content" onClick={(e) => e?.stopPropagation()}>
+                <div className="confirm-modal-header">
+                    <div className={`confirm-modal-icon ${type}`}>
+                        {type === 'danger' ? (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        ) : type === 'warning' ? (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        ) : (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        )}
+                    </div>
+                    <div className="confirm-modal-text">
+                        <h3 className="confirm-modal-title">{title}</h3>
+                        <p className="confirm-modal-message">{message}</p>
+                    </div>
+                </div>
+                
+                <div className="confirm-modal-actions">
+                    <Button type="button" variant="ghost" onClick={onCancel}>
+                        {cancelText}
+                    </Button>
+                    <Button type="button" variant={type === 'danger' ? 'danger' : 'primary'} onClick={onConfirm}>
+                        {confirmText}
+                    </Button>
+                </div>
+            </div>
         </div>
     );
 };
 
 export default EntityForm;
+export { ConfirmModal };
+export type { EntityFormProps, ConfirmModalProps };

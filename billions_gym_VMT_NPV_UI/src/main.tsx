@@ -10,7 +10,7 @@ const root = createRoot(rootEl);
 
 function render() {
     const path = window.location.hash.replace('#', '') || window.location.pathname;
-
+    
     if (path.startsWith('/admin')) {
         // Check authentication for admin routes
         if (!auth.isAuthenticated()) {
