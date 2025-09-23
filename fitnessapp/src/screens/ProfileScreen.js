@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import apiService from '../api/apiService';
 
 const { width } = Dimensions.get('window');
@@ -22,30 +22,7 @@ const { width } = Dimensions.get('window');
 const ProfileScreen = () => {
     const navigation = useNavigation();
     const { logout, userInfo } = useAuth();
-    const themeContext = useTheme();
-    
-    // Fallback colors in case theme context fails
-    const colors = themeContext?.colors || {
-        background: '#ffffff',
-        surface: '#ffffff',
-        card: '#f8f9fa',
-        text: '#000000',
-        textSecondary: '#666666',
-        textMuted: '#999999',
-        primary: '#DA2128',
-        primaryLight: '#e74c3c',
-        border: '#e0e0e0',
-        borderLight: '#f0f0f0',
-        success: '#27ae60',
-        warning: '#f39c12',
-        error: '#e74c3c',
-        info: '#3498db',
-        shadow: 'rgba(0, 0, 0, 0.1)',
-        shadowLight: 'rgba(0, 0, 0, 0.05)'
-    };
-    
-    const isDarkMode = themeContext?.isDarkMode || false;
-    const toggleTheme = themeContext?.toggleTheme || (() => {});
+    const { colors, isDarkMode, toggleTheme } = useTheme();
     
     const [refreshing, setRefreshing] = useState(false);
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);

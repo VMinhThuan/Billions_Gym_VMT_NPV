@@ -28,6 +28,8 @@ const DEFAULT_THEME = {
     colors: { ...DEFAULT_COLORS }
 };
 
+export { DEFAULT_THEME };
+
 // Completely safe function to get colors - always returns a valid object
 const getSafeColors = (contextColors) => {
     // If no colors provided, return defaults
@@ -81,4 +83,13 @@ export const useTheme = () => {
     };
     
     return safeTheme;
+};
+
+export const useThemeFallback = () => {
+    console.warn('Using fallback theme');
+    return {
+        isDarkMode: false,
+        toggleTheme: () => {},
+        colors: DEFAULT_COLORS,
+    };
 };

@@ -7,12 +7,11 @@ import {
     Alert
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 
 const RoleTestScreen = ({ navigation }) => {
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
     const { userRole, userInfo, login } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
 

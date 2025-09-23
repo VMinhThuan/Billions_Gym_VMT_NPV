@@ -1,20 +1,9 @@
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    StyleSheet,
-    TouchableOpacity,
-    ScrollView,
-    Alert,
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform
-} from 'react-native';
+import {View,Text,TextInput,StyleSheet,TouchableOpacity,ScrollView,Alert,ActivityIndicator,KeyboardAvoidingView,Platform} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import apiService from '../api/apiService';
 
 // Component để hiển thị mật khẩu với dấu chấm tròn
@@ -48,16 +37,7 @@ const PasswordDots = ({ value, isVisible, colors }) => {
 
 const ChangePasswordScreen = () => {
     const navigation = useNavigation();
-    const themeContext = useTheme();
-    const colors = themeContext?.colors || {
-        background: '#f5f5f5',
-        surface: '#ffffff',
-        text: '#333333',
-        textSecondary: '#666666',
-        primary: '#DA2128',
-        border: '#eee'
-    };
-    const isDarkMode = themeContext?.isDarkMode || false;
+    const { colors, isDarkMode } = useTheme();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         currentPassword: '',

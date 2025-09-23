@@ -11,7 +11,7 @@ import {
     Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import apiService from '../api/apiService';
@@ -20,15 +20,7 @@ const { width } = Dimensions.get('window');
 
 const WorkoutTrackingScreen = () => {
     const navigation = useNavigation();
-    const themeContext = useTheme();
-    const colors = themeContext?.colors || {
-        background: '#f5f5f5',
-        surface: '#ffffff',
-        text: '#333333',
-        textSecondary: '#666666',
-        primary: '#DA2128',
-        border: '#eee'
-    };
+    const { colors } = useTheme();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [workoutHistory, setWorkoutHistory] = useState([]);

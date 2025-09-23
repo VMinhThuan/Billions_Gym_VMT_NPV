@@ -11,13 +11,12 @@ import {
     Modal
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import apiService from '../api/apiService';
 
 const AdminMemberManagementScreen = ({ navigation }) => {
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
     const { user } = useAuth();
     const [refreshing, setRefreshing] = useState(false);
     const [members, setMembers] = useState([]);

@@ -1,13 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { MaterialIcons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
 const ComparisonChart = ({ data = [] }) => {
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
 
     // Generate sample data if none provided
     const comparisonData = data.length > 0 ? data : [

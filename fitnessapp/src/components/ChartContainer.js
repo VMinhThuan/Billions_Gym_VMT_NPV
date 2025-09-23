@@ -1,12 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
 
 const ChartContainer = ({ title, children, style }) => {
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
 
     return (
         <View style={[styles.container, { backgroundColor: colors.surface }, style]}>

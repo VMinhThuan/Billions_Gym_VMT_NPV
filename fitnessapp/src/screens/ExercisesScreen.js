@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, RefreshControl, ActivityIndicator, Alert, Dimensions } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import apiService from '../api/apiService';
@@ -11,8 +11,7 @@ const { width } = Dimensions.get('window');
 
 const ExercisesScreen = () => {
     const navigation = useNavigation();
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState('Tất cả');

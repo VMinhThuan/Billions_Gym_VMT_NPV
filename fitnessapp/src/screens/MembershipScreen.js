@@ -16,14 +16,13 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import apiService from '../api/apiService';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
 
 const MembershipScreen = () => {
     const navigation = useNavigation();
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [membershipData, setMembershipData] = useState({

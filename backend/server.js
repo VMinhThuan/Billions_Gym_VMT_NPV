@@ -56,16 +56,6 @@ app.use('/api/chatbot', chatbotRouter);
 app.use('/api/ml-training', mlTrainingRouter);
 app.use('/api/workout-prediction', workoutPredictionRouter);
 
-// Test endpoint để kiểm tra kết nối
-app.get('/api/test', (req, res) => {
-    res.json({
-        success: true,
-        message: 'Server is running!',
-        timestamp: new Date().toISOString(),
-        port: PORT
-    });
-});
-
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Test endpoint: http://localhost:${PORT}/api/test`);

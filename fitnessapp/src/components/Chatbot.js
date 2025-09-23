@@ -16,13 +16,12 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import ApiService from '../api/apiService';
 
 const Chatbot = () => {
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
     const { user } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [dragEnabled, setDragEnabled] = useState(false);

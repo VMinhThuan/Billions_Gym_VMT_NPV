@@ -10,26 +10,14 @@ import {
     ScrollView
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import apiService from '../api/apiService';
 
 const { width } = Dimensions.get('window');
 
 const PTDashboardScreen = ({ navigation }) => {
-    const themeContext = useTheme();
-    const colors = themeContext?.colors || {
-        primary: '#007bff',
-        background: '#f8f9fa',
-        text: '#333',
-        surface: '#ffffff',
-        border: '#e0e0e0',
-        card: '#ffffff',
-        success: '#28a745',
-        warning: '#ffc107',
-        error: '#dc3545',
-        info: '#17a2b8'
-    };
+    const { colors } = useTheme();
     const { userInfo } = useAuth();
     const [refreshing, setRefreshing] = useState(false);
     const [dashboardData, setDashboardData] = useState({
@@ -203,12 +191,7 @@ const PTDashboardScreen = ({ navigation }) => {
     );
 
     return (
-        <ScrollView
-            style={[styles.container, { backgroundColor: colors.background }]}
-            refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-        >
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
             {/* Header */}
             <View style={[styles.header, { backgroundColor: colors.primary }]}>
                 <View>
@@ -222,96 +205,99 @@ const PTDashboardScreen = ({ navigation }) => {
                     <MaterialIcons name="person" size={24} color="white" />
                 </TouchableOpacity>
             </View>
-
-            {/* Stats Cards */}
-            <View style={styles.statsContainer}>
-                <View style={styles.statsRow}>
-                    {renderStatsCard('Học viên', dashboardData.totalStudents, 'people', '#4CAF50')}
-                    {renderStatsCard('Lịch hẹn', dashboardData.activeBookings, 'event', '#2196F3')}
-                </View>
-                <View style={styles.statsRow}>
-                    {renderStatsCard('Buổi hoàn thành', dashboardData.completedSessions, 'check-circle', '#FF9800')}
-                    {renderStatsCard('Doanh thu tháng', `${dashboardData.monthlyRevenue.toLocaleString()}đ`, 'attach-money', '#9C27B0')}
-                </View>
-            </View>
-
-            {/* Today's Bookings */}
-            <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Lịch hẹn hôm nay</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('PTBookings')}>
-                        <Text style={[styles.seeAllText, { color: colors.primary }]}>Xem tất cả</Text>
-                    </TouchableOpacity>
-                </View>
-                {dashboardData.todayBookings.length > 0 ? (
-                    dashboardData.todayBookings.map(renderTodayBooking)
-                ) : (
-                    <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
-                        <MaterialIcons name="event-available" size={48} color={colors.textSecondary} />
-                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            Không có lịch hẹn nào hôm nay
-                        </Text>
+            <ScrollView
+                style={[styles.container, { backgroundColor: colors.background }]}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
+            >
+                {/* Stats Cards */}
+                <View style={styles.statsContainer}>
+                    <View style={styles.statsRow}>
+                        {renderStatsCard('Học viên', dashboardData.totalStudents, 'people', '#4CAF50')}
+                        {renderStatsCard('Lịch hẹn', dashboardData.activeBookings, 'event', '#2196F3')}
                     </View>
-                )}
-            </View>
-
-            {/* Upcoming Sessions */}
-            <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Sắp tới</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('PTBookings')}>
-                        <Text style={[styles.seeAllText, { color: colors.primary }]}>Xem tất cả</Text>
-                    </TouchableOpacity>
-                </View>
-                {dashboardData.upcomingSessions.length > 0 ? (
-                    dashboardData.upcomingSessions.map(renderUpcomingSession)
-                ) : (
-                    <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
-                        <MaterialIcons name="schedule" size={48} color={colors.textSecondary} />
-                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            Không có lịch hẹn sắp tới
-                        </Text>
+                    <View style={styles.statsRow}>
+                        {renderStatsCard('Buổi hoàn thành', dashboardData.completedSessions, 'check-circle', '#FF9800')}
+                        {renderStatsCard('Doanh thu tháng', `${dashboardData.monthlyRevenue.toLocaleString()}đ`, 'attach-money', '#9C27B0')}
                     </View>
-                )}
-            </View>
-
-            {/* Quick Actions */}
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Thao tác nhanh</Text>
-                <View style={styles.quickActions}>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: colors.primary }]}
-                        onPress={() => navigation.navigate('PTBookings')}
-                    >
-                        <MaterialIcons name="event" size={24} color="white" />
-                        <Text style={styles.actionText}>Quản lý lịch hẹn</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: colors.secondary }]}
-                        onPress={() => navigation.jumpTo('PTStudents')}
-                    >
-                        <MaterialIcons name="people" size={24} color="white" />
-                        <Text style={styles.actionText}>Học viên</Text>
-                    </TouchableOpacity>
                 </View>
-                <View style={styles.quickActions}>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: '#FF9800' }]}
-                        onPress={() => navigation.jumpTo('PTRevenue')}
-                    >
-                        <MaterialIcons name="attach-money" size={24} color="white" />
-                        <Text style={styles.actionText}>Doanh thu</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
-                        onPress={() => navigation.jumpTo('PTSchedule')}
-                    >
-                        <MaterialIcons name="schedule" size={24} color="white" />
-                        <Text style={styles.actionText}>Lịch làm việc</Text>
-                    </TouchableOpacity>
+                {/* Today's Bookings */}
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Lịch hẹn hôm nay</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('PTBookings')}>
+                            <Text style={[styles.seeAllText, { color: colors.primary }]}>Xem tất cả</Text>
+                        </TouchableOpacity>
+                    </View>
+                    {dashboardData.todayBookings.length > 0 ? (
+                        dashboardData.todayBookings.map(renderTodayBooking)
+                    ) : (
+                        <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
+                            <MaterialIcons name="event-available" size={48} color={colors.textSecondary} />
+                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                                Không có lịch hẹn nào hôm nay
+                            </Text>
+                        </View>
+                    )}
                 </View>
-            </View>
-        </ScrollView>
+                {/* Upcoming Sessions */}
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Sắp tới</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('PTBookings')}>
+                            <Text style={[styles.seeAllText, { color: colors.primary }]}>Xem tất cả</Text>
+                        </TouchableOpacity>
+                    </View>
+                    {dashboardData.upcomingSessions.length > 0 ? (
+                        dashboardData.upcomingSessions.map(renderUpcomingSession)
+                    ) : (
+                        <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
+                            <MaterialIcons name="schedule" size={48} color={colors.textSecondary} />
+                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                                Không có lịch hẹn sắp tới
+                            </Text>
+                        </View>
+                    )}
+                </View>
+                {/* Quick Actions */}
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Thao tác nhanh</Text>
+                    <View style={styles.quickActions}>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: colors.primary }]}
+                            onPress={() => navigation.navigate('PTBookings')}
+                        >
+                            <MaterialIcons name="event" size={24} color="white" />
+                            <Text style={styles.actionText}>Quản lý lịch hẹn</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: colors.secondary }]}
+                            onPress={() => navigation.jumpTo('PTStudents')}
+                        >
+                            <MaterialIcons name="people" size={24} color="white" />
+                            <Text style={styles.actionText}>Học viên</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.quickActions}>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: '#FF9800' }]}
+                            onPress={() => navigation.jumpTo('PTRevenue')}
+                        >
+                            <MaterialIcons name="attach-money" size={24} color="white" />
+                            <Text style={styles.actionText}>Doanh thu</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
+                            onPress={() => navigation.jumpTo('PTSchedule')}
+                        >
+                            <MaterialIcons name="schedule" size={24} color="white" />
+                            <Text style={styles.actionText}>Lịch làm việc</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </ScrollView>
+        </View>
     );
 };
 

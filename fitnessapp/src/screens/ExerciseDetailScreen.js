@@ -10,7 +10,7 @@ import {
     Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import apiService from '../api/apiService';
@@ -21,8 +21,7 @@ const ExerciseDetailScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const { exercise } = route.params;
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
     const [isLoading, setIsLoading] = useState(false);
 
     const getMuscleGroupColor = (muscleGroup) => {

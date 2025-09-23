@@ -15,15 +15,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import apiService from '../api/apiService';
 
 const EditFitnessGoalsScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const { userInfo } = useAuth();
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);

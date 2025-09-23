@@ -3,7 +3,7 @@ import { StyleSheet, ImageBackground, Text, View, TouchableOpacity } from 'react
 import { useNavigation } from '@react-navigation/native';
 import AppIntroSlider from 'react-native-app-intro-slider';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 
 const slides = [
     {
@@ -28,8 +28,7 @@ const slides = [
 
 const OnboardingScreen = () => {
     const navigation = useNavigation();
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors, isDarkMode } = useTheme();
     const [currentIndex, setCurrentIndex] = useState(0);
     const sliderRef = useRef(null);
 

@@ -6,7 +6,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import apiService from '../api/apiService';
 
-// Component để hiển thị mật khẩu với dấu chấm tròn
 const PasswordDots = ({ value, isVisible, colors }) => {
     if (isVisible) {
         return (
@@ -32,22 +31,14 @@ const PasswordDots = ({ value, isVisible, colors }) => {
             textAlignVertical: 'center',
             lineHeight: 20
         }}>
-            {value ? value.split('').map((_, index) => '*').join('') : ''}
+            {value ? value.split('').map((_, index) => '●').join('') : ''}
         </Text>
     );
 };
 
 const LoginScreen = () => {
     const navigation = useNavigation();
-    const themeContext = useTheme();
-    const colors = themeContext?.colors || {
-        background: '#f5f5f5',
-        surface: '#ffffff',
-        text: '#333333',
-        textSecondary: '#666666',
-        primary: '#DA2128',
-        border: '#eee'
-    };
+    const { colors, isDarkMode } = useTheme();
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -84,10 +75,8 @@ const LoginScreen = () => {
     };
 
     const handleLogin = async () => {
-        // Ẩn bàn phím khi nhấn đăng nhập
         Keyboard.dismiss();
 
-        // Kiểm tra validation trước khi gọi API
         if (!phone.trim()) {
             showAlert('Vui lòng nhập số điện thoại');
             return;
@@ -98,7 +87,6 @@ const LoginScreen = () => {
             return;
         }
 
-        // Kiểm tra định dạng số điện thoại
         const phoneRegex = /^[0-9]{10,11}$/;
         if (!phoneRegex.test(phone.trim())) {
             showAlert('Số điện thoại không hợp lệ. Vui lòng nhập 10-11 chữ số');
@@ -107,7 +95,6 @@ const LoginScreen = () => {
 
         try {
 
-            // Thêm timeout cho API call
             const loginPromise = apiService.login(phone.trim(), password);
             const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Login timeout after 30 seconds')), 30000)
@@ -115,29 +102,24 @@ const LoginScreen = () => {
 
             const data = await Promise.race([loginPromise, timeoutPromise]);
 
-            // Kiểm tra response structure
             if (data && typeof data === 'object') {
-                // Kiểm tra cả hai cách trả về có thể có
                 const token = data.token || data.accessToken;
                 const user = data.nguoiDung || data.user || data;
 
                 if (token && user) {
-                    // Đảm bảo user có đầy đủ thông tin cần thiết
                     if (!user.vaiTro) {
-                        user.vaiTro = 'HoiVien'; // Default role
+                        user.vaiTro = 'HoiVien';
                     }
 
                     try {
                         await login(token, user);
 
-                        // Đợi một chút để đảm bảo AuthContext đã cập nhật hoàn toàn
                         setTimeout(() => {
-                            // Sử dụng reset để đảm bảo navigation stack sạch
                             navigation.reset({
                                 index: 0,
                                 routes: [{ name: 'Main' }],
                             });
-                        }, 300); // Tăng thời gian đợi lên 300ms
+                        }, 300);
                     } catch (authError) {
                         showAlert('Lỗi xử lý thông tin đăng nhập. Vui lòng thử lại.');
                     }
@@ -150,12 +132,9 @@ const LoginScreen = () => {
             }
         } catch (error) {
 
-            // Hiển thị thông báo lỗi chi tiết hơn để debug
             let errorMessage = 'Đăng nhập thất bại. Vui lòng thử lại.';
 
-            // Kiểm tra các loại lỗi khác nhau
             if (error.message) {
-                // Ưu tiên message từ error trực tiếp
                 if (error.message.includes('thất bại') || error.message.includes('mật khẩu')) {
                     errorMessage = 'Đăng nhập thất bại. Vui lòng kiểm tra thông tin.';
                 } else if (error.message.includes('Authentication failed') || error.message.includes('401')) {
@@ -251,7 +230,7 @@ const LoginScreen = () => {
                                         style={[
                                             styles.hiddenPasswordInput,
                                             {
-                                                color: 'rgba(255, 255, 255, 0.01)',
+                                                color: 'transparent',
                                                 position: 'absolute',
                                                 top: 0,
                                                 left: 0,
@@ -260,8 +239,6 @@ const LoginScreen = () => {
                                                 zIndex: 1,
                                                 paddingHorizontal: 20,
                                                 paddingVertical: 16,
-                                                textAlignVertical: 'center',
-                                                lineHeight: 20
                                             }
                                         ]}
                                         value={password}

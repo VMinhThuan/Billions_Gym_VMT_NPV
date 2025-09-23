@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import apiService from '../api/apiService';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -14,8 +14,7 @@ const EditProfileScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const { userInfo, userToken, login } = useAuth();
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
 
     console.log('📱 DEBUG - Current userInfo from AuthContext:', JSON.stringify(userInfo, null, 2));
     console.log('📱 DEBUG - Current userToken from AuthContext:', userToken ? 'Exists' : 'Missing');

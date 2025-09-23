@@ -22,6 +22,7 @@ router.put('/test-flexible-update/:id', auth, userController.testFlexibleUpdate)
 router.put('/restore-critical-data/:id', auth, userController.restoreCriticalData);
 router.put('/taikhoan/:id/lock', auth, authorize(['OngChu']), userController.lockTaiKhoan);
 router.put('/taikhoan/:id/unlock', auth, authorize(['OngChu']), userController.unlockTaiKhoan);
+router.get('/taikhoan/by-phone/:sdt', auth, authorize(['OngChu']), userController.getTaiKhoanByPhone);
 
 // CRUD PT (chỉ Ông Chủ)
 router.post('/pt', auth, authorize(['OngChu']), userController.createPT);

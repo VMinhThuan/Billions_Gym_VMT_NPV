@@ -12,19 +12,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 
 const AIRecommendationsScreen = () => {
     const navigation = useNavigation();
-    const themeContext = useTheme();
-    const colors = themeContext?.colors || {
-        background: '#f5f5f5',
-        surface: '#ffffff',
-        text: '#333333',
-        textSecondary: '#666666',
-        primary: '#DA2128',
-        border: '#eee'
-    };
+    const { colors } = useTheme();
 
     const [activeTab, setActiveTab] = useState('nutrition');
     const [loading, setLoading] = useState(false);

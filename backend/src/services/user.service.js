@@ -389,6 +389,19 @@ const checkPhoneExists = async (sdt, excludeId = null) => {
     }
 };
 
+const getTaiKhoanByPhone = async (sdt) => {
+    try {
+        const taiKhoan = await TaiKhoan.findOne({ sdt }).populate('nguoiDung');
+        if (!taiKhoan) {
+            throw new Error('Không tìm thấy tài khoản');
+        }
+        return taiKhoan;
+    } catch (error) {
+        console.error('Error getting account by phone:', error);
+        throw error;
+    }
+};
+
 module.exports = {
     createHoiVien,
     getAllHoiVien,
@@ -403,5 +416,6 @@ module.exports = {
     lockTaiKhoan,
     unlockTaiKhoan,
     checkEmailExists,
-    checkPhoneExists
+    checkPhoneExists,
+    getTaiKhoanByPhone
 };

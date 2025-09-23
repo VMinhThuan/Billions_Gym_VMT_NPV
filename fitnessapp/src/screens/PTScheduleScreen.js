@@ -13,26 +13,14 @@ import {
 } from 'react-native';
 import { SafeAreaFrameContext, SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import apiService from '../api/apiService';
 
 const { width } = Dimensions.get('window');
 
 const PTScheduleScreen = ({ navigation }) => {
-    const themeContext = useTheme();
-    const colors = themeContext?.colors || {
-        primary: '#007bff',
-        background: '#f8f9fa',
-        text: '#333',
-        surface: '#ffffff',
-        border: '#e0e0e0',
-        card: '#ffffff',
-        success: '#28a745',
-        warning: '#ffc107',
-        error: '#dc3545',
-        info: '#17a2b8'
-    };
+    const { colors } = useTheme();
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -272,6 +260,7 @@ const PTScheduleScreen = ({ navigation }) => {
     };
 
     const stats = getAppointmentStats();
+    const styles = getStyles(colors);
 
     if (loading) {
         return (
@@ -496,7 +485,7 @@ const PTScheduleScreen = ({ navigation }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
         container: {
             flex: 1,
             backgroundColor: colors.background,

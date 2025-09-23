@@ -1,13 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { MaterialIcons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
 const GoalProgressChart = ({ current = 0, target = 100, title = "Mục tiêu", unit = "" }) => {
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
 
     const percentage = Math.min((current / target) * 100, 100);
     const radius = 60;

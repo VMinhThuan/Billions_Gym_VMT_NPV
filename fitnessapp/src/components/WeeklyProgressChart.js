@@ -1,16 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { MaterialIcons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
-const chartWidth = width - 80; // Account for padding and margins
+const chartWidth = width - 80; 
 
 const WeeklyProgressChart = ({ data = [] }) => {
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
 
-    // Generate sample data if none provided
     const weeklyData = data.length > 0 ? data : [
         { day: 'T2', workouts: 1, calories: 450 },
         { day: 'T3', workouts: 2, calories: 650 },

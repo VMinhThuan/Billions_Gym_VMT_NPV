@@ -431,7 +431,7 @@ exports.getPTStudents = async (req, res) => {
 
         // Get all bookings for this PT
         const LichHenPT = require('../models/LichHenPT');
-        
+
         const bookings = await LichHenPT.find({
             pt: ptId,
             trangThaiLichHen: { $in: ['DA_XAC_NHAN', 'HOAN_THANH'] }
@@ -476,5 +476,19 @@ exports.getPTStudents = async (req, res) => {
     } catch (err) {
         // Return empty array instead of error to avoid breaking frontend
         res.json([]);
+    }
+};
+
+// Lấy tài khoản theo số điện thoại
+exports.getTaiKhoanByPhone = async (req, res) => {
+    try {
+        const { sdt } = req.params;
+        const taiKhoan = await userService.getTaiKhoanByPhone(sdt);
+        res.json(taiKhoan);
+    } catch (err) {
+        if (err.message === 'Không tìm thấy tài khoản') {
+            return res.status(404).json({ message: err.message });
+        }
+        res.status(500).json({ message: 'Lỗi khi lấy thông tin tài khoản', error: err.message });
     }
 };

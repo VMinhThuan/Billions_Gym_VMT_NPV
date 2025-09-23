@@ -18,7 +18,7 @@ interface HoiVien {
     hoTen: string;
     ngaySinh: Date;
     diaChi: string;
-    gioiTinh: 'NAM' | 'NU';
+    gioiTinh: 'Nam' | 'Nữ';
     anhDaiDien?: string;
     email: string;
     sdt: string;
@@ -26,6 +26,10 @@ interface HoiVien {
     ngayHetHan: Date;
     trangThaiHoiVien: 'DANG_HOAT_DONG' | 'TAM_NGUNG' | 'HET_HAN';
     cacChiSoCoThe: string[];
+    taiKhoan?: {
+        _id: string;
+        trangThaiTK: 'DANG_HOAT_DONG' | 'DA_KHOA';
+    };
 }
 
 interface PT {
@@ -34,7 +38,7 @@ interface PT {
     hoTen: string;
     ngaySinh: Date;
     diaChi: string;
-    gioiTinh: 'NAM' | 'NU';
+    gioiTinh: 'Nam' | 'Nữ';
     anhDaiDien?: string;
     email: string;
     sdt: string;
@@ -203,7 +207,7 @@ const AdminDashboard = () => {
     useEffect(() => {
         const fetchOverviewData = async () => {
             if (section !== 'overview') return;
-            
+
             setIsLoading(true);
             try {
                 // Fetch all data in parallel - using available backend endpoints
@@ -212,7 +216,7 @@ const AdminDashboard = () => {
                     api.get('/api/user/pt'),
                     api.get('/api/goitap')
                 ]);
-                
+
                 // These endpoints don't exist in backend yet, so we'll use empty arrays
                 const appointmentsRes: any[] = [];
                 const paymentsRes: any[] = [];
@@ -230,7 +234,7 @@ const AdminDashboard = () => {
                     const today = new Date().toDateString();
                     return new Date(a.ngayHen).toDateString() === today;
                 }).length;
-                
+
                 const monthlyRevenue = payments.reduce((sum: number, p: any) => {
                     const paymentDate = new Date(p.ngayThanhToan);
                     const currentMonth = new Date().getMonth();
@@ -251,7 +255,7 @@ const AdminDashboard = () => {
 
                 // Set recent appointments (empty for now)
                 setRecentAppointments([]);
-                
+
                 // Set recent payments (empty for now)
                 setRecentPayments([]);
 
@@ -260,7 +264,7 @@ const AdminDashboard = () => {
                     ...pt,
                     appointmentCount: Math.max(0, 50 - index * 8) // Mock appointment count
                 }));
-                
+
                 setTopPTs(ptAppointmentCount);
 
             } catch (error) {
@@ -291,7 +295,10 @@ const AdminDashboard = () => {
     return (
         <div className="admin-shell">
             <aside className="admin-sidebar">
-                <div className="brand">Billions Admin</div>
+                <div className="brand">
+                    <span className="title">BILLIONS</span>
+                    <span className="subTitle">FITNESS & GYM</span>
+                </div>
                 <nav className="sidebar-nav">
                     <a className={`nav-item ${section === 'overview' ? 'active' : ''}`} href="#/admin">
                         <span className="nav-icon">📊</span>
@@ -389,9 +396,9 @@ const AdminDashboard = () => {
                         <Button variant="primary" size="small">
                             🔍 Tìm kiếm
                         </Button>
-                        <Button 
-                            variant="ghost" 
-                            size="small" 
+                        <Button
+                            variant="ghost"
+                            size="small"
                             onClick={() => {
                                 auth.clearToken();
                                 window.location.href = '#/login';
@@ -405,7 +412,7 @@ const AdminDashboard = () => {
                 {section === 'overview' && (
                     <section className="stats-grid">
                         {isLoading ? (
-                            <div style={{gridColumn: '1 / -1', textAlign: 'center', padding: '40px'}}>
+                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px' }}>
                                 <Loading text="Đang tải dữ liệu tổng quan..." />
                             </div>
                         ) : (
@@ -456,7 +463,7 @@ const AdminDashboard = () => {
                                         </tr>
                                     )) : (
                                         <tr>
-                                            <td colSpan={5} style={{textAlign: 'center', padding: '20px', color: '#666'}}>
+                                            <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
                                                 {isLoading ? 'Đang tải...' : 'Chưa có lịch hẹn nào'}
                                             </td>
                                         </tr>
@@ -494,7 +501,7 @@ const AdminDashboard = () => {
                                         </tr>
                                     )) : (
                                         <tr>
-                                            <td colSpan={5} style={{textAlign: 'center', padding: '20px', color: '#666'}}>
+                                            <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
                                                 {isLoading ? 'Đang tải...' : 'Chưa có thanh toán nào'}
                                             </td>
                                         </tr>
@@ -516,7 +523,7 @@ const AdminDashboard = () => {
                                     </li>
                                 )) : (
                                     <li className="list-row">
-                                        <span style={{color: '#666'}}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu PT'}</span>
+                                        <span style={{ color: '#666' }}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu PT'}</span>
                                     </li>
                                 )}
                             </ul>
@@ -535,7 +542,7 @@ const AdminDashboard = () => {
                                     </li>
                                 )) : (
                                     <li className="list-row">
-                                        <span style={{color: '#666'}}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu'}</span>
+                                        <span style={{ color: '#666' }}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu'}</span>
                                     </li>
                                 )}
                             </ul>
@@ -544,7 +551,7 @@ const AdminDashboard = () => {
                         <Card title="Thông báo hệ thống" className="panel">
                             <ul className="list">
                                 <li className="list-row">
-                                    <span style={{color: '#666'}}>Chưa có thông báo hệ thống</span>
+                                    <span style={{ color: '#666' }}>Chưa có thông báo hệ thống</span>
                                 </li>
                             </ul>
                         </Card>
@@ -580,32 +587,112 @@ const MembersPage = () => {
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: HoiVien | null }>({ show: false, item: null });
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<HoiVien[]>([]);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
+
+    // Hàm để tải danh sách hội viên
+    const fetchMembers = async () => {
+        try {
+            setIsLoading(true);
+            const data = await api.get<HoiVien[]>('/api/user/hoivien');
+            if (Array.isArray(data)) {
+                // Lấy thông tin tài khoản cho mỗi hội viên
+                const membersWithAccounts = await Promise.all(
+                    data.map(async (member: HoiVien) => {
+                        try {
+                            // Lấy thông tin tài khoản dựa trên SDT
+                            const taiKhoanResponse = await api.get(`/api/user/taikhoan/by-phone/${member.sdt}`);
+                            return {
+                                ...member,
+                                taiKhoan: taiKhoanResponse
+                            };
+                        } catch (error) {
+                            console.error(`Error fetching account for member ${member._id}:`, error);
+                            // Trả về member với trạng thái mặc định nếu không tìm thấy tài khoản
+                            return {
+                                ...member,
+                                taiKhoan: {
+                                    _id: null,
+                                    trangThaiTK: 'DANG_HOAT_DONG'
+                                }
+                            };
+                        }
+                    })
+                );
+                setRows(membersWithAccounts);
+            } else {
+                setRows([]);
+            }
+        } catch (e) {
+            console.error('Error fetching members:', e);
+            setRows([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
         let mounted = true;
         (async () => {
-            try {
-                setIsLoading(true);
-                const data = await api.get<HoiVien[]>('/api/user/hoivien');
-                if (mounted && Array.isArray(data)) {
-                    setRows(data);
-                } else {
-                    setRows([]);
-                }
-            } catch (e) {
-                console.error('Error fetching members:', e);
-                setRows([]);
-            } finally {
-                if (mounted) setIsLoading(false);
-            }
+            await fetchMembers();
         })();
         return () => { mounted = false; };
-    }, []);
+    }, [refreshTrigger]);
+
     const filtered = rows.filter(r =>
         r.hoTen.toLowerCase().includes(q.toLowerCase()) ||
         r.sdt.includes(q) ||
         r.email.toLowerCase().includes(q.toLowerCase())
     );
+
+    // Hàm để thay đổi trạng thái tài khoản
+    const handleChangeAccountStatus = async (memberId: string, newStatus: 'DANG_HOAT_DONG' | 'DA_KHOA') => {
+        try {
+            setIsChangingStatus(memberId);
+
+            // Tìm hội viên để lấy thông tin tài khoản
+            const member = rows.find(r => r._id === memberId);
+            if (!member) {
+                throw new Error('Không tìm thấy hội viên');
+            }
+
+            // Kiểm tra xem có tài khoản không
+            if (!member.taiKhoan || !member.taiKhoan._id) {
+                throw new Error('Hội viên chưa có tài khoản');
+            }
+
+            // Gọi API để khóa/mở khóa tài khoản dựa trên trạng thái
+            if (newStatus === 'DA_KHOA') {
+                // Khóa tài khoản - sử dụng ID của hội viên
+                await api.put(`/api/user/taikhoan/${memberId}/lock`);
+            } else if (newStatus === 'DANG_HOAT_DONG') {
+                // Mở khóa tài khoản - sử dụng ID của hội viên
+                await api.put(`/api/user/taikhoan/${memberId}/unlock`);
+            }
+
+            // Cập nhật local state
+            setRows(prevRows =>
+                prevRows.map(member =>
+                    member._id === memberId
+                        ? {
+                            ...member,
+                            taiKhoan: {
+                                ...member.taiKhoan,
+                                trangThaiTK: newStatus
+                            }
+                        }
+                        : member
+                )
+            );
+
+            alert('Cập nhật trạng thái tài khoản thành công!');
+        } catch (error) {
+            console.error('Error changing account status:', error);
+            alert('Có lỗi xảy ra khi cập nhật trạng thái tài khoản!');
+        } finally {
+            setIsChangingStatus(null);
+        }
+    };
 
     return (
         <Card className="panel">
@@ -623,6 +710,7 @@ const MembersPage = () => {
                         <th>Email</th>
                         <th>SĐT</th>
                         <th>Giới tính</th>
+                        <th>Ngày sinh</th>
                         <th>Ngày tham gia</th>
                         <th>Trạng thái</th>
                         <th></th>
@@ -636,136 +724,138 @@ const MembersPage = () => {
                                     <img src={r.anhDaiDien} alt={r.hoTen} className="user-avatar" />
                                     <div>
                                         <div className="user-name">{r.hoTen}</div>
-                                        <div className="user-id">ID: {r._id}</div>
                                     </div>
                                 </div>
                             </td>
                             <td>{r.email}</td>
                             <td>{r.sdt}</td>
-                            <td>{r.gioiTinh === 'NAM' ? 'Nam' : 'Nữ'}</td>
+                            <td>{r.gioiTinh === 'Nam' ? 'Nam' : 'Nữ'}</td>
+                            <td>{r.ngaySinh ? new Date(r.ngaySinh).toLocaleDateString('vi-VN') : 'N/A'}</td>
                             <td>{r.ngayThamGia ? new Date(r.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'}</td>
                             <td>
-                                <span className={`badge ${r.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'success' :
-                                    r.trangThaiHoiVien === 'TAM_NGUNG' ? 'warning' : 'danger'
-                                    }`}>
-                                    {r.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' :
-                                        r.trangThaiHoiVien === 'TAM_NGUNG' ? 'TẠM NGƯNG' : 'HẾT HẠN'}
+                                <span className={`badge ${!r.taiKhoan?._id ? 'warning' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'success' : 'danger'}`}>
+                                    {!r.taiKhoan?._id ? 'CHƯA CÓ TÀI KHOẢN' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' : 'ĐÃ KHÓA'}
                                 </span>
                             </td>
                             <td>
-                                    <div className="action-buttons">
-                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
-                                            ✏️ Sửa
-                                        </button>
-                                        <button className="btn-icon btn-copy" onClick={() => { 
-                                            const copyData = { ...r }; 
-                                            delete (copyData as any)._id;
-                                            delete (copyData as any).createdAt;
-                                            delete (copyData as any).updatedAt;
-                                            setEditingItem(copyData as HoiVien); 
-                                            setIsCopying(true); 
-                                            setShow(true); 
-                                        }}>
-                                            📋 Sao chép
-                                        </button>
-                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
-                                            🗑️ Xóa
-                                        </button>
-                                    </div>
+                                <div className="action-buttons">
+                                    <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
+                                        ✏️ Sửa
+                                    </button>
+                                    <button
+                                        className="status-select"
+                                        onClick={() => {
+                                            const currentStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
+                                            const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
+                                            handleChangeAccountStatus(r._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
+                                        }}
+                                        disabled={isChangingStatus === r._id || !r.taiKhoan?._id}
+                                        style={{
+                                            background: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' :
+                                                'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                            boxShadow: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '0 2px 8px rgba(239, 68, 68, 0.3)' :
+                                                '0 2px 8px rgba(16, 185, 129, 0.3)',
+                                            opacity: !r.taiKhoan?._id ? 0.5 : 1
+                                        }}
+                                    >
+                                        {r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '🔒 Vô hiệu hóa' : '🔓 Kích hoạt'}
+                                    </button>
+                                    <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
+                                        🗑️ Xóa
+                                    </button>
+                                </div>
                             </td>
-                            
                         </tr>
                     ))}
                 </tbody>
             </table>
-            {(show || editingItem) && <EntityForm 
-                title="Hội viên" 
-                initialData={editingItem || undefined}
-                fields={[
-                    { name: 'anhDaiDien', label: 'Ảnh đại diện', type: 'file', validation: { maxSize: 5 } },
-                    { name: 'hoTen', label: 'Họ tên', validation: { required: true, pattern: /^[\p{L}\s]+$/u, message: 'Họ tên chỉ được chứa chữ cái và khoảng trắng' } },
-                    { name: 'email', label: 'Email', type: 'email', validation: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Email không đúng định dạng' } },
-                    { name: 'sdt', label: 'Số điện thoại', type: 'tel', validation: { required: true, pattern: /^\d{10,11}$/, message: 'Số điện thoại phải có 10-11 chữ số' } },
-                    { name: 'soCCCD', label: 'Số CCCD', validation: { required: true, pattern: /^\d{12}$/, message: 'Số CCCD phải có đúng 12 chữ số' } },
-                    { name: 'ngaySinh', label: 'Ngày sinh', type: 'date', validation: { required: true } },
-                    { name: 'gioiTinh', label: 'Giới tính', options: ['NAM', 'NU'], validation: { required: true } },
-                    { name: 'diaChi', label: 'Địa chỉ', type: 'textarea', validation: { required: true } },
-                    { name: 'trangThaiHoiVien', label: 'Trạng thái', options: ['DANG_HOAT_DONG', 'TAM_NGUNG', 'HET_HAN'], validation: { required: true } }
-                ]} 
-                onClose={() => { 
-                    setShow(false); 
-                    setEditingItem(null); 
-                    setIsCopying(false);
-                }} 
-                onSave={async (val) => {
-                    try {
-                        if (editingItem && !isCopying) {
-                            // Update existing member
-                            console.log('Updating member:', editingItem._id, val);
-                            const updated = await api.put(`/api/user/hoivien/${editingItem._id}`, val);
-                            console.log('Update response:', updated);
-                            if (updated) {
-                                setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
-                                alert('Cập nhật hội viên thành công!');
-                            }
-                        } else {
-                            // Create new member (including when copying)
-                            const newMember = {
-                                hoTen: val.hoTen,
-                                ngaySinh: val.ngaySinh,
-                                gioiTinh: val.gioiTinh,
-                                sdt: val.sdt,
-                                ...(val.email && { email: val.email }),
-                                ...(val.soCCCD && { soCCCD: val.soCCCD }),
-                                ...(val.diaChi && { diaChi: val.diaChi }),
-                                ...(val.anhDaiDien && { anhDaiDien: val.anhDaiDien }),
-                                ...(val.trangThaiHoiVien && { trangThaiHoiVien: val.trangThaiHoiVien }),
-                                ngayThamGia: new Date().toISOString(),
-                                ngayHetHan: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-                            };
-                            console.log('Creating new member:', newMember);
-                            const created = await api.post('/api/user/hoivien', newMember);
-                            console.log('Create response:', created);
-                            if (created && created._id) {
-                                setRows([created, ...rows]);
-                                alert(isCopying ? 'Sao chép hội viên thành công!' : 'Tạo hội viên mới thành công!');
-                            } else {
-                                throw new Error('Không nhận được dữ liệu hội viên từ server');
-                            }
-                        }
+            {(show || editingItem) && (
+                <EntityForm
+                    title="Hội viên"
+                    initialData={editingItem || undefined}
+                    fields={[
+                        { name: 'anhDaiDien', label: 'Ảnh đại diện', type: 'file', validation: { maxSize: 5 } },
+                        { name: 'hoTen', label: 'Họ tên', validation: { required: true, pattern: /^[\p{L}\s]+$/u, message: 'Họ tên chỉ được chứa chữ cái và khoảng trắng' } },
+                        { name: 'email', label: 'Email', type: 'email', validation: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Email không đúng định dạng' } },
+                        { name: 'sdt', label: 'Số điện thoại', type: 'tel', validation: { required: true, pattern: /^\d{10,11}$/, message: 'Số điện thoại phải có 10-11 chữ số' } },
+                        { name: 'soCCCD', label: 'Số CCCD', validation: { required: true, pattern: /^\d{12}$/, message: 'Số CCCD phải có đúng 12 chữ số' } },
+                        { name: 'ngaySinh', label: 'Ngày sinh', type: 'date', validation: { required: true } },
+                        { name: 'gioiTinh', label: 'Giới tính', options: ['Nam', 'Nữ'], validation: { required: true } },
+                        { name: 'diaChi', label: 'Địa chỉ', type: 'textarea', validation: { required: true } },
+                        { name: 'trangThaiHoiVien', label: 'Trạng thái', options: ['DANG_HOAT_DONG', 'TAM_NGUNG', 'HET_HAN'], validation: { required: true } }
+                    ]}
+                    onClose={() => {
                         setShow(false);
                         setEditingItem(null);
                         setIsCopying(false);
-                    } catch (error) {
-                        console.error('Error saving member:', error);
-                        alert(`Lỗi khi ${editingItem && !isCopying ? 'cập nhật' : 'tạo'} hội viên: ${error.message || 'Vui lòng thử lại'}`);
-                    }
-                }} 
-            />}
-            {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
-                title="Xác nhận xóa hội viên"
-                message={`Bạn có chắc chắn muốn xóa hội viên "${deleteConfirm.item.hoTen}"? Hành động này không thể hoàn tác.`}
-                type="danger"
-                confirmText="Xóa"
-                cancelText="Hủy"
-                onConfirm={async () => {
-                    try {
-                        console.log('Deleting member:', deleteConfirm.item!._id);
-                        const result = await api.delete(`/api/user/hoivien/${deleteConfirm.item!._id}`);
-                        console.log('Delete response:', result);
-                        
-                        // Remove from local state only after successful deletion
-                        setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
-                        alert('Xóa hội viên thành công!');
-                        
-                    } catch (error) {
-                        console.error('Error deleting member:', error);
-                        alert(`Lỗi khi xóa hội viên: ${error.message || 'Vui lòng thử lại'}`);
-                    }
-                    setDeleteConfirm({ show: false, item: null });
-                }}
-                onCancel={() => setDeleteConfirm({ show: false, item: null })}
-            />}
+                    }}
+                    onSave={async (val) => {
+                        try {
+                            if (editingItem && !isCopying) {
+                                // Cập nhật hội viên hiện tại
+                                console.log('Updating member:', editingItem._id, val);
+                                const updated = await api.put(`/api/user/hoivien/${editingItem._id}`, val);
+                                console.log('Update response:', updated);
+                                if (updated) {
+                                    setRefreshTrigger(prev => prev + 1);
+                                    alert('Cập nhật hội viên thành công!');
+                                }
+                            } else {
+                                const newMember = {
+                                    hoTen: val.hoTen,
+                                    ngaySinh: val.ngaySinh,
+                                    gioiTinh: val.gioiTinh,
+                                    sdt: val.sdt,
+                                    ...(val.email && { email: val.email }),
+                                    ...(val.soCCCD && { soCCCD: val.soCCCD }),
+                                    ...(val.diaChi && { diaChi: val.diaChi }),
+                                    ...(val.anhDaiDien && { anhDaiDien: val.anhDaiDien }),
+                                    ...(val.trangThaiHoiVien && { trangThaiHoiVien: val.trangThaiHoiVien }),
+                                    ngayThamGia: new Date().toISOString(),
+                                    ngayHetHan: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+                                };
+                                console.log('Creating new member:', newMember);
+                                const created = await api.post('/api/user/hoivien', newMember);
+                                console.log('Create response:', created);
+                                if (created && created._id) {
+                                    setRefreshTrigger(prev => prev + 1);
+                                    alert(isCopying ? 'Sao chép hội viên thành công!' : 'Tạo hội viên mới thành công!');
+                                } else {
+                                    throw new Error('Không nhận được dữ liệu hội viên từ server');
+                                }
+                            }
+                            setShow(false);
+                            setEditingItem(null);
+                            setIsCopying(false);
+                        } catch (error) {
+                            console.error('Error saving member:', error);
+                            alert(`Lỗi khi ${editingItem && !isCopying ? 'cập nhật' : 'tạo'} hội viên: ${error.message || 'Vui lòng thử lại'}`);
+                        }
+                    }}
+                />
+            )}
+            {deleteConfirm.show && deleteConfirm.item && (
+                <ConfirmModal
+                    title="Xác nhận xóa hội viên"
+                    message={`Bạn có chắc chắn muốn xóa hội viên "${deleteConfirm.item.hoTen}"? Hành động này không thể hoàn tác.`}
+                    type="danger"
+                    confirmText="Xóa"
+                    cancelText="Hủy"
+                    onConfirm={async () => {
+                        try {
+                            console.log('Deleting member:', deleteConfirm.item!._id);
+                            await api.delete(`/api/user/hoivien/${deleteConfirm.item!._id}`);
+                            setRefreshTrigger(prev => prev + 1);
+                            alert('Xóa hội viên thành công!');
+                        } catch (error) {
+                            console.error('Error deleting member:', error);
+                            alert(`Lỗi khi xóa hội viên: ${error.message || 'Vui lòng thử lại'}`);
+                        }
+                        setDeleteConfirm({ show: false, item: null });
+                    }}
+                    onCancel={() => setDeleteConfirm({ show: false, item: null })}
+                />
+            )}
             {isLoading && <Loading overlay text="Đang tải hội viên..." />}
         </Card>
     );
@@ -835,8 +925,8 @@ const PackagesPage = () => {
                     </Card>
                 ))}
             </div>
-            {(show || editingItem) && <EntityForm 
-                title="Gói tập" 
+            {(show || editingItem) && <EntityForm
+                title="Gói tập"
                 initialData={editingItem || undefined}
                 fields={[
                     { name: 'hinhAnhDaiDien', label: 'Hình ảnh đại diện', type: 'file', validation: { maxSize: 5 } },
@@ -845,8 +935,8 @@ const PackagesPage = () => {
                     { name: 'donGia', label: 'Đơn giá (VNĐ)', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Đơn giá phải là số nguyên dương' } },
                     { name: 'thoiHan', label: 'Thời hạn (ngày)', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Thời hạn phải là số nguyên dương' } },
                     { name: 'kichHoat', label: 'Trạng thái', options: ['true', 'false'], validation: { required: true } }
-                ]} 
-                onClose={() => { setShow(false); setEditingItem(null); }} 
+                ]}
+                onClose={() => { setShow(false); setEditingItem(null); }}
                 onSave={async (val) => {
                     try {
                         const packageData = {
@@ -855,7 +945,7 @@ const PackagesPage = () => {
                             thoiHan: parseInt(val.thoiHan),
                             kichHoat: val.kichHoat === 'true'
                         };
-                        
+
                         if (editingItem) {
                             const updated = await api.put(`/api/goitap/${editingItem._id}`, packageData);
                             setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
@@ -868,7 +958,7 @@ const PackagesPage = () => {
                     }
                     setShow(false);
                     setEditingItem(null);
-                }} 
+                }}
             />}
             {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
                 title="Xác nhận xóa gói tập"
@@ -914,18 +1004,18 @@ const SchedulesPage = () => {
                     api.get('/api/user/hoivien'),
                     api.get('/api/user/pt')
                 ]);
-                
+
                 if (mounted) {
                     // Set members data
                     if (Array.isArray(membersData)) {
                         setMembers(membersData);
                     }
-                    
+
                     // Set PTs data
                     if (Array.isArray(ptsData)) {
                         setPts(ptsData);
                     }
-                    
+
                     // Set schedules data
                     console.log('API response data: ', schedulesData);
                     if (Array.isArray(schedulesData)) {
@@ -978,7 +1068,7 @@ const SchedulesPage = () => {
         const hoiVienName = r.hoiVien && typeof r.hoiVien === 'object' ? r.hoiVien.hoTen || '' : r.hoiVien || '';
         const ptName = typeof r.pt === 'object' ? r.pt?.hoTen || '' : r.pt || '';
         return hoiVienName.toLowerCase().includes(q.toLowerCase()) ||
-               ptName.toLowerCase().includes(q.toLowerCase());
+            ptName.toLowerCase().includes(q.toLowerCase());
     });
 
     return (
@@ -1010,7 +1100,7 @@ const SchedulesPage = () => {
                                         <div>
                                             <div className="user-name">{r.hoiVien.hoTen || 'Chưa có thông tin'}</div>
                                             {r.hoiVien.email && r.hoiVien.email !== 'N/A' && (
-                                                <div className="user-email" style={{fontSize: '12px', color: '#666'}}>{r.hoiVien.email}</div>
+                                                <div className="user-email" style={{ fontSize: '12px', color: '#666' }}>{r.hoiVien.email}</div>
                                             )}
                                         </div>
                                     ) : (
@@ -1022,7 +1112,7 @@ const SchedulesPage = () => {
                                         <div>
                                             <div className="user-name">{r.pt?.hoTen || 'N/A'}</div>
                                             {r.pt?.chuyenMon && r.pt.chuyenMon !== 'N/A' && (
-                                                <div className="user-specialty" style={{fontSize: '12px', color: '#666'}}>{r.pt.chuyenMon}</div>
+                                                <div className="user-specialty" style={{ fontSize: '12px', color: '#666' }}>{r.pt.chuyenMon}</div>
                                             )}
                                         </div>
                                     ) : (
@@ -1057,22 +1147,22 @@ const SchedulesPage = () => {
                     <div className="empty-state-description">Tạo lịch tập đầu tiên cho hội viên của bạn</div>
                 </div>
             )}
-            {(show || editingItem) && <EntityForm 
-                title="Lịch tập" 
+            {(show || editingItem) && <EntityForm
+                title="Lịch tập"
                 initialData={editingItem || undefined}
                 fields={[
-                    { 
-                        name: 'hoiVien', 
-                        label: 'Hội viên', 
+                    {
+                        name: 'hoiVien',
+                        label: 'Hội viên',
                         validation: { required: true },
                         options: members.map(member => ({
                             value: member._id,
                             label: `${member.hoTen} - ${member.email}`
                         }))
                     },
-                    { 
-                        name: 'pt', 
-                        label: 'PT', 
+                    {
+                        name: 'pt',
+                        label: 'PT',
                         validation: { required: true },
                         options: pts.map(pt => ({
                             value: pt._id,
@@ -1081,8 +1171,8 @@ const SchedulesPage = () => {
                     },
                     { name: 'ngayBatDau', label: 'Ngày bắt đầu', type: 'date', validation: { required: true } },
                     { name: 'ngayKetThuc', label: 'Ngày kết thúc', type: 'date', validation: { required: true } }
-                ]} 
-                onClose={() => { setShow(false); setEditingItem(null); }} 
+                ]}
+                onClose={() => { setShow(false); setEditingItem(null); }}
                 onSave={async (val) => {
                     try {
                         if (editingItem && !isCopying) {
@@ -1102,7 +1192,7 @@ const SchedulesPage = () => {
                     setShow(false);
                     setEditingItem(null);
                     setIsCopying(false);
-                }} 
+                }}
             />}
             {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
                 title="Xác nhận xóa lịch tập"
@@ -1203,24 +1293,24 @@ const PTPage = () => {
                                 </span>
                             </td>
                             <td>
-                                    <div className="action-buttons">
-                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
-                                            ✏️ Sửa
-                                        </button>
-                                        <button className="btn-icon btn-copy" onClick={() => { const copyData = { ...r }; delete (copyData as any)._id; setEditingItem(copyData); setIsCopying(true); setShow(true); }}>
-                                            📋 Sao chép
-                                        </button>
-                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
-                                            🗑️ Xóa
-                                        </button>
-                                    </div>
-                                </td>
+                                <div className="action-buttons">
+                                    <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
+                                        ✏️ Sửa
+                                    </button>
+                                    <button className="btn-icon btn-copy" onClick={() => { const copyData = { ...r }; delete (copyData as any)._id; setEditingItem(copyData); setIsCopying(true); setShow(true); }}>
+                                        📋 Sao chép
+                                    </button>
+                                    <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
+                                        🗑️ Xóa
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
                     ))}
                 </tbody>
             </table>
-            {(show || editingItem) && <EntityForm 
-                title="Huấn luyện viên" 
+            {(show || editingItem) && <EntityForm
+                title="Huấn luyện viên"
                 initialData={editingItem || undefined}
                 fields={[
                     { name: 'anhDaiDien', label: 'Ảnh đại diện', type: 'file', validation: { maxSize: 5 } },
@@ -1237,8 +1327,8 @@ const PTPage = () => {
                     { name: 'danhGia', label: 'Đánh giá (1-5)', type: 'number', validation: { pattern: /^[1-5]$/, message: 'Đánh giá phải từ 1 đến 5' } },
                     { name: 'moTa', label: 'Mô tả', type: 'textarea' },
                     { name: 'trangThaiPT', label: 'Trạng thái', options: ['DANG_HOAT_DONG', 'NGUNG_LAM_VIEC'], validation: { required: true } }
-                ]} 
-                onClose={() => { setShow(false); setEditingItem(null); }} 
+                ]}
+                onClose={() => { setShow(false); setEditingItem(null); }}
                 onSave={async (val) => {
                     try {
                         const ptData = {
@@ -1246,7 +1336,7 @@ const PTPage = () => {
                             kinhNghiem: parseInt(val.kinhNghiem) || 0,
                             danhGia: parseFloat(val.danhGia) || 0
                         };
-                        
+
                         if (editingItem) {
                             const updated = await api.put(`/api/user/pt/${editingItem._id}`, ptData);
                             setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
@@ -1259,7 +1349,7 @@ const PTPage = () => {
                     }
                     setShow(false);
                     setEditingItem(null);
-                }} 
+                }}
             />}
             {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
                 title="Xác nhận xóa huấn luyện viên"
@@ -1394,15 +1484,15 @@ const SessionsPage = () => {
                     <div className="empty-state-description">Tạo buổi tập đầu tiên cho hội viên</div>
                 </div>
             )}
-            {(show || editingItem) && <EntityForm 
-                title="Buổi tập" 
+            {(show || editingItem) && <EntityForm
+                title="Buổi tập"
                 initialData={editingItem || undefined}
                 fields={[
                     { name: 'ngayTap', label: 'Ngày tập', type: 'date', validation: { required: true } },
                     { name: 'pt', label: 'PT', validation: { required: true } },
                     { name: 'cacBaiTap', label: 'Các bài tập', type: 'textarea', validation: { required: true } },
                     { name: 'trangThaiTap', label: 'Trạng thái', options: ['DA_HOAN_THANH', 'CHUA_HOAN_THANH'], validation: { required: true } }
-                ]} 
+                ]}
                 onClose={() => { setShow(false); setEditingItem(null); setIsCopying(false); }}
                 onSave={async (val) => {
                     try {
@@ -1421,7 +1511,7 @@ const SessionsPage = () => {
                     setShow(false);
                     setEditingItem(null);
                     setIsCopying(false);
-                }} 
+                }}
             />}
             {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
                 title="Xác nhận xóa buổi tập"
@@ -1504,14 +1594,14 @@ const ExercisesPage = () => {
                 ))}
             </div>
             {rows.length === 0 && !isLoading && (
-                <div style={{padding: '3rem', textAlign: 'center', color: '#64748b'}}>
-                    <div style={{fontSize: '48px', marginBottom: '1rem'}}>&#127942;</div>
-                    <div style={{fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem'}}>Chưa có bài tập nào</div>
-                    <div style={{fontSize: '14px'}}>Thêm bài tập đầu tiên vào thư viện</div>
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '1rem' }}>&#127942;</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem' }}>Chưa có bài tập nào</div>
+                    <div style={{ fontSize: '14px' }}>Thêm bài tập đầu tiên vào thư viện</div>
                 </div>
             )}
-            {(show || editingItem) && <EntityForm 
-                title="Bài tập" 
+            {(show || editingItem) && <EntityForm
+                title="Bài tập"
                 initialData={editingItem || undefined}
                 fields={[
                     { name: 'hinhAnh', label: 'Hình ảnh bài tập', type: 'file', validation: { maxSize: 5 } },
@@ -1520,8 +1610,8 @@ const ExercisesPage = () => {
                     { name: 'nhomCo', label: 'Nhóm cơ', validation: { required: true } },
                     { name: 'videoHuongDan', label: 'Video hướng dẫn (URL)', validation: { pattern: /^https?:\/\/.+/, message: 'URL video không hợp lệ' } },
                     { name: 'hinhAnhMinhHoa', label: 'Hình ảnh minh họa (URL)', validation: { pattern: /^https?:\/\/.+/, message: 'URL hình ảnh không hợp lệ' } }
-                ]} 
-                onClose={() => { setShow(false); setEditingItem(null); }} 
+                ]}
+                onClose={() => { setShow(false); setEditingItem(null); }}
                 onSave={async (val) => {
                     try {
                         if (editingItem) {
@@ -1536,7 +1626,7 @@ const ExercisesPage = () => {
                     }
                     setShow(false);
                     setEditingItem(null);
-                }} 
+                }}
             />}
             {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
                 title="Xác nhận xóa bài tập"
@@ -1630,10 +1720,10 @@ const BodyMetricsPage = () => {
                 </tbody>
             </table>
             {rows.length === 0 && !isLoading && (
-                <div style={{padding: '3rem', textAlign: 'center', color: '#64748b'}}>
-                    <div style={{fontSize: '48px', marginBottom: '1rem'}}>📊</div>
-                    <div style={{fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem'}}>Chưa có dữ liệu chỉ số cơ thể</div>
-                    <div style={{fontSize: '14px'}}>Thêm chỉ số đầu tiên để theo dõi sức khỏe</div>
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '1rem' }}>📊</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem' }}>Chưa có dữ liệu chỉ số cơ thể</div>
+                    <div style={{ fontSize: '14px' }}>Thêm chỉ số đầu tiên để theo dõi sức khỏe</div>
                 </div>
             )}
             {show && <EntityForm title="Chỉ số cơ thể" fields={[
@@ -1712,10 +1802,10 @@ const NutritionPage = () => {
                 </tbody>
             </table>
             {rows.length === 0 && !isLoading && (
-                <div style={{padding: '3rem', textAlign: 'center', color: '#64748b'}}>
-                    <div style={{fontSize: '48px', marginBottom: '1rem'}}>🥗</div>
-                    <div style={{fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem'}}>Chưa có gợi ý dinh dưỡng</div>
-                    <div style={{fontSize: '14px'}}>Tạo gợi ý dinh dưỡng đầu tiên</div>
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '1rem' }}>🥗</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem' }}>Chưa có gợi ý dinh dưỡng</div>
+                    <div style={{ fontSize: '14px' }}>Tạo gợi ý dinh dưỡng đầu tiên</div>
                 </div>
             )}
             {show && <EntityForm title="Dinh dưỡng" fields={[
@@ -1982,7 +2072,7 @@ const NotificationsPage = () => {
             </div>
             <div className="notifications-grid">
                 {rows.length === 0 && !isLoading ? (
-                    <div style={{padding: '2rem', textAlign: 'center', color: '#666'}}>
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
                         Chưa có thông báo nào
                     </div>
                 ) : (
@@ -2062,15 +2152,15 @@ const AISuggestionsPage = () => {
         try {
             const memberData = {
                 age: member.ngaySinh ? new Date().getFullYear() - new Date(member.ngaySinh).getFullYear() : undefined,
-                gender: member.gioiTinh === 'NAM' ? 'Nam' : 'Nữ',
+                gender: member.gioiTinh === 'Nam' ? 'Nam' : 'Nữ',
                 fitnessLevel: 'Người mới bắt đầu',
                 goals: 'Tăng cường sức khỏe tổng quát',
                 availableTime: 60
             };
-            
+
             const suggestion = await geminiAI.generateWorkoutPlan(memberData);
             setAiSuggestion(suggestion);
-            
+
             // Save to database
             const newSuggestion: GoiYTuAI = {
                 _id: `ai_${Date.now()}`,
@@ -2097,16 +2187,16 @@ const AISuggestionsPage = () => {
         try {
             const memberData = {
                 age: member.ngaySinh ? new Date().getFullYear() - new Date(member.ngaySinh).getFullYear() : undefined,
-                gender: member.gioiTinh === 'NAM' ? 'Nam' : 'Nữ',
+                gender: member.gioiTinh === 'Nam' ? 'Nam' : 'Nữ',
                 weight: 70, // Default weight
                 height: 170, // Default height
                 activityLevel: 'Trung bình',
                 goals: 'Duy trì sức khỏe'
             };
-            
+
             const suggestion = await geminiAI.generateNutritionPlan(memberData);
             setNutritionSuggestion(suggestion);
-            
+
             // Save to database
             const newSuggestion: GoiYTuAI = {
                 _id: `ai_nutrition_${Date.now()}`,
@@ -2135,13 +2225,13 @@ const AISuggestionsPage = () => {
                 bmi: 22.5, // Default BMI
                 heartRate: 75, // Default heart rate
                 age: member.ngaySinh ? new Date().getFullYear() - new Date(member.ngaySinh).getFullYear() : undefined,
-                gender: member.gioiTinh === 'NAM' ? 'Nam' : 'Nữ',
+                gender: member.gioiTinh === 'Nam' ? 'Nam' : 'Nữ',
                 activityLevel: 'Trung bình'
             };
-            
+
             const analysis = await geminiAI.generateHealthAnalysis(memberData);
             setHealthAnalysis(analysis);
-            
+
             // Save to database
             const newSuggestion: GoiYTuAI = {
                 _id: `ai_health_${Date.now()}`,
@@ -2180,17 +2270,17 @@ const AISuggestionsPage = () => {
                 </div>
 
                 {/* AI Generation Panel */}
-                <Card className="ai-generation-panel" style={{margin: '20px 0', padding: '20px'}}>
+                <Card className="ai-generation-panel" style={{ margin: '20px 0', padding: '20px' }}>
                     <h3>🤖 Tạo gợi ý AI cho hội viên</h3>
-                    <div style={{display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '15px'}}>
-                        <select 
-                            value={selectedMember?._id || ''} 
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '15px' }}>
+                        <select
+                            value={selectedMember?._id || ''}
                             onChange={(e) => {
                                 const member = members.find(m => m._id === e.target.value);
                                 setSelectedMember(member || null);
                             }}
                             className="input"
-                            style={{minWidth: '200px'}}
+                            style={{ minWidth: '200px' }}
                         >
                             <option value="">Chọn hội viên</option>
                             {members.map(member => (
@@ -2199,22 +2289,22 @@ const AISuggestionsPage = () => {
                                 </option>
                             ))}
                         </select>
-                        <Button 
-                            variant="primary" 
+                        <Button
+                            variant="primary"
                             disabled={!selectedMember || generatingAI}
                             onClick={() => selectedMember && generateWorkoutPlan(selectedMember)}
                         >
                             {generatingAI ? '⏳ Đang tạo...' : '🏋️ Tạo kế hoạch tập luyện'}
                         </Button>
-                        <Button 
-                            variant="secondary" 
+                        <Button
+                            variant="secondary"
                             disabled={!selectedMember || generatingAI}
                             onClick={() => selectedMember && generateNutritionPlan(selectedMember)}
                         >
                             {generatingAI ? '⏳ Đang tạo...' : '🥗 Tạo kế hoạch dinh dưỡng'}
                         </Button>
-                        <Button 
-                            variant="ghost" 
+                        <Button
+                            variant="ghost"
                             disabled={!selectedMember || generatingAI}
                             onClick={() => selectedMember && generateHealthAnalysis(selectedMember)}
                         >
@@ -2222,9 +2312,9 @@ const AISuggestionsPage = () => {
                         </Button>
                     </div>
                     {selectedMember && (
-                        <div className="member-info" style={{padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '5px'}}>
-                            <strong>Hội viên được chọn:</strong> {selectedMember.hoTen} | 
-                            <strong> Giới tính:</strong> {selectedMember.gioiTinh === 'NAM' ? 'Nam' : 'Nữ'} | 
+                        <div className="member-info" style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '5px' }}>
+                            <strong>Hội viên được chọn:</strong> {selectedMember.hoTen} |
+                            <strong> Giới tính:</strong> {selectedMember.gioiTinh === 'Nam' ? 'Nam' : 'Nữ'} |
                             <strong> Email:</strong> {selectedMember.email}
                         </div>
                     )}
@@ -2254,7 +2344,7 @@ const AISuggestionsPage = () => {
                                 </td>
                                 <td>{r.thoiGianTap || 'N/A'}</td>
                                 <td>{new Date(r.ngayGoiY).toLocaleDateString('vi-VN')}</td>
-                                <td style={{maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                                <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     {r.noiDung.length > 100 ? r.noiDung.substring(0, 100) + '...' : r.noiDung}
                                 </td>
                                 <td className="row-actions">
@@ -2272,26 +2362,26 @@ const AISuggestionsPage = () => {
                     { name: 'doKho', label: 'Độ khó', options: ['DE', 'TRUNG_BINH', 'KHO'] },
                     { name: 'thoiGianTap', label: 'Thời gian tập (phút)', type: 'number' },
                     { name: 'noiDung', label: 'Nội dung gợi ý', type: 'textarea' }
-                ]} onClose={() => setShow(false)} onSave={async (val) => { 
-                    setRows([{ 
-                        _id: `ai_${Date.now()}`, 
-                        hoiVien: val.hoiVien || '', 
-                        noiDung: val.noiDung || `Gợi ý cho ${val.mucTieu || 'mục tiêu'}`, 
-                        mucTieu: val.mucTieu || '', 
-                        doKho: val.doKho || 'TRUNG_BINH', 
-                        thoiGianTap: parseInt(val.thoiGianTap) || 0, 
-                        ngayGoiY: new Date(), 
-                        createdAt: new Date(), 
-                        updatedAt: new Date() 
-                    }, ...rows]); 
-                    setShow(false); 
+                ]} onClose={() => setShow(false)} onSave={async (val) => {
+                    setRows([{
+                        _id: `ai_${Date.now()}`,
+                        hoiVien: val.hoiVien || '',
+                        noiDung: val.noiDung || `Gợi ý cho ${val.mucTieu || 'mục tiêu'}`,
+                        mucTieu: val.mucTieu || '',
+                        doKho: val.doKho || 'TRUNG_BINH',
+                        thoiGianTap: parseInt(val.thoiGianTap) || 0,
+                        ngayGoiY: new Date(),
+                        createdAt: new Date(),
+                        updatedAt: new Date()
+                    }, ...rows]);
+                    setShow(false);
                 }} />}
                 {isLoading && <Loading overlay text="Đang tải gợi ý AI..." />}
             </Card>
 
             {/* AI Results Display */}
             {aiSuggestion && (
-                <Card className="ai-result-panel" style={{marginTop: '20px'}}>
+                <Card className="ai-result-panel" style={{ marginTop: '20px' }}>
                     <h3>🏋️ Kế hoạch tập luyện AI</h3>
                     <div><strong>Tên bài tập:</strong> {aiSuggestion.workoutName}</div>
                     <div><strong>Thời gian:</strong> {aiSuggestion.duration}</div>
@@ -2301,7 +2391,7 @@ const AISuggestionsPage = () => {
                     <ul>
                         {aiSuggestion.exercises.map((exercise, index) => (
                             <li key={index}>
-                                <strong>{exercise.name}</strong>: {exercise.sets} sets x {exercise.reps} reps, 
+                                <strong>{exercise.name}</strong>: {exercise.sets} sets x {exercise.reps} reps,
                                 nghỉ {exercise.restTime} - {exercise.description}
                             </li>
                         ))}
@@ -2311,7 +2401,7 @@ const AISuggestionsPage = () => {
             )}
 
             {nutritionSuggestion && (
-                <Card className="ai-result-panel" style={{marginTop: '20px'}}>
+                <Card className="ai-result-panel" style={{ marginTop: '20px' }}>
                     <h3>🥗 Kế hoạch dinh dưỡng AI</h3>
                     <div><strong>Loại bữa ăn:</strong> {nutritionSuggestion.mealType}</div>
                     <div><strong>Tổng calories:</strong> {nutritionSuggestion.totalCalories} kcal</div>
@@ -2319,7 +2409,7 @@ const AISuggestionsPage = () => {
                     <ul>
                         {nutritionSuggestion.foods.map((food, index) => (
                             <li key={index}>
-                                <strong>{food.name}</strong>: {food.quantity} 
+                                <strong>{food.name}</strong>: {food.quantity}
                                 ({food.calories} kcal, Protein: {food.protein}g, Carbs: {food.carbs}g, Fat: {food.fat}g)
                             </li>
                         ))}
@@ -2329,9 +2419,9 @@ const AISuggestionsPage = () => {
             )}
 
             {healthAnalysis && (
-                <Card className="ai-result-panel" style={{marginTop: '20px'}}>
+                <Card className="ai-result-panel" style={{ marginTop: '20px' }}>
                     <h3>📊 Phân tích sức khỏe AI</h3>
-                    <div style={{whiteSpace: 'pre-wrap'}}>{healthAnalysis}</div>
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{healthAnalysis}</div>
                 </Card>
             )}
         </div>

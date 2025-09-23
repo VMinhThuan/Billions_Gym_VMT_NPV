@@ -13,22 +13,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import apiService from '../api/apiService';
 
 const { width } = Dimensions.get('window');
 
 const WorkoutPlansScreen = () => {
     const navigation = useNavigation();
-    const themeContext = useTheme();
-    const colors = themeContext?.colors || {
-        background: '#f5f5f5',
-        surface: '#ffffff',
-        text: '#333333',
-        textSecondary: '#666666',
-        primary: '#DA2128',
-        border: '#eee'
-    };
+    const { colors } = useTheme();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState('all');

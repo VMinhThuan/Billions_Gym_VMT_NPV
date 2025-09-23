@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialIcons } from '@expo/vector-icons';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 
 // Import screens
 import HomeScreen from '../screens/HomeScreen';
@@ -31,8 +31,7 @@ const Tab = createBottomTabNavigator();
 
 // HoiVien Tab Navigator
 const HoiVienTabNavigator = () => {
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
 
     return (
         <Tab.Navigator
@@ -94,8 +93,7 @@ const HoiVienTabNavigator = () => {
 
 // PT Tab Navigator
 const PTTabNavigator = () => {
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
 
     return (
         <Tab.Navigator
@@ -157,8 +155,7 @@ const PTTabNavigator = () => {
 
 // Admin Tab Navigator
 const AdminTabNavigator = () => {
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
 
     return (
         <Tab.Navigator

@@ -2,13 +2,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Keyboard } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 
 const VerifyOTPScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
     const { confirmation } = route.params;
 
     const [otp, setOtp] = useState(['', '', '', '', '', '']);

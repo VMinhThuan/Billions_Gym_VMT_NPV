@@ -10,15 +10,14 @@ import {
     Dimensions
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import apiService from '../api/apiService';
 
 const { width } = Dimensions.get('window');
 
 const AdminDashboardScreen = ({ navigation }) => {
-    const themeContext = useTheme();
-    const colors = themeContext.colors;
+    const { colors } = useTheme();
     const { user } = useAuth();
     const [refreshing, setRefreshing] = useState(false);
     const [dashboardData, setDashboardData] = useState({
@@ -219,12 +218,7 @@ const AdminDashboardScreen = ({ navigation }) => {
     );
 
     return (
-        <ScrollView
-            style={[styles.container, { backgroundColor: colors.background }]}
-            refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-        >
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
             {/* Header */}
             <View style={[styles.header, { backgroundColor: colors.primary }]}>
                 <View>
@@ -238,135 +232,136 @@ const AdminDashboardScreen = ({ navigation }) => {
                     <MaterialIcons name="admin-panel-settings" size={24} color="white" />
                 </TouchableOpacity>
             </View>
-
-            {/* Main Stats */}
-            <View style={styles.statsContainer}>
-                <View style={styles.statsRow}>
-                    {renderStatsCard('Tổng thành viên', dashboardData.totalMembers, 'people', '#4CAF50')}
-                    {renderStatsCard('PT', dashboardData.totalPT, 'fitness-center', '#2196F3')}
+            <ScrollView
+                style={[styles.container, { backgroundColor: colors.background }]}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
+            >
+                {/* Main Stats */}
+                <View style={styles.statsContainer}>
+                    <View style={styles.statsRow}>
+                        {renderStatsCard('Tổng thành viên', dashboardData.totalMembers, 'people', '#4CAF50')}
+                        {renderStatsCard('PT', dashboardData.totalPT, 'fitness-center', '#2196F3')}
+                    </View>
+                    <View style={styles.statsRow}>
+                        {renderStatsCard('Doanh thu tháng', formatCurrency(dashboardData.monthlyRevenue), 'attach-money', '#9C27B0')}
+                        {renderStatsCard('Thành viên mới', dashboardData.newMembersThisMonth, 'person-add', '#FF9800')}
+                    </View>
                 </View>
-                <View style={styles.statsRow}>
-                    {renderStatsCard('Doanh thu tháng', formatCurrency(dashboardData.monthlyRevenue), 'attach-money', '#9C27B0')}
-                    {renderStatsCard('Thành viên mới', dashboardData.newMembersThisMonth, 'person-add', '#FF9800')}
+                {/* Secondary Stats */}
+                <View style={styles.statsContainer}>
+                    <View style={styles.statsRow}>
+                        {renderStatsCard('Lịch hẹn', dashboardData.totalBookings, 'event', '#00BCD4')}
+                        {renderStatsCard('Buổi hoàn thành', dashboardData.completedSessions, 'check-circle', '#8BC34A')}
+                    </View>
                 </View>
-            </View>
-
-            {/* Secondary Stats */}
-            <View style={styles.statsContainer}>
-                <View style={styles.statsRow}>
-                    {renderStatsCard('Lịch hẹn', dashboardData.totalBookings, 'event', '#00BCD4')}
-                    {renderStatsCard('Buổi hoàn thành', dashboardData.completedSessions, 'check-circle', '#8BC34A')}
+                {/* Membership Status */}
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Trạng thái thành viên</Text>
+                    <View style={styles.membershipStats}>
+                        {dashboardData.membershipStats.map((stat, index) => (
+                            <View key={index} style={styles.membershipStatItem}>
+                                <View style={[styles.membershipStatDot, { backgroundColor: stat.color }]} />
+                                <Text style={[styles.membershipStatText, { color: colors.text }]}>
+                                    {stat.name}: {stat.value}
+                                </Text>
+                            </View>
+                        ))}
+                    </View>
                 </View>
-            </View>
-
-            {/* Membership Status */}
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Trạng thái thành viên</Text>
-                <View style={styles.membershipStats}>
-                    {dashboardData.membershipStats.map((stat, index) => (
-                        <View key={index} style={styles.membershipStatItem}>
-                            <View style={[styles.membershipStatDot, { backgroundColor: stat.color }]} />
-                            <Text style={[styles.membershipStatText, { color: colors.text }]}>
-                                {stat.name}: {stat.value}
+                {/* Recent Members */}
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Thành viên mới</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('MemberManagement')}>
+                            <Text style={[styles.seeAllText, { color: colors.primary }]}>Xem tất cả</Text>
+                        </TouchableOpacity>
+                    </View>
+                    {dashboardData.recentMembers.length > 0 ? (
+                        dashboardData.recentMembers.map(renderMemberItem)
+                    ) : (
+                        <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
+                            <MaterialIcons name="people" size={48} color={colors.textSecondary} />
+                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                                Chưa có thành viên mới
                             </Text>
                         </View>
-                    ))}
+                    )}
                 </View>
-            </View>
-
-            {/* Recent Members */}
-            <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Thành viên mới</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('MemberManagement')}>
-                        <Text style={[styles.seeAllText, { color: colors.primary }]}>Xem tất cả</Text>
-                    </TouchableOpacity>
-                </View>
-                {dashboardData.recentMembers.length > 0 ? (
-                    dashboardData.recentMembers.map(renderMemberItem)
-                ) : (
-                    <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
-                        <MaterialIcons name="people" size={48} color={colors.textSecondary} />
-                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            Chưa có thành viên mới
-                        </Text>
+                {/* Top PT */}
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>PT hàng đầu</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('PTManagement')}>
+                            <Text style={[styles.seeAllText, { color: colors.primary }]}>Xem tất cả</Text>
+                        </TouchableOpacity>
                     </View>
-                )}
-            </View>
-
-            {/* Top PT */}
-            <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>PT hàng đầu</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('PTManagement')}>
-                        <Text style={[styles.seeAllText, { color: colors.primary }]}>Xem tất cả</Text>
-                    </TouchableOpacity>
+                    {dashboardData.topPT.length > 0 ? (
+                        dashboardData.topPT.map(renderPTItem)
+                    ) : (
+                        <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
+                            <MaterialIcons name="fitness-center" size={48} color={colors.textSecondary} />
+                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                                Chưa có dữ liệu PT
+                            </Text>
+                        </View>
+                    )}
                 </View>
-                {dashboardData.topPT.length > 0 ? (
-                    dashboardData.topPT.map(renderPTItem)
-                ) : (
-                    <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
-                        <MaterialIcons name="fitness-center" size={48} color={colors.textSecondary} />
-                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            Chưa có dữ liệu PT
-                        </Text>
+                {/* Quick Actions */}
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Quản lý</Text>
+                    <View style={styles.quickActions}>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: colors.primary }]}
+                            onPress={() => navigation.navigate('MemberManagement')}
+                        >
+                            <MaterialIcons name="people" size={24} color="white" />
+                            <Text style={styles.actionText}>Thành viên</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: colors.secondary }]}
+                            onPress={() => navigation.navigate('PTManagement')}
+                        >
+                            <MaterialIcons name="fitness-center" size={24} color="white" />
+                            <Text style={styles.actionText}>PT</Text>
+                        </TouchableOpacity>
                     </View>
-                )}
-            </View>
-
-            {/* Quick Actions */}
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Quản lý</Text>
-                <View style={styles.quickActions}>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: colors.primary }]}
-                        onPress={() => navigation.navigate('MemberManagement')}
-                    >
-                        <MaterialIcons name="people" size={24} color="white" />
-                        <Text style={styles.actionText}>Thành viên</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: colors.secondary }]}
-                        onPress={() => navigation.navigate('PTManagement')}
-                    >
-                        <MaterialIcons name="fitness-center" size={24} color="white" />
-                        <Text style={styles.actionText}>PT</Text>
-                    </TouchableOpacity>
+                    <View style={styles.quickActions}>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: '#FF9800' }]}
+                            onPress={() => navigation.navigate('Reports')}
+                        >
+                            <MaterialIcons name="assessment" size={24} color="white" />
+                            <Text style={styles.actionText}>Báo cáo</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
+                            onPress={() => navigation.navigate('PaymentManagement')}
+                        >
+                            <MaterialIcons name="payment" size={24} color="white" />
+                            <Text style={styles.actionText}>Thanh toán</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.quickActions}>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: '#9C27B0' }]}
+                            onPress={() => navigation.navigate('PackageManagement')}
+                        >
+                            <MaterialIcons name="card-membership" size={24} color="white" />
+                            <Text style={styles.actionText}>Gói tập</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: '#00BCD4' }]}
+                            onPress={() => navigation.navigate('Settings')}
+                        >
+                            <MaterialIcons name="settings" size={24} color="white" />
+                            <Text style={styles.actionText}>Cài đặt</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-                <View style={styles.quickActions}>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: '#FF9800' }]}
-                        onPress={() => navigation.navigate('Reports')}
-                    >
-                        <MaterialIcons name="assessment" size={24} color="white" />
-                        <Text style={styles.actionText}>Báo cáo</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
-                        onPress={() => navigation.navigate('PaymentManagement')}
-                    >
-                        <MaterialIcons name="payment" size={24} color="white" />
-                        <Text style={styles.actionText}>Thanh toán</Text>
-                    </TouchableOpacity>
-                </View>
-                <View style={styles.quickActions}>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: '#9C27B0' }]}
-                        onPress={() => navigation.navigate('PackageManagement')}
-                    >
-                        <MaterialIcons name="card-membership" size={24} color="white" />
-                        <Text style={styles.actionText}>Gói tập</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: '#00BCD4' }]}
-                        onPress={() => navigation.navigate('Settings')}
-                    >
-                        <MaterialIcons name="settings" size={24} color="white" />
-                        <Text style={styles.actionText}>Cài đặt</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </ScrollView>
+            </ScrollView>
+        </View>
     );
 };
 
