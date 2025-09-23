@@ -74,6 +74,17 @@ const getAllHoiVien = async () => {
     return HoiVien.find();
 };
 
+const searchHoiVien = async (query) => {
+    const searchRegex = new RegExp(query, 'i'); // 'i' for case-insensitive
+    return HoiVien.find({
+        $or: [
+            { hoTen: { $regex: searchRegex } },
+            { email: { $regex: searchRegex } },
+            { sdt: { $regex: searchRegex } }
+        ]
+    });
+};
+
 const getHoiVienById = async (id) => {
     return HoiVien.findById(id);
 }
@@ -417,5 +428,6 @@ module.exports = {
     unlockTaiKhoan,
     checkEmailExists,
     checkPhoneExists,
-    getTaiKhoanByPhone
+    getTaiKhoanByPhone,
+    searchHoiVien
 };

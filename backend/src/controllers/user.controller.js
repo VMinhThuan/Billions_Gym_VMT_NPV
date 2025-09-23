@@ -49,7 +49,13 @@ exports.createHoiVien = async (req, res) => {
 
 exports.getAllHoiVien = async (req, res) => {
     try {
-        const hoiViens = await userService.getAllHoiVien();
+        const { q } = req.query;
+        let hoiViens;
+        if (q) {
+            hoiViens = await userService.searchHoiVien(q);
+        } else {
+            hoiViens = await userService.getAllHoiVien();
+        }
         res.json(hoiViens);
     } catch (err) {
         res.status(500).json({ message: 'Lỗi server', error: err.message });

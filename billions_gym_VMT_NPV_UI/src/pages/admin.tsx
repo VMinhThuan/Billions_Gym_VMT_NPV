@@ -295,9 +295,11 @@ const AdminDashboard = () => {
     return (
         <div className="admin-shell">
             <aside className="admin-sidebar">
-                <div className="brand">
-                    <span className="title">BILLIONS</span>
-                    <span className="subTitle">FITNESS & GYM</span>
+                <div className="sidebar-header">
+                    <div className="brand">
+                        <span className="title">BILLIONS</span>
+                        <span className="subTitle">FITNESS & GYM</span>
+                    </div>
                 </div>
                 <nav className="sidebar-nav">
                     <a className={`nav-item ${section === 'overview' ? 'active' : ''}`} href="#/admin">
@@ -409,168 +411,170 @@ const AdminDashboard = () => {
                     </div>
                 </header>
 
-                {section === 'overview' && (
-                    <section className="stats-grid">
-                        {isLoading ? (
-                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px' }}>
-                                <Loading text="Đang tải dữ liệu tổng quan..." />
-                            </div>
-                        ) : (
-                            stats.map((s) => (
-                                <Card key={s.label} variant="elevated" className="stat-card">
-                                    <div className="stat-content">
-                                        <div className="stat-label">{s.label}</div>
-                                        <div className="stat-value">{s.value}</div>
-                                        {s.sub && <div className={`stat-sub ${s.trend ?? ''}`}>{s.sub}</div>}
-                                    </div>
-                                </Card>
-                            ))
-                        )}
-                    </section>
-                )}
+                <div className="admin-content">
+                    {section === 'overview' && (
+                        <section className="stats-grid">
+                            {isLoading ? (
+                                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px' }}>
+                                    <Loading text="Đang tải dữ liệu tổng quan..." />
+                                </div>
+                            ) : (
+                                stats.map((s) => (
+                                    <Card key={s.label} variant="elevated" className="stat-card">
+                                        <div className="stat-content">
+                                            <div className="stat-label">{s.label}</div>
+                                            <div className="stat-value">{s.value}</div>
+                                            {s.sub && <div className={`stat-sub ${s.trend ?? ''}`}>{s.sub}</div>}
+                                        </div>
+                                    </Card>
+                                ))
+                            )}
+                        </section>
+                    )}
 
-                {section === 'overview' && (
-                    <div className="grid-2">
-                        <Card title="Lịch hẹn PT sắp diễn ra" className="panel">
-                            <div className="panel-head">
-                                <a className="link" href="#/admin/appointments">Xem tất cả</a>
-                            </div>
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>Hội viên</th>
-                                        <th>PT</th>
-                                        <th>Thời gian</th>
-                                        <th>Trạng thái</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {recentAppointments.length > 0 ? recentAppointments.map((appointment: any) => (
-                                        <tr key={appointment._id}>
-                                            <td>{appointment.hoiVien || 'N/A'}</td>
-                                            <td>{appointment.pt || 'N/A'}</td>
-                                            <td>{new Date(appointment.ngayHen).toLocaleDateString('vi-VN')} {appointment.gioHen}</td>
-                                            <td>
-                                                <span className={`badge ${appointment.trangThaiLichHen === 'DA_XAC_NHAN' ? 'success' : 'warning'}`}>
-                                                    {appointment.trangThaiLichHen === 'DA_XAC_NHAN' ? 'ĐÃ XÁC NHẬN' : 'CHỜ XÁC NHẬN'}
-                                                </span>
-                                            </td>
-                                            <td className="row-actions">
-                                                <Button variant="ghost" size="small">Sửa</Button>
-                                                <Button variant="ghost" size="small">Hủy</Button>
-                                            </td>
-                                        </tr>
-                                    )) : (
+                    {section === 'overview' && (
+                        <div className="grid-2">
+                            <Card title="Lịch hẹn PT sắp diễn ra" className="panel">
+                                <div className="panel-head">
+                                    <a className="link" href="#/admin/appointments">Xem tất cả</a>
+                                </div>
+                                <table className="table">
+                                    <thead>
                                         <tr>
-                                            <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
-                                                {isLoading ? 'Đang tải...' : 'Chưa có lịch hẹn nào'}
-                                            </td>
+                                            <th>Hội viên</th>
+                                            <th>PT</th>
+                                            <th>Thời gian</th>
+                                            <th>Trạng thái</th>
+                                            <th></th>
                                         </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </Card>
+                                    </thead>
+                                    <tbody>
+                                        {recentAppointments.length > 0 ? recentAppointments.map((appointment: any) => (
+                                            <tr key={appointment._id}>
+                                                <td>{appointment.hoiVien || 'N/A'}</td>
+                                                <td>{appointment.pt || 'N/A'}</td>
+                                                <td>{new Date(appointment.ngayHen).toLocaleDateString('vi-VN')} {appointment.gioHen}</td>
+                                                <td>
+                                                    <span className={`badge ${appointment.trangThaiLichHen === 'DA_XAC_NHAN' ? 'success' : 'warning'}`}>
+                                                        {appointment.trangThaiLichHen === 'DA_XAC_NHAN' ? 'ĐÃ XÁC NHẬN' : 'CHỜ XÁC NHẬN'}
+                                                    </span>
+                                                </td>
+                                                <td className="row-actions">
+                                                    <Button variant="ghost" size="small">Sửa</Button>
+                                                    <Button variant="ghost" size="small">Hủy</Button>
+                                                </td>
+                                            </tr>
+                                        )) : (
+                                            <tr>
+                                                <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                                                    {isLoading ? 'Đang tải...' : 'Chưa có lịch hẹn nào'}
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </Card>
 
-                        <Card title="Thanh toán gần đây" className="panel">
-                            <div className="panel-head">
-                                <a className="link" href="#/admin/payments">Xem tất cả</a>
-                            </div>
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>Hội viên</th>
-                                        <th>Gói tập</th>
-                                        <th>Số tiền</th>
-                                        <th>Phương thức</th>
-                                        <th>Trạng thái</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {recentPayments.length > 0 ? recentPayments.map((payment: any) => (
-                                        <tr key={payment._id}>
-                                            <td>{payment.hoiVien || 'N/A'}</td>
-                                            <td>{payment.noiDung || 'N/A'}</td>
-                                            <td>{payment.soTien ? payment.soTien.toLocaleString('vi-VN') + '₫' : '0₫'}</td>
-                                            <td>{payment.phuongThuc || 'N/A'}</td>
-                                            <td>
-                                                <span className={`badge ${payment.trangThai === 'DA_THANH_TOAN' ? 'success' : 'danger'}`}>
-                                                    {payment.trangThai === 'DA_THANH_TOAN' ? 'ĐÃ THANH TOÁN' : 'CHƯA THANH TOÁN'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    )) : (
+                            <Card title="Thanh toán gần đây" className="panel">
+                                <div className="panel-head">
+                                    <a className="link" href="#/admin/payments">Xem tất cả</a>
+                                </div>
+                                <table className="table">
+                                    <thead>
                                         <tr>
-                                            <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
-                                                {isLoading ? 'Đang tải...' : 'Chưa có thanh toán nào'}
-                                            </td>
+                                            <th>Hội viên</th>
+                                            <th>Gói tập</th>
+                                            <th>Số tiền</th>
+                                            <th>Phương thức</th>
+                                            <th>Trạng thái</th>
                                         </tr>
+                                    </thead>
+                                    <tbody>
+                                        {recentPayments.length > 0 ? recentPayments.map((payment: any) => (
+                                            <tr key={payment._id}>
+                                                <td>{payment.hoiVien || 'N/A'}</td>
+                                                <td>{payment.noiDung || 'N/A'}</td>
+                                                <td>{payment.soTien ? payment.soTien.toLocaleString('vi-VN') + '₫' : '0₫'}</td>
+                                                <td>{payment.phuongThuc || 'N/A'}</td>
+                                                <td>
+                                                    <span className={`badge ${payment.trangThai === 'DA_THANH_TOAN' ? 'success' : 'danger'}`}>
+                                                        {payment.trangThai === 'DA_THANH_TOAN' ? 'ĐÃ THANH TOÁN' : 'CHƯA THANH TOÁN'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        )) : (
+                                            <tr>
+                                                <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                                                    {isLoading ? 'Đang tải...' : 'Chưa có thanh toán nào'}
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </Card>
+                        </div>
+                    )}
+
+                    {section === 'overview' && (
+                        <div className="grid-3">
+                            <Card title="Top PT theo lịch hẹn" className="panel">
+                                <ul className="list">
+                                    {topPTs.length > 0 ? topPTs.map((pt: any) => (
+                                        <li key={pt._id} className="list-row">
+                                            <span>{pt.hoTen || 'N/A'}</span>
+                                            <span className="muted">{pt.appointmentCount || 0} lịch hẹn</span>
+                                        </li>
+                                    )) : (
+                                        <li className="list-row">
+                                            <span style={{ color: '#666' }}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu PT'}</span>
+                                        </li>
                                     )}
-                                </tbody>
-                            </table>
-                        </Card>
-                    </div>
-                )}
+                                </ul>
+                            </Card>
 
-                {section === 'overview' && (
-                    <div className="grid-3">
-                        <Card title="Top PT theo lịch hẹn" className="panel">
-                            <ul className="list">
-                                {topPTs.length > 0 ? topPTs.map((pt: any) => (
-                                    <li key={pt._id} className="list-row">
-                                        <span>{pt.hoTen || 'N/A'}</span>
-                                        <span className="muted">{pt.appointmentCount || 0} lịch hẹn</span>
-                                    </li>
-                                )) : (
+                            <Card title="Tình trạng hội viên" className="panel">
+                                <ul className="list">
+                                    {stats.length > 0 ? [
+                                        ['ĐANG HOẠT ĐỘNG', stats.find(s => s.label === 'Hội viên hoạt động')?.value || '0'],
+                                        ['TẠM NGƯNG', stats.find(s => s.label === 'Hội viên hoạt động')?.sub?.split(' ')[0] || '0'],
+                                        ['TỔNG SỐ', stats.find(s => s.label === 'Tổng hội viên')?.value || '0']
+                                    ].map(([k, v]) => (
+                                        <li key={k} className="list-row">
+                                            <span>{k}</span>
+                                            <span className="muted">{v}</span>
+                                        </li>
+                                    )) : (
+                                        <li className="list-row">
+                                            <span style={{ color: '#666' }}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu'}</span>
+                                        </li>
+                                    )}
+                                </ul>
+                            </Card>
+
+                            <Card title="Thông báo hệ thống" className="panel">
+                                <ul className="list">
                                     <li className="list-row">
-                                        <span style={{ color: '#666' }}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu PT'}</span>
+                                        <span style={{ color: '#666' }}>Chưa có thông báo hệ thống</span>
                                     </li>
-                                )}
-                            </ul>
-                        </Card>
-
-                        <Card title="Tình trạng hội viên" className="panel">
-                            <ul className="list">
-                                {stats.length > 0 ? [
-                                    ['ĐANG HOẠT ĐỘNG', stats.find(s => s.label === 'Hội viên hoạt động')?.value || '0'],
-                                    ['TẠM NGƯNG', stats.find(s => s.label === 'Hội viên hoạt động')?.sub?.split(' ')[0] || '0'],
-                                    ['TỔNG SỐ', stats.find(s => s.label === 'Tổng hội viên')?.value || '0']
-                                ].map(([k, v]) => (
-                                    <li key={k} className="list-row">
-                                        <span>{k}</span>
-                                        <span className="muted">{v}</span>
-                                    </li>
-                                )) : (
-                                    <li className="list-row">
-                                        <span style={{ color: '#666' }}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu'}</span>
-                                    </li>
-                                )}
-                            </ul>
-                        </Card>
-
-                        <Card title="Thông báo hệ thống" className="panel">
-                            <ul className="list">
-                                <li className="list-row">
-                                    <span style={{ color: '#666' }}>Chưa có thông báo hệ thống</span>
-                                </li>
-                            </ul>
-                        </Card>
-                    </div>
-                )}
-                {section === 'members' && <MembersPage />}
-                {section === 'pt' && <PTPage />}
-                {section === 'packages' && <PackagesPage />}
-                {section === 'schedules' && <SchedulesPage />}
-                {section === 'sessions' && <SessionsPage />}
-                {section === 'exercises' && <ExercisesPage />}
-                {section === 'body_metrics' && <BodyMetricsPage />}
-                {section === 'nutrition' && <NutritionPage />}
-                {section === 'payments' && <PaymentsPage />}
-                {section === 'appointments' && <AppointmentsPage />}
-                {section === 'notifications' && <NotificationsPage />}
-                {section === 'feedback' && <FeedbackPage />}
-                {section === 'ai_suggestions' && <AISuggestionsPage />}
-                {section === 'reports' && <ReportsPage />}
+                                </ul>
+                            </Card>
+                        </div>
+                    )}
+                    {section === 'members' && <MembersPage />}
+                    {section === 'pt' && <PTPage />}
+                    {section === 'packages' && <PackagesPage />}
+                    {section === 'schedules' && <SchedulesPage />}
+                    {section === 'sessions' && <SessionsPage />}
+                    {section === 'exercises' && <ExercisesPage />}
+                    {section === 'body_metrics' && <BodyMetricsPage />}
+                    {section === 'nutrition' && <NutritionPage />}
+                    {section === 'payments' && <PaymentsPage />}
+                    {section === 'appointments' && <AppointmentsPage />}
+                    {section === 'notifications' && <NotificationsPage />}
+                    {section === 'feedback' && <FeedbackPage />}
+                    {section === 'ai_suggestions' && <AISuggestionsPage />}
+                    {section === 'reports' && <ReportsPage />}
+                </div>
             </main>
         </div>
     );
@@ -590,6 +594,45 @@ const MembersPage = () => {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
 
+    const handleSearch = async (query: string) => {
+        setIsLoading(true);
+        try {
+            const data = await api.get<HoiVien[]>(`/api/user/hoivien?q=${query}`);
+            if (Array.isArray(data)) {
+                // Lấy thông tin tài khoản cho mỗi hội viên tìm được
+                const membersWithAccounts = await Promise.all(
+                    data.map(async (member: HoiVien) => {
+                        try {
+                            // Lấy thông tin tài khoản dựa trên SDT
+                            console.log(`Fetching account for member ${member._id} with phone: ${member.sdt}`);
+                            const taiKhoanResponse = await api.get(`/api/user/taikhoan/by-phone/${member.sdt}`);
+                            console.log(`Account found for member ${member._id}:`, taiKhoanResponse);
+                            return {
+                                ...member,
+                                taiKhoan: taiKhoanResponse
+                            };
+                        } catch (error) {
+                            console.error(`Error fetching account for member ${member._id} with phone ${member.sdt}:`, error);
+                            // Trả về member với trạng thái mặc định nếu không tìm thấy tài khoản
+                            return {
+                                ...member,
+                                taiKhoan: null // Set null để dễ kiểm tra
+                            };
+                        }
+                    })
+                );
+                setRows(membersWithAccounts);
+            } else {
+                setRows([]);
+            }
+        } catch (e) {
+            console.error('Error searching members:', e);
+            setRows([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // Hàm để tải danh sách hội viên
     const fetchMembers = async () => {
         try {
@@ -601,20 +644,19 @@ const MembersPage = () => {
                     data.map(async (member: HoiVien) => {
                         try {
                             // Lấy thông tin tài khoản dựa trên SDT
+                            console.log(`Fetching account for member ${member._id} with phone: ${member.sdt}`);
                             const taiKhoanResponse = await api.get(`/api/user/taikhoan/by-phone/${member.sdt}`);
+                            console.log(`Account found for member ${member._id}:`, taiKhoanResponse);
                             return {
                                 ...member,
                                 taiKhoan: taiKhoanResponse
                             };
                         } catch (error) {
-                            console.error(`Error fetching account for member ${member._id}:`, error);
+                            console.error(`Error fetching account for member ${member._id} with phone ${member.sdt}:`, error);
                             // Trả về member với trạng thái mặc định nếu không tìm thấy tài khoản
                             return {
                                 ...member,
-                                taiKhoan: {
-                                    _id: null,
-                                    trangThaiTK: 'DANG_HOAT_DONG'
-                                }
+                                taiKhoan: null // Set null để dễ kiểm tra
                             };
                         }
                     })
@@ -639,11 +681,7 @@ const MembersPage = () => {
         return () => { mounted = false; };
     }, [refreshTrigger]);
 
-    const filtered = rows.filter(r =>
-        r.hoTen.toLowerCase().includes(q.toLowerCase()) ||
-        r.sdt.includes(q) ||
-        r.email.toLowerCase().includes(q.toLowerCase())
-    );
+    const filtered = rows; // Remove local filtering as backend handles it
 
     // Hàm để thay đổi trạng thái tài khoản
     const handleChangeAccountStatus = async (memberId: string, newStatus: 'DANG_HOAT_DONG' | 'DA_KHOA') => {
@@ -652,21 +690,24 @@ const MembersPage = () => {
 
             // Tìm hội viên để lấy thông tin tài khoản
             const member = rows.find(r => r._id === memberId);
+            console.log('Member found:', member);
             if (!member) {
                 throw new Error('Không tìm thấy hội viên');
             }
 
-            // Kiểm tra xem có tài khoản không
-            if (!member.taiKhoan || !member.taiKhoan._id) {
-                throw new Error('Hội viên chưa có tài khoản');
+            // Kiểm tra xem có tài khoản không (chỉ cần kiểm tra tồn tại, không cần _id)
+            console.log('Member taiKhoan:', member.taiKhoan);
+            if (!member.taiKhoan) {
+                alert('Hội viên chưa có tài khoản. Vui lòng tạo tài khoản trước khi thay đổi trạng thái.');
+                return;
             }
 
             // Gọi API để khóa/mở khóa tài khoản dựa trên trạng thái
             if (newStatus === 'DA_KHOA') {
-                // Khóa tài khoản - sử dụng ID của hội viên
+                // Khóa tài khoản - sử dụng ID của hội viên (nguoiDungId)
                 await api.put(`/api/user/taikhoan/${memberId}/lock`);
             } else if (newStatus === 'DANG_HOAT_DONG') {
-                // Mở khóa tài khoản - sử dụng ID của hội viên
+                // Mở khóa tài khoản - sử dụng ID của hội viên (nguoiDungId)
                 await api.put(`/api/user/taikhoan/${memberId}/unlock`);
             }
 
@@ -688,7 +729,7 @@ const MembersPage = () => {
             alert('Cập nhật trạng thái tài khoản thành công!');
         } catch (error) {
             console.error('Error changing account status:', error);
-            alert('Có lỗi xảy ra khi cập nhật trạng thái tài khoản!');
+            alert(`Có lỗi xảy ra khi cập nhật trạng thái tài khoản: ${error.message || error}`);
         } finally {
             setIsChangingStatus(null);
         }
@@ -699,76 +740,110 @@ const MembersPage = () => {
             <div className="toolbar">
                 <div className="toolbar-left"><h2>Quản lý hội viên</h2></div>
                 <div className="toolbar-right">
-                    <input className="input" placeholder="Tìm tên/điện thoại/email" value={q} onChange={e => setQ(e.target.value)} />
+                    <input
+                        className="input"
+                        placeholder="Tìm tên/điện thoại/email"
+                        value={q}
+                        onChange={e => setQ(e.target.value)}
+                        onKeyPress={e => {
+                            if (e.key === 'Enter') {
+                                handleSearch(q);
+                            }
+                        }}
+                    />
+                    <Button variant="secondary" onClick={() => handleSearch(q)}>Tìm kiếm</Button>
                     <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
                 </div>
             </div>
-            <table className="table">
-                <thead>
-                    <tr>
-                        <th>Họ tên</th>
-                        <th>Email</th>
-                        <th>SĐT</th>
-                        <th>Giới tính</th>
-                        <th>Ngày sinh</th>
-                        <th>Ngày tham gia</th>
-                        <th>Trạng thái</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {filtered.map(r => (
-                        <tr key={r._id}>
-                            <td>
-                                <div className="user-info">
-                                    <img src={r.anhDaiDien} alt={r.hoTen} className="user-avatar" />
-                                    <div>
-                                        <div className="user-name">{r.hoTen}</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>{r.email}</td>
-                            <td>{r.sdt}</td>
-                            <td>{r.gioiTinh === 'Nam' ? 'Nam' : 'Nữ'}</td>
-                            <td>{r.ngaySinh ? new Date(r.ngaySinh).toLocaleDateString('vi-VN') : 'N/A'}</td>
-                            <td>{r.ngayThamGia ? new Date(r.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'}</td>
-                            <td>
-                                <span className={`badge ${!r.taiKhoan?._id ? 'warning' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'success' : 'danger'}`}>
-                                    {!r.taiKhoan?._id ? 'CHƯA CÓ TÀI KHOẢN' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' : 'ĐÃ KHÓA'}
-                                </span>
-                            </td>
-                            <td>
-                                <div className="action-buttons">
-                                    <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
-                                        ✏️ Sửa
-                                    </button>
-                                    <button
-                                        className="status-select"
-                                        onClick={() => {
-                                            const currentStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
-                                            const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
-                                            handleChangeAccountStatus(r._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
-                                        }}
-                                        disabled={isChangingStatus === r._id || !r.taiKhoan?._id}
-                                        style={{
-                                            background: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' :
-                                                'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                            boxShadow: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '0 2px 8px rgba(239, 68, 68, 0.3)' :
-                                                '0 2px 8px rgba(16, 185, 129, 0.3)',
-                                            opacity: !r.taiKhoan?._id ? 0.5 : 1
-                                        }}
-                                    >
-                                        {r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '🔒 Vô hiệu hóa' : '🔓 Kích hoạt'}
-                                    </button>
-                                    <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
-                                        🗑️ Xóa
-                                    </button>
-                                </div>
-                            </td>
+            <div className="table-container">
+                <button
+                    className="table-nav table-nav-left"
+                    onClick={() => {
+                        const container = document.querySelector('.table-container');
+                        if (container) {
+                            container.scrollBy({ left: -200, behavior: 'smooth' });
+                        }
+                    }}
+                >
+                    ‹
+                </button>
+                <button
+                    className="table-nav table-nav-right"
+                    onClick={() => {
+                        const container = document.querySelector('.table-container');
+                        if (container) {
+                            container.scrollBy({ left: 200, behavior: 'smooth' });
+                        }
+                    }}
+                >
+                    ›
+                </button>
+                <table className="table">
+                    <thead>
+                        <tr>
+                            <th>Họ tên</th>
+                            <th>Email</th>
+                            <th>SĐT</th>
+                            <th>Giới tính</th>
+                            <th>Ngày sinh</th>
+                            <th>Ngày tham gia</th>
+                            <th>Trạng thái</th>
+                            <th>Hành động</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {filtered.map(r => (
+                            <tr key={r._id}>
+                                <td>
+                                    <div className="user-info">
+                                        <div>
+                                            <div className="user-name">{r.hoTen}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{r.email}</td>
+                                <td>{r.sdt}</td>
+                                <td>{r.gioiTinh === 'Nam' ? 'Nam' : 'Nữ'}</td>
+                                <td>{r.ngaySinh ? new Date(r.ngaySinh).toLocaleDateString('vi-VN') : 'N/A'}</td>
+                                <td>{r.ngayThamGia ? new Date(r.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'}</td>
+                                <td>
+                                    <span className={`badge ${!r.taiKhoan?._id ? 'warning' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'success' : 'danger'}`}>
+                                        {!r.taiKhoan?._id ? 'CHƯA CÓ TÀI KHOẢN' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' : 'ĐÃ KHÓA'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div className="action-buttons">
+                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
+                                            ✏️ Sửa
+                                        </button>
+                                        <button
+                                            className="status-select"
+                                            onClick={() => {
+                                                const currentStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
+                                                const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
+                                                handleChangeAccountStatus(r._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
+                                            }}
+                                            disabled={isChangingStatus === r._id || !r.taiKhoan?._id}
+                                            style={{
+                                                background: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' :
+                                                    'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                boxShadow: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '0 2px 8px rgba(239, 68, 68, 0.3)' :
+                                                    '0 2px 8px rgba(16, 185, 129, 0.3)',
+                                                opacity: !r.taiKhoan?._id ? 0.5 : 1
+                                            }}
+                                        >
+                                            {r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '🔒 Vô hiệu hóa' : '🔓 Kích hoạt'}
+                                        </button>
+                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
+                                            🗑️ Xóa
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
             {(show || editingItem) && (
                 <EntityForm
                     title="Hội viên"
@@ -782,7 +857,7 @@ const MembersPage = () => {
                         { name: 'ngaySinh', label: 'Ngày sinh', type: 'date', validation: { required: true } },
                         { name: 'gioiTinh', label: 'Giới tính', options: ['Nam', 'Nữ'], validation: { required: true } },
                         { name: 'diaChi', label: 'Địa chỉ', type: 'textarea', validation: { required: true } },
-                        { name: 'trangThaiHoiVien', label: 'Trạng thái', options: ['DANG_HOAT_DONG', 'TAM_NGUNG', 'HET_HAN'], validation: { required: true } }
+                        ...(editingItem ? [{ name: 'trangThaiHoiVien', label: 'Trạng thái', options: ['DANG_HOAT_DONG', 'TAM_NGUNG', 'HET_HAN'], validation: { required: true } }] : [])
                     ]}
                     onClose={() => {
                         setShow(false);
@@ -791,10 +866,30 @@ const MembersPage = () => {
                     }}
                     onSave={async (val) => {
                         try {
+                            // Optimize data before sending
+                            const optimizedVal = { ...val };
+
+                            // Remove empty fields to reduce payload size
+                            Object.keys(optimizedVal).forEach(key => {
+                                if (optimizedVal[key] === '' || optimizedVal[key] === null || optimizedVal[key] === undefined) {
+                                    delete optimizedVal[key];
+                                }
+                            });
+
+                            // Compress image data if it's too large
+                            if (optimizedVal.anhDaiDien && optimizedVal.anhDaiDien.length > 1000000) { // > 1MB
+                                console.warn('Image data is large, consider compressing before upload');
+                                // Show warning to user
+                                const shouldContinue = confirm('Ảnh đại diện có kích thước lớn (>1MB). Bạn có muốn tiếp tục không? Hệ thống sẽ tự động nén ảnh.');
+                                if (!shouldContinue) {
+                                    return;
+                                }
+                            }
+
                             if (editingItem && !isCopying) {
                                 // Cập nhật hội viên hiện tại
-                                console.log('Updating member:', editingItem._id, val);
-                                const updated = await api.put(`/api/user/hoivien/${editingItem._id}`, val);
+                                console.log('Updating member:', editingItem._id, optimizedVal);
+                                const updated = await api.put(`/api/user/hoivien/${editingItem._id}`, optimizedVal);
                                 console.log('Update response:', updated);
                                 if (updated) {
                                     setRefreshTrigger(prev => prev + 1);
@@ -810,7 +905,7 @@ const MembersPage = () => {
                                     ...(val.soCCCD && { soCCCD: val.soCCCD }),
                                     ...(val.diaChi && { diaChi: val.diaChi }),
                                     ...(val.anhDaiDien && { anhDaiDien: val.anhDaiDien }),
-                                    ...(val.trangThaiHoiVien && { trangThaiHoiVien: val.trangThaiHoiVien }),
+                                    trangThaiHoiVien: 'DANG_HOAT_DONG', // Mặc định là đang hoạt động
                                     ngayThamGia: new Date().toISOString(),
                                     ngayHetHan: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
                                 };
@@ -829,7 +924,15 @@ const MembersPage = () => {
                             setIsCopying(false);
                         } catch (error) {
                             console.error('Error saving member:', error);
-                            alert(`Lỗi khi ${editingItem && !isCopying ? 'cập nhật' : 'tạo'} hội viên: ${error.message || 'Vui lòng thử lại'}`);
+
+                            // Handle specific error types
+                            if (error.message && error.message.includes('413')) {
+                                alert('Lỗi: Dữ liệu quá lớn. Vui lòng giảm kích thước ảnh đại diện hoặc thử lại.');
+                            } else if (error.message && error.message.includes('PayloadTooLargeError')) {
+                                alert('Lỗi: Kích thước dữ liệu vượt quá giới hạn. Vui lòng chọn ảnh nhỏ hơn.');
+                            } else {
+                                alert(`Lỗi khi ${editingItem && !isCopying ? 'cập nhật' : 'tạo'} hội viên: ${error.message || 'Vui lòng thử lại'}`);
+                            }
                         }
                     }}
                 />
@@ -924,6 +1027,7 @@ const PackagesPage = () => {
                         </div>
                     </Card>
                 ))}
+
             </div>
             {(show || editingItem) && <EntityForm
                 title="Gói tập"
@@ -1140,13 +1244,6 @@ const SchedulesPage = () => {
                     </tbody>
                 </table>
             </div>
-            {rows.length === 0 && !isLoading && (
-                <div className="empty-state">
-                    <div className="empty-state-icon">📅</div>
-                    <div className="empty-state-title">Chưa có lịch tập nào</div>
-                    <div className="empty-state-description">Tạo lịch tập đầu tiên cho hội viên của bạn</div>
-                </div>
-            )}
             {(show || editingItem) && <EntityForm
                 title="Lịch tập"
                 initialData={editingItem || undefined}
@@ -1256,59 +1353,83 @@ const PTPage = () => {
                     <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
                 </div>
             </div>
-            <table className="table">
-                <thead>
-                    <tr>
-                        <th>Huấn luyện viên</th>
-                        <th>Chuyên môn</th>
-                        <th>Kinh nghiệm</th>
-                        <th>Đánh giá</th>
-                        <th>Trạng thái</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {filtered.map(r => (
-                        <tr key={r._id}>
-                            <td>
-                                <div className="user-info">
-                                    <img src={r.anhDaiDien} alt={r.hoTen} className="user-avatar" />
-                                    <div>
-                                        <div className="user-name">{r.hoTen}</div>
-                                        <div className="user-id">{r.bangCapChungChi}</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>{r.chuyenMon}</td>
-                            <td>{r.kinhNghiem} năm</td>
-                            <td>
-                                <div className="rating">
-                                    <span className="stars">{'★'.repeat(Math.floor(r.danhGia || 0))}</span>
-                                    <span className="rating-value">{r.danhGia ? r.danhGia.toFixed(1) : '0.0'}</span>
-                                </div>
-                            </td>
-                            <td>
-                                <span className={`badge ${r.trangThaiPT === 'DANG_HOAT_DONG' ? 'success' : 'danger'}`}>
-                                    {r.trangThaiPT === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' : 'NGỪNG LÀM VIỆC'}
-                                </span>
-                            </td>
-                            <td>
-                                <div className="action-buttons">
-                                    <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
-                                        ✏️ Sửa
-                                    </button>
-                                    <button className="btn-icon btn-copy" onClick={() => { const copyData = { ...r }; delete (copyData as any)._id; setEditingItem(copyData); setIsCopying(true); setShow(true); }}>
-                                        📋 Sao chép
-                                    </button>
-                                    <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
-                                        🗑️ Xóa
-                                    </button>
-                                </div>
-                            </td>
+            <div className="table-container">
+                <button
+                    className="table-nav table-nav-left"
+                    onClick={() => {
+                        const container = document.querySelector('.table-container');
+                        if (container) {
+                            container.scrollBy({ left: -200, behavior: 'smooth' });
+                        }
+                    }}
+                >
+                    ‹
+                </button>
+                <button
+                    className="table-nav table-nav-right"
+                    onClick={() => {
+                        const container = document.querySelector('.table-container');
+                        if (container) {
+                            container.scrollBy({ left: 200, behavior: 'smooth' });
+                        }
+                    }}
+                >
+                    ›
+                </button>
+                <table className="table">
+                    <thead>
+                        <tr>
+                            <th>Huấn luyện viên</th>
+                            <th>Chuyên môn</th>
+                            <th>Kinh nghiệm</th>
+                            <th>Đánh giá</th>
+                            <th>Trạng thái</th>
+                            <th></th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {filtered.map(r => (
+                            <tr key={r._id}>
+                                <td>
+                                    <div className="user-info">
+                                        <img src={r.anhDaiDien} alt={r.hoTen} className="user-avatar" />
+                                        <div>
+                                            <div className="user-name">{r.hoTen}</div>
+                                            <div className="user-id">{r.bangCapChungChi}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{r.chuyenMon}</td>
+                                <td>{r.kinhNghiem} năm</td>
+                                <td>
+                                    <div className="rating">
+                                        <span className="stars">{'★'.repeat(Math.floor(r.danhGia || 0))}</span>
+                                        <span className="rating-value">{r.danhGia ? r.danhGia.toFixed(1) : '0.0'}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span className={`badge ${r.trangThaiPT === 'DANG_HOAT_DONG' ? 'success' : 'danger'}`}>
+                                        {r.trangThaiPT === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' : 'NGỪNG LÀM VIỆC'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div className="action-buttons">
+                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
+                                            ✏️ Sửa
+                                        </button>
+                                        <button className="btn-icon btn-copy" onClick={() => { const copyData = { ...r }; delete (copyData as any)._id; setEditingItem(copyData); setIsCopying(true); setShow(true); }}>
+                                            📋 Sao chép
+                                        </button>
+                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
+                                            🗑️ Xóa
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
             {(show || editingItem) && <EntityForm
                 title="Huấn luyện viên"
                 initialData={editingItem || undefined}
@@ -1479,9 +1600,9 @@ const SessionsPage = () => {
             </div>
             {rows.length === 0 && !isLoading && (
                 <div className="empty-state">
-                    <div className="empty-state-icon">💪</div>
-                    <div className="empty-state-title">Chưa có buổi tập nào</div>
-                    <div className="empty-state-description">Tạo buổi tập đầu tiên cho hội viên</div>
+                    <div className="empty-state-icon">📅</div>
+                    <div className="empty-state-title">Chưa có lịch tập nào</div>
+                    <div className="empty-state-description">Tạo lịch tập đầu tiên cho hội viên của bạn</div>
                 </div>
             )}
             {(show || editingItem) && <EntityForm
@@ -1592,14 +1713,8 @@ const ExercisesPage = () => {
                         </div>
                     </Card>
                 ))}
+
             </div>
-            {rows.length === 0 && !isLoading && (
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '1rem' }}>&#127942;</div>
-                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem' }}>Chưa có bài tập nào</div>
-                    <div style={{ fontSize: '14px' }}>Thêm bài tập đầu tiên vào thư viện</div>
-                </div>
-            )}
             {(show || editingItem) && <EntityForm
                 title="Bài tập"
                 initialData={editingItem || undefined}
@@ -1650,7 +1765,7 @@ const ExercisesPage = () => {
     );
 };
 
-// ... rest of the code remains the same ...
+// BodyMetrics Page
 const BodyMetricsPage = () => {
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
@@ -1717,6 +1832,7 @@ const BodyMetricsPage = () => {
                             </td>
                         </tr>
                     ))}
+
                 </tbody>
             </table>
             {rows.length === 0 && !isLoading && (
@@ -1799,6 +1915,7 @@ const NutritionPage = () => {
                             </td>
                         </tr>
                     ))}
+
                 </tbody>
             </table>
             {rows.length === 0 && !isLoading && (
@@ -1873,6 +1990,7 @@ const PaymentsPage = () => {
                             </td>
                         </tr>
                     ))}
+
                 </tbody>
             </table>
             {isLoading && <Loading overlay text="Đang tải thanh toán..." />}
@@ -1942,6 +2060,7 @@ const FeedbackPage = () => {
                                 <button className="btn btn-danger" onClick={() => setRows(rows.filter(x => x.id !== r.id))}>🗑️ Xóa</button>
                             </td></tr>
                     ))}
+
                 </tbody>
             </table>
             {show && <EntityForm title="Feedback" fields={[
@@ -2376,7 +2495,6 @@ const AISuggestionsPage = () => {
                     }, ...rows]);
                     setShow(false);
                 }} />}
-                {isLoading && <Loading overlay text="Đang tải gợi ý AI..." />}
             </Card>
 
             {/* AI Results Display */}

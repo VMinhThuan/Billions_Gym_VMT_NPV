@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import Button from './Button';
 import Card from './Card';
 import { api } from '../services/api';
@@ -54,11 +55,11 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
         if (field.validation?.required && (!value || value.toString().trim() === '')) {
             return `${field.label} là bắt buộc`;
         }
-        
+
         if (field.validation?.pattern && value && !field.validation.pattern.test(value)) {
             return field.validation.message || `${field.label} không đúng định dạng`;
         }
-        
+
         return null;
     };
 
@@ -68,9 +69,9 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                 api.get('/api/user/hoivien'),
                 api.get('/api/user/pt')
             ]);
-            
+
             const allUsers = [...(Array.isArray(members) ? members : []), ...(Array.isArray(pts) ? pts : [])];
-            return allUsers.some(user => 
+            return allUsers.some(user =>
                 user.email === email && (!currentId || user._id !== currentId)
             );
         } catch (error) {
@@ -85,9 +86,9 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                 api.get('/api/user/hoivien'),
                 api.get('/api/user/pt')
             ]);
-            
+
             const allUsers = [...(Array.isArray(members) ? members : []), ...(Array.isArray(pts) ? pts : [])];
-            return allUsers.some(user => 
+            return allUsers.some(user =>
                 user.sdt === sdt && (!currentId || user._id !== currentId)
             );
         } catch (error) {
@@ -98,16 +99,16 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         // Validate all fields
         const newErrors: Record<string, string> = {};
-        
+
         for (const field of fields) {
             const error = validateField(field, formData[field.name]);
             if (error) {
                 newErrors[field.name] = error;
             }
-            
+
             // Check for duplicate email/phone
             if (field.name === 'email' && formData[field.name]) {
                 const isDuplicate = await checkDuplicateEmail(formData[field.name], initialData?._id);
@@ -115,7 +116,7 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                     newErrors[field.name] = 'Email đã tồn tại trong hệ thống';
                 }
             }
-            
+
             if (field.name === 'sdt' && formData[field.name]) {
                 const isDuplicate = await checkDuplicatePhone(formData[field.name], initialData?._id);
                 if (isDuplicate) {
@@ -123,9 +124,9 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                 }
             }
         }
-        
+
         setErrors(newErrors);
-        
+
         // Only submit if no errors
         if (Object.keys(newErrors).length === 0) {
             onSave(formData);
@@ -134,40 +135,79 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
 
     const handleChange = (name: string, value: any) => {
         setFormData(prev => ({ ...prev, [name]: value }));
-        
+
         // Clear error for this field when user starts typing
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }));
         }
     };
 
-    const handleFileChange = (name: string, file: File | null) => {
+    const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.8): Promise<string> => {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+
+            img.onload = () => {
+                // Calculate new dimensions
+                let { width, height } = img;
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                // Draw and compress
+                ctx?.drawImage(img, 0, 0, width, height);
+                const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                resolve(compressedDataUrl);
+            };
+
+            img.src = URL.createObjectURL(file);
+        });
+    };
+
+    const handleFileChange = async (name: string, file: File | null) => {
         if (!file) return;
-        
+
         const field = fields.find(f => f.name === name);
         const maxSize = field?.validation?.maxSize || 5; // Default 5MB
-        
+
         if (file.size > maxSize * 1024 * 1024) {
             setErrors(prev => ({ ...prev, [name]: `Kích thước file không được vượt quá ${maxSize}MB` }));
             return;
         }
-        
-        // Create preview URL
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const result = e.target?.result as string;
-            setPreviewImage(result);
-            setFormData(prev => ({ ...prev, [name]: result }));
-        };
-        reader.readAsDataURL(file);
-        
-        // Clear any existing error
-        if (errors[name]) {
-            setErrors(prev => ({ ...prev, [name]: '' }));
+
+        try {
+            // Compress image if it's an image file
+            if (file.type.startsWith('image/')) {
+                const compressedImage = await compressImage(file, 800, 0.8);
+                setPreviewImage(compressedImage);
+                setFormData(prev => ({ ...prev, [name]: compressedImage }));
+            } else {
+                // For non-image files, use original method
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const result = e.target?.result as string;
+                    setPreviewImage(result);
+                    setFormData(prev => ({ ...prev, [name]: result }));
+                };
+                reader.readAsDataURL(file);
+            }
+
+            // Clear any existing error
+            if (errors[name]) {
+                setErrors(prev => ({ ...prev, [name]: '' }));
+            }
+        } catch (error) {
+            console.error('Error processing file:', error);
+            setErrors(prev => ({ ...prev, [name]: 'Lỗi khi xử lý file' }));
         }
     };
 
-    return (
+    const modalContent = (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e?.stopPropagation()}>
                 <div className="modal-header">
@@ -177,11 +217,11 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                     </div>
                     <button className="modal-close-btn" onClick={onClose}>
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                         </svg>
                     </button>
                 </div>
-                
+
                 <form onSubmit={handleSubmit} className="entity-form">
                     <div className="form-grid">
                         {fields.map(field => (
@@ -198,12 +238,12 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                                         />
                                         <label htmlFor={`file-${field.name}`} className="file-upload-label">
                                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                             </svg>
-                                            <span>Chọn ảnh</span>
+                                            <span>Chọn ảnh (sẽ tự động nén)</span>
                                         </label>
                                         {field.validation?.maxSize && (
-                                            <p className="file-size-hint">Tối đa {field.validation.maxSize}MB</p>
+                                            <p className="file-size-hint">Tối đa {field.validation.maxSize}MB (ảnh sẽ được nén tự động)</p>
                                         )}
                                         {previewImage && (
                                             <div className="image-preview">
@@ -259,17 +299,17 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                             </div>
                         ))}
                     </div>
-                    
+
                     <div className="form-actions">
                         <Button type="button" variant="ghost" onClick={onClose}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                             </svg>
                             Hủy
                         </Button>
                         <Button type="submit" variant="primary">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                             {initialData ? 'Cập nhật' : 'Tạo mới'}
                         </Button>
@@ -278,25 +318,28 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
             </div>
         </div>
     );
+
+    const modalRoot = document.getElementById('modal-root');
+    return modalRoot ? ReactDOM.createPortal(modalContent, modalRoot) : null;
 };
 
 const ConfirmModal = ({ title, message, onConfirm, onCancel, confirmText = 'Xác nhận', cancelText = 'Hủy', type = 'danger' }: ConfirmModalProps) => {
-    return (
+    const modalContent = (
         <div className="modal-overlay" onClick={onCancel}>
             <div className="confirm-modal-content" onClick={(e) => e?.stopPropagation()}>
                 <div className="confirm-modal-header">
                     <div className={`confirm-modal-icon ${type}`}>
                         {type === 'danger' ? (
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                         ) : type === 'warning' ? (
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                <path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                         ) : (
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                <path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                         )}
                     </div>
@@ -305,7 +348,7 @@ const ConfirmModal = ({ title, message, onConfirm, onCancel, confirmText = 'Xác
                         <p className="confirm-modal-message">{message}</p>
                     </div>
                 </div>
-                
+
                 <div className="confirm-modal-actions">
                     <Button type="button" variant="ghost" onClick={onCancel}>
                         {cancelText}
@@ -317,6 +360,9 @@ const ConfirmModal = ({ title, message, onConfirm, onCancel, confirmText = 'Xác
             </div>
         </div>
     );
+
+    const modalRoot = document.getElementById('modal-root');
+    return modalRoot ? ReactDOM.createPortal(modalContent, modalRoot) : null;
 };
 
 export default EntityForm;

@@ -30,16 +30,16 @@ async function request<T>(path: string, options: { method?: HttpMethod; body?: a
             url.searchParams.set(k, String(v));
         }
     }
-    
+
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
     };
-    
+
     // Add authorization header if token exists and auth is required
     if (requireAuth && authToken) {
         headers['Authorization'] = `Bearer ${authToken}`;
     }
-    
+
     const res = await fetch(url.toString(), {
         method,
         headers,
@@ -47,17 +47,23 @@ async function request<T>(path: string, options: { method?: HttpMethod; body?: a
         credentials: 'include',
         mode: 'cors',
     });
-    
+
     if (!res.ok) {
         if (res.status === 401) {
             // Clear invalid token
             auth.clearToken();
             throw new Error('Unauthorized - please login again');
         }
+
+        // Handle specific error cases
+        if (res.status === 413) {
+            throw new Error('Payload too large - please reduce image size or try again');
+        }
+
         const text = await res.text().catch(() => '');
         throw new Error(`API ${method} ${url.pathname} failed: ${res.status} ${text}`);
     }
-    
+
     const contentType = res.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
         return (await res.json()) as T;
@@ -67,15 +73,15 @@ async function request<T>(path: string, options: { method?: HttpMethod; body?: a
 }
 
 export const api = {
-    get: <T = any>(path: string, query?: Record<string, any>, requireAuth = true) => 
+    get: <T = any>(path: string, query?: Record<string, any>, requireAuth = true) =>
         request<T>(path, { method: 'GET', query, requireAuth }),
-    post: <T = any>(path: string, body?: any, requireAuth = true) => 
+    post: <T = any>(path: string, body?: any, requireAuth = true) =>
         request<T>(path, { method: 'POST', body, requireAuth }),
-    put: <T = any>(path: string, body?: any, requireAuth = true) => 
+    put: <T = any>(path: string, body?: any, requireAuth = true) =>
         request<T>(path, { method: 'PUT', body, requireAuth }),
-    delete: <T = any>(path: string, requireAuth = true) => 
+    delete: <T = any>(path: string, requireAuth = true) =>
         request<T>(path, { method: 'DELETE', requireAuth }),
-    
+
     // Authentication endpoints
     login: async (credentials: { email?: string; sdt?: string; matKhau: string }) => {
         const response = await request<{ token: string; user: any }>('/api/auth/login', {
@@ -88,7 +94,7 @@ export const api = {
         }
         return response;
     },
-    
+
     logout: () => {
         auth.clearToken();
     }
@@ -97,7 +103,7 @@ export const api = {
 // Backend API endpoints (matching Billions_Gym_VMT_NPV backend):
 // - Authentication:              POST /api/auth/login
 // - Members (HoiVien):           GET /api/user/hoivien
-// - PT:                          GET /api/user/pt  
+// - PT:                          GET /api/user/pt
 // - Packages (GoiTap):           GET /api/goitap
 // - Package Registration:        POST /api/chitietgoitap/dangky
 // - Schedules (LichTap):         GET /api/lichtap
