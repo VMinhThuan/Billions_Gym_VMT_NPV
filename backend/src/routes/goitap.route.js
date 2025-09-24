@@ -5,10 +5,15 @@ const auth = require('../middlewares/auth.middleware');
 const authorize = require('../middlewares/role.middleware');
 
 const admin = ['OngChu'];
-const allUsers = ['HoiVien', 'PT', 'OngChu'];
 
 // Lấy tất cả gói tập
 router.get('/', goiTapController.getAllGoiTap);
+
+// Lấy gói tháng
+router.get('/monthly', goiTapController.getMonthlyPackages);
+
+// Lấy gói theo đơn vị thời gian
+router.get('/time-unit/:donViThoiHan', goiTapController.getPackagesByTimeUnit);
 
 // Lấy chi tiết gói tập theo ID
 router.get('/:id', goiTapController.getGoiTapById);

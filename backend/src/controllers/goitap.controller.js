@@ -50,3 +50,24 @@ exports.deleteGoiTap = async (req, res) => {
         res.status(400).json({ message: 'Xóa thất bại', error: err.message });
     }
 };
+
+// Get monthly packages only
+exports.getMonthlyPackages = async (req, res) => {
+    try {
+        const monthlyPackages = await goiTapService.getMonthlyPackages();
+        res.json(monthlyPackages);
+    } catch (err) {
+        res.status(500).json({ message: 'Lỗi server', error: err.message });
+    }
+};
+
+// Get packages by time unit
+exports.getPackagesByTimeUnit = async (req, res) => {
+    try {
+        const { donViThoiHan } = req.params;
+        const packages = await goiTapService.getPackagesByTimeUnit(donViThoiHan);
+        res.json(packages);
+    } catch (err) {
+        res.status(500).json({ message: 'Lỗi server', error: err.message });
+    }
+};

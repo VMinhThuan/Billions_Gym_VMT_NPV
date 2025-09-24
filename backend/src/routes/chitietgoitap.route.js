@@ -15,8 +15,14 @@ router.post('/dangky', auth, authorize(hoiVien), chiTietGoiTapController.dangkyG
 // Lấy danh sách đăng ký gói tập 
 router.get('/', auth, authorize(ptAndAdmin), chiTietGoiTapController.getAllChiTietGoiTap);
 
+// Lấy thống kê đăng ký gói tập
+router.get('/stats', auth, authorize(admin), chiTietGoiTapController.getStats);
+
 // Lấy thông tin đăng ký gói tập của hội viên
 router.get('/hoivien/:maHoiVien', auth, chiTietGoiTapController.getChiTietGoiTapByHoiVien);
+
+// Kiểm tra khả năng chỉnh sửa
+router.get('/:id/can-edit', auth, chiTietGoiTapController.checkEditPermission);
 
 // Cập nhật trạng thái thanh toán
 router.put('/:id/thanhtoan', auth, authorize(ptAndAdmin), chiTietGoiTapController.updateTrangThaiThanhToan);
