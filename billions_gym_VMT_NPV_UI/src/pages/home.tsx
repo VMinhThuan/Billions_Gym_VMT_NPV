@@ -438,7 +438,7 @@ const HomePage = () => {
             </main>
 
             {/* ChatBot Button */}
-            <button 
+            <button
                 className="chatbot-toggle-btn"
                 onClick={() => setIsChatBotOpen(true)}
                 title="Chat với AI Assistant"
@@ -447,9 +447,9 @@ const HomePage = () => {
             </button>
 
             {/* ChatBot */}
-            <ChatBot 
-                isOpen={isChatBotOpen} 
-                onClose={() => setIsChatBotOpen(false)} 
+            <ChatBot
+                isOpen={isChatBotOpen}
+                onClose={() => setIsChatBotOpen(false)}
             />
 
             {/* Loading Overlay */}

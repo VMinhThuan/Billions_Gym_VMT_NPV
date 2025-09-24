@@ -41,29 +41,28 @@
     min-height: 52px;
 }
 
-/* Button Variants */
 .btn-primary {
-    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    background: #59AC77;
     color: white;
-    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+    box-shadow: 0 4px 15px rgba(89, 172, 119, 0.3);
 }
 
 .btn-primary:hover:not(.btn-disabled) {
-    background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
+    background: #4a9266;
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+    box-shadow: 0 6px 20px rgba(89, 172, 119, 0.4);
 }
 
 .btn-secondary {
-    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    background: #3396D3;
     color: white;
-    box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+    box-shadow: 0 4px 15px rgba(51, 150, 211, 0.3);
 }
 
 .btn-secondary:hover:not(.btn-disabled) {
-    background: linear-gradient(135deg, #5a6268 0%, #495057 100%);
+    background: #2a7bb8;
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+    box-shadow: 0 6px 20px rgba(51, 150, 211, 0.4);
 }
 
 .btn-outline {

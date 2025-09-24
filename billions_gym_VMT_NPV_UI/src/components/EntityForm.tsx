@@ -225,7 +225,7 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                 <form onSubmit={handleSubmit} className="entity-form">
                     <div className="form-grid">
                         {fields.map(field => (
-                            <div key={field.name} className="form-group">
+                            <div key={field.name} className={`form-group ${field.type === 'textarea' || field.type === 'file' ? 'full-width' : ''}`}>
                                 <label className="form-label">{field.label}</label>
                                 {field.type === 'file' ? (
                                     <div className="file-upload-container">
@@ -253,6 +253,26 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                                                 </button>
                                             </div>
                                         )}
+                                    </div>
+                                ) : field.type === 'radio' ? (
+                                    <div className="radio-group">
+                                        {field.options?.map(option => {
+                                            const optionValue = typeof option === 'string' ? option : option.value;
+                                            const optionLabel = typeof option === 'string' ? option : option.label;
+                                            return (
+                                                <label key={optionValue} className="radio-option">
+                                                    <input
+                                                        type="radio"
+                                                        name={field.name}
+                                                        value={optionValue}
+                                                        checked={formData[field.name] === optionValue}
+                                                        onChange={(e) => handleChange(field.name, e.target.value)}
+                                                        className={errors[field.name] ? 'error' : ''}
+                                                    />
+                                                    <span className="radio-label">{optionLabel}</span>
+                                                </label>
+                                            );
+                                        })}
                                     </div>
                                 ) : field.options ? (
                                     <select

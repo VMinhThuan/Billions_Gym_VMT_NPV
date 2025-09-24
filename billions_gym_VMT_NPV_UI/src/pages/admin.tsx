@@ -1,3 +1,5 @@
+import React from 'react';
+import ReactDOM from 'react-dom';
 import './admin.css';
 import { useEffect, useState } from 'react';
 import Button from '../components/Button';
@@ -6,12 +8,10 @@ import Loading from '../components/Loading';
 import EntityForm, { ConfirmModal } from '../components/EntityForm';
 import { api, auth } from '../services/api';
 import { geminiAI, AIWorkoutSuggestion, AINutritionSuggestion } from '../services/gemini';
-import React from 'react';
 type Stat = { label: string; value: string; trend?: 'up' | 'down'; sub?: string };
 
 type SectionKey = 'overview' | 'members' | 'pt' | 'packages' | 'schedules' | 'sessions' | 'exercises' | 'body_metrics' | 'nutrition' | 'payments' | 'notifications' | 'feedback' | 'reports' | 'ai_suggestions' | 'appointments';
 
-// Types based on backend models
 interface HoiVien {
     _id: string;
     soCCCD: string;
@@ -27,7 +27,7 @@ interface HoiVien {
     trangThaiHoiVien: 'DANG_HOAT_DONG' | 'TAM_NGUNG' | 'HET_HAN';
     cacChiSoCoThe: string[];
     taiKhoan?: {
-        _id: string;
+        _id?: string | null;
         trangThaiTK: 'DANG_HOAT_DONG' | 'DA_KHOA';
     };
 }
@@ -179,8 +179,6 @@ function getSectionFromHash(): SectionKey {
     return (seg || 'overview') as SectionKey;
 }
 
-// Mark otherwise-unused interfaces as used for linting purposes
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type __EnsureTypesUsed =
     | GoiTap
     | LichTap
@@ -386,16 +384,16 @@ const AdminDashboard = () => {
                                                                                 section === 'ai_suggestions' ? 'Gợi ý AI' :
                                                                                     'Báo cáo'
                         }</h1>
-                        <p>Quản trị toàn diện hệ thống Billions Fitness & Yoga</p>
+                        <p>Quản trị toàn diện hệ thống Billions Fitness & Gym</p>
                     </div>
                     <div className="header-right">
                         <input
                             className="search"
-                            placeholder="Tìm kiếm nhanh (⌘K)"
+                            placeholder="Tìm kiếm nhanh"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
-                        <Button variant="primary" size="small">
+                        <Button variant="secondary" size="small">
                             🔍 Tìm kiếm
                         </Button>
                         <Button
@@ -580,6 +578,372 @@ const AdminDashboard = () => {
     );
 };
 
+// PT Detail Modal Component
+interface PTDetailModalProps {
+    pt: PT;
+    onClose: () => void;
+}
+
+const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, onClose }) => {
+    // Create modal root if not exists
+    let modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) {
+        modalRoot = document.createElement('div');
+        modalRoot.id = 'modal-root';
+        document.body.appendChild(modalRoot);
+    }
+
+    const modalContent = (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="user-detail-modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2>Personal Trainer Information</h2>
+                    <button className="modal-close" onClick={onClose}>×</button>
+                </div>
+                
+                <div className="user-detail-content">
+                    <div className="user-profile-section">
+                        <div className="avatar-section">
+                            <div className="user-avatar">
+                                {pt.anhDaiDien ? (
+                                    <img src={pt.anhDaiDien} alt={pt.hoTen} />
+                                ) : (
+                                    <div className="avatar-placeholder">
+                                        {pt.hoTen.charAt(0).toUpperCase()}
+                                    </div>
+                                )}
+                                <div className="avatar-edit-icon">
+                                    ✏️
+                                </div>
+                            </div>
+                            <div className="user-name-section">
+                                <h3>{pt.hoTen}</h3>
+                                <p className="user-role">Personal Trainer</p>
+                            </div>
+                        </div>
+
+                        <div className="user-info-form">
+                            <div className="gender-selection">
+                                <label className="gender-option">
+                                    <input 
+                                        type="radio" 
+                                        checked={pt.gioiTinh === 'Nam'} 
+                                        readOnly 
+                                    />
+                                    <span>Male</span>
+                                </label>
+                                <label className="gender-option">
+                                    <input 
+                                        type="radio" 
+                                        checked={pt.gioiTinh === 'Nữ'} 
+                                        readOnly 
+                                    />
+                                    <span>Female</span>
+                                </label>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Họ</label>
+                                    <input 
+                                        type="text" 
+                                        value={pt.hoTen.split(' ')[0] || ''} 
+                                        readOnly 
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Tên</label>
+                                    <input 
+                                        type="text" 
+                                        value={pt.hoTen.split(' ').slice(1).join(' ') || ''} 
+                                        readOnly 
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Email</label>
+                                <div className="email-input">
+                                    <input 
+                                        type="email" 
+                                        value={pt.email} 
+                                        readOnly 
+                                    />
+                                    <span className="verified-badge">✓ Verified</span>
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Address</label>
+                                <input 
+                                    type="text" 
+                                    value={pt.diaChi} 
+                                    readOnly 
+                                />
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Phone Number</label>
+                                    <input 
+                                        type="tel" 
+                                        value={pt.sdt} 
+                                        readOnly 
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Date of Birth</label>
+                                    <input 
+                                        type="text" 
+                                        value={pt.ngaySinh ? new Date(pt.ngaySinh).toLocaleDateString('vi-VN') : 'N/A'} 
+                                        readOnly 
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Specialization</label>
+                                    <input 
+                                        type="text" 
+                                        value={pt.chuyenMon} 
+                                        readOnly 
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Experience (Years)</label>
+                                    <input 
+                                        type="text" 
+                                        value={`${pt.kinhNghiem} years`} 
+                                        readOnly 
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Rating</label>
+                                    <input 
+                                        type="text" 
+                                        value={`${pt.danhGia ? pt.danhGia.toFixed(1) : '0.0'} / 5.0`} 
+                                        readOnly 
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Status</label>
+                                    <input 
+                                        type="text" 
+                                        value={pt.trangThaiPT === 'DANG_HOAT_DONG' ? 'Active' : 'Inactive'} 
+                                        readOnly 
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Certifications</label>
+                                <input 
+                                    type="text" 
+                                    value={pt.bangCapChungChi} 
+                                    readOnly 
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label>ID Number</label>
+                                <input 
+                                    type="text" 
+                                    value={pt.soCCCD} 
+                                    readOnly 
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label>Description</label>
+                                <textarea 
+                                    value={pt.moTa || 'N/A'} 
+                                    readOnly 
+                                    rows={3}
+                                    style={{
+                                        padding: '12px 16px',
+                                        border: '1px solid #d1d5db',
+                                        borderRadius: '8px',
+                                        fontSize: '16px',
+                                        background: '#f9fafb',
+                                        color: '#374151',
+                                        resize: 'none'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    return ReactDOM.createPortal(modalContent, modalRoot);
+};
+
+// User Detail Modal Component
+interface UserDetailModalProps {
+    user: HoiVien;
+    onClose: () => void;
+}
+
+const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
+    // Create modal root if not exists
+    let modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) {
+        modalRoot = document.createElement('div');
+        modalRoot.id = 'modal-root';
+        document.body.appendChild(modalRoot);
+    }
+
+    const modalContent = (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="user-detail-modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2>Thông Tin Cá Nhân</h2>
+                    <button className="modal-close" onClick={onClose}>×</button>
+                </div>
+                
+                <div className="user-detail-content">
+                    <div className="user-profile-section">
+                        <div className="avatar-section">
+                            <div className="user-avatar">
+                                {user.anhDaiDien ? (
+                                    <img src={user.anhDaiDien} alt={user.hoTen} />
+                                ) : (
+                                    <div className="avatar-placeholder">
+                                        {user.hoTen.charAt(0).toUpperCase()}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="user-name-section">
+                                <h3>{user.hoTen}</h3>
+                                <p className="user-role">
+                                    {user.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'Đang Hoạt Động' : 
+                                     user.trangThaiHoiVien === 'TAM_NGUNG' ? 'Tạm Ngưng' : 'Hết Hạn'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="user-info-form">
+                            <div className="gender-selection">
+                                <label className="gender-option">
+                                    <input 
+                                        type="radio" 
+                                        checked={user.gioiTinh === 'Nam'} 
+                                        readOnly 
+                                    />
+                                    <span>Nam</span>
+                                </label>
+                                <label className="gender-option">
+                                    <input 
+                                        type="radio" 
+                                        checked={user.gioiTinh === 'Nữ'} 
+                                        readOnly 
+                                    />
+                                    <span>Nữ</span>
+                                </label>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Họ</label>
+                                    <input 
+                                        type="text" 
+                                        value={user.hoTen.split(' ')[0] || ''} 
+                                        readOnly 
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Tên</label>
+                                    <input 
+                                        type="text" 
+                                        value={user.hoTen.split(' ').slice(1).join(' ') || ''} 
+                                        readOnly 
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Email</label>
+                                <div className="email-input">
+                                    <input 
+                                        type="email" 
+                                        value={user.email} 
+                                        readOnly 
+                                    />
+                                    <span className="verified-badge">✓ Verified</span>
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Địa Chỉ</label>
+                                <input 
+                                    type="text" 
+                                    value={user.diaChi} 
+                                    readOnly 
+                                />
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Số Điện Thoại</label>
+                                    <input 
+                                        type="tel" 
+                                        value={user.sdt} 
+                                        readOnly 
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Ngày Sinh</label>
+                                    <input 
+                                        type="text" 
+                                        value={user.ngaySinh ? new Date(user.ngaySinh).toLocaleDateString('vi-VN') : 'N/A'} 
+                                        readOnly 
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Ngày Tham Gia</label>
+                                    <input 
+                                        type="text" 
+                                        value={user.ngayThamGia ? new Date(user.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'} 
+                                        readOnly 
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Ngày Hết Hạn</label>
+                                    <input 
+                                        type="text" 
+                                        value={user.ngayHetHan ? new Date(user.ngayHetHan).toLocaleDateString('vi-VN') : 'N/A'} 
+                                        readOnly 
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Số CCCD</label>
+                                <input 
+                                    type="text" 
+                                    value={user.soCCCD} 
+                                    readOnly 
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    return ReactDOM.createPortal(modalContent, modalRoot);
+};
+
 export default AdminDashboard;
 
 // --- Subpages ---
@@ -589,6 +953,7 @@ const MembersPage = () => {
     const [editingItem, setEditingItem] = useState<HoiVien | null>(null);
     const [isCopying, setIsCopying] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: HoiVien | null }>({ show: false, item: null });
+    const [viewingDetail, setViewingDetail] = useState<HoiVien | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<HoiVien[]>([]);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -729,7 +1094,8 @@ const MembersPage = () => {
             alert('Cập nhật trạng thái tài khoản thành công!');
         } catch (error) {
             console.error('Error changing account status:', error);
-            alert(`Có lỗi xảy ra khi cập nhật trạng thái tài khoản: ${error.message || error}`);
+            const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
+            alert(`Có lỗi xảy ra khi cập nhật trạng thái tài khoản: ${errorMessage}`);
         } finally {
             setIsChangingStatus(null);
         }
@@ -753,31 +1119,35 @@ const MembersPage = () => {
                     />
                     <Button variant="secondary" onClick={() => handleSearch(q)}>Tìm kiếm</Button>
                     <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
+                    <div className="table-navigation-controls">
+                        <button
+                            className="table-nav-btn table-nav-left"
+                            onClick={() => {
+                                const container = document.querySelector('.table-container');
+                                if (container) {
+                                    container.scrollBy({ left: -200, behavior: 'smooth' });
+                                }
+                            }}
+                            title="Di chuyển sang trái"
+                        >
+                            ‹
+                        </button>
+                        <button
+                            className="table-nav-btn table-nav-right"
+                            onClick={() => {
+                                const container = document.querySelector('.table-container');
+                                if (container) {
+                                    container.scrollBy({ left: 200, behavior: 'smooth' });
+                                }
+                            }}
+                            title="Di chuyển sang phải"
+                        >
+                            ›
+                        </button>
+                    </div>
                 </div>
             </div>
             <div className="table-container">
-                <button
-                    className="table-nav table-nav-left"
-                    onClick={() => {
-                        const container = document.querySelector('.table-container');
-                        if (container) {
-                            container.scrollBy({ left: -200, behavior: 'smooth' });
-                        }
-                    }}
-                >
-                    ‹
-                </button>
-                <button
-                    className="table-nav table-nav-right"
-                    onClick={() => {
-                        const container = document.querySelector('.table-container');
-                        if (container) {
-                            container.scrollBy({ left: 200, behavior: 'smooth' });
-                        }
-                    }}
-                >
-                    ›
-                </button>
                 <table className="table">
                     <thead>
                         <tr>
@@ -813,6 +1183,9 @@ const MembersPage = () => {
                                 </td>
                                 <td>
                                     <div className="action-buttons">
+                                        <button className="btn-icon btn-view" onClick={() => setViewingDetail(r)}>
+                                            👁️ Chi tiết
+                                        </button>
                                         <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
                                             ✏️ Sửa
                                         </button>
@@ -843,20 +1216,20 @@ const MembersPage = () => {
                         ))}
                     </tbody>
                 </table>
-            </div>
+            </div>  
             {(show || editingItem) && (
                 <EntityForm
-                    title="Hội viên"
+                    title="Hội Viên"
                     initialData={editingItem || undefined}
                     fields={[
-                        { name: 'anhDaiDien', label: 'Ảnh đại diện', type: 'file', validation: { maxSize: 5 } },
                         { name: 'hoTen', label: 'Họ tên', validation: { required: true, pattern: /^[\p{L}\s]+$/u, message: 'Họ tên chỉ được chứa chữ cái và khoảng trắng' } },
-                        { name: 'email', label: 'Email', type: 'email', validation: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Email không đúng định dạng' } },
+                        { name: 'email', label: 'Email (tùy chọn)', type: 'email', validation: { pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Email không đúng định dạng' } },
                         { name: 'sdt', label: 'Số điện thoại', type: 'tel', validation: { required: true, pattern: /^\d{10,11}$/, message: 'Số điện thoại phải có 10-11 chữ số' } },
                         { name: 'soCCCD', label: 'Số CCCD', validation: { required: true, pattern: /^\d{12}$/, message: 'Số CCCD phải có đúng 12 chữ số' } },
                         { name: 'ngaySinh', label: 'Ngày sinh', type: 'date', validation: { required: true } },
-                        { name: 'gioiTinh', label: 'Giới tính', options: ['Nam', 'Nữ'], validation: { required: true } },
+                        { name: 'gioiTinh', label: 'Giới tính', type: 'radio', options: ['Nam', 'Nữ'], validation: { required: true } },
                         { name: 'diaChi', label: 'Địa chỉ', type: 'textarea', validation: { required: true } },
+                        { name: 'anhDaiDien', label: 'Ảnh đại diện (tùy chọn)', type: 'file', validation: { maxSize: 5 } },
                         ...(editingItem ? [{ name: 'trangThaiHoiVien', label: 'Trạng thái', options: ['DANG_HOAT_DONG', 'TAM_NGUNG', 'HET_HAN'], validation: { required: true } }] : [])
                     ]}
                     onClose={() => {
@@ -926,12 +1299,13 @@ const MembersPage = () => {
                             console.error('Error saving member:', error);
 
                             // Handle specific error types
-                            if (error.message && error.message.includes('413')) {
+                            const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
+                            if (errorMessage.includes('413')) {
                                 alert('Lỗi: Dữ liệu quá lớn. Vui lòng giảm kích thước ảnh đại diện hoặc thử lại.');
-                            } else if (error.message && error.message.includes('PayloadTooLargeError')) {
+                            } else if (errorMessage.includes('PayloadTooLargeError')) {
                                 alert('Lỗi: Kích thước dữ liệu vượt quá giới hạn. Vui lòng chọn ảnh nhỏ hơn.');
                             } else {
-                                alert(`Lỗi khi ${editingItem && !isCopying ? 'cập nhật' : 'tạo'} hội viên: ${error.message || 'Vui lòng thử lại'}`);
+                                alert(`Lỗi khi ${editingItem && !isCopying ? 'cập nhật' : 'tạo'} hội viên: ${errorMessage || 'Vui lòng thử lại'}`);
                             }
                         }
                     }}
@@ -952,11 +1326,18 @@ const MembersPage = () => {
                             alert('Xóa hội viên thành công!');
                         } catch (error) {
                             console.error('Error deleting member:', error);
-                            alert(`Lỗi khi xóa hội viên: ${error.message || 'Vui lòng thử lại'}`);
+                            const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
+                            alert(`Lỗi khi xóa hội viên: ${errorMessage || 'Vui lòng thử lại'}`);
                         }
                         setDeleteConfirm({ show: false, item: null });
                     }}
                     onCancel={() => setDeleteConfirm({ show: false, item: null })}
+                />
+            )}
+            {viewingDetail && (
+                <UserDetailModal
+                    user={viewingDetail}
+                    onClose={() => setViewingDetail(null)}
                 />
             )}
             {isLoading && <Loading overlay text="Đang tải hội viên..." />}
@@ -1319,6 +1700,7 @@ const PTPage = () => {
     const [editingItem, setEditingItem] = useState<PT | null>(null);
     const [isCopying, setIsCopying] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: PT | null }>({ show: false, item: null });
+    const [viewingDetail, setViewingDetail] = useState<PT | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<PT[]>([]);
 
@@ -1351,31 +1733,35 @@ const PTPage = () => {
                 <div className="toolbar-right">
                     <input className="input" placeholder="Tìm tên/chuyên môn" value={q} onChange={e => setQ(e.target.value)} />
                     <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
+                    <div className="table-navigation-controls">
+                        <button
+                            className="table-nav-btn table-nav-left"
+                            onClick={() => {
+                                const container = document.querySelector('.table-container');
+                                if (container) {
+                                    container.scrollBy({ left: -200, behavior: 'smooth' });
+                                }
+                            }}
+                            title="Di chuyển sang trái"
+                        >
+                            ‹
+                        </button>
+                        <button
+                            className="table-nav-btn table-nav-right"
+                            onClick={() => {
+                                const container = document.querySelector('.table-container');
+                                if (container) {
+                                    container.scrollBy({ left: 200, behavior: 'smooth' });
+                                }
+                            }}
+                            title="Di chuyển sang phải"
+                        >
+                            ›
+                        </button>
+                    </div>
                 </div>
             </div>
             <div className="table-container">
-                <button
-                    className="table-nav table-nav-left"
-                    onClick={() => {
-                        const container = document.querySelector('.table-container');
-                        if (container) {
-                            container.scrollBy({ left: -200, behavior: 'smooth' });
-                        }
-                    }}
-                >
-                    ‹
-                </button>
-                <button
-                    className="table-nav table-nav-right"
-                    onClick={() => {
-                        const container = document.querySelector('.table-container');
-                        if (container) {
-                            container.scrollBy({ left: 200, behavior: 'smooth' });
-                        }
-                    }}
-                >
-                    ›
-                </button>
                 <table className="table">
                     <thead>
                         <tr>
@@ -1414,6 +1800,9 @@ const PTPage = () => {
                                 </td>
                                 <td>
                                     <div className="action-buttons">
+                                        <button className="btn-icon btn-view" onClick={() => setViewingDetail(r)}>
+                                            👁️ Chi tiết
+                                        </button>
                                         <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
                                             ✏️ Sửa
                                         </button>
@@ -1434,13 +1823,13 @@ const PTPage = () => {
                 title="Huấn luyện viên"
                 initialData={editingItem || undefined}
                 fields={[
-                    { name: 'anhDaiDien', label: 'Ảnh đại diện', type: 'file', validation: { maxSize: 5 } },
+                    { name: 'anhDaiDien', label: 'Ảnh đại diện (tùy chọn)', type: 'file', validation: { maxSize: 5 } },
                     { name: 'hoTen', label: 'Họ tên', validation: { required: true, pattern: /^[\p{L}\s]+$/u, message: 'Họ tên chỉ được chứa chữ cái và khoảng trắng' } },
-                    { name: 'email', label: 'Email', type: 'email', validation: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Email không đúng định dạng' } },
+                    { name: 'email', label: 'Email (tùy chọn)', type: 'email', validation: { pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Email không đúng định dạng' } },
                     { name: 'sdt', label: 'Số điện thoại', type: 'tel', validation: { required: true, pattern: /^\d{10,11}$/, message: 'Số điện thoại phải có 10-11 chữ số' } },
                     { name: 'soCCCD', label: 'Số CCCD', validation: { required: true, pattern: /^\d{12}$/, message: 'Số CCCD phải có đúng 12 chữ số' } },
                     { name: 'ngaySinh', label: 'Ngày sinh', type: 'date', validation: { required: true } },
-                    { name: 'gioiTinh', label: 'Giới tính', options: ['NAM', 'NU'], validation: { required: true } },
+                    { name: 'gioiTinh', label: 'Giới tính', type: 'radio', options: ['Nam', 'Nữ'], validation: { required: true } },
                     { name: 'diaChi', label: 'Địa chỉ', type: 'textarea', validation: { required: true } },
                     { name: 'chuyenMon', label: 'Chuyên môn', validation: { required: true } },
                     { name: 'kinhNghiem', label: 'Kinh nghiệm (năm)', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Kinh nghiệm phải là số nguyên dương' } },
@@ -1453,20 +1842,34 @@ const PTPage = () => {
                 onSave={async (val) => {
                     try {
                         const ptData = {
-                            ...val,
+                            hoTen: val.hoTen,
+                            ngaySinh: val.ngaySinh,
+                            gioiTinh: val.gioiTinh,
+                            sdt: val.sdt,
+                            ...(val.email && { email: val.email }),
+                            ...(val.soCCCD && { soCCCD: val.soCCCD }),
+                            ...(val.diaChi && { diaChi: val.diaChi }),
+                            ...(val.anhDaiDien && { anhDaiDien: val.anhDaiDien }),
+                            chuyenMon: val.chuyenMon,
+                            bangCapChungChi: val.bangCapChungChi,
                             kinhNghiem: parseInt(val.kinhNghiem) || 0,
-                            danhGia: parseFloat(val.danhGia) || 0
+                            danhGia: parseFloat(val.danhGia) || 0,
+                            ...(val.moTa && { moTa: val.moTa }),
+                            trangThaiPT: val.trangThaiPT || 'DANG_HOAT_DONG'
                         };
 
                         if (editingItem) {
                             const updated = await api.put(`/api/user/pt/${editingItem._id}`, ptData);
                             setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
+                            alert('Cập nhật PT thành công!');
                         } else {
                             const created = await api.post('/api/user/pt', ptData);
                             setRows([created, ...rows]);
+                            alert('Tạo PT mới thành công!');
                         }
                     } catch (error) {
                         console.error('Error saving PT:', error);
+                        alert('Có lỗi xảy ra khi lưu thông tin PT!');
                     }
                     setShow(false);
                     setEditingItem(null);
@@ -1489,6 +1892,12 @@ const PTPage = () => {
                 }}
                 onCancel={() => setDeleteConfirm({ show: false, item: null })}
             />}
+            {viewingDetail && (
+                <PTDetailModal
+                    pt={viewingDetail}
+                    onClose={() => setViewingDetail(null)}
+                />
+            )}
             {isLoading && <Loading overlay text="Đang tải PT..." />}
         </Card>
     );
