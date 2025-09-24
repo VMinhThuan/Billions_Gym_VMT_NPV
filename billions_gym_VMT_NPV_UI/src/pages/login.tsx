@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api, auth } from '../services/api';
 import Button from '../components/Button';
 import Card from '../components/Card';
+import { useCrudNotifications } from '../hooks/useNotification';
 import './login.css';
 
 interface LoginForm {
@@ -13,6 +14,7 @@ const LoginPage = () => {
     const [form, setForm] = useState<LoginForm>({ identifier: '', matKhau: '' });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const notifications = useCrudNotifications();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -29,11 +31,16 @@ const LoginPage = () => {
             const response = await api.login(credentials);
 
             if (response.token) {
-                // Redirect to admin dashboard
-                window.location.href = '#/admin';
+                notifications.auth.loginSuccess();
+                // Redirect to admin dashboard after a short delay to show notification
+                setTimeout(() => {
+                    window.location.href = '#/admin';
+                }, 1000);
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');
+            const errorMessage = err instanceof Error ? err.message : 'Đăng nhập thất bại';
+            setError(errorMessage);
+            notifications.auth.loginError(errorMessage);
         } finally {
             setIsLoading(false);
         }

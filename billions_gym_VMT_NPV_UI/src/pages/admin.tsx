@@ -9,6 +9,7 @@ import EntityForm, { ConfirmModal } from '../components/EntityForm';
 import SortableHeader from '../components/SortableHeader';
 import { api, auth } from '../services/api';
 import { geminiAI, AIWorkoutSuggestion, AINutritionSuggestion } from '../services/gemini';
+import { useCrudNotifications } from '../hooks/useNotification';
 type Stat = { label: string; value: string; trend?: 'up' | 'down'; sub?: string };
 
 type SectionKey = 'overview' | 'members' | 'pt' | 'packages' | 'schedules' | 'sessions' | 'exercises' | 'body_metrics' | 'nutrition' | 'payments' | 'notifications' | 'feedback' | 'reports' | 'ai_suggestions' | 'appointments';
@@ -247,6 +248,7 @@ const AdminDashboard = () => {
     const [recentPayments, setRecentPayments] = useState<any[]>([]);
     const [topPTs, setTopPTs] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const notifications = useCrudNotifications();
 
     // Fetch overview data from backend
     useEffect(() => {
@@ -446,8 +448,11 @@ const AdminDashboard = () => {
                             variant="ghost"
                             size="small"
                             onClick={() => {
+                                notifications.auth.logoutSuccess();
                                 auth.clearToken();
-                                window.location.href = '#/login';
+                                setTimeout(() => {
+                                    window.location.href = '#/login';
+                                }, 1000);
                             }}
                         >
                             🚪 Đăng xuất
@@ -1038,6 +1043,7 @@ const MembersPage = () => {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+    const notifications = useCrudNotifications();
 
     // Sorting logic
     const handleSort = (key: string) => {
@@ -1160,7 +1166,18 @@ const MembersPage = () => {
         return () => { mounted = false; };
     }, [refreshTrigger]);
 
-    const filtered = sortedRows; // Use sorted rows instead of original rows
+    // Filter sorted rows based on search query
+    const filtered = sortedRows.filter(r => {
+        if (!q.trim()) return true;
+        const searchTerm = q.toLowerCase().trim();
+        return (
+            (r.hoTen && r.hoTen.toLowerCase().includes(searchTerm)) ||
+            (r.email && r.email.toLowerCase().includes(searchTerm)) ||
+            (r.sdt && r.sdt.toLowerCase().includes(searchTerm)) ||
+            (r.soCCCD && r.soCCCD.toLowerCase().includes(searchTerm)) ||
+            (r.diaChi && r.diaChi.toLowerCase().includes(searchTerm))
+        );
+    });
 
     // Hàm để thay đổi trạng thái tài khoản
     const handleChangeAccountStatus = async (memberId: string, newStatus: 'DANG_HOAT_DONG' | 'DA_KHOA') => {
@@ -1177,7 +1194,7 @@ const MembersPage = () => {
             // Kiểm tra xem có tài khoản không (chỉ cần kiểm tra tồn tại, không cần _id)
             console.log('Member taiKhoan:', member.taiKhoan);
             if (!member.taiKhoan) {
-                alert('Hội viên chưa có tài khoản. Vui lòng tạo tài khoản trước khi thay đổi trạng thái.');
+                notifications.generic.warning('Không thể thay đổi trạng thái', 'Hội viên chưa có tài khoản. Vui lòng tạo tài khoản trước khi thay đổi trạng thái.');
                 return;
             }
 
@@ -1205,11 +1222,11 @@ const MembersPage = () => {
                 )
             );
 
-            alert('Cập nhật trạng thái tài khoản thành công!');
+            notifications.generic.success('Cập nhật trạng thái tài khoản thành công!');
         } catch (error) {
             console.error('Error changing account status:', error);
             const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
-            alert(`Có lỗi xảy ra khi cập nhật trạng thái tài khoản: ${errorMessage}`);
+            notifications.generic.error('Có lỗi xảy ra', `Không thể cập nhật trạng thái tài khoản: ${errorMessage}`);
         } finally {
             setIsChangingStatus(null);
         }
@@ -1399,8 +1416,8 @@ const MembersPage = () => {
                                 const updated = await api.put(`/api/user/hoivien/${editingItem._id}`, optimizedVal);
                                 console.log('Update response:', updated);
                                 if (updated) {
+                                    notifications.member.updateSuccess();
                                     setRefreshTrigger(prev => prev + 1);
-                                    alert('Cập nhật hội viên thành công!');
                                 }
                             } else {
                                 const newMember = {
@@ -1420,8 +1437,8 @@ const MembersPage = () => {
                                 const created = await api.post('/api/user/hoivien', newMember);
                                 console.log('Create response:', created);
                                 if (created && created._id) {
+                                    notifications.member.createSuccess();
                                     setRefreshTrigger(prev => prev + 1);
-                                    alert(isCopying ? 'Sao chép hội viên thành công!' : 'Tạo hội viên mới thành công!');
                                 } else {
                                     throw new Error('Không nhận được dữ liệu hội viên từ server');
                                 }
@@ -1431,15 +1448,17 @@ const MembersPage = () => {
                             setIsCopying(false);
                         } catch (error) {
                             console.error('Error saving member:', error);
+                            const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi lưu thông tin hội viên';
+                            
+                            if (editingItem && !isCopying) {
+                                notifications.member.updateError(errorMessage);
+                            } else {
+                                notifications.member.createError(errorMessage);
+                            }
 
                             // Handle specific error types
-                            const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
-                            if (errorMessage.includes('413')) {
-                                alert('Lỗi: Dữ liệu quá lớn. Vui lòng giảm kích thước ảnh đại diện hoặc thử lại.');
-                            } else if (errorMessage.includes('PayloadTooLargeError')) {
-                                alert('Lỗi: Kích thước dữ liệu vượt quá giới hạn. Vui lòng chọn ảnh nhỏ hơn.');
-                            } else {
-                                alert(`Lỗi khi ${editingItem && !isCopying ? 'cập nhật' : 'tạo'} hội viên: ${errorMessage || 'Vui lòng thử lại'}`);
+                            if (errorMessage.includes('413') || errorMessage.includes('PayloadTooLargeError')) {
+                                notifications.generic.error('Dữ liệu quá lớn', 'Vui lòng giảm kích thước ảnh đại diện hoặc thử lại.');
                             }
                         }
                     }}
@@ -1456,12 +1475,12 @@ const MembersPage = () => {
                         try {
                             console.log('Deleting member:', deleteConfirm.item!._id);
                             await api.delete(`/api/user/hoivien/${deleteConfirm.item!._id}`);
+                            notifications.member.deleteSuccess();
                             setRefreshTrigger(prev => prev + 1);
-                            alert('Xóa hội viên thành công!');
                         } catch (error) {
                             console.error('Error deleting member:', error);
                             const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
-                            alert(`Lỗi khi xóa hội viên: ${errorMessage || 'Vui lòng thử lại'}`);
+                            notifications.member.deleteError(errorMessage);
                         }
                         setDeleteConfirm({ show: false, item: null });
                     }}
@@ -1484,6 +1503,7 @@ const PackagesPage = () => {
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
     const [editingItem, setEditingItem] = useState<GoiTap | null>(null);
+    const notifications = useCrudNotifications();
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: GoiTap | null }>({ show: false, item: null });
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<GoiTap[]>([]);
@@ -1568,12 +1588,20 @@ const PackagesPage = () => {
                         if (editingItem) {
                             const updated = await api.put(`/api/goitap/${editingItem._id}`, packageData);
                             setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
+                            notifications.package.updateSuccess();
                         } else {
                             const created = await api.post('/api/goitap', packageData);
                             setRows([created, ...rows]);
+                            notifications.package.createSuccess();
                         }
                     } catch (error) {
                         console.error('Error saving package:', error);
+                        const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
+                        if (editingItem) {
+                            notifications.package.updateError(errorMessage);
+                        } else {
+                            notifications.package.createError(errorMessage);
+                        }
                     }
                     setShow(false);
                     setEditingItem(null);
@@ -1589,8 +1617,11 @@ const PackagesPage = () => {
                     try {
                         await api.delete(`/api/goitap/${deleteConfirm.item!._id}`);
                         setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
+                        notifications.package.deleteSuccess();
                     } catch (error) {
                         console.error('Error deleting package:', error);
+                        const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
+                        notifications.package.deleteError(errorMessage);
                     }
                     setDeleteConfirm({ show: false, item: null });
                 }}
@@ -1832,6 +1863,7 @@ const PTPage = () => {
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
     const [editingItem, setEditingItem] = useState<PT | null>(null);
+    const notifications = useCrudNotifications();
     const [isCopying, setIsCopying] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: PT | null }>({ show: false, item: null });
     const [viewingDetail, setViewingDetail] = useState<PT | null>(null);
@@ -1983,10 +2015,10 @@ const PTPage = () => {
                     : pt
             ));
 
-            alert(`Tài khoản PT đã được ${newStatus === 'DA_KHOA' ? 'khóa' : 'mở khóa'} thành công!`);
+            notifications.generic.success(`Tài khoản PT đã được ${newStatus === 'DA_KHOA' ? 'khóa' : 'mở khóa'} thành công!`);
         } catch (error) {
             console.error('Error changing PT account status:', error);
-            alert('Có lỗi xảy ra khi thay đổi trạng thái tài khoản PT!');
+            notifications.generic.error('Có lỗi xảy ra', 'Không thể thay đổi trạng thái tài khoản PT!');
         } finally {
             setIsChangingStatus(null);
         }
@@ -2000,7 +2032,18 @@ const PTPage = () => {
         return () => { mounted = false; };
     }, [refreshTrigger]);
 
-    const filtered = sortedRows; // Use sorted rows instead of original rows
+    // Filter sorted rows based on search query for PT page
+    const filtered = sortedRows.filter(r => {
+        if (!q.trim()) return true;
+        const searchTerm = q.toLowerCase().trim();
+        return (
+            (r.hoTen && r.hoTen.toLowerCase().includes(searchTerm)) ||
+            (r.email && r.email.toLowerCase().includes(searchTerm)) ||
+            (r.sdt && r.sdt.toLowerCase().includes(searchTerm)) ||
+            (r.chuyenMon && r.chuyenMon.toLowerCase().includes(searchTerm)) ||
+            (r.bangCapChungChi && r.bangCapChungChi.toLowerCase().includes(searchTerm))
+        );
+    });
 
     return (
         <Card className="panel">
@@ -2224,16 +2267,21 @@ const PTPage = () => {
                             delete updateData.ngayVaoLam; // Remove start date from update data
                             const updated = await api.put(`/api/user/pt/${editingItem._id}`, updateData);
                             setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
-                            alert('Cập nhật PT thành công!');
+                            notifications.trainer.updateSuccess();
                         } else {
                             const created = await api.post('/api/user/pt', ptData);
                             // Refresh data to get taiKhoan information
                             setRefreshTrigger(prev => prev + 1);
-                            alert('Tạo PT mới thành công!');
+                            notifications.trainer.createSuccess();
                         }
                     } catch (error) {
                         console.error('Error saving PT:', error);
-                        alert('Có lỗi xảy ra khi lưu thông tin PT!');
+                        const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
+                        if (editingItem) {
+                            notifications.trainer.updateError(errorMessage);
+                        } else {
+                            notifications.trainer.createError(errorMessage);
+                        }
                     }
                     setShow(false);
                     setEditingItem(null);
@@ -2249,8 +2297,11 @@ const PTPage = () => {
                     try {
                         await api.delete(`/api/user/pt/${deleteConfirm.item!._id}`);
                         setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
+                        notifications.trainer.deleteSuccess();
                     } catch (error) {
                         console.error('Error deleting PT:', error);
+                        const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
+                        notifications.trainer.deleteError(errorMessage);
                     }
                     setDeleteConfirm({ show: false, item: null });
                 }}
@@ -2454,10 +2505,15 @@ const ExercisesPage = () => {
         })();
         return () => { mounted = false; };
     }, []);
-    const filtered = rows.filter(r =>
-        (r.tenBaiTap && typeof r.tenBaiTap === 'string' ? r.tenBaiTap.toLowerCase() : '').includes(q.toLowerCase()) ||
-        (r.nhomCo && typeof r.nhomCo === 'string' ? r.nhomCo.toLowerCase() : '').includes(q.toLowerCase())
-    );
+    const filtered = rows.filter(r => {
+        if (!q.trim()) return true;
+        const searchTerm = q.toLowerCase().trim();
+        return (
+            (r.tenBaiTap && typeof r.tenBaiTap === 'string' && r.tenBaiTap.toLowerCase().includes(searchTerm)) ||
+            (r.nhomCo && typeof r.nhomCo === 'string' && r.nhomCo.toLowerCase().includes(searchTerm)) ||
+            (r.moTa && typeof r.moTa === 'string' && r.moTa.toLowerCase().includes(searchTerm))
+        );
+    });
 
     return (
         <Card className="panel">
@@ -3068,7 +3124,7 @@ const AISuggestionsPage = () => {
             setRows([newSuggestion, ...rows]);
         } catch (error) {
             console.error('Error generating workout plan:', error);
-            alert('Lỗi khi tạo kế hoạch tập luyện. Vui lòng kiểm tra API key Gemini.');
+            notifications.generic.error('Lỗi tạo kế hoạch', 'Không thể tạo kế hoạch tập luyện. Vui lòng kiểm tra API key Gemini.');
         } finally {
             setGeneratingAI(false);
         }
@@ -3104,7 +3160,7 @@ const AISuggestionsPage = () => {
             setRows([newSuggestion, ...rows]);
         } catch (error) {
             console.error('Error generating nutrition plan:', error);
-            alert('Lỗi khi tạo kế hoạch dinh dưỡng. Vui lòng kiểm tra API key Gemini.');
+            notifications.generic.error('Lỗi tạo kế hoạch', 'Không thể tạo kế hoạch dinh dưỡng. Vui lòng kiểm tra API key Gemini.');
         } finally {
             setGeneratingAI(false);
         }
@@ -3139,7 +3195,7 @@ const AISuggestionsPage = () => {
             setRows([newSuggestion, ...rows]);
         } catch (error) {
             console.error('Error generating health analysis:', error);
-            alert('Lỗi khi phân tích sức khỏe. Vui lòng kiểm tra API key Gemini.');
+            notifications.generic.error('Lỗi phân tích', 'Không thể phân tích sức khỏe. Vui lòng kiểm tra API key Gemini.');
         } finally {
             setGeneratingAI(false);
         }
@@ -3240,7 +3296,7 @@ const AISuggestionsPage = () => {
                                     {r.noiDung.length > 100 ? r.noiDung.substring(0, 100) + '...' : r.noiDung}
                                 </td>
                                 <td className="row-actions">
-                                    <button className="btn btn-secondary" onClick={() => alert(r.noiDung)}>👁️ Xem</button>
+                                    <button className="btn btn-secondary" onClick={() => notifications.generic.info('Nội dung chi tiết', r.noiDung)}>👁️ Xem</button>
                                     <button className="btn btn-danger" onClick={() => setRows(rows.filter(x => x._id !== r._id))}>🗑️ Xóa</button>
                                 </td>
                             </tr>
