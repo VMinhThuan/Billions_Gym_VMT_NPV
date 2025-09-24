@@ -1865,6 +1865,14 @@ const PTPage = () => {
                     aValue = new Date(a.ngayVaoLam || 0).getTime();
                     bValue = new Date(b.ngayVaoLam || 0).getTime();
                     break;
+                case 'danhGia':
+                    aValue = a.danhGia || 0;
+                    bValue = b.danhGia || 0;
+                    break;
+                case 'kinhNghiem':
+                    aValue = a.kinhNghiem || 0;
+                    bValue = b.kinhNghiem || 0;
+                    break;
                 default:
                     return 0;
             }
@@ -2056,8 +2064,20 @@ const PTPage = () => {
                             <th>Giới tính</th>
                             <th>Ngày sinh</th>
                             <th>Chuyên môn</th>
-                            <th>Kinh nghiệm</th>
-                            <th>Đánh giá</th>
+                            <SortableHeader
+                                sortKey="kinhNghiem"
+                                currentSort={sortConfig}
+                                onSort={handleSort}
+                            >
+                                Kinh nghiệm
+                            </SortableHeader>
+                            <SortableHeader
+                                sortKey="danhGia"
+                                currentSort={sortConfig}
+                                onSort={handleSort}
+                            >
+                                Đánh giá
+                            </SortableHeader>
                             <SortableHeader
                                 sortKey="ngayVaoLam"
                                 currentSort={sortConfig}
@@ -2174,12 +2194,11 @@ const PTPage = () => {
                         console.log('🔍 Frontend - Email trim():', val.email?.trim ? val.email.trim() : 'N/A');
                         console.log('🔍 Frontend - Email condition:', val.email && val.email.trim() !== '');
 
-                        const ptData = {
+                        const ptData: any = {
                             hoTen: val.hoTen,
                             ngaySinh: val.ngaySinh,
                             gioiTinh: val.gioiTinh,
                             sdt: val.sdt,
-                            ...(val.email && val.email.trim() !== '' && { email: val.email.trim() }),
                             ...(val.soCCCD && { soCCCD: val.soCCCD }),
                             ...(val.diaChi && { diaChi: val.diaChi }),
                             ...(val.anhDaiDien && { anhDaiDien: val.anhDaiDien }),
@@ -2191,19 +2210,25 @@ const PTPage = () => {
                             trangThaiPT: editingItem ? (val.trangThaiPT || 'DANG_HOAT_DONG') : 'DANG_HOAT_DONG'
                         };
 
+                        // Add email only if it's a valid, non-empty string
+                        if (val.email && typeof val.email === 'string' && val.email.trim() !== '') {
+                            ptData.email = val.email.trim();
+                        }
+
                         console.log('🚀 Frontend - Final ptData being sent:', JSON.stringify(ptData, null, 2));
                         console.log('🚀 Frontend - ptData.email:', ptData.email);
 
                         if (editingItem) {
-                            // Khi cập nhật, không thay đổi ngày vào làm nhưng có thể thay đổi trạng thái
+                            // When updating, do not change the start date but can change the status
                             const updateData = { ...ptData };
-                            delete updateData.ngayVaoLam; // Xóa ngày vào làm khỏi data cập nhật
+                            delete updateData.ngayVaoLam; // Remove start date from update data
                             const updated = await api.put(`/api/user/pt/${editingItem._id}`, updateData);
                             setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
                             alert('Cập nhật PT thành công!');
                         } else {
                             const created = await api.post('/api/user/pt', ptData);
-                            setRows([created, ...rows]);
+                            // Refresh data to get taiKhoan information
+                            setRefreshTrigger(prev => prev + 1);
                             alert('Tạo PT mới thành công!');
                         }
                     } catch (error) {

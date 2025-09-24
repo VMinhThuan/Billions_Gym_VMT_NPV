@@ -1659,9 +1659,7 @@ td .status-badge.ngung-lam-viec,
     cursor: pointer;
     user-select: none;
     position: relative;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    white-space: nowrap;
 }
 
 .sortable-header:hover {
@@ -1669,10 +1667,11 @@ td .status-badge.ngung-lam-viec,
 }
 
 .sort-icons {
-    display: flex;
+    display: inline-flex;
     flex-direction: column;
     gap: 2px;
-    margin-left: auto;
+    margin-left: 8px;
+    vertical-align: middle;
 }
 
 .sort-icon {

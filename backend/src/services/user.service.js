@@ -14,10 +14,10 @@ const createHoiVien = async (data) => {
     if (data.ngayHetHan) data.ngayHetHan = toVNTime(data.ngayHetHan);
 
     const requiredFields = {
-        'hoTen': 'Họ tên',
-        'ngaySinh': 'Ngày sinh',
-        'gioiTinh': 'Giới tính',
-        'sdt': 'Số điện thoại'
+        hoTen: 'Họ tên',
+        ngaySinh: 'Ngày sinh',
+        gioiTinh: 'Giới tính',
+        sdt: 'Số điện thoại'
     };
     for (const [field, fieldName] of Object.entries(requiredFields)) {
         if (!data[field]) {
@@ -27,19 +27,18 @@ const createHoiVien = async (data) => {
         }
     }
 
-    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-        const err = new Error('Email không đúng định dạng.');
-        err.code = 400;
-        throw err;
+    // Xóa email nếu rỗng, null hoặc không phải chuỗi
+    if (!data.email || data.email.trim() === '' || data.email === null || typeof data.email !== 'string') {
+        delete data.email;
     }
 
-    if (!/^\d{10,11}$/.test(data.sdt)) {
-        const err = new Error('Số điện thoại phải có 10-11 chữ số.');
-        err.code = 400;
-        throw err;
-    }
-
+    // Chỉ kiểm tra email nếu có giá trị hợp lệ
     if (data.email) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+            const err = new Error('Email không đúng định dạng.');
+            err.code = 400;
+            throw err;
+        }
         const existed = await HoiVien.findOne({ email: data.email }) || await PT.findOne({ email: data.email });
         if (existed) {
             const err = new Error('Email đã tồn tại, vui lòng chọn email khác.');
@@ -47,6 +46,12 @@ const createHoiVien = async (data) => {
             err.keyPattern = { email: 1 };
             throw err;
         }
+    }
+
+    if (!/^\d{10,11}$/.test(data.sdt)) {
+        const err = new Error('Số điện thoại phải có 10-11 chữ số.');
+        err.code = 400;
+        throw err;
     }
 
     const existedTK = await TaiKhoan.findOne({ sdt: data.sdt });
@@ -57,7 +62,33 @@ const createHoiVien = async (data) => {
         throw err;
     }
 
-    const hoiVien = await HoiVien.create(data);
+    // Tạo dữ liệu Hội viên, chỉ thêm email nếu hợp lệ
+    const hoiVienData = {
+        hoTen: data.hoTen,
+        ngaySinh: data.ngaySinh,
+        gioiTinh: data.gioiTinh,
+        sdt: data.sdt,
+        ngayThamGia: data.ngayThamGia || new Date(),
+        trangThaiHoiVien: data.trangThaiHoiVien || 'DANG_HOAT_DONG'
+    };
+
+    if (data.email) {
+        hoiVienData.email = data.email.trim();
+    }
+    if (data.soCCCD) {
+        hoiVienData.soCCCD = data.soCCCD;
+    }
+    if (data.diaChi) {
+        hoiVienData.diaChi = data.diaChi;
+    }
+    if (data.anhDaiDien) {
+        hoiVienData.anhDaiDien = data.anhDaiDien;
+    }
+    if (data.ngayHetHan) {
+        hoiVienData.ngayHetHan = data.ngayHetHan;
+    }
+
+    const hoiVien = await HoiVien.create(hoiVienData);
 
     const sdt = data.sdt;
     const ngaySinh = new Date(data.ngaySinh);
@@ -66,7 +97,9 @@ const createHoiVien = async (data) => {
     const yyyy = ngaySinh.getFullYear();
     const plainPassword = `${dd}${mm}${yyyy}`;
     const hashedPassword = await hashPassword(plainPassword);
+
     await TaiKhoan.create({ sdt, matKhau: hashedPassword, nguoiDung: hoiVien._id });
+
     return hoiVien;
 };
 
@@ -96,7 +129,6 @@ const getPTById = async (id) => {
 const updateHoiVien = async (id, data) => {
     console.log('🔧 SERVICE - updateHoiVien called with:', { id, data });
 
-    // ✅ SỬA: Chỉ convert date nếu có giá trị
     if (data.ngaySinh && data.ngaySinh !== null) {
         data.ngaySinh = toVNTime(data.ngaySinh);
     }
@@ -108,27 +140,21 @@ const updateHoiVien = async (id, data) => {
     }
 
     const oldHoiVien = await HoiVien.findById(id);
-    console.log('🔧 SERVICE - Found oldHoiVien:', oldHoiVien ? 'Yes' : 'No');
     if (!oldHoiVien) {
         console.log('❌ SERVICE - HoiVien not found with id:', id);
         return null;
     }
 
-    console.log('🔧 SERVICE - Old HoiVien data:', {
-        hoTen: oldHoiVien.hoTen,
-        email: oldHoiVien.email,
-        sdt: oldHoiVien.sdt,
-        gioiTinh: oldHoiVien.gioiTinh
-    });
+    // Xóa email nếu rỗng hoặc không hợp lệ
+    if (data.email !== undefined && (!data.email || data.email.trim() === '' || data.email === null)) {
+        delete data.email;
+    }
 
-    // ✅ SỬA: Kiểm tra email đã tồn tại - chỉ khi có thay đổi
-    if (data.email !== undefined && data.email !== oldHoiVien.email) {
+    // Kiểm tra trùng lặp email nếu có giá trị hợp lệ
+    if (data.email && data.email !== oldHoiVien.email) {
         console.log('🔧 SERVICE - Checking email uniqueness for:', data.email);
         const existedHoiVien = await HoiVien.findOne({ email: data.email, _id: { $ne: id } });
         const existedPT = await PT.findOne({ email: data.email });
-
-        console.log('🔧 SERVICE - Email check results:', { existedHoiVien: !!existedHoiVien, existedPT: !!existedPT });
-
         if (existedHoiVien || existedPT) {
             console.log('🔧 SERVICE - Email already exists, throwing error');
             const err = new Error('Email đã tồn tại, vui lòng chọn email khác.');
@@ -138,15 +164,13 @@ const updateHoiVien = async (id, data) => {
         }
     }
 
-    // ✅ SỬA: Kiểm tra số điện thoại - chỉ khi có thay đổi
+    // Kiểm tra số điện thoại nếu thay đổi
     if (data.sdt !== undefined && data.sdt !== oldHoiVien.sdt) {
         console.log('🔧 SERVICE - Checking phone uniqueness for:', data.sdt);
         const existedTK = await TaiKhoan.findOne({
             sdt: data.sdt,
             nguoiDung: { $ne: id }
         });
-        console.log('🔧 SERVICE - Phone check result:', !!existedTK);
-
         if (existedTK) {
             console.log('🔧 SERVICE - Phone already exists, throwing error');
             const err = new Error('Số điện thoại đã tồn tại ở tài khoản khác');
@@ -154,78 +178,43 @@ const updateHoiVien = async (id, data) => {
             err.keyPattern = { sdt: 1 };
             throw err;
         }
-        // ✅ THÊM: Cập nhật số điện thoại trong TaiKhoan
-        console.log('🔧 SERVICE - Updating phone in TaiKhoan');
         await TaiKhoan.updateOne({ nguoiDung: id }, { sdt: data.sdt });
     }
 
-    // ✅ SỬA: Chỉ cập nhật những trường có giá trị và khác với giá trị cũ
     const updateData = {};
-
-    // Chỉ cập nhật những trường có trong data và khác với giá trị cũ
     if (data.hoTen !== undefined && data.hoTen !== oldHoiVien.hoTen) {
         if (data.hoTen && data.hoTen.trim() !== '') {
             updateData.hoTen = data.hoTen.trim();
         }
     }
-
-    if (data.email !== undefined && data.email !== oldHoiVien.email) {
-        // ✅ SỬA: Chỉ cập nhật email nếu có giá trị, không cho phép xóa
-        if (data.email && data.email.trim() !== '') {
-            updateData.email = data.email.trim();
-        }
+    if (data.email && data.email !== oldHoiVien.email) {
+        updateData.email = data.email.trim();
     }
-
     if (data.sdt !== undefined && data.sdt !== oldHoiVien.sdt) {
-        // ✅ SỬA: Không cho phép xóa sdt vì cần để đăng nhập
         if (data.sdt && data.sdt.trim() !== '') {
             updateData.sdt = data.sdt.trim();
-        } else {
-            // Nếu cố gắng xóa sdt, giữ nguyên giá trị cũ
-            console.log('🔧 SERVICE - Cannot delete sdt, keeping original value');
         }
     }
-
     if (data.gioiTinh !== undefined && data.gioiTinh !== oldHoiVien.gioiTinh) {
         updateData.gioiTinh = data.gioiTinh;
     }
-
     if (data.diaChi !== undefined && data.diaChi !== oldHoiVien.diaChi) {
         updateData.diaChi = data.diaChi;
     }
-
     if (data.avatar !== undefined && data.avatar !== oldHoiVien.avatar) {
         updateData.avatar = data.avatar;
     }
-
-    // Xử lý ngaySinh - chỉ update nếu có giá trị mới
     if (data.ngaySinh !== undefined && data.ngaySinh !== null) {
         updateData.ngaySinh = data.ngaySinh;
     }
-
-    console.log('🔧 SERVICE - Fields to update:', Object.keys(updateData));
-
-    // Nếu không có trường nào cần cập nhật
-    if (Object.keys(updateData).length === 0) {
-        console.log('🔧 SERVICE - No fields to update, returning current data');
-        return oldHoiVien;
+    if (data.ngayThamGia !== undefined && data.ngayThamGia !== null) {
+        updateData.ngayThamGia = data.ngayThamGia;
+    }
+    if (data.ngayHetHan !== undefined && data.ngayHetHan !== null) {
+        updateData.ngayHetHan = data.ngayHetHan;
     }
 
-    console.log('🔧 SERVICE - About to update HoiVien with data:', updateData);
-
-    try {
-        const result = await HoiVien.findByIdAndUpdate(id, updateData, {
-            new: true,
-            runValidators: true,
-            context: 'query'
-        });
-        console.log('🔧 SERVICE - Update result:', result ? 'Success' : 'Failed');
-        return result;
-    } catch (updateError) {
-        console.log('❌ SERVICE - Update failed with error:', updateError.message);
-        console.log('❌ SERVICE - Update error details:', updateError);
-        throw updateError;
-    }
+    return HoiVien.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
 };
 
 const deleteHoiVien = async (id) => {
@@ -234,25 +223,15 @@ const deleteHoiVien = async (id) => {
 };
 
 const createPT = async (data) => {
-    console.log('📝 CreatePT - Received data:', JSON.stringify(data, null, 2));
-    console.log('📝 CreatePT - data.email type:', typeof data.email);
-    console.log('📝 CreatePT - data.email value:', data.email);
-    // Clean data - ensure email is either a valid string or undefined
-    if (data.email === undefined || data.email === null || (typeof data.email === 'string' && data.email.trim() === '')) {
-        console.log('📝 CreatePT - Invalid email value received. Setting to undefined.');
-        data.email = undefined;
-    } else {
-        console.log('📝 CreatePT - Valid email received, trimming.');
-        data.email = data.email.trim();
-    }
-
     if (data.ngaySinh) data.ngaySinh = toVNTime(data.ngaySinh);
 
     const requiredFields = {
-        'hoTen': 'Họ tên',
-        'ngaySinh': 'Ngày sinh',
-        'gioiTinh': 'Giới tính',
-        'sdt': 'Số điện thoại'
+        hoTen: 'Họ tên',
+        ngaySinh: 'Ngày sinh',
+        gioiTinh: 'Giới tính',
+        sdt: 'Số điện thoại',
+        chuyenMon: 'Chuyên môn',
+        bangCapChungChi: 'Bằng cấp chứng chỉ'
     };
     for (const [field, fieldName] of Object.entries(requiredFields)) {
         if (!data[field]) {
@@ -262,32 +241,31 @@ const createPT = async (data) => {
         }
     }
 
-    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-        const err = new Error('Email không đúng định dạng.');
-        err.code = 400;
-        throw err;
+    // Xóa email nếu rỗng, null hoặc không phải chuỗi
+    if (!data.email || data.email.trim() === '' || data.email === null || typeof data.email !== 'string') {
+        delete data.email;
+    }
+
+    // Chỉ kiểm tra email nếu có giá trị hợp lệ
+    if (data.email) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+            const err = new Error('Email không đúng định dạng.');
+            err.code = 400;
+            throw err;
+        }
+        const existed = await PT.findOne({ email: data.email }) || await HoiVien.findOne({ email: data.email });
+        if (existed) {
+            const err = new Error('Email đã tồn tại, vui lòng chọn email khác.');
+            err.code = 11000;
+            err.keyPattern = { email: 1 };
+            throw err;
+        }
     }
 
     if (!/^\d{10,11}$/.test(data.sdt)) {
         const err = new Error('Số điện thoại phải có 10-11 chữ số.');
         err.code = 400;
         throw err;
-    }
-
-    // Chỉ kiểm tra email trùng lặp nếu email là một string hợp lệ
-    if (typeof data.email === 'string' && data.email.length > 0) {
-        console.log('🔍 Checking email duplicate for:', data.email);
-        const existed = await PT.findOne({ email: data.email }) || await HoiVien.findOne({ email: data.email });
-        
-        if (existed) {
-            console.log('❌ Email already exists:', existed);
-            const err = new Error('Email đã tồn tại, vui lòng chọn email khác.');
-            err.code = 11000;
-            err.keyPattern = { email: 1 };
-            throw err;
-        }
-    } else {
-        console.log('✅ Email is undefined or empty, skipping email duplicate check.');
     }
 
     const existedTK = await TaiKhoan.findOne({ sdt: data.sdt });
@@ -299,8 +277,8 @@ const createPT = async (data) => {
     }
 
     console.log('🚀 Creating PT with data:', JSON.stringify(data, null, 2));
-    
-    // Tạo object PT chỉ với các field có giá trị
+
+    // Tạo dữ liệu PT, chỉ thêm email nếu hợp lệ
     const ptData = {
         hoTen: data.hoTen,
         ngaySinh: data.ngaySinh,
@@ -311,9 +289,8 @@ const createPT = async (data) => {
         kinhNghiem: data.kinhNghiem || 0,
         trangThaiPT: data.trangThaiPT || 'DANG_HOAT_DONG'
     };
-    
-    // Chỉ thêm các field optional nếu có giá trị
-    if (typeof data.email === 'string' && data.email.trim() !== '') {
+
+    if (data.email) {
         ptData.email = data.email.trim();
     }
     if (data.soCCCD) {
@@ -328,14 +305,12 @@ const createPT = async (data) => {
     if (data.moTa) {
         ptData.moTa = data.moTa;
     }
-    // Chỉ thêm đánh giá nếu có giá trị hợp lệ (1-5)
     if (data.danhGia && data.danhGia >= 1 && data.danhGia <= 5) {
         ptData.danhGia = data.danhGia;
     }
-    
-    console.log('🚀 Final PT data before create:', JSON.stringify(ptData, null, 2));
+
     const pt = await PT.create(ptData);
-    console.log('✅ PT created successfully:', pt._id);
+
     const sdt = data.sdt;
     const ngaySinh = new Date(data.ngaySinh);
     const dd = String(ngaySinh.getDate()).padStart(2, '0');
@@ -343,7 +318,9 @@ const createPT = async (data) => {
     const yyyy = ngaySinh.getFullYear();
     const plainPassword = `${dd}${mm}${yyyy}`;
     const hashedPassword = await hashPassword(plainPassword);
+
     await TaiKhoan.create({ sdt, matKhau: hashedPassword, nguoiDung: pt._id });
+
     return pt;
 };
 
@@ -368,6 +345,23 @@ const updatePT = async (id, data) => {
     const oldPT = await PT.findById(id);
     if (!oldPT) return null;
 
+    // Xóa email nếu rỗng hoặc không hợp lệ
+    if (data.email !== undefined && (!data.email || data.email.trim() === '' || data.email === null)) {
+        delete data.email;
+    }
+
+    // Kiểm tra trùng lặp email nếu có giá trị hợp lệ
+    if (data.email && data.email !== oldPT.email) {
+        const existedHoiVien = await HoiVien.findOne({ email: data.email });
+        const existedPT = await PT.findOne({ email: data.email, _id: { $ne: id } });
+        if (existedHoiVien || existedPT) {
+            const err = new Error('Email đã tồn tại, vui lòng chọn email khác.');
+            err.code = 11000;
+            err.keyPattern = { email: 1 };
+            throw err;
+        }
+    }
+
     if (data.sdt && data.sdt !== oldPT.sdt) {
         const existedTK = await TaiKhoan.findOne({ sdt: data.sdt, nguoiDung: { $ne: id } });
         if (existedTK) {
@@ -378,20 +372,18 @@ const updatePT = async (id, data) => {
         }
         await TaiKhoan.updateOne({ nguoiDung: id }, { sdt: data.sdt });
     }
-    
-    // Tạo object update chỉ với các field có giá trị hợp lệ
+
     const updateData = { ...data };
-    
-    // Xử lý đánh giá - chỉ update nếu có giá trị hợp lệ hoặc xóa nếu là 0
+    if (data.email && data.email !== oldPT.email) {
+        updateData.email = data.email.trim();
+    }
     if ('danhGia' in updateData) {
         if (!updateData.danhGia || updateData.danhGia < 1 || updateData.danhGia > 5) {
-            // Nếu đánh giá không hợp lệ, xóa field này khỏi update
             delete updateData.danhGia;
-            // Và unset field trong database
             await PT.findByIdAndUpdate(id, { $unset: { danhGia: "" } });
         }
     }
-    
+
     return PT.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
 };
 

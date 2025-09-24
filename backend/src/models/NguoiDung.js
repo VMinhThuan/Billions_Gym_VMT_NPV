@@ -6,18 +6,11 @@ const NguoiDungSchema = new mongoose.Schema({
     diaChi: { type: String },
     gioiTinh: { type: String, required: true },
     anhDaiDien: { type: String },
-    email: { 
-        type: String, 
-        unique: true, 
+    email: {
+        type: String,
+        unique: true,
         sparse: true,
-        // Custom validator to allow null/undefined but not empty strings
-        validate: {
-            validator: function(v) {
-                // Allow null, undefined, or a valid email format
-                return v === null || v === undefined || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-            },
-            message: props => `${props.value} is not a valid email!`
-        }
+        default: undefined
     },
     sdt: { type: String, unique: true, required: true },
 }, { discriminatorKey: 'vaiTro', collection: 'nguoiDungs' });

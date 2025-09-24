@@ -16,10 +16,6 @@ router.delete('/hoivien/:id', auth, authorize(['OngChu']), userController.delete
 router.post('/check-email', auth, userController.checkEmailExists);
 router.post('/check-phone', auth, userController.checkPhoneExists);
 
-// ✅ THÊM: Test endpoint để debug
-router.put('/test-update/:id', auth, userController.testUpdate);
-router.put('/test-flexible-update/:id', auth, userController.testFlexibleUpdate);
-router.put('/restore-critical-data/:id', auth, userController.restoreCriticalData);
 router.put('/taikhoan/:id/lock', auth, authorize(['OngChu']), userController.lockTaiKhoan);
 router.put('/taikhoan/:id/unlock', auth, authorize(['OngChu']), userController.unlockTaiKhoan);
 router.get('/taikhoan/by-phone/:sdt', auth, authorize(['OngChu']), userController.getTaiKhoanByPhone);
