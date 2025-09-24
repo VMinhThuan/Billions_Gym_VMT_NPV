@@ -1436,11 +1436,9 @@ const MembersPage = () => {
                                 console.log('Creating new member:', newMember);
                                 const created = await api.post('/api/user/hoivien', newMember);
                                 console.log('Create response:', created);
-                                if (created && created._id) {
+                                if (created) {
                                     notifications.member.createSuccess();
                                     setRefreshTrigger(prev => prev + 1);
-                                } else {
-                                    throw new Error('Không nhận được dữ liệu hội viên từ server');
                                 }
                             }
                             setShow(false);
@@ -1448,17 +1446,23 @@ const MembersPage = () => {
                             setIsCopying(false);
                         } catch (error) {
                             console.error('Error saving member:', error);
-                            const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi lưu thông tin hội viên';
+                            let errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi lưu thông tin hội viên';
+                            
+                            // Handle specific error types
+                            if (errorMessage.includes('E11000 duplicate key error') && errorMessage.includes('soCCCD')) {
+                                errorMessage = 'Số CCCD này đã được sử dụng bởi hội viên khác. Vui lòng kiểm tra lại.';
+                            } else if (errorMessage.includes('E11000 duplicate key error') && errorMessage.includes('sdt')) {
+                                errorMessage = 'Số điện thoại này đã được sử dụng bởi hội viên khác. Vui lòng kiểm tra lại.';
+                            } else if (errorMessage.includes('E11000 duplicate key error') && errorMessage.includes('email')) {
+                                errorMessage = 'Email này đã được sử dụng bởi hội viên khác. Vui lòng kiểm tra lại.';
+                            } else if (errorMessage.includes('413') || errorMessage.includes('PayloadTooLargeError')) {
+                                errorMessage = 'Dữ liệu quá lớn. Vui lòng giảm kích thước ảnh đại diện hoặc thử lại.';
+                            }
                             
                             if (editingItem && !isCopying) {
                                 notifications.member.updateError(errorMessage);
                             } else {
                                 notifications.member.createError(errorMessage);
-                            }
-
-                            // Handle specific error types
-                            if (errorMessage.includes('413') || errorMessage.includes('PayloadTooLargeError')) {
-                                notifications.generic.error('Dữ liệu quá lớn', 'Vui lòng giảm kích thước ảnh đại diện hoặc thử lại.');
                             }
                         }
                     }}
@@ -3054,6 +3058,7 @@ const AISuggestionsPage = () => {
     const [nutritionSuggestion, setNutritionSuggestion] = useState<AINutritionSuggestion | null>(null);
     const [healthAnalysis, setHealthAnalysis] = useState<string>('');
     const [members, setMembers] = useState<HoiVien[]>([]);
+    const notifications = useCrudNotifications();
 
     useEffect(() => {
         // Fetch members for AI suggestions
