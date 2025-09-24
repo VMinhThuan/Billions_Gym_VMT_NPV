@@ -108,28 +108,26 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
             if (error) {
                 newErrors[field.name] = error;
             }
-
-            // Check for duplicate email/phone
-            if (field.name === 'email' && formData[field.name]) {
-                const isDuplicate = await checkDuplicateEmail(formData[field.name], initialData?._id);
-                if (isDuplicate) {
-                    newErrors[field.name] = 'Email đã tồn tại trong hệ thống';
-                }
-            }
-
-            if (field.name === 'sdt' && formData[field.name]) {
-                const isDuplicate = await checkDuplicatePhone(formData[field.name], initialData?._id);
-                if (isDuplicate) {
-                    newErrors[field.name] = 'Số điện thoại đã tồn tại trong hệ thống';
-                }
-            }
         }
 
         setErrors(newErrors);
 
         // Only submit if no errors
         if (Object.keys(newErrors).length === 0) {
-            onSave(formData);
+            const finalData = { ...formData };
+
+            // Final cleanup: remove optional fields if they are empty
+            fields.forEach(field => {
+                if (!field.validation?.required) {
+                    const value = finalData[field.name];
+                    if (value === '' || value === null || value === undefined) {
+                        delete finalData[field.name];
+                    }
+                }
+            });
+            
+            console.log('🚀 EntityForm - Final data being sent to onSave:', finalData);
+            onSave(finalData);
         }
     };
 

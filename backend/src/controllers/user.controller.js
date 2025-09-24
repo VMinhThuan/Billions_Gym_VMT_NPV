@@ -341,6 +341,12 @@ exports.deleteHoiVien = async (req, res) => {
 // PT
 exports.createPT = async (req, res) => {
     try {
+        // FINAL CLEANUP: Ensure empty email string is removed before processing
+        if (req.body.email !== undefined && req.body.email !== null && typeof req.body.email === 'string' && req.body.email.trim() === '') {
+            console.log('🔧 CONTROLLER CLEANUP - Found empty email string, deleting from body.');
+            delete req.body.email;
+        }
+
         const pt = await userService.createPT(req.body);
         res.status(201).json(pt);
     } catch (err) {
@@ -361,7 +367,13 @@ exports.createPT = async (req, res) => {
 
 exports.getAllPT = async (req, res) => {
     try {
-        const pts = await userService.getAllPT();
+        const { q } = req.query;
+        let pts;
+        if (q) {
+            pts = await userService.searchPT(q);
+        } else {
+            pts = await userService.getAllPT();
+        }
         res.json(pts);
     } catch (err) {
         res.status(500).json({ message: 'Lỗi server', error: err.message });

@@ -235,6 +235,16 @@ const deleteHoiVien = async (id) => {
 
 const createPT = async (data) => {
     console.log('📝 CreatePT - Received data:', JSON.stringify(data, null, 2));
+    console.log('📝 CreatePT - data.email type:', typeof data.email);
+    console.log('📝 CreatePT - data.email value:', data.email);
+    // Clean data - ensure email is either a valid string or undefined
+    if (data.email === undefined || data.email === null || (typeof data.email === 'string' && data.email.trim() === '')) {
+        console.log('📝 CreatePT - Invalid email value received. Setting to undefined.');
+        data.email = undefined;
+    } else {
+        console.log('📝 CreatePT - Valid email received, trimming.');
+        data.email = data.email.trim();
+    }
 
     if (data.ngaySinh) data.ngaySinh = toVNTime(data.ngaySinh);
 
@@ -264,14 +274,20 @@ const createPT = async (data) => {
         throw err;
     }
 
-    if (data.email) {
+    // Chỉ kiểm tra email trùng lặp nếu email là một string hợp lệ
+    if (typeof data.email === 'string' && data.email.length > 0) {
+        console.log('🔍 Checking email duplicate for:', data.email);
         const existed = await PT.findOne({ email: data.email }) || await HoiVien.findOne({ email: data.email });
+        
         if (existed) {
+            console.log('❌ Email already exists:', existed);
             const err = new Error('Email đã tồn tại, vui lòng chọn email khác.');
             err.code = 11000;
             err.keyPattern = { email: 1 };
             throw err;
         }
+    } else {
+        console.log('✅ Email is undefined or empty, skipping email duplicate check.');
     }
 
     const existedTK = await TaiKhoan.findOne({ sdt: data.sdt });
@@ -282,7 +298,44 @@ const createPT = async (data) => {
         throw err;
     }
 
-    const pt = await PT.create(data);
+    console.log('🚀 Creating PT with data:', JSON.stringify(data, null, 2));
+    
+    // Tạo object PT chỉ với các field có giá trị
+    const ptData = {
+        hoTen: data.hoTen,
+        ngaySinh: data.ngaySinh,
+        gioiTinh: data.gioiTinh,
+        sdt: data.sdt,
+        chuyenMon: data.chuyenMon,
+        bangCapChungChi: data.bangCapChungChi,
+        kinhNghiem: data.kinhNghiem || 0,
+        trangThaiPT: data.trangThaiPT || 'DANG_HOAT_DONG'
+    };
+    
+    // Chỉ thêm các field optional nếu có giá trị
+    if (typeof data.email === 'string' && data.email.trim() !== '') {
+        ptData.email = data.email.trim();
+    }
+    if (data.soCCCD) {
+        ptData.soCCCD = data.soCCCD;
+    }
+    if (data.diaChi) {
+        ptData.diaChi = data.diaChi;
+    }
+    if (data.anhDaiDien) {
+        ptData.anhDaiDien = data.anhDaiDien;
+    }
+    if (data.moTa) {
+        ptData.moTa = data.moTa;
+    }
+    // Chỉ thêm đánh giá nếu có giá trị hợp lệ (1-5)
+    if (data.danhGia && data.danhGia >= 1 && data.danhGia <= 5) {
+        ptData.danhGia = data.danhGia;
+    }
+    
+    console.log('🚀 Final PT data before create:', JSON.stringify(ptData, null, 2));
+    const pt = await PT.create(ptData);
+    console.log('✅ PT created successfully:', pt._id);
     const sdt = data.sdt;
     const ngaySinh = new Date(data.ngaySinh);
     const dd = String(ngaySinh.getDate()).padStart(2, '0');
@@ -296,6 +349,17 @@ const createPT = async (data) => {
 
 const getAllPT = async () => {
     return PT.find();
+};
+
+const searchPT = async (query) => {
+    const searchRegex = new RegExp(query, 'i');
+    return PT.find({
+        $or: [
+            { hoTen: searchRegex },
+            { sdt: searchRegex },
+            { email: searchRegex }
+        ]
+    });
 };
 
 const updatePT = async (id, data) => {
@@ -314,7 +378,21 @@ const updatePT = async (id, data) => {
         }
         await TaiKhoan.updateOne({ nguoiDung: id }, { sdt: data.sdt });
     }
-    return PT.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+    
+    // Tạo object update chỉ với các field có giá trị hợp lệ
+    const updateData = { ...data };
+    
+    // Xử lý đánh giá - chỉ update nếu có giá trị hợp lệ hoặc xóa nếu là 0
+    if ('danhGia' in updateData) {
+        if (!updateData.danhGia || updateData.danhGia < 1 || updateData.danhGia > 5) {
+            // Nếu đánh giá không hợp lệ, xóa field này khỏi update
+            delete updateData.danhGia;
+            // Và unset field trong database
+            await PT.findByIdAndUpdate(id, { $unset: { danhGia: "" } });
+        }
+    }
+    
+    return PT.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
 };
 
 const deletePT = async (id) => {
@@ -422,6 +500,7 @@ module.exports = {
     deleteHoiVien,
     createPT,
     getAllPT,
+    searchPT,
     updatePT,
     deletePT,
     lockTaiKhoan,

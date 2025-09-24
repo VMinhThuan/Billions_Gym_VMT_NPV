@@ -11,8 +11,8 @@ const GoiTapSchema = new mongoose.Schema({
         default: 'Ngay',
         required: true
     },
-    giaGoc: { type: Number }, // Giá gốc để hiển thị giảm giá
-    popular: { type: Boolean, default: false }, // Gói phổ biến
+    giaGoc: { type: Number },
+    popular: { type: Boolean, default: false },
     hinhAnhDaiDien: { type: String },
     kichHoat: { type: Boolean, default: true },
 }, { collection: 'goiTaps', timestamps: true });

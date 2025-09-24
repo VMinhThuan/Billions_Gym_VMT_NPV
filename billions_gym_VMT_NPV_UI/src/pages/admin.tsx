@@ -6,6 +6,7 @@ import Button from '../components/Button';
 import Card from '../components/Card';
 import Loading from '../components/Loading';
 import EntityForm, { ConfirmModal } from '../components/EntityForm';
+import SortableHeader from '../components/SortableHeader';
 import { api, auth } from '../services/api';
 import { geminiAI, AIWorkoutSuggestion, AINutritionSuggestion } from '../services/gemini';
 type Stat = { label: string; value: string; trend?: 'up' | 'down'; sub?: string };
@@ -45,9 +46,14 @@ interface PT {
     kinhNghiem: number;
     bangCapChungChi: string;
     chuyenMon: string;
-    danhGia: number;
+    danhGia?: number;
     moTa: string;
+    ngayVaoLam: Date;
     trangThaiPT: 'DANG_HOAT_DONG' | 'NGUNG_LAM_VIEC';
+    taiKhoan?: {
+        _id?: string | null;
+        trangThaiTK: 'DANG_HOAT_DONG' | 'DA_KHOA';
+    };
 }
 
 interface GoiTap {
@@ -191,6 +197,47 @@ type __EnsureTypesUsed =
     | ThongBao
     | LichHenPT
     | GoiYTuAI;
+
+// Custom Rating Component
+interface RatingProps {
+    rating: number;
+    maxRating?: number;
+    readonly?: boolean;
+    size?: 'small' | 'medium' | 'large';
+}
+
+const Rating: React.FC<RatingProps> = ({
+    rating,
+    maxRating = 5,
+    readonly = true,
+    size = 'medium'
+}) => {
+    const sizeClasses = {
+        small: 'rating-small',
+        medium: 'rating-medium',
+        large: 'rating-large'
+    };
+
+    return (
+        <div className={`rating-component ${sizeClasses[size]}`}>
+            {Array.from({ length: maxRating }, (_, index) => {
+                const starValue = index + 1;
+                const isFull = starValue <= Math.floor(rating);
+                const isHalf = starValue === Math.ceil(rating) && rating % 1 !== 0;
+
+                return (
+                    <span
+                        key={index}
+                        className={`star ${isFull ? 'star-full' : isHalf ? 'star-half' : 'star-empty'}`}
+                    >
+                        ★
+                    </span>
+                );
+            })}
+            <span className="rating-number">({rating.toFixed(1)})</span>
+        </div>
+    );
+};
 
 const AdminDashboard = () => {
     const [section, setSection] = useState<SectionKey>(getSectionFromHash());
@@ -360,7 +407,6 @@ const AdminDashboard = () => {
                         <span className="nav-icon">📈</span>
                         Báo cáo
                     </a>
-                    <div className="sidebar-foot">v2.0.0</div>
                 </nav>
             </aside>
 
@@ -597,10 +643,10 @@ const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, onClose }) => {
         <div className="modal-overlay" onClick={onClose}>
             <div className="user-detail-modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>Personal Trainer Information</h2>
+                    <h2>Thông Tin Huấn Luyện Viên</h2>
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
-                
+
                 <div className="user-detail-content">
                     <div className="user-profile-section">
                         <div className="avatar-section">
@@ -612,156 +658,185 @@ const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, onClose }) => {
                                         {pt.hoTen.charAt(0).toUpperCase()}
                                     </div>
                                 )}
-                                <div className="avatar-edit-icon">
-                                    ✏️
-                                </div>
                             </div>
                             <div className="user-name-section">
                                 <h3>{pt.hoTen}</h3>
-                                <p className="user-role">Personal Trainer</p>
+                                <p className="user-role">Huấn Luyện Viên</p>
                             </div>
                         </div>
 
                         <div className="user-info-form">
-                            <div className="gender-selection">
-                                <label className="gender-option">
-                                    <input 
-                                        type="radio" 
-                                        checked={pt.gioiTinh === 'Nam'} 
-                                        readOnly 
-                                    />
-                                    <span>Male</span>
-                                </label>
-                                <label className="gender-option">
-                                    <input 
-                                        type="radio" 
-                                        checked={pt.gioiTinh === 'Nữ'} 
-                                        readOnly 
-                                    />
-                                    <span>Female</span>
-                                </label>
-                            </div>
-
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Họ</label>
-                                    <input 
-                                        type="text" 
-                                        value={pt.hoTen.split(' ')[0] || ''} 
-                                        readOnly 
+                                    <input
+                                        type="text"
+                                        value={pt.hoTen.split(' ')[0] || ''}
+                                        readOnly
                                     />
                                 </div>
                                 <div className="form-group">
                                     <label>Tên</label>
-                                    <input 
-                                        type="text" 
-                                        value={pt.hoTen.split(' ').slice(1).join(' ') || ''} 
-                                        readOnly 
+                                    <input
+                                        type="text"
+                                        value={pt.hoTen.split(' ').slice(1).join(' ') || ''}
+                                        readOnly
                                     />
                                 </div>
                             </div>
 
                             <div className="form-group">
+                                <label>Số CCCD</label>
+                                <input
+                                    type="text"
+                                    value={pt.soCCCD}
+                                    readOnly
+                                />
+                            </div>
+
+                            <div className="gender-selection">
+                                <label className="gender-option">
+                                    <input
+                                        type="radio"
+                                        checked={pt.gioiTinh === 'Nam'}
+                                        readOnly
+                                    />
+                                    <span>Nam</span>
+                                </label>
+                                <label className="gender-option">
+                                    <input
+                                        type="radio"
+                                        checked={pt.gioiTinh === 'Nữ'}
+                                        readOnly
+                                    />
+                                    <span>Nữ</span>
+                                </label>
+                            </div>
+
+                            <div className="form-group">
                                 <label>Email</label>
                                 <div className="email-input">
-                                    <input 
-                                        type="email" 
-                                        value={pt.email} 
-                                        readOnly 
+                                    <input
+                                        type="email"
+                                        value={pt.email}
+                                        readOnly
                                     />
                                     <span className="verified-badge">✓ Verified</span>
                                 </div>
                             </div>
 
                             <div className="form-group">
-                                <label>Address</label>
-                                <input 
-                                    type="text" 
-                                    value={pt.diaChi} 
-                                    readOnly 
+                                <label>Địa Chỉ</label>
+                                <input
+                                    type="text"
+                                    value={pt.diaChi}
+                                    readOnly
                                 />
                             </div>
 
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>Phone Number</label>
-                                    <input 
-                                        type="tel" 
-                                        value={pt.sdt} 
-                                        readOnly 
+                                    <label>Số Điện Thoại</label>
+                                    <input
+                                        type="tel"
+                                        value={pt.sdt}
+                                        readOnly
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Date of Birth</label>
-                                    <input 
-                                        type="text" 
-                                        value={pt.ngaySinh ? new Date(pt.ngaySinh).toLocaleDateString('vi-VN') : 'N/A'} 
-                                        readOnly 
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>Specialization</label>
-                                    <input 
-                                        type="text" 
-                                        value={pt.chuyenMon} 
-                                        readOnly 
+                                    <label>Ngày Sinh</label>
+                                    <input
+                                        type="text"
+                                        value={pt.ngaySinh ? new Date(pt.ngaySinh).toLocaleDateString('vi-VN', {
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                            year: 'numeric'
+                                        }) : 'N/A'}
+                                        readOnly
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Experience (Years)</label>
-                                    <input 
-                                        type="text" 
-                                        value={`${pt.kinhNghiem} years`} 
-                                        readOnly 
+                                    <label>Ngày Vào Làm</label>
+                                    <input
+                                        type="text"
+                                        value={pt.ngayVaoLam ? new Date(pt.ngayVaoLam).toLocaleDateString('vi-VN', {
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                            year: 'numeric'
+                                        }) : 'N/A'}
+                                        readOnly
                                     />
                                 </div>
                             </div>
 
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>Rating</label>
-                                    <input 
-                                        type="text" 
-                                        value={`${pt.danhGia ? pt.danhGia.toFixed(1) : '0.0'} / 5.0`} 
-                                        readOnly 
+                                    <label>Chuyên Môn</label>
+                                    <input
+                                        type="text"
+                                        value={pt.chuyenMon}
+                                        readOnly
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Status</label>
-                                    <input 
-                                        type="text" 
-                                        value={pt.trangThaiPT === 'DANG_HOAT_DONG' ? 'Active' : 'Inactive'} 
-                                        readOnly 
+                                    <label>Kinh Nghiệm</label>
+                                    <input
+                                        type="text"
+                                        value={`${pt.kinhNghiem} năm`}
+                                        readOnly
                                     />
                                 </div>
                             </div>
 
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Đánh Giá</label>
+                                    <div className="rating-minimal">
+                                        <div className="rating-content">
+                                            <div className="stars-container">
+                                                <Rating
+                                                    rating={pt.danhGia || 0}
+                                                    size="large"
+                                                    readonly={true}
+                                                />
+                                            </div>
+                                            <div className="rating-value">
+                                                <span className="value">{pt.danhGia ? pt.danhGia.toFixed(1) : '0.0'}</span>
+                                                <span className="separator">/</span>
+                                                <span className="max">5.0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label>Trạng Thái</label>
+                                    <div className="status-minimal">
+                                        <div className={`status-badge-minimal ${pt.trangThaiPT === 'DANG_HOAT_DONG' ? 'active' : 'inactive'}`}>
+                                            <div className="status-icon">
+                                                <div className={`status-dot-minimal ${pt.trangThaiPT === 'DANG_HOAT_DONG' ? 'active' : 'inactive'}`}></div>
+                                            </div>
+                                            <span className="status-label">
+                                                {pt.trangThaiPT === 'DANG_HOAT_DONG' ? 'Đang Hoạt Động' : 'Ngừng Làm Việc'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="form-group">
-                                <label>Certifications</label>
-                                <input 
-                                    type="text" 
-                                    value={pt.bangCapChungChi} 
-                                    readOnly 
+                                <label>Chứng Chỉ</label>
+                                <input
+                                    type="text"
+                                    value={pt.bangCapChungChi}
+                                    readOnly
                                 />
                             </div>
 
                             <div className="form-group">
-                                <label>ID Number</label>
-                                <input 
-                                    type="text" 
-                                    value={pt.soCCCD} 
-                                    readOnly 
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label>Description</label>
-                                <textarea 
-                                    value={pt.moTa || 'N/A'} 
-                                    readOnly 
+                                <label>Mô Tả</label>
+                                <textarea
+                                    value={pt.moTa || ''}
+                                    readOnly
                                     rows={3}
                                     style={{
                                         padding: '12px 16px',
@@ -806,7 +881,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
                     <h2>Thông Tin Cá Nhân</h2>
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
-                
+
                 <div className="user-detail-content">
                     <div className="user-profile-section">
                         <div className="avatar-section">
@@ -822,8 +897,8 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
                             <div className="user-name-section">
                                 <h3>{user.hoTen}</h3>
                                 <p className="user-role">
-                                    {user.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'Đang Hoạt Động' : 
-                                     user.trangThaiHoiVien === 'TAM_NGUNG' ? 'Tạm Ngưng' : 'Hết Hạn'}
+                                    {user.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'Đang Hoạt Động' :
+                                        user.trangThaiHoiVien === 'TAM_NGUNG' ? 'Tạm Ngưng' : 'Hết Hạn'}
                                 </p>
                             </div>
                         </div>
@@ -831,18 +906,18 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
                         <div className="user-info-form">
                             <div className="gender-selection">
                                 <label className="gender-option">
-                                    <input 
-                                        type="radio" 
-                                        checked={user.gioiTinh === 'Nam'} 
-                                        readOnly 
+                                    <input
+                                        type="radio"
+                                        checked={user.gioiTinh === 'Nam'}
+                                        readOnly
                                     />
                                     <span>Nam</span>
                                 </label>
                                 <label className="gender-option">
-                                    <input 
-                                        type="radio" 
-                                        checked={user.gioiTinh === 'Nữ'} 
-                                        readOnly 
+                                    <input
+                                        type="radio"
+                                        checked={user.gioiTinh === 'Nữ'}
+                                        readOnly
                                     />
                                     <span>Nữ</span>
                                 </label>
@@ -851,18 +926,18 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Họ</label>
-                                    <input 
-                                        type="text" 
-                                        value={user.hoTen.split(' ')[0] || ''} 
-                                        readOnly 
+                                    <input
+                                        type="text"
+                                        value={user.hoTen.split(' ')[0] || ''}
+                                        readOnly
                                     />
                                 </div>
                                 <div className="form-group">
                                     <label>Tên</label>
-                                    <input 
-                                        type="text" 
-                                        value={user.hoTen.split(' ').slice(1).join(' ') || ''} 
-                                        readOnly 
+                                    <input
+                                        type="text"
+                                        value={user.hoTen.split(' ').slice(1).join(' ') || ''}
+                                        readOnly
                                     />
                                 </div>
                             </div>
@@ -870,10 +945,10 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
                             <div className="form-group">
                                 <label>Email</label>
                                 <div className="email-input">
-                                    <input 
-                                        type="email" 
-                                        value={user.email} 
-                                        readOnly 
+                                    <input
+                                        type="email"
+                                        value={user.email}
+                                        readOnly
                                     />
                                     <span className="verified-badge">✓ Verified</span>
                                 </div>
@@ -881,28 +956,32 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
 
                             <div className="form-group">
                                 <label>Địa Chỉ</label>
-                                <input 
-                                    type="text" 
-                                    value={user.diaChi} 
-                                    readOnly 
+                                <input
+                                    type="text"
+                                    value={user.diaChi}
+                                    readOnly
                                 />
                             </div>
 
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Số Điện Thoại</label>
-                                    <input 
-                                        type="tel" 
-                                        value={user.sdt} 
-                                        readOnly 
+                                    <input
+                                        type="tel"
+                                        value={user.sdt}
+                                        readOnly
                                     />
                                 </div>
                                 <div className="form-group">
                                     <label>Ngày Sinh</label>
-                                    <input 
-                                        type="text" 
-                                        value={user.ngaySinh ? new Date(user.ngaySinh).toLocaleDateString('vi-VN') : 'N/A'} 
-                                        readOnly 
+                                    <input
+                                        type="text"
+                                        value={user.ngaySinh ? new Date(user.ngaySinh).toLocaleDateString('vi-VN', {
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                            year: 'numeric'
+                                        }) : 'N/A'}
+                                        readOnly
                                     />
                                 </div>
                             </div>
@@ -910,28 +989,28 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Ngày Tham Gia</label>
-                                    <input 
-                                        type="text" 
-                                        value={user.ngayThamGia ? new Date(user.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'} 
-                                        readOnly 
+                                    <input
+                                        type="text"
+                                        value={user.ngayThamGia ? new Date(user.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'}
+                                        readOnly
                                     />
                                 </div>
                                 <div className="form-group">
                                     <label>Ngày Hết Hạn</label>
-                                    <input 
-                                        type="text" 
-                                        value={user.ngayHetHan ? new Date(user.ngayHetHan).toLocaleDateString('vi-VN') : 'N/A'} 
-                                        readOnly 
+                                    <input
+                                        type="text"
+                                        value={user.ngayHetHan ? new Date(user.ngayHetHan).toLocaleDateString('vi-VN') : 'N/A'}
+                                        readOnly
                                     />
                                 </div>
                             </div>
 
                             <div className="form-group">
                                 <label>Số CCCD</label>
-                                <input 
-                                    type="text" 
-                                    value={user.soCCCD} 
-                                    readOnly 
+                                <input
+                                    type="text"
+                                    value={user.soCCCD}
+                                    readOnly
                                 />
                             </div>
                         </div>
@@ -958,6 +1037,41 @@ const MembersPage = () => {
     const [rows, setRows] = useState<HoiVien[]>([]);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+    // Sorting logic
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const sortedRows = React.useMemo(() => {
+        if (!sortConfig) return rows;
+
+        return [...rows].sort((a, b) => {
+            let aValue: any, bValue: any;
+
+            switch (sortConfig.key) {
+                case 'hoTen':
+                    aValue = a.hoTen?.toLowerCase() || '';
+                    bValue = b.hoTen?.toLowerCase() || '';
+                    break;
+                case 'ngayThamGia':
+                    aValue = new Date(a.ngayThamGia || 0).getTime();
+                    bValue = new Date(b.ngayThamGia || 0).getTime();
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [rows, sortConfig]);
 
     const handleSearch = async (query: string) => {
         setIsLoading(true);
@@ -1046,7 +1160,7 @@ const MembersPage = () => {
         return () => { mounted = false; };
     }, [refreshTrigger]);
 
-    const filtered = rows; // Remove local filtering as backend handles it
+    const filtered = sortedRows; // Use sorted rows instead of original rows
 
     // Hàm để thay đổi trạng thái tài khoản
     const handleChangeAccountStatus = async (memberId: string, newStatus: 'DANG_HOAT_DONG' | 'DA_KHOA') => {
@@ -1151,12 +1265,24 @@ const MembersPage = () => {
                 <table className="table">
                     <thead>
                         <tr>
-                            <th>Họ tên</th>
+                            <SortableHeader
+                                sortKey="hoTen"
+                                currentSort={sortConfig}
+                                onSort={handleSort}
+                            >
+                                Họ tên
+                            </SortableHeader>
                             <th>Email</th>
                             <th>SĐT</th>
                             <th>Giới tính</th>
                             <th>Ngày sinh</th>
-                            <th>Ngày tham gia</th>
+                            <SortableHeader
+                                sortKey="ngayThamGia"
+                                currentSort={sortConfig}
+                                onSort={handleSort}
+                            >
+                                Ngày tham gia
+                            </SortableHeader>
                             <th>Trạng thái</th>
                             <th>Hành động</th>
                         </tr>
@@ -1174,8 +1300,16 @@ const MembersPage = () => {
                                 <td>{r.email}</td>
                                 <td>{r.sdt}</td>
                                 <td>{r.gioiTinh === 'Nam' ? 'Nam' : 'Nữ'}</td>
-                                <td>{r.ngaySinh ? new Date(r.ngaySinh).toLocaleDateString('vi-VN') : 'N/A'}</td>
-                                <td>{r.ngayThamGia ? new Date(r.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'}</td>
+                                <td>{r.ngaySinh ? new Date(r.ngaySinh).toLocaleDateString('vi-VN', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric'
+                                }) : 'N/A'}</td>
+                                <td>{r.ngayThamGia ? new Date(r.ngayThamGia).toLocaleDateString('vi-VN', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric'
+                                }) : 'N/A'}</td>
                                 <td>
                                     <span className={`badge ${!r.taiKhoan?._id ? 'warning' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'success' : 'danger'}`}>
                                         {!r.taiKhoan?._id ? 'CHƯA CÓ TÀI KHOẢN' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' : 'ĐÃ KHÓA'}
@@ -1216,7 +1350,7 @@ const MembersPage = () => {
                         ))}
                     </tbody>
                 </table>
-            </div>  
+            </div>
             {(show || editingItem) && (
                 <EntityForm
                     title="Hội Viên"
@@ -1703,35 +1837,180 @@ const PTPage = () => {
     const [viewingDetail, setViewingDetail] = useState<PT | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<PT[]>([]);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+    // Sorting logic
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const sortedRows = React.useMemo(() => {
+        if (!sortConfig) return rows;
+
+        return [...rows].sort((a, b) => {
+            let aValue: any, bValue: any;
+
+            switch (sortConfig.key) {
+                case 'hoTen':
+                    aValue = a.hoTen?.toLowerCase() || '';
+                    bValue = b.hoTen?.toLowerCase() || '';
+                    break;
+                case 'ngayVaoLam':
+                    aValue = new Date(a.ngayVaoLam || 0).getTime();
+                    bValue = new Date(b.ngayVaoLam || 0).getTime();
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [rows, sortConfig]);
+
+    // Handle row click to show detail modal (same as MembersPage)
+    const handleRowClick = (pt: any) => {
+        setViewingDetail(pt);
+    };
+
+    const handleSearch = async (query: string) => {
+        setIsLoading(true);
+        try {
+            const data = await api.get<PT[]>(`/api/user/pt?q=${query}`);
+            if (Array.isArray(data)) {
+                // Lấy thông tin tài khoản cho từng PT
+                const ptsWithAccounts = await Promise.all(
+                    data.map(async (pt) => {
+                        try {
+                            const taiKhoanData = await api.get(`/api/user/taikhoan/by-phone/${pt.sdt}`);
+                            return {
+                                ...pt,
+                                taiKhoan: taiKhoanData || null
+                            };
+                        } catch (error) {
+                            console.log(`No account found for PT ${pt.hoTen}:`, error);
+                            return {
+                                ...pt,
+                                taiKhoan: null
+                            };
+                        }
+                    })
+                );
+                setRows(ptsWithAccounts);
+            } else {
+                setRows([]);
+            }
+        } catch (e) {
+            console.error('Error searching PTs:', e);
+            setRows([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Hàm để tải danh sách PT
+    const fetchPTs = async () => {
+        try {
+            setIsLoading(true);
+            const data = await api.get<PT[]>('/api/user/pt');
+            if (Array.isArray(data)) {
+                // Lấy thông tin tài khoản cho từng PT
+                const ptsWithAccounts = await Promise.all(
+                    data.map(async (pt) => {
+                        try {
+                            const taiKhoanData = await api.get(`/api/user/taikhoan/by-phone/${pt.sdt}`);
+                            return {
+                                ...pt,
+                                taiKhoan: taiKhoanData || null
+                            };
+                        } catch (error) {
+                            console.log(`No account found for PT ${pt.hoTen}:`, error);
+                            return {
+                                ...pt,
+                                taiKhoan: null
+                            };
+                        }
+                    })
+                );
+                setRows(ptsWithAccounts);
+            } else {
+                setRows([]);
+            }
+        } catch (e) {
+            console.error('Error fetching PTs:', e);
+            setRows([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Hàm để thay đổi trạng thái tài khoản PT
+    const handleChangeAccountStatus = async (ptId: string, newStatus: 'DANG_HOAT_DONG' | 'DA_KHOA') => {
+        try {
+            setIsChangingStatus(ptId);
+
+            if (newStatus === 'DA_KHOA') {
+                await api.put(`/api/user/taikhoan/${ptId}/lock`);
+            } else {
+                await api.put(`/api/user/taikhoan/${ptId}/unlock`);
+            }
+
+            // Cập nhật trạng thái trong danh sách
+            setRows(rows.map(pt =>
+                pt._id === ptId
+                    ? {
+                        ...pt,
+                        taiKhoan: {
+                            ...pt.taiKhoan,
+                            trangThaiTK: newStatus
+                        }
+                    }
+                    : pt
+            ));
+
+            alert(`Tài khoản PT đã được ${newStatus === 'DA_KHOA' ? 'khóa' : 'mở khóa'} thành công!`);
+        } catch (error) {
+            console.error('Error changing PT account status:', error);
+            alert('Có lỗi xảy ra khi thay đổi trạng thái tài khoản PT!');
+        } finally {
+            setIsChangingStatus(null);
+        }
+    };
 
     useEffect(() => {
         let mounted = true;
         (async () => {
-            try {
-                setIsLoading(true);
-                const data = await api.get<PT[]>('/api/user/pt');
-                if (mounted && Array.isArray(data)) setRows(data);
-            } catch (e) {
-                console.error('Error fetching PTs:', e);
-                setRows([]);
-            } finally {
-                if (mounted) setIsLoading(false);
-            }
+            await fetchPTs();
         })();
         return () => { mounted = false; };
-    }, []);
-    const filtered = rows.filter(r =>
-        r.hoTen.toLowerCase().includes(q.toLowerCase()) ||
-        r.email.toLowerCase().includes(q.toLowerCase()) ||
-        r.chuyenMon.toLowerCase().includes(q.toLowerCase())
-    );
+    }, [refreshTrigger]);
+
+    const filtered = sortedRows; // Use sorted rows instead of original rows
 
     return (
         <Card className="panel">
             <div className="toolbar">
                 <div className="toolbar-left"><h2>Quản lý huấn luyện viên</h2></div>
                 <div className="toolbar-right">
-                    <input className="input" placeholder="Tìm tên/chuyên môn" value={q} onChange={e => setQ(e.target.value)} />
+                    <input
+                        className="input"
+                        placeholder="Tìm tên/điện thoại/email"
+                        value={q}
+                        onChange={e => setQ(e.target.value)}
+                        onKeyPress={e => {
+                            if (e.key === 'Enter') {
+                                handleSearch(q);
+                            }
+                        }}
+                    />
+                    <Button variant="secondary" onClick={() => handleSearch(q)}>Tìm kiếm</Button>
                     <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
                     <div className="table-navigation-controls">
                         <button
@@ -1765,12 +2044,29 @@ const PTPage = () => {
                 <table className="table">
                     <thead>
                         <tr>
-                            <th>Huấn luyện viên</th>
+                            <SortableHeader
+                                sortKey="hoTen"
+                                currentSort={sortConfig}
+                                onSort={handleSort}
+                            >
+                                Họ tên
+                            </SortableHeader>
+                            <th>Email</th>
+                            <th>SĐT</th>
+                            <th>Giới tính</th>
+                            <th>Ngày sinh</th>
                             <th>Chuyên môn</th>
                             <th>Kinh nghiệm</th>
                             <th>Đánh giá</th>
-                            <th>Trạng thái</th>
-                            <th></th>
+                            <SortableHeader
+                                sortKey="ngayVaoLam"
+                                currentSort={sortConfig}
+                                onSort={handleSort}
+                            >
+                                Ngày vào làm
+                            </SortableHeader>
+                            <th style={{ minWidth: '200px' }}>Trạng thái</th>
+                            <th>Hành động</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1778,24 +2074,36 @@ const PTPage = () => {
                             <tr key={r._id}>
                                 <td>
                                     <div className="user-info">
-                                        <img src={r.anhDaiDien} alt={r.hoTen} className="user-avatar" />
                                         <div>
                                             <div className="user-name">{r.hoTen}</div>
-                                            <div className="user-id">{r.bangCapChungChi}</div>
                                         </div>
                                     </div>
                                 </td>
+                                <td>{r.email || 'N/A'}</td>
+                                <td>{r.sdt}</td>
+                                <td>{r.gioiTinh === 'Nam' ? 'Nam' : 'Nữ'}</td>
+                                <td>{r.ngaySinh ? new Date(r.ngaySinh).toLocaleDateString('vi-VN', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric'
+                                }) : 'N/A'}</td>
                                 <td>{r.chuyenMon}</td>
                                 <td>{r.kinhNghiem} năm</td>
                                 <td>
-                                    <div className="rating">
-                                        <span className="stars">{'★'.repeat(Math.floor(r.danhGia || 0))}</span>
-                                        <span className="rating-value">{r.danhGia ? r.danhGia.toFixed(1) : '0.0'}</span>
-                                    </div>
+                                    <Rating
+                                        rating={r.danhGia || 0}
+                                        size="small"
+                                        readonly={true}
+                                    />
                                 </td>
-                                <td>
-                                    <span className={`badge ${r.trangThaiPT === 'DANG_HOAT_DONG' ? 'success' : 'danger'}`}>
-                                        {r.trangThaiPT === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' : 'NGỪNG LÀM VIỆC'}
+                                <td>{r.ngayVaoLam ? new Date(r.ngayVaoLam).toLocaleDateString('vi-VN', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric'
+                                }) : 'N/A'}</td>
+                                <td style={{ minWidth: '200px', whiteSpace: 'nowrap' }}>
+                                    <span className={`badge ${!r.taiKhoan?._id ? 'warning' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'success' : 'danger'}`}>
+                                        {!r.taiKhoan?._id ? 'CHƯA CÓ TÀI KHOẢN' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' : 'ĐÃ KHÓA'}
                                     </span>
                                 </td>
                                 <td>
@@ -1806,8 +2114,23 @@ const PTPage = () => {
                                         <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
                                             ✏️ Sửa
                                         </button>
-                                        <button className="btn-icon btn-copy" onClick={() => { const copyData = { ...r }; delete (copyData as any)._id; setEditingItem(copyData); setIsCopying(true); setShow(true); }}>
-                                            📋 Sao chép
+                                        <button
+                                            className="status-select"
+                                            onClick={() => {
+                                                const currentStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
+                                                const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
+                                                handleChangeAccountStatus(r._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
+                                            }}
+                                            disabled={isChangingStatus === r._id || !r.taiKhoan?._id}
+                                            style={{
+                                                background: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' :
+                                                    'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                boxShadow: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '0 2px 8px rgba(239, 68, 68, 0.3)' :
+                                                    '0 2px 8px rgba(16, 185, 129, 0.3)',
+                                                opacity: !r.taiKhoan?._id ? 0.5 : 1
+                                            }}
+                                        >
+                                            {r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '🔒 Vô hiệu hóa' : '🔓 Kích hoạt'}
                                         </button>
                                         <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
                                             🗑️ Xóa
@@ -1823,7 +2146,6 @@ const PTPage = () => {
                 title="Huấn luyện viên"
                 initialData={editingItem || undefined}
                 fields={[
-                    { name: 'anhDaiDien', label: 'Ảnh đại diện (tùy chọn)', type: 'file', validation: { maxSize: 5 } },
                     { name: 'hoTen', label: 'Họ tên', validation: { required: true, pattern: /^[\p{L}\s]+$/u, message: 'Họ tên chỉ được chứa chữ cái và khoảng trắng' } },
                     { name: 'email', label: 'Email (tùy chọn)', type: 'email', validation: { pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Email không đúng định dạng' } },
                     { name: 'sdt', label: 'Số điện thoại', type: 'tel', validation: { required: true, pattern: /^\d{10,11}$/, message: 'Số điện thoại phải có 10-11 chữ số' } },
@@ -1834,32 +2156,49 @@ const PTPage = () => {
                     { name: 'chuyenMon', label: 'Chuyên môn', validation: { required: true } },
                     { name: 'kinhNghiem', label: 'Kinh nghiệm (năm)', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Kinh nghiệm phải là số nguyên dương' } },
                     { name: 'bangCapChungChi', label: 'Bằng cấp/Chứng chỉ', validation: { required: true } },
-                    { name: 'danhGia', label: 'Đánh giá (1-5)', type: 'number', validation: { pattern: /^[1-5]$/, message: 'Đánh giá phải từ 1 đến 5' } },
                     { name: 'moTa', label: 'Mô tả', type: 'textarea' },
-                    { name: 'trangThaiPT', label: 'Trạng thái', options: ['DANG_HOAT_DONG', 'NGUNG_LAM_VIEC'], validation: { required: true } }
+                    ...(editingItem ? [{
+                        name: 'trangThaiPT', label: 'Trạng thái', type: 'radio', options: [
+                            { value: 'DANG_HOAT_DONG', label: 'Đang Hoạt Động' },
+                            { value: 'NGUNG_LAM_VIEC', label: 'Ngừng Làm Việc' }
+                        ], validation: { required: true }
+                    }] : []),
+                    { name: 'anhDaiDien', label: 'Ảnh đại diện (tùy chọn)', type: 'file', validation: { maxSize: 5 } },
                 ]}
                 onClose={() => { setShow(false); setEditingItem(null); }}
                 onSave={async (val) => {
                     try {
+                        console.log('🔍 Frontend - Form values received:', JSON.stringify(val, null, 2));
+                        console.log('🔍 Frontend - Email value:', val.email);
+                        console.log('🔍 Frontend - Email type:', typeof val.email);
+                        console.log('🔍 Frontend - Email trim():', val.email?.trim ? val.email.trim() : 'N/A');
+                        console.log('🔍 Frontend - Email condition:', val.email && val.email.trim() !== '');
+
                         const ptData = {
                             hoTen: val.hoTen,
                             ngaySinh: val.ngaySinh,
                             gioiTinh: val.gioiTinh,
                             sdt: val.sdt,
-                            ...(val.email && { email: val.email }),
+                            ...(val.email && val.email.trim() !== '' && { email: val.email.trim() }),
                             ...(val.soCCCD && { soCCCD: val.soCCCD }),
                             ...(val.diaChi && { diaChi: val.diaChi }),
                             ...(val.anhDaiDien && { anhDaiDien: val.anhDaiDien }),
                             chuyenMon: val.chuyenMon,
                             bangCapChungChi: val.bangCapChungChi,
                             kinhNghiem: parseInt(val.kinhNghiem) || 0,
-                            danhGia: parseFloat(val.danhGia) || 0,
+                            ngayVaoLam: new Date().toISOString(),
                             ...(val.moTa && { moTa: val.moTa }),
-                            trangThaiPT: val.trangThaiPT || 'DANG_HOAT_DONG'
+                            trangThaiPT: editingItem ? (val.trangThaiPT || 'DANG_HOAT_DONG') : 'DANG_HOAT_DONG'
                         };
 
+                        console.log('🚀 Frontend - Final ptData being sent:', JSON.stringify(ptData, null, 2));
+                        console.log('🚀 Frontend - ptData.email:', ptData.email);
+
                         if (editingItem) {
-                            const updated = await api.put(`/api/user/pt/${editingItem._id}`, ptData);
+                            // Khi cập nhật, không thay đổi ngày vào làm nhưng có thể thay đổi trạng thái
+                            const updateData = { ...ptData };
+                            delete updateData.ngayVaoLam; // Xóa ngày vào làm khỏi data cập nhật
+                            const updated = await api.put(`/api/user/pt/${editingItem._id}`, updateData);
                             setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
                             alert('Cập nhật PT thành công!');
                         } else {

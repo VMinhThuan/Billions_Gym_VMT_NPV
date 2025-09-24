@@ -22,12 +22,12 @@ const LoginPage = () => {
         try {
             // Determine if identifier is email or phone number
             const isEmail = form.identifier.includes('@');
-            const credentials = isEmail 
+            const credentials = isEmail
                 ? { email: form.identifier, matKhau: form.matKhau }
                 : { sdt: form.identifier, matKhau: form.matKhau };
 
             const response = await api.login(credentials);
-            
+
             if (response.token) {
                 // Redirect to admin dashboard
                 window.location.href = '#/admin';
@@ -105,7 +105,7 @@ const LoginPage = () => {
                     </form>
 
                     <div className="login-footer">
-                        <p>Hệ thống quản lý Billions Fitness & Yoga</p>
+                        <p>Hệ thống quản lý Billions Fitness & Gym</p>
                     </div>
                 </Card>
             </div>
