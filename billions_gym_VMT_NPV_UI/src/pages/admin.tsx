@@ -248,7 +248,23 @@ const AdminDashboard = () => {
     const [recentPayments, setRecentPayments] = useState<any[]>([]);
     const [topPTs, setTopPTs] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        const saved = localStorage.getItem('admin-theme');
+        return saved ? saved === 'dark' : true; // Default to dark mode
+    });
     const notifications = useCrudNotifications();
+
+    // Theme toggle effect
+    useEffect(() => {
+        const theme = isDarkMode ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('admin-theme', theme);
+    }, [isDarkMode]);
+
+    const toggleTheme = () => {
+        setIsDarkMode(!isDarkMode);
+        notifications.generic.success(`Đã chuyển sang chế độ ${!isDarkMode ? 'tối' : 'sáng'}!`);
+    };
 
     // Fetch overview data from backend
     useEffect(() => {
@@ -346,6 +362,13 @@ const AdminDashboard = () => {
                     <div className="brand">
                         <span className="title">BILLIONS</span>
                         <span className="subTitle">FITNESS & GYM</span>
+                    </div>
+                    <div className="theme-toggle" onClick={toggleTheme} title={`Chuyển sang chế độ ${isDarkMode ? 'sáng' : 'tối'}`}>
+                        <div className="theme-toggle-slider">
+                            <span className="theme-toggle-icon">
+                                {isDarkMode ? '🌙' : '☀️'}
+                            </span>
+                        </div>
                     </div>
                 </div>
                 <nav className="sidebar-nav">
