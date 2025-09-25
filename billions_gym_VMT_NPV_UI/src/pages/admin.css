@@ -259,15 +259,11 @@
 
 .admin-content {
     flex: 1;
-    padding: 0 24px 24px 24px;
+    padding: 24px;
     overflow-y: auto;
-    overflow-x: hidden;
     display: flex;
     flex-direction: column;
-    z-index: 50;
-    max-height: calc(100vh - 100px);
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-color) var(--bg-primary);
+    gap: 24px; /* Add gap between sections */
 }
 
 .admin-content::-webkit-scrollbar {
@@ -365,8 +361,8 @@
 }
 
 .stat-card {
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    border: 1px solid #334155;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 16px;
     padding: 20px;
     transition: all 0.3s ease;
@@ -386,14 +382,14 @@
 
 .stat-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 10px 15px -3px var(--shadow-color);
 }
 
 .stat-label {
     opacity: 1;
     font-size: 14px;
     margin-bottom: 6px;
-    color: #e2e8f0;
+    color: var(--text-secondary);
     font-weight: 600;
 }
 
@@ -402,13 +398,13 @@
     font-weight: 800;
     letter-spacing: .3px;
     margin-bottom: 4px;
-    color: #ffffff;
+    color: var(--text-primary);
 }
 
 .stat-sub {
     font-size: 13px;
     opacity: 1;
-    color: #cbd5e1;
+    color: var(--text-secondary);
     font-weight: 500;
 }
 
@@ -673,8 +669,8 @@
 
 .table th:nth-child(1),
 .table td:nth-child(1) {
-    min-width: 180px;
-    width: 180px;
+    min-width: 200px;
+    width: 200px;
 }
 
 .table th:nth-child(4),
@@ -2323,6 +2319,10 @@ td .status-badge.ngung-lam-viec,
     .stat-card {
         padding: 12px;
     }
+    
+    .stat-card:hover {
+        box-shadow: 0 6px 12px -2px var(--shadow-color);
+    }
 
     .stat-value {
         font-size: 24px;
@@ -2677,7 +2677,9 @@ td .status-badge.ngung-lam-viec,
     font-size: 14px;
 }
 
-.form-group input, .form-group select, .form-group textarea {
+.form-group input,
+.form-group select,
+.form-group textarea {
     padding: 16px 20px;
     border: 2px solid #e5e7eb;
     border-radius: 12px;
@@ -2692,13 +2694,683 @@ td .status-badge.ngung-lam-viec,
     font-family: inherit;
 }
 
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
     outline: none;
     border-color: #3b82f6;
     background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), 0 8px 25px rgba(59, 130, 246, 0.1);
-    transform: translateY(-1px) scale(1.01);
-    color: #1e293b;
+}
+
+/* Dashboard Charts Styles */
+.dashboard-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 24px;
+    padding: 0;
+    background: transparent;
+    min-height: auto;
+}
+
+.chart-section {
+    background: var(--bg-card);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px var(--shadow-color);
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--border-color);
+}
+
+.chart-section:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px var(--shadow-color);
+}
+
+.chart-card {
+    padding: 24px;
+}
+
+.chart-card h3 {
+    margin: 0 0 20px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+.chart-tooltip {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 20px var(--shadow-color);
+    backdrop-filter: blur(10px);
+}
+
+.chart-tooltip .recharts-tooltip-label {
+    color: var(--text-primary) !important;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.chart-tooltip .recharts-tooltip-item {
+    color: var(--text-secondary) !important;
+    font-size: 13px;
+}
+
+.tooltip-label {
+    color: var(--text-primary);
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    font-size: 14px;
+}
+
+.chart-tooltip p {
+    margin: 4px 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+/* Recharts styling for axes and grid */
+.recharts-cartesian-axis-tick-value {
+    fill: var(--text-primary) !important;
+    font-size: 12px;
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+    stroke: var(--text-secondary) !important;
+    stroke-opacity: 0.8 !important;
+}
+
+.recharts-text {
+    fill: var(--text-primary) !important;
+}
+
+.recharts-legend-wrapper {
+    color: var(--text-primary) !important;
+}
+
+.recharts-default-legend .recharts-legend-item-text {
+    color: var(--text-primary) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+/* Specific overrides for pie chart legends */
+.chart-section:nth-child(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #10b981 !important; /* Green for "Đang hoạt động" */
+    fill: #10b981 !important;
+}
+
+.chart-section:nth-child(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #f59e0b !important; /* Amber for "Tạm ngừng" */
+    fill: #f59e0b !important;
+}
+
+.chart-section:nth-child(3) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #ef4444 !important; /* Red for "Hết hạn" */
+    fill: #ef4444 !important;
+}
+
+.chart-section:nth-child(4) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #ff6b6b !important; /* Coral Red for "Gói 1 tháng" */
+    fill: #ff6b6b !important;
+}
+
+.chart-section:nth-child(4) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #4ecdc4 !important; /* Turquoise for "Gói 3 tháng" */
+    fill: #4ecdc4 !important;
+}
+
+.chart-section:nth-child(4) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #45b7d1 !important; /* Sky Blue for "Gói 6 tháng" */
+    fill: #45b7d1 !important;
+}
+
+.chart-section:nth-child(4) .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
+    color: #ffa726 !important; /* Orange for "Gói 12 tháng" */
+    fill: #ffa726 !important;
+}
+
+/* General styling for all bar chart legends - theme aware */
+.recharts-bar-chart .recharts-legend-item-text {
+    color: var(--text-primary) !important;
+    fill: var(--text-primary) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+/* Styling for Revenue vs Expenses Chart (2nd chart) - theme aware */
+.chart-section:nth-child(2) .recharts-legend-item .recharts-legend-item-text {
+    color: var(--text-primary) !important;
+    fill: var(--text-primary) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+/* Styling for Revenue Analysis Chart (6th chart) - Theme aware */
+.chart-section:nth-child(6) .recharts-legend-wrapper .recharts-legend-item .recharts-legend-item-text,
+.chart-section:nth-child(6) .recharts-legend-wrapper .recharts-legend-item text,
+.chart-section:nth-child(6) .recharts-default-legend .recharts-legend-item-text {
+    color: var(--text-primary) !important; /* Theme-aware text color */
+    fill: var(--text-primary) !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+}
+
+/* Fallback for any legend text in 6th chart - Theme aware */
+.chart-section:nth-child(6) .recharts-legend-item .recharts-legend-item-text {
+    color: var(--text-primary) !important;
+    fill: var(--text-primary) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+/* Nuclear option for 6th chart legend - highest specificity with theme awareness */
+body .admin-content .dashboard-container .chart-section:nth-child(6) .recharts-legend-wrapper .recharts-legend-item .recharts-legend-item-text,
+body .admin-content .dashboard-container .chart-section:nth-child(6) .recharts-legend-wrapper .recharts-legend-item text,
+body .admin-content .dashboard-container .chart-section:nth-child(6) .recharts-default-legend .recharts-legend-item-text {
+    color: var(--text-primary) !important;
+    fill: var(--text-primary) !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+}
+
+/* Additional Recharts styling */
+.recharts-cartesian-axis-tick {
+    fill: var(--text-primary) !important;
+}
+
+.recharts-cartesian-axis-tick text {
+    fill: var(--text-primary) !important;
+}
+
+.recharts-label {
+    fill: var(--text-primary) !important;
+}
+
+.recharts-polar-grid-angle line,
+.recharts-polar-grid-concentric-circle {
+    stroke: var(--text-secondary) !important;
+    stroke-opacity: 0.6 !important;
+}
+
+/* Pie chart labels */
+.recharts-pie-label-text {
+    fill: #ffffff !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}
+
+/* Pie chart label lines */
+.recharts-pie-label-line {
+    stroke: var(--text-secondary) !important;
+    stroke-width: 1.5px !important;
+}
+
+/* Custom Legend styling */
+.recharts-default-legend {
+    display: flex !important;
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 16px !important;
+    padding: 10px 0 !important;
+}
+
+/* Vertical legend styling */
+.recharts-default-legend[style*="vertical"] {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    gap: 12px !important;
+    max-width: 35% !important;
+    word-wrap: break-word !important;
+    margin-left: -15px !important;
+}
+
+.recharts-legend-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+    margin: 2px 4px !important;
+    white-space: nowrap !important;
+}
+
+.recharts-legend-item:hover {
+    opacity: 0.8 !important;
+}
+
+/* Special styling for pie charts with right legends */
+.chart-section .recharts-wrapper {
+    overflow: visible !important;
+}
+
+/* Remove white borders from pie chart segments */
+.recharts-pie-sector {
+    stroke: none !important;
+    stroke-width: 0 !important;
+}
+
+.recharts-pie .recharts-sector {
+    stroke: none !important;
+    stroke-width: 0 !important;
+}
+
+/* Enhanced legend styling for dark theme */
+/* Package Popularity Chart - Dark Theme */
+[data-theme="dark"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #60a5fa !important; /* Lighter blue */
+}
+
+[data-theme="dark"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #34d399 !important; /* Lighter green */
+}
+
+[data-theme="dark"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #a78bfa !important; /* Lighter purple */
+}
+
+[data-theme="dark"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
+    color: #22d3ee !important; /* Lighter cyan */
+}
+
+/* Member Status Chart - Dark Theme */
+[data-theme="dark"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #34d399 !important; /* Lighter green - Đang hoạt động */
+}
+
+[data-theme="dark"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #fbbf24 !important; /* Lighter amber - Tạm ngừng */
+}
+
+[data-theme="dark"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #f87171 !important; /* Lighter red - Hết hạn */
+}
+
+/* Package Popularity Chart - Light Theme */
+[data-theme="light"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #2563eb !important; /* Darker blue */
+}
+
+[data-theme="light"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #059669 !important; /* Darker green */
+}
+
+[data-theme="light"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #7c3aed !important; /* Darker purple */
+}
+
+[data-theme="light"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
+    color: #0891b2 !important; /* Darker cyan */
+}
+
+/* Member Status Chart - Light Theme */
+[data-theme="light"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #059669 !important; /* Darker green - Đang hoạt động */
+}
+
+[data-theme="light"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #d97706 !important; /* Darker amber - Tạm ngừng */
+}
+
+[data-theme="light"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #dc2626 !important; /* Darker red - Hết hạn */
+}
+
+[data-theme="dark"] .recharts-pie-label-text {
+    fill: #ffffff !important;
+}
+
+[data-theme="light"] .recharts-pie-label-text {
+    fill: #1f2937 !important;
+}
+
+/* Default fallback for pie labels when no theme */
+.recharts-pie-label-text {
+    fill: #ffffff !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}
+
+.recharts-legend-item .recharts-surface {
+    border-radius: 4px !important;
+}
+
+/* .recharts-default-legend .recharts-legend-item-text {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+} */
+
+/* Nuclear option - Force legend colors with highest specificity */
+body .dashboard-container .chart-section:nth-of-type(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(1) text,
+body .dashboard-container .chart-section:nth-of-type(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #10b981 !important;
+    fill: #10b981 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+body .dashboard-container .chart-section:nth-of-type(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(2) text,
+body .dashboard-container .chart-section:nth-of-type(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #f59e0b !important;
+    fill: #f59e0b !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+body .dashboard-container .chart-section:nth-of-type(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(3) text,
+body .dashboard-container .chart-section:nth-of-type(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #ef4444 !important;
+    fill: #ef4444 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper .recharts-legend-item:nth-child(1) text,
+body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #3b82f6 !important;
+    fill: #3b82f6 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper .recharts-legend-item:nth-child(2) text,
+body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #10b981 !important;
+    fill: #10b981 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper .recharts-legend-item:nth-child(3) text,
+body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #8b5cf6 !important;
+    fill: #8b5cf6 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper .recharts-legend-item:nth-child(4) text,
+body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
+    color: #06b6d4 !important;
+    fill: #06b6d4 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+/* For Member Status Chart (Trạng thái hội viên) - Donut chart */
+.chart-section h3:contains("Trạng thái hội viên") ~ div .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
+.chart-section:has(h3:contains("Trạng thái hội viên")) .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
+.chart-card h3:contains("Trạng thái hội viên") ~ .recharts-wrapper .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #34d399 !important; /* Green - Đang hoạt động */
+}
+
+.chart-section h3:contains("Trạng thái hội viên") ~ div .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
+.chart-section:has(h3:contains("Trạng thái hội viên")) .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
+.chart-card h3:contains("Trạng thái hội viên") ~ .recharts-wrapper .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #fbbf24 !important; /* Amber - Tạm ngừng */
+}
+
+.chart-section h3:contains("Trạng thái hội viên") ~ div .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
+.chart-section:has(h3:contains("Trạng thái hội viên")) .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
+.chart-card h3:contains("Trạng thái hội viên") ~ .recharts-wrapper .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #f87171 !important; /* Red - Hết hạn */
+}
+
+/* For Package Popularity Chart (Gói tập phổ biến) */
+.chart-section h3:contains("Gói tập phổ biến") ~ div .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
+.chart-section:has(h3:contains("Gói tập phổ biến")) .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
+.chart-card h3:contains("Gói tập phổ biến") ~ .recharts-wrapper .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #60a5fa !important; /* Blue - Gói 1 tháng */
+}
+
+.chart-section h3:contains("Gói tập phổ biến") ~ div .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
+.chart-section:has(h3:contains("Gói tập phổ biến")) .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
+.chart-card h3:contains("Gói tập phổ biến") ~ .recharts-wrapper .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #34d399 !important; /* Green - Gói 12 tháng */
+}
+
+.chart-section h3:contains("Gói tập phổ biến") ~ div .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
+.chart-section:has(h3:contains("Gói tập phổ biến")) .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
+.chart-card h3:contains("Gói tập phổ biến") ~ .recharts-wrapper .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #a78bfa !important; /* Purple - Gói 3 tháng */
+}
+
+.chart-section h3:contains("Gói tập phổ biến") ~ div .recharts-legend-item:nth-child(4) .recharts-legend-item-text,
+.chart-section:has(h3:contains("Gói tập phổ biến")) .recharts-legend-item:nth-child(4) .recharts-legend-item-text,
+.chart-card h3:contains("Gói tập phổ biến") ~ .recharts-wrapper .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
+    color: #22d3ee !important; /* Cyan - Gói 6 tháng */
+}
+
+/* Fallback with stronger selectors using nth-of-type */
+.dashboard-container > .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #34d399 !important; /* Green - Đang hoạt động */
+}
+
+.dashboard-container > .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #fbbf24 !important; /* Amber - Tạm ngừng */
+}
+
+.dashboard-container > .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #f87171 !important; /* Red - Hết hạn */
+}
+
+.dashboard-container > .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #60a5fa !important; /* Blue - Gói 1 tháng */
+}
+
+.dashboard-container > .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #34d399 !important; /* Green - Gói 12 tháng */
+}
+
+.dashboard-container > .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #a78bfa !important; /* Purple - Gói 3 tháng */
+}
+
+.dashboard-container > .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
+    color: #22d3ee !important; /* Cyan - Gói 6 tháng */
+}
+
+.dashboard-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
+    color: #6b7280;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e5e7eb;
+    border-top: 4px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Advanced Dashboard Styles */
+.advanced-dashboard {
+    padding: 0;
+    background: transparent;
+    min-height: auto;
+}
+
+.dashboard-controls {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 32px;
+    padding: 20px;
+    background: var(--bg-card);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px var(--shadow-color);
+    align-items: center;
+    border: 1px solid var(--border-color);
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.control-group label {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.control-select {
+    padding: 12px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    min-width: 150px;
+}
+
+.control-select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.interactive-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 24px;
+}
+
+.chart-section.interactive {
+    background: var(--bg-card);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px var(--shadow-color);
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid transparent;
+}
+
+.chart-section.interactive:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    border-color: #3b82f6;
+}
+
+.chart-section.interactive .chart-card {
+    padding: 24px;
+}
+
+.chart-section.interactive .chart-card h3 {
+    margin: 0 0 20px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2937;
+    text-align: center;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+}
+
+.chart-section.interactive .chart-card h3::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    border-radius: 2px;
+}
+
+/* Enhanced Tooltip */
+.chart-tooltip {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px 20px;
+    box-shadow: 0 8px 32px var(--shadow-color);
+    backdrop-filter: blur(10px);
+}
+
+.tooltip-label {
+    color: var(--text-primary);
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.chart-tooltip p {
+    margin: 6px 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chart-tooltip p::before {
+    content: '●';
+    color: inherit;
+    font-size: 12px;
+}
+
+/* Responsive Design for Charts */
+@media (max-width: 768px) {
+    .dashboard-container {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 0;
+    }
+
+    .chart-card {
+        padding: 16px;
+    }
+
+    .chart-card h3 {
+        font-size: 16px;
+    }
+
+    .dashboard-controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+    }
+
+    .control-group {
+        width: 100%;
+    }
+
+    .control-select {
+        width: 100%;
+    }
+
+    .interactive-charts {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
 }
 
 .form-group textarea {
@@ -2785,4 +3457,79 @@ td .status-badge.ngung-lam-viec,
     .user-detail-content {
         padding: 24px 20px;
     }
+}
+
+/* Remove hover background effect on bar charts */
+.recharts-bar-chart .recharts-bar rect:hover {
+    fill-opacity: 1 !important;
+}
+
+.recharts-bar-chart .recharts-active-bar rect {
+    fill-opacity: 1 !important;
+}
+
+.recharts-bar-chart .recharts-tooltip-cursor {
+    fill: transparent !important;
+    stroke: transparent !important;
+    opacity: 0 !important;
+    display: none !important;
+}
+
+/* Remove hover effects on all chart elements */
+.recharts-bar:hover {
+    filter: none !important;
+}
+
+.recharts-rectangle:hover {
+    filter: none !important;
+}
+
+/* Remove hover cursor background */
+.recharts-cartesian-grid-cursor,
+.recharts-tooltip-cursor-rect {
+    fill: transparent !important;
+    stroke: transparent !important;
+    opacity: 0 !important;
+    display: none !important;
+}
+
+/* Force remove all tooltip cursor elements */
+.recharts-tooltip-cursor {
+    display: none !important;
+}
+
+/* Remove active shape highlight */
+.recharts-active-shape {
+    display: none !important;
+}
+
+/* Override Recharts hover states completely */
+.recharts-wrapper .recharts-tooltip-cursor,
+.recharts-wrapper .recharts-tooltip-cursor-rect,
+.recharts-wrapper .recharts-cartesian-grid-cursor {
+    visibility: hidden !important;
+    display: none !important;
+}
+
+/* Force tooltip text color for all Recharts tooltips */
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+.recharts-tooltip-wrapper .recharts-default-tooltip .recharts-tooltip-label {
+    color: var(--text-primary) !important;
+}
+
+.recharts-tooltip-wrapper .recharts-default-tooltip .recharts-tooltip-item-list .recharts-tooltip-item {
+    color: var(--text-primary) !important;
+}
+
+.recharts-tooltip-wrapper .recharts-default-tooltip .recharts-tooltip-item-value {
+    color: var(--text-primary) !important;
+}
+
+.recharts-tooltip-wrapper .recharts-default-tooltip .recharts-tooltip-item-name {
+    color: var(--text-secondary) !important;
 }

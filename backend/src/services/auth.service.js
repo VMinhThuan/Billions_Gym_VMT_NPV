@@ -12,7 +12,6 @@ const findTaiKhoanBySdt = async (sdt) => {
 };
 
 const findNguoiDungById = async (id) => {
-    // Validate ObjectId
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
         throw new Error('ID người dùng không hợp lệ');
     }
@@ -21,51 +20,41 @@ const findNguoiDungById = async (id) => {
 
 const guiOTPQuenMatKhau = async (sdt) => {
     try {
-        // Bước 1: Kiểm tra số điện thoại có tồn tại trong hệ thống không
-        console.log(`🔍 Checking if phone number exists: ${sdt}`);
         const taiKhoan = await TaiKhoan.findOne({ sdt });
 
         if (!taiKhoan) {
-            console.log(`❌ Phone number not found: ${sdt}`);
             throw new Error('Số điện thoại chưa được đăng ký.');
         }
 
-        console.log(`✅ Phone number found in system: ${sdt}`);
-
-        // Bước 2: Kiểm tra rate limiting - chỉ cho phép gửi OTP mỗi 60 giây
+        // Kiểm tra rate limiting - cho phép gửi OTP mỗi 60 giây
         const recentOTP = await OTP.findOne({
             sdt,
-            createdAt: { $gte: new Date(Date.now() - 60000) } // 60 giây
+            createdAt: { $gte: new Date(Date.now() - 60000) }
         });
 
         if (recentOTP) {
-            console.log(`⏰ Rate limit: OTP sent too recently for ${sdt}`);
             throw new Error('Vui lòng đợi 60 giây trước khi yêu cầu mã OTP mới.');
         }
 
-        // Bước 3: Xóa các OTP cũ của số điện thoại này (nếu có)
+        // Xóa các OTP cũ của số điện thoại này 
         await OTP.deleteMany({ sdt });
-        console.log(`🧹 Cleaned old OTPs for: ${sdt}`);
 
-        // Bước 4: Tạo mã OTP mới (6 chữ số)
+        // Tạo mã OTP mới (6 chữ số)
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        console.log(`🔢 Generated OTP for ${sdt}: ${otp}`);
 
-        // Bước 5: Lưu OTP vào database
+        // Lưu OTP vào database
         const otpRecord = await OTP.create({ sdt, otp });
-        console.log(`💾 OTP saved to database with ID: ${otpRecord._id}`);
 
-        // Bước 6: Gửi SMS qua Twilio
+        // Gửi SMS qua Twilio
         let smsSuccess = false;
         let messageSid = null;
 
         try {
-            // Kiểm tra cấu hình Twilio trước khi gửi
             if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
                 throw new Error('Cấu hình Twilio chưa đầy đủ. Vui lòng kiểm tra biến môi trường.');
             }
 
-            // Format số điện thoại: 0329982474 -> +84329982474
+            // Format số điện thoại
             let sdtQuocTe = sdt;
             if (sdt.startsWith('0')) {
                 sdtQuocTe = `+84${sdt.substring(1)}`;
@@ -73,21 +62,13 @@ const guiOTPQuenMatKhau = async (sdt) => {
                 sdtQuocTe = `+84${sdt}`;
             }
 
-            // Validate số điện thoại
             if (!/^\+84[0-9]{9}$/.test(sdtQuocTe)) {
                 throw new Error('Số điện thoại không đúng định dạng Việt Nam.');
             }
 
-            console.log(`📱 Attempting to send SMS to: ${sdtQuocTe}`);
-            console.log(`📞 From number: ${process.env.TWILIO_PHONE_NUMBER}`);
-            console.log(`🔧 Twilio Account SID: ${process.env.TWILIO_ACCOUNT_SID}`);
-
-            // Test Twilio connection trước khi gửi
             try {
                 const account = await twilioClient.api.accounts(process.env.TWILIO_ACCOUNT_SID).fetch();
-                console.log(`✅ Twilio account status: ${account.status}`);
             } catch (connectionError) {
-                console.error('❌ Twilio connection failed:', connectionError.message);
                 throw new Error('Không thể kết nối đến Twilio. Vui lòng kiểm tra cấu hình.');
             }
 
@@ -98,14 +79,9 @@ const guiOTPQuenMatKhau = async (sdt) => {
             });
 
             messageSid = message.sid;
-            console.log(`✅ SMS sent successfully. Message SID: ${messageSid}`);
             smsSuccess = true;
 
         } catch (twilioError) {
-            console.error('❌ Twilio SMS Error:', twilioError.message);
-            console.error('❌ Error code:', twilioError.code);
-            console.error('❌ Error details:', twilioError);
-
             // Xử lý các lỗi cụ thể của Twilio
             if (twilioError.code === 21211) {
                 throw new Error('Số điện thoại không hợp lệ.');
@@ -115,12 +91,9 @@ const guiOTPQuenMatKhau = async (sdt) => {
                 throw new Error('Số điện thoại đã bị chặn bởi Twilio.');
             }
 
-            // Trong môi trường development, vẫn cho phép test mà không cần SMS thật
             if (process.env.NODE_ENV === 'development') {
-                console.log(`⚠️  SMS failed in dev mode, but OTP saved: ${otp}`);
-                smsSuccess = true; // Giả lập thành công trong dev mode
+                smsSuccess = true;
             } else {
-                // Trong production, throw error nếu SMS fail
                 throw new Error(`Không thể gửi tin nhắn SMS: ${twilioError.message}`);
             }
         }
@@ -139,14 +112,11 @@ const guiOTPQuenMatKhau = async (sdt) => {
         }
 
     } catch (error) {
-        console.error('❌ OTP Generation Error:', error.message);
         throw error;
     }
 };
 
 const xacThucOTP = async (sdt, otp) => {
-    console.log(`🔍 Looking for OTP: ${otp} for phone: ${sdt}`);
-
     // Kiểm tra format OTP
     if (!otp || otp.length !== 6 || !/^\d{6}$/.test(otp)) {
         throw new Error('Mã OTP phải có 6 chữ số.');
@@ -155,29 +125,17 @@ const xacThucOTP = async (sdt, otp) => {
     const otpRecord = await OTP.findOne({ sdt, otp });
 
     if (!otpRecord) {
-        console.log(`❌ OTP not found in database for ${sdt}`);
-
-        // Debug: kiểm tra tất cả OTP cho số điện thoại này
-        const allOtpsForPhone = await OTP.find({ sdt });
-        console.log(`📋 All OTPs for ${sdt}:`, allOtpsForPhone.map(o => ({ otp: o.otp, createdAt: o.createdAt })));
-
         throw new Error('Mã OTP không hợp lệ hoặc đã hết hạn.');
     }
-
-    // Kiểm tra thời gian hết hạn (5 phút)
+    // Kiểm tra thời gian hết hạn 
     const now = new Date();
     const otpAge = now - otpRecord.createdAt;
-    const maxAge = 5 * 60 * 1000; // 5 phút
+    const maxAge = 5 * 60 * 1000;
 
     if (otpAge > maxAge) {
-        console.log(`⏰ OTP expired for ${sdt}. Age: ${otpAge}ms, Max: ${maxAge}ms`);
-        await OTP.deleteOne({ _id: otpRecord._id }); // Xóa OTP hết hạn
+        await OTP.deleteOne({ _id: otpRecord._id });
         throw new Error('Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.');
     }
-
-    console.log(`✅ OTP found and valid for ${sdt}`);
-
-    // Không xóa OTP ở đây, vì nó sẽ cần cho bước reset mật khẩu cuối cùng
     return {
         success: true,
         message: 'Xác thực OTP thành công.',
@@ -188,40 +146,30 @@ const xacThucOTP = async (sdt, otp) => {
 
 const datLaiMatKhauVoiOTP = async (sdt, otp, matKhauMoi) => {
     try {
-        console.log(`🔐 Resetting password for ${sdt} with OTP: ${otp}`);
-
         // Kiểm tra format mật khẩu mới
         if (!matKhauMoi || matKhauMoi.length < 6) {
             throw new Error('Mật khẩu mới phải có ít nhất 6 ký tự.');
         }
-
-        // Tìm OTP trong DB
         const otpRecord = await OTP.findOne({ sdt, otp });
 
         if (!otpRecord) {
-            console.log(`❌ OTP not found for ${sdt}`);
             throw new Error('Mã OTP không hợp lệ hoặc đã hết hạn.');
         }
-
         // Kiểm tra thời gian hết hạn OTP
         const now = new Date();
         const otpAge = now - otpRecord.createdAt;
         const maxAge = 5 * 60 * 1000; // 5 phút
 
         if (otpAge > maxAge) {
-            console.log(`⏰ OTP expired for ${sdt}`);
             await OTP.deleteOne({ _id: otpRecord._id });
             throw new Error('Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.');
         }
-
         // Tìm tài khoản
         const taiKhoan = await TaiKhoan.findOne({ sdt });
         if (!taiKhoan) {
-            console.log(`❌ Account not found for ${sdt}`);
             throw new Error('Không tìm thấy tài khoản.');
         }
 
-        // Kiểm tra mật khẩu mới có khác mật khẩu cũ không
         const isSamePassword = await bcrypt.compare(matKhauMoi, taiKhoan.matKhau);
         if (isSamePassword) {
             throw new Error('Mật khẩu mới phải khác mật khẩu hiện tại.');
@@ -232,11 +180,8 @@ const datLaiMatKhauVoiOTP = async (sdt, otp, matKhauMoi) => {
         taiKhoan.matKhau = await bcrypt.hash(matKhauMoi, salt);
         await taiKhoan.save();
 
-        console.log(`✅ Password updated for ${sdt}`);
-
         // Xóa OTP đã sử dụng
         await OTP.deleteOne({ _id: otpRecord._id });
-        console.log(`🗑️ OTP deleted after successful password reset`);
 
         return {
             success: true,
@@ -245,22 +190,17 @@ const datLaiMatKhauVoiOTP = async (sdt, otp, matKhauMoi) => {
         };
 
     } catch (error) {
-        console.error('❌ Password Reset Error:', error.message);
         throw error;
     }
 };
 
 const findTaiKhoanByUserId = async (userId) => {
-    console.log(`🔍 Finding TaiKhoan for userId: ${userId}`);
     const taiKhoan = await TaiKhoan.findOne({ nguoiDung: userId });
-    console.log(`🔍 Found TaiKhoan:`, taiKhoan ? 'Yes' : 'No');
     return taiKhoan;
 };
 
 const updatePassword = async (taiKhoanId, hashedPassword) => {
-    console.log(`🔧 Updating password for TaiKhoan ID: ${taiKhoanId}`);
     const result = await TaiKhoan.findByIdAndUpdate(taiKhoanId, { matKhau: hashedPassword });
-    console.log(`🔧 Update result:`, result ? 'Success' : 'Failed');
     return result;
 };
 

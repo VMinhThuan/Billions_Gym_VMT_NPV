@@ -7,6 +7,8 @@ import Card from '../components/Card';
 import Loading from '../components/Loading';
 import EntityForm, { ConfirmModal } from '../components/EntityForm';
 import SortableHeader from '../components/SortableHeader';
+import Dashboard from '../components/Dashboard';
+import AdvancedDashboard from '../components/AdvancedDashboard';
 import { api, auth } from '../services/api';
 import { geminiAI, AIWorkoutSuggestion, AINutritionSuggestion } from '../services/gemini';
 import { useCrudNotifications } from '../hooks/useNotification';
@@ -485,152 +487,41 @@ const AdminDashboard = () => {
 
                 <div className="admin-content">
                     {section === 'overview' && (
-                        <section className="stats-grid">
-                            {isLoading ? (
-                                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px' }}>
-                                    <Loading text="Đang tải dữ liệu tổng quan..." />
-                                </div>
-                            ) : (
-                                stats.map((s) => (
-                                    <Card key={s.label} variant="elevated" className="stat-card">
-                                        <div className="stat-content">
-                                            <div className="stat-label">{s.label}</div>
-                                            <div className="stat-value">{s.value}</div>
-                                            {s.sub && <div className={`stat-sub ${s.trend ?? ''}`}>{s.sub}</div>}
-                                        </div>
-                                    </Card>
-                                ))
-                            )}
-                        </section>
-                    )}
+                        <>
+                            <section className="stats-grid">
+                                {isLoading ? (
+                                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px' }}>
+                                        <Loading text="Đang tải dữ liệu tổng quan..." />
+                                    </div>
+                                ) : (
+                                    stats.map((s) => (
+                                        <Card key={s.label} variant="elevated" className="stat-card">
+                                            <div className="stat-content">
+                                                <div className="stat-label">{s.label}</div>
+                                                <div className="stat-value">{s.value}</div>
+                                                {s.sub && <div className={`stat-sub ${s.trend ?? ''}`}>{s.sub}</div>}
+                                            </div>
+                                        </Card>
+                                    ))
+                                )}
+                            </section>
 
-                    {section === 'overview' && (
-                        <div className="grid-2">
-                            <Card title="Lịch hẹn PT sắp diễn ra" className="panel">
-                                <div className="panel-head">
-                                    <a className="link" href="#/admin/appointments">Xem tất cả</a>
-                                </div>
-                                <table className="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Hội viên</th>
-                                            <th>PT</th>
-                                            <th>Thời gian</th>
-                                            <th>Trạng thái</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {recentAppointments.length > 0 ? recentAppointments.map((appointment: any) => (
-                                            <tr key={appointment._id}>
-                                                <td>{appointment.hoiVien || 'N/A'}</td>
-                                                <td>{appointment.pt || 'N/A'}</td>
-                                                <td>{new Date(appointment.ngayHen).toLocaleDateString('vi-VN')} {appointment.gioHen}</td>
-                                                <td>
-                                                    <span className={`badge ${appointment.trangThaiLichHen === 'DA_XAC_NHAN' ? 'success' : 'warning'}`}>
-                                                        {appointment.trangThaiLichHen === 'DA_XAC_NHAN' ? 'ĐÃ XÁC NHẬN' : 'CHỜ XÁC NHẬN'}
-                                                    </span>
-                                                </td>
-                                                <td className="row-actions">
-                                                    <Button variant="ghost" size="small">Sửa</Button>
-                                                    <Button variant="ghost" size="small">Hủy</Button>
-                                                </td>
-                                            </tr>
-                                        )) : (
-                                            <tr>
-                                                <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
-                                                    {isLoading ? 'Đang tải...' : 'Chưa có lịch hẹn nào'}
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </Card>
+                            <Dashboard
+                                stats={stats}
+                                recentAppointments={recentAppointments}
+                                recentPayments={recentPayments}
+                                topPTs={topPTs}
+                                isLoading={isLoading}
+                            />
 
-                            <Card title="Thanh toán gần đây" className="panel">
-                                <div className="panel-head">
-                                    <a className="link" href="#/admin/payments">Xem tất cả</a>
-                                </div>
-                                <table className="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Hội viên</th>
-                                            <th>Gói tập</th>
-                                            <th>Số tiền</th>
-                                            <th>Phương thức</th>
-                                            <th>Trạng thái</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {recentPayments.length > 0 ? recentPayments.map((payment: any) => (
-                                            <tr key={payment._id}>
-                                                <td>{payment.hoiVien || 'N/A'}</td>
-                                                <td>{payment.noiDung || 'N/A'}</td>
-                                                <td>{payment.soTien ? payment.soTien.toLocaleString('vi-VN') + '₫' : '0₫'}</td>
-                                                <td>{payment.phuongThuc || 'N/A'}</td>
-                                                <td>
-                                                    <span className={`badge ${payment.trangThai === 'DA_THANH_TOAN' ? 'success' : 'danger'}`}>
-                                                        {payment.trangThai === 'DA_THANH_TOAN' ? 'ĐÃ THANH TOÁN' : 'CHƯA THANH TOÁN'}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        )) : (
-                                            <tr>
-                                                <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
-                                                    {isLoading ? 'Đang tải...' : 'Chưa có thanh toán nào'}
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </Card>
-                        </div>
-                    )}
-
-                    {section === 'overview' && (
-                        <div className="grid-3">
-                            <Card title="Top PT theo lịch hẹn" className="panel">
-                                <ul className="list">
-                                    {topPTs.length > 0 ? topPTs.map((pt: any) => (
-                                        <li key={pt._id} className="list-row">
-                                            <span>{pt.hoTen || 'N/A'}</span>
-                                            <span className="muted">{pt.appointmentCount || 0} lịch hẹn</span>
-                                        </li>
-                                    )) : (
-                                        <li className="list-row">
-                                            <span style={{ color: '#666' }}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu PT'}</span>
-                                        </li>
-                                    )}
-                                </ul>
-                            </Card>
-
-                            <Card title="Tình trạng hội viên" className="panel">
-                                <ul className="list">
-                                    {stats.length > 0 ? [
-                                        ['ĐANG HOẠT ĐỘNG', stats.find(s => s.label === 'Hội viên hoạt động')?.value || '0'],
-                                        ['TẠM NGƯNG', stats.find(s => s.label === 'Hội viên hoạt động')?.sub?.split(' ')[0] || '0'],
-                                        ['TỔNG SỐ', stats.find(s => s.label === 'Tổng hội viên')?.value || '0']
-                                    ].map(([k, v]) => (
-                                        <li key={k} className="list-row">
-                                            <span>{k}</span>
-                                            <span className="muted">{v}</span>
-                                        </li>
-                                    )) : (
-                                        <li className="list-row">
-                                            <span style={{ color: '#666' }}>{isLoading ? 'Đang tải...' : 'Chưa có dữ liệu'}</span>
-                                        </li>
-                                    )}
-                                </ul>
-                            </Card>
-
-                            <Card title="Thông báo hệ thống" className="panel">
-                                <ul className="list">
-                                    <li className="list-row">
-                                        <span style={{ color: '#666' }}>Chưa có thông báo hệ thống</span>
-                                    </li>
-                                </ul>
-                            </Card>
-                        </div>
+                            <AdvancedDashboard
+                                stats={stats}
+                                recentAppointments={recentAppointments}
+                                recentPayments={recentPayments}
+                                topPTs={topPTs}
+                                isLoading={isLoading}
+                            />
+                        </>
                     )}
                     {section === 'members' && <MembersPage />}
                     {section === 'pt' && <PTPage />}
@@ -1337,7 +1228,8 @@ const MembersPage = () => {
                                         </div>
                                     </div>
                                 </td>
-                                <td>{r.email}</td>
+                                <td>{r.email ? r.email : 'N/A'}
+                                </td>
                                 <td>{r.sdt}</td>
                                 <td>{r.gioiTinh === 'Nam' ? 'Nam' : 'Nữ'}</td>
                                 <td>{r.ngaySinh ? new Date(r.ngaySinh).toLocaleDateString('vi-VN', {
@@ -1470,7 +1362,7 @@ const MembersPage = () => {
                         } catch (error) {
                             console.error('Error saving member:', error);
                             let errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi lưu thông tin hội viên';
-                            
+
                             // Handle specific error types
                             if (errorMessage.includes('E11000 duplicate key error') && errorMessage.includes('soCCCD')) {
                                 errorMessage = 'Số CCCD này đã được sử dụng bởi hội viên khác. Vui lòng kiểm tra lại.';
@@ -1481,7 +1373,7 @@ const MembersPage = () => {
                             } else if (errorMessage.includes('413') || errorMessage.includes('PayloadTooLargeError')) {
                                 errorMessage = 'Dữ liệu quá lớn. Vui lòng giảm kích thước ảnh đại diện hoặc thử lại.';
                             }
-                            
+
                             if (editingItem && !isCopying) {
                                 notifications.member.updateError(errorMessage);
                             } else {

@@ -92,15 +92,6 @@ exports.updateHoiVien = async (req, res) => {
             });
         }
 
-        // Kiểm tra database connection
-        const mongoose = require('mongoose');
-        if (mongoose.connection.readyState !== 1) {
-            return res.status(500).json({
-                success: false,
-                message: 'Database connection error'
-            });
-        }
-
         const hoiVien = await userService.updateHoiVien(req.params.id, req.body);
 
         if (!hoiVien) {
@@ -182,7 +173,7 @@ exports.deleteHoiVien = async (req, res) => {
 // PT
 exports.createPT = async (req, res) => {
     try {
-        // FINAL CLEANUP: Ensure empty, null, or undefined email is removed before processing
+        // Xóa email nếu nó là empty, null, hoặc undefined
         if (!req.body.email || req.body.email.trim() === '') {
             delete req.body.email;
         }
@@ -248,7 +239,7 @@ exports.deletePT = async (req, res) => {
     }
 };
 
-// Admin specific endpoints for member management
+// Cập nhật trạng thái hội viên
 exports.updateMemberStatus = async (req, res) => {
     try {
         const { status } = req.body;
@@ -277,17 +268,16 @@ exports.updateMemberStatus = async (req, res) => {
     }
 };
 
-// PT specific endpoints
+// Lấy danh sách học viên của PT
 exports.getPTStudents = async (req, res) => {
     try {
-        const ptId = req.user.id; // Get PT ID from authenticated user
+        const ptId = req.user.id;
 
-        // Check if user exists and has PT role
         if (!req.user || (req.user.vaiTro !== 'PT' && req.user.vaiTro !== 'OngChu')) {
-            return res.json([]); // Return empty array instead of error
+            return res.json([]);
         }
 
-        // Get all bookings for this PT
+        // Lấy tất cả đặt lịch cho PT này
         const LichHenPT = require('../models/LichHenPT');
 
         const bookings = await LichHenPT.find({
@@ -299,12 +289,12 @@ exports.getPTStudents = async (req, res) => {
             model: 'NguoiDung'
         });
 
-        // Handle case where no bookings found
+        // Xử lý trường hợp không có đặt lịch
         if (!bookings || bookings.length === 0) {
             return res.json([]);
         }
 
-        // Extract unique students from bookings
+        // Lấy danh sách học viên từ đặt lịch
         const studentsMap = new Map();
         bookings.forEach(booking => {
             if (booking.hoiVien) {
@@ -319,7 +309,7 @@ exports.getPTStudents = async (req, res) => {
                         lastBookingDate: booking.ngayHen
                     });
                 } else {
-                    // Update last booking date if this booking is more recent
+                    // Cập nhật ngày đặt lịch nếu đặt lịch này mới hơn
                     const existingStudent = studentsMap.get(studentId);
                     if (new Date(booking.ngayHen) > new Date(existingStudent.lastBookingDate)) {
                         existingStudent.lastBookingDate = booking.ngayHen;
@@ -332,7 +322,6 @@ exports.getPTStudents = async (req, res) => {
 
         res.json(students);
     } catch (err) {
-        // Return empty array instead of error to avoid breaking frontend
         res.json([]);
     }
 };
@@ -350,4 +339,3 @@ exports.getTaiKhoanByPhone = async (req, res) => {
         res.status(500).json({ message: 'Lỗi khi lấy thông tin tài khoản', error: err.message });
     }
 };
-
