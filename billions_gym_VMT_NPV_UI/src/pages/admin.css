@@ -1884,10 +1884,6 @@ td .status-badge.ngung-lam-viec,
     white-space: nowrap;
 }
 
-.sortable-header:hover {
-    background-color: #f8fafc;
-}
-
 .sort-icons {
     display: inline-flex;
     flex-direction: column;
@@ -2718,13 +2714,13 @@ td .status-badge.ngung-lam-viec,
     border-radius: 16px;
     box-shadow: 0 4px 20px var(--shadow-color);
     overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); */
     border: 1px solid var(--border-color);
 }
 
 .chart-section:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px var(--shadow-color);
+    /* transform: translateY(-2px); */
+    /* box-shadow: 0 8px 30px var(--shadow-color); */
 }
 
 .chart-card {

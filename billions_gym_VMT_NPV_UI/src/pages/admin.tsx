@@ -2371,7 +2371,7 @@ const SessionsPage = () => {
                         }
                     } catch (error) {
                         console.error('Error saving session:', error);
-                    }
+                    }   
                     setShow(false);
                     setEditingItem(null);
                     setIsCopying(false);
