@@ -65,8 +65,15 @@ interface GoiTap {
     moTa: string;
     donGia: number;
     thoiHan: number;
+    donViThoiHan: 'Ngay' | 'Thang' | 'Nam';
+    loaiThoiHan: 'VinhVien' | 'TinhTheoNgay';
+    soLuongNguoiThamGia: number;
+    loaiGoiTap: 'CaNhan' | 'Nhom' | 'CongTy';
+    giaGoc?: number;
+    popular?: boolean;
     hinhAnhDaiDien?: string;
     kichHoat: boolean;
+    ghiChu?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -1426,6 +1433,9 @@ const PackagesPage = () => {
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: GoiTap | null }>({ show: false, item: null });
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<GoiTap[]>([]);
+    const [sortBy, setSortBy] = useState<'name' | 'price' | 'duration'>('name');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+    const [viewingItem, setViewingItem] = useState<GoiTap | null>(null);
 
     useEffect(() => {
         let mounted = true;
@@ -1448,6 +1458,40 @@ const PackagesPage = () => {
         r.moTa.toLowerCase().includes(q.toLowerCase())
     );
 
+    const sortedAndFiltered = [...filtered].sort((a, b) => {
+        let comparison = 0;
+        
+        switch (sortBy) {
+            case 'name':
+                comparison = a.tenGoiTap.localeCompare(b.tenGoiTap, 'vi');
+                break;
+            case 'price':
+                comparison = (a.donGia || 0) - (b.donGia || 0);
+                break;
+            case 'duration':
+                // Convert duration to days for comparison
+                const aDays = a.donViThoiHan === 'Ngay' ? a.thoiHan : 
+                             a.donViThoiHan === 'Thang' ? a.thoiHan * 30 : 
+                             a.thoiHan * 365;
+                const bDays = b.donViThoiHan === 'Ngay' ? b.thoiHan : 
+                             b.donViThoiHan === 'Thang' ? b.thoiHan * 30 : 
+                             b.thoiHan * 365;
+                comparison = aDays - bDays;
+                break;
+        }
+        
+        return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    const handleSort = (newSortBy: 'name' | 'price' | 'duration') => {
+        if (sortBy === newSortBy) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortBy(newSortBy);
+            setSortOrder('asc');
+        }
+    };
+
     return (
         <Card className="panel">
             <div className="toolbar">
@@ -1457,16 +1501,58 @@ const PackagesPage = () => {
                     <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
                 </div>
             </div>
-            <div className="packages-grid">
-                {filtered.map(pkg => (
+            
+            {/* Sorting Controls */}
+            <div className="sorting-controls">
+                <span className="sort-label">Sắp xếp theo:</span>
+                <button 
+                    className={`sort-btn ${sortBy === 'name' ? 'active' : ''}`}
+                    onClick={() => handleSort('name')}
+                >
+                    Tên {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </button>
+                <button 
+                    className={`sort-btn ${sortBy === 'price' ? 'active' : ''}`}
+                    onClick={() => handleSort('price')}
+                >
+                    Giá {sortBy === 'price' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </button>
+                <button 
+                    className={`sort-btn ${sortBy === 'duration' ? 'active' : ''}`}
+                    onClick={() => handleSort('duration')}
+                >
+                    Thời hạn {sortBy === 'duration' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </button>
+            </div>
+
+            <div className="packages-container">
+                <div className="packages-grid">
+                {sortedAndFiltered.map(pkg => (
                     <Card key={pkg._id} className="package-card" hover>
                         <img src={pkg.hinhAnhDaiDien} alt={pkg.tenGoiTap} className="package-image" />
                         <div className="package-content">
                             <h3 className="package-title">{pkg.tenGoiTap}</h3>
                             <p className="package-description">{pkg.moTa}</p>
                             <div className="package-details">
-                                <div className="package-price">{pkg.donGia ? pkg.donGia.toLocaleString('vi-VN') : '0'}₫</div>
-                                <div className="package-duration">{pkg.thoiHan} ngày</div>
+                                <div className="package-price">
+                                    {pkg.donGia ? pkg.donGia.toLocaleString('vi-VN') : '0'}₫
+                                    {pkg.giaGoc && pkg.giaGoc > pkg.donGia && (
+                                        <span className="original-price">{pkg.giaGoc.toLocaleString('vi-VN')}₫</span>
+                                    )}
+                                </div>
+                                <div className="package-type">
+                                    {pkg.loaiGoiTap === 'CaNhan' ? 'Cá nhân' : 
+                                     pkg.loaiGoiTap === 'Nhom' ? 'Nhóm' : 'Công ty'}
+                                </div>
+                                <div className="package-participants">
+                                    {pkg.soLuongNguoiThamGia} người
+                                </div>
+                                <div className="package-duration">
+                                    {pkg.loaiThoiHan === 'VinhVien' ? 'Vĩnh viễn' : 
+                                     `${pkg.thoiHan} ${pkg.donViThoiHan === 'Ngay' ? 'ngày' : 
+                                                      pkg.donViThoiHan === 'Thang' ? 'tháng' : 'năm'}`}
+                                </div>
+                                {pkg.popular && <div className="popular-badge">Phổ biến</div>}
                             </div>
                             <div className="package-status">
                                 <span className={`badge ${pkg.kichHoat ? 'success' : 'danger'}`}>
@@ -1475,13 +1561,13 @@ const PackagesPage = () => {
                             </div>
                             <div className="package-actions">
                                 <Button variant="ghost" size="small" onClick={() => setEditingItem(pkg)}>Sửa</Button>
-                                <Button variant="ghost" size="small" onClick={() => { const copyData = { ...pkg }; delete (copyData as any)._id; setEditingItem(copyData); setShow(true); }}>Sao chép</Button>
+                                <Button variant="ghost" size="small" onClick={() => setViewingItem(pkg)}>Xem chi tiết</Button>
                                 <Button variant="ghost" size="small" onClick={() => setDeleteConfirm({ show: true, item: pkg })}>Xóa</Button>
                             </div>
                         </div>
                     </Card>
                 ))}
-
+                </div>
             </div>
             {(show || editingItem) && <EntityForm
                 title="Gói tập"
@@ -1490,9 +1576,32 @@ const PackagesPage = () => {
                     { name: 'hinhAnhDaiDien', label: 'Hình ảnh đại diện', type: 'file', validation: { maxSize: 5 } },
                     { name: 'tenGoiTap', label: 'Tên gói tập', validation: { required: true, pattern: /^[\p{L}\d\s\-_]+$/u, message: 'Tên gói tập không được chứa ký tự đặc biệt' } },
                     { name: 'moTa', label: 'Mô tả', type: 'textarea', validation: { required: true } },
+                    { name: 'loaiGoiTap', label: 'Loại gói tập', options: [
+                        { value: 'CaNhan', label: 'Cá nhân' },
+                        { value: 'Nhom', label: 'Nhóm' },
+                        { value: 'CongTy', label: 'Công ty' }
+                    ], validation: { required: true } },
+                    { name: 'soLuongNguoiThamGia', label: 'Số lượng người tham gia', type: 'number', validation: { required: true, pattern: /^[1-9]\d*$/, message: 'Số lượng phải là số nguyên dương' } },
                     { name: 'donGia', label: 'Đơn giá (VNĐ)', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Đơn giá phải là số nguyên dương' } },
-                    { name: 'thoiHan', label: 'Thời hạn (ngày)', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Thời hạn phải là số nguyên dương' } },
-                    { name: 'kichHoat', label: 'Trạng thái', options: ['true', 'false'], validation: { required: true } }
+                    { name: 'giaGoc', label: 'Giá gốc (VNĐ)', type: 'number', validation: { pattern: /^\d+$/, message: 'Giá gốc phải là số nguyên dương' } },
+                    { name: 'loaiThoiHan', label: 'Loại thời hạn', options: [
+                        { value: 'TinhTheoNgay', label: 'Tính theo ngày từ khi đăng ký' },
+                        { value: 'VinhVien', label: 'Vĩnh viễn' }
+                    ], validation: { required: true } },
+                    { name: 'thoiHan', label: 'Thời hạn', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Thời hạn phải là số nguyên dương' } },
+                    { name: 'donViThoiHan', label: 'Đơn vị thời hạn', options: [
+                        { value: 'Ngay', label: 'Ngày' },
+                        { value: 'Thang', label: 'Tháng' },
+                        { value: 'Nam', label: 'Năm' }
+                    ], validation: { required: true } },
+                    { name: 'popular', label: 'Gói phổ biến', type: 'radio', options: [
+                        { value: 'true', label: 'Có' },
+                        { value: 'false', label: 'Không' }
+                    ] },
+                    { name: 'kichHoat', label: 'Trạng thái', type: 'radio', options: [
+                        { value: 'true', label: 'Kích hoạt' },
+                        { value: 'false', label: 'Tạm ngưng' }
+                    ], validation: { required: true } }
                 ]}
                 onClose={() => { setShow(false); setEditingItem(null); }}
                 onSave={async (val) => {
@@ -1500,8 +1609,11 @@ const PackagesPage = () => {
                         const packageData = {
                             ...val,
                             donGia: parseInt(val.donGia),
+                            giaGoc: val.giaGoc ? parseInt(val.giaGoc) : undefined,
                             thoiHan: parseInt(val.thoiHan),
-                            kichHoat: val.kichHoat === 'true'
+                            soLuongNguoiThamGia: parseInt(val.soLuongNguoiThamGia),
+                            kichHoat: val.kichHoat === 'true',
+                            popular: val.popular === 'true'
                         };
 
                         if (editingItem) {
@@ -1546,6 +1658,182 @@ const PackagesPage = () => {
                 }}
                 onCancel={() => setDeleteConfirm({ show: false, item: null })}
             />}
+            
+            {/* Package Details Modal */}
+            {viewingItem && (
+                <div className="modal-overlay" onClick={() => setViewingItem(null)}>
+                    <div className="modal-content package-details-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Chi tiết gói tập</h2>
+                            <button className="close-btn" onClick={() => setViewingItem(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="package-detail-content">
+                                <div className="package-profile-section">
+                                    <div className="package-image-section">
+                                        <div className="package-image">
+                                            {viewingItem.hinhAnhDaiDien ? (
+                                                <img src={viewingItem.hinhAnhDaiDien} alt={viewingItem.tenGoiTap} />
+                                            ) : (
+                                                <div className="package-image-placeholder">
+                                                    {viewingItem.tenGoiTap.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="package-name-section">
+                                        <h3>{viewingItem.tenGoiTap}</h3>
+                                        <div className="package-status">
+                                            <span className="package-status-badge">
+                                                {viewingItem.kichHoat ? '🟢 Đang bán' : '🔴 Tạm ngưng'}
+                                            </span>
+                                            {viewingItem.popular && (
+                                                <span className="package-status-badge popular-badge">
+                                                    ⭐ Phổ biến
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="package-info-form">
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Tên gói tập</label>
+                                            <input type="text" value={viewingItem.tenGoiTap} readOnly />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Loại gói tập</label>
+                                            <input type="text" value={
+                                                viewingItem.loaiGoiTap === 'CaNhan' ? 'Cá nhân' : 
+                                                viewingItem.loaiGoiTap === 'Nhom' ? 'Nhóm' : 'Công ty'
+                                            } readOnly />
+                                        </div>
+                                    </div>
+
+                                    <div className="form-row">
+                                        <div className="form-group price-input">
+                                            <label>Đơn giá</label>
+                                            <input 
+                                                type="text" 
+                                                value={viewingItem.donGia?.toLocaleString('vi-VN') || '0'} 
+                                                readOnly 
+                                            />
+                                        </div>
+                                        {viewingItem.giaGoc && viewingItem.giaGoc > (viewingItem.donGia || 0) && (
+                                            <div className="form-group original-price-input">
+                                                <label>Giá gốc</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={viewingItem.giaGoc.toLocaleString('vi-VN')} 
+                                                    readOnly 
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Số lượng người tham gia</label>
+                                            <input type="text" value={`${viewingItem.soLuongNguoiThamGia} người`} readOnly />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Loại thời hạn</label>
+                                            <input type="text" value={
+                                                viewingItem.loaiThoiHan === 'VinhVien' ? 'Vĩnh viễn' : 'Tính theo ngày từ khi đăng ký'
+                                            } readOnly />
+                                        </div>
+                                    </div>
+
+                                    <div className="form-row">
+                                        <div className="duration-group">
+                                            <div className="form-group">
+                                                <label>Thời hạn</label>
+                                                <input type="text" value={
+                                                    viewingItem.loaiThoiHan === 'VinhVien' ? 'Vĩnh viễn' : viewingItem.thoiHan?.toString() || '0'
+                                                } readOnly />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Đơn vị</label>
+                                                <input type="text" value={
+                                                    viewingItem.loaiThoiHan === 'VinhVien' ? '' :
+                                                    viewingItem.donViThoiHan === 'Ngay' ? 'Ngày' : 
+                                                    viewingItem.donViThoiHan === 'Thang' ? 'Tháng' : 'Năm'
+                                                } readOnly />
+                                            </div>
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Trạng thái</label>
+                                            <input 
+                                                type="text" 
+                                                value={viewingItem.kichHoat ? 'Đang bán' : 'Tạm ngưng'} 
+                                                className={viewingItem.kichHoat ? 'status-active' : 'status-inactive'}
+                                                readOnly 
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group full-width">
+                                        <label>Mô tả gói tập</label>
+                                        <textarea 
+                                            value={viewingItem.moTa || 'Chưa có mô tả'} 
+                                            readOnly 
+                                            rows={4}
+                                        />
+                                    </div>
+
+                                    {viewingItem.ghiChu && (
+                                        <div className="form-group full-width">
+                                            <label>Ghi chú</label>
+                                            <textarea 
+                                                value={viewingItem.ghiChu} 
+                                                readOnly 
+                                                rows={3}
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Ngày tạo</label>
+                                            <input type="text" value={
+                                                viewingItem.createdAt ? 
+                                                new Date(viewingItem.createdAt).toLocaleDateString('vi-VN', {
+                                                    day: '2-digit',
+                                                    month: '2-digit', 
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                }) : 'N/A'
+                                            } readOnly />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Cập nhật lần cuối</label>
+                                            <input type="text" value={
+                                                viewingItem.updatedAt ? 
+                                                new Date(viewingItem.updatedAt).toLocaleDateString('vi-VN', {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    year: 'numeric', 
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                }) : 'N/A'
+                                            } readOnly />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <Button variant="secondary" onClick={() => setViewingItem(null)}>Đóng</Button>
+                            <Button variant="primary" onClick={() => {
+                                setEditingItem(viewingItem);
+                                setViewingItem(null);
+                            }}>Chỉnh sửa</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Card>
     );
 };
@@ -2398,13 +2686,13 @@ const SessionsPage = () => {
         </Card>
     );
 };
-
-// Exercises Page
 const ExercisesPage = () => {
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
     const [editingItem, setEditingItem] = useState<BaiTap | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: BaiTap | null }>({ show: false, item: null });
+    const [sortBy, setSortBy] = useState<'name' | 'price' | 'duration'>('name');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<any[]>([]);
 

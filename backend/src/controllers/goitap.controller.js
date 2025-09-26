@@ -71,3 +71,44 @@ exports.getPackagesByTimeUnit = async (req, res) => {
         res.status(500).json({ message: 'Lỗi server', error: err.message });
     }
 };
+
+// Get packages by type
+exports.getPackagesByType = async (req, res) => {
+    try {
+        const { loaiGoiTap } = req.params;
+        const packages = await goiTapService.getPackagesByType(loaiGoiTap);
+        res.json(packages);
+    } catch (err) {
+        res.status(500).json({ message: 'Lỗi server', error: err.message });
+    }
+};
+
+// Get popular packages
+exports.getPopularPackages = async (req, res) => {
+    try {
+        const packages = await goiTapService.getPopularPackages();
+        res.json(packages);
+    } catch (err) {
+        res.status(500).json({ message: 'Lỗi server', error: err.message });
+    }
+};
+
+// Get permanent packages
+exports.getPermanentPackages = async (req, res) => {
+    try {
+        const packages = await goiTapService.getPermanentPackages();
+        res.json(packages);
+    } catch (err) {
+        res.status(500).json({ message: 'Lỗi server', error: err.message });
+    }
+};
+
+// Get time-based packages
+exports.getTimeBasedPackages = async (req, res) => {
+    try {
+        const packages = await goiTapService.getTimeBasedPackages();
+        res.json(packages);
+    } catch (err) {
+        res.status(500).json({ message: 'Lỗi server', error: err.message });
+    }
+};
