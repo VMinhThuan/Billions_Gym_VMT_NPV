@@ -4,8 +4,8 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 87, 34, 0.1) 100%), rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(12px);
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -51,20 +51,20 @@
     --text-muted: rgba(67, 56, 202, 0.7);
     --text-placeholder: rgba(107, 114, 128, 0.6);
     
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8fafc;
-    --bg-tertiary: #f1f5f9;
-    --bg-modal: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
-    --bg-header: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-    --bg-overlay: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(79, 70, 229, 0.05) 100%), rgba(0, 0, 0, 0.5);
+    --bg-primary: #f0f9ff;
+    --bg-secondary: #e0f2fe;
+    --bg-tertiary: #b3e5fc;
+    --bg-modal: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #b3e5fc 100%);
+    --bg-header: #ffffff;
+    --bg-overlay: rgba(0, 0, 0, 0.5);
     
     --border-color: rgba(99, 102, 241, 0.2);
     --border-light: rgba(99, 102, 241, 0.1);
     --shadow-color: rgba(99, 102, 241, 0.08);
     --shadow-hover: rgba(99, 102, 241, 0.2);
     
-    --header-text: #ffffff;
-    --header-text-secondary: rgba(255, 255, 255, 0.9);
+    --header-text: #0f172a;
+    --header-text-secondary: #64748b;
     
     --success-color: #10b981;
     --error-color: #ef4444;
@@ -86,9 +86,9 @@
     --bg-primary: #1f2937;
     --bg-secondary: #374151;
     --bg-tertiary: #4b5563;
-    --bg-modal: linear-gradient(135deg, #1f2937 0%, #374151 50%, #4b5563 100%);
-    --bg-header: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-    --bg-overlay: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.1) 100%), rgba(0, 0, 0, 0.7);
+    --bg-modal: #1f2937;
+    --bg-header: #374151;
+    --bg-overlay: rgba(0, 0, 0, 0.7);
     
     --border-color: rgba(129, 140, 248, 0.3);
     --border-light: rgba(129, 140, 248, 0.2);
@@ -101,6 +101,60 @@
     --success-color: #34d399;
     --error-color: #f87171;
     --warning-color: #fbbf24;
+    
+    /* Override form background to white in dark mode */
+    .modal-content {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+    }
+    
+    .form-grid,
+    .form-group,
+    .form-input,
+    .form-input:focus,
+    .form-input:active,
+    .form-select,
+    .form-select:focus,
+    .form-select:active,
+    .input,
+    .input:focus,
+    .input:active,
+    .select select,
+    .select select:focus,
+    .select select:active,
+    textarea,
+    textarea:focus,
+    textarea:active {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        border-color: #d1d5db !important;
+    }
+    
+    .form-label,
+    .form-group label,
+    .label,
+    .form-header h3,
+    .form-header p {
+        color: #111827 !important;
+    }
+    
+    .modal-header,
+    .form-actions,
+    .form-header {
+        background-color: #f9fafb !important;
+        border-bottom: 1px solid #e5e7eb !important;
+    }
+    
+    /* Fix for dropdown menus */
+    .select:after {
+        border-color: #111827 !important;
+    }
+    
+    /* Fix for checkboxes and radio buttons */
+    input[type="checkbox"],
+    input[type="radio"] {
+        filter: invert(0) !important;
+    }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -119,9 +173,9 @@
         --bg-primary: #1f2937;
         --bg-secondary: #374151;
         --bg-tertiary: #4b5563;
-        --bg-modal: linear-gradient(135deg, #1f2937 0%, #374151 50%, #4b5563 100%);
-        --bg-header: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-        --bg-overlay: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.1) 100%), rgba(0, 0, 0, 0.7);
+        --bg-modal: #1f2937;
+        --bg-header: #374151;
+        --bg-overlay: rgba(0, 0, 0, 0.7);
         
         --border-color: rgba(129, 140, 248, 0.3);
         --border-light: rgba(129, 140, 248, 0.2);
@@ -160,8 +214,8 @@
     align-items: flex-start;
     margin: 0;
     padding: 28px 36px;
-    border-bottom: 2px solid rgba(255, 152, 0, 0.15);
-    background: linear-gradient(135deg, #ff9800 0%, #ff6f00 100%);
+    border-bottom: 1px solid #f1f5f9;
+    background: var(--bg-header);
     border-radius: 24px 24px 0 0;
     position: relative;
     overflow: hidden;
@@ -175,27 +229,27 @@
     margin: 0 0 8px 0;
     font-size: 26px;
     font-weight: 800;
-    color: #ffffff;
+    color: var(--header-text);
     line-height: 1.2;
     text-align: center;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-shadow: none;
 }
 
 .modal-subtitle {
     margin: 0;
     font-size: 15px;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--header-text-secondary);
     font-weight: 500;
     text-align: center;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    text-shadow: none;
 }
 
 .modal-close-btn {
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
     padding: 10px;
     border-radius: 12px;
-    color: #ffffff;
+    color: var(--text-muted);
     cursor: pointer;
     transition: all 0.3s ease;
     display: flex;
@@ -208,17 +262,14 @@
 }
 
 .modal-close-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    color: #ffffff;
-    transform: scale(1.1) rotate(90deg);
-    border-color: rgba(255, 255, 255, 0.5);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-color: var(--border-color);
 }
 
 .radio-option:hover {
     background: var(--bg-tertiary);
     border-color: var(--primary-color-border);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px var(--primary-color-hover);
 }
 
 .entity-form {
@@ -232,7 +283,7 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 28px;
     padding: 36px;
-    background: linear-gradient(135deg, #ffffff 0%, #fff8f0 50%, #fef7ed 100%);
+    background: var(--bg-primary);
     position: relative;
 }
 
@@ -249,7 +300,7 @@
 
 .form-label {
     font-weight: 700;
-    color: #bf360c;
+    color: var(--text-primary);
     font-size: 15px;
     text-transform: none;
     letter-spacing: 0.3px;
@@ -259,14 +310,14 @@
 
 .form-input {
     padding: 16px 18px;
-    border: 2px solid rgba(255, 152, 0, 0.2);
+    border: 2px solid var(--border-light);
     border-radius: 14px;
     font-size: 15px;
     font-weight: 500;
-    background: #ffffff;
+    background: var(--bg-primary);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    color: #2d1b0e;
-    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.08);
+    color: var(--text-primary);
+    box-shadow: 0 2px 8px var(--shadow-color);
 }
 
 .form-select {
@@ -287,9 +338,8 @@
 .form-input:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 4px var(--primary-color-hover), 0 4px 12px var(--shadow-hover);
+    box-shadow: 0 0 0 3px var(--primary-color-light);
     background: var(--bg-primary);
-    transform: translateY(-2px) scale(1.02);
 }
 
 .form-input::placeholder {
@@ -326,8 +376,6 @@
     border-color: var(--primary-color);
     background: var(--bg-tertiary);
     color: var(--primary-color-dark);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px var(--shadow-hover);
 }
 
 .file-size-hint {

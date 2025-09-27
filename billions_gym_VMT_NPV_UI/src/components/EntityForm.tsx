@@ -208,10 +208,9 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
     const modalContent = (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e?.stopPropagation()}>
-                <div className="modal-header">
+                <div className="modal-header" style={{ background: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
                     <div className="modal-title-section">
                         <h2 className="modal-title">{title}</h2>
-                        <p className="modal-subtitle">{initialData ? 'Chỉnh sửa thông tin' : 'Tạo mới'}</p>
                     </div>
                     <button className="modal-close-btn" onClick={onClose}>
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">

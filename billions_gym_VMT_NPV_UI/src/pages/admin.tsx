@@ -803,8 +803,8 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
     const modalContent = (
         <div className="modal-overlay" onClick={onClose}>
             <div className="user-detail-modal" onClick={e => e.stopPropagation()}>
-                <div className="modal-header">
-                    <h2>Thông Tin Cá Nhân</h2>
+                <div className="modal-header" style={{ background: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
+                    <h2>Account Details</h2>
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
 
