@@ -1,0 +1,526 @@
+/* ExerciseDetail.css - Detailed view for exercise information */
+
+.exercise-detail {
+    padding: 24px;
+    min-height: 100vh;
+    transition: all 0.3s ease;
+}
+
+/* Light Mode */
+.exercise-detail.light {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    color: #1e293b;
+}
+
+/* Dark Mode */
+.exercise-detail.dark {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: #f1f5f9;
+}
+
+/* Header */
+.detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    padding: 20px;
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.exercise-detail.light .detail-header {
+    background: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 4px 15px -4px rgba(0, 0, 0, 0.1);
+}
+
+.exercise-detail.dark .detail-header {
+    background: rgba(30, 41, 59, 0.8);
+    box-shadow: 0 4px 15px -4px rgba(0, 0, 0, 0.3);
+}
+
+.back-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.exercise-detail.light .back-btn {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+.exercise-detail.light .back-btn:hover {
+    background: #e2e8f0;
+    transform: translateX(-2px);
+}
+
+.exercise-detail.dark .back-btn {
+    background: #374151;
+    color: #f1f5f9;
+}
+
+.exercise-detail.dark .back-btn:hover {
+    background: #4b5563;
+    transform: translateX(-2px);
+}
+
+.back-icon {
+    font-size: 18px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.edit-btn {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+}
+
+.edit-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    transform: translateY(-1px);
+}
+
+.delete-btn {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+}
+
+.delete-btn:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-1px);
+}
+
+.btn-icon {
+    font-size: 16px;
+}
+
+/* Main Content */
+.detail-content {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Hero Section */
+.detail-hero {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-bottom: 40px;
+    padding: 32px;
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.exercise-detail.light .detail-hero {
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.1);
+}
+
+.exercise-detail.dark .detail-hero {
+    background: rgba(30, 41, 59, 0.9);
+    box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.3);
+}
+
+.hero-image {
+    border-radius: 16px;
+    overflow: hidden;
+    height: 300px;
+}
+
+.hero-image img,
+.image-placeholder {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+}
+
+.exercise-detail.dark .image-placeholder {
+    background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+}
+
+.placeholder-icon {
+    font-size: 4rem;
+    opacity: 0.5;
+}
+
+.hero-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.exercise-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin: 0 0 20px 0;
+    line-height: 1.2;
+}
+
+.exercise-detail.light .exercise-title {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.exercise-detail.dark .exercise-title {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.exercise-badges {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.nhom-co-badge {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+}
+
+.difficulty-badge {
+    border: 2px solid;
+}
+
+.exercise-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+}
+
+.exercise-detail.light .stat-item {
+    background: rgba(248, 250, 252, 0.8);
+    border: 1px solid rgba(226, 232, 240, 0.5);
+}
+
+.exercise-detail.dark .stat-item {
+    background: rgba(55, 65, 81, 0.8);
+    border: 1px solid rgba(75, 85, 99, 0.5);
+}
+
+.stat-icon {
+    font-size: 20px;
+    width: 24px;
+    text-align: center;
+}
+
+.stat-label {
+    font-weight: 500;
+    flex: 1;
+}
+
+.exercise-detail.light .stat-label {
+    color: #64748b;
+}
+
+.exercise-detail.dark .stat-label {
+    color: #94a3b8;
+}
+
+.stat-value {
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 8px;
+}
+
+.exercise-detail.light .stat-value {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.exercise-detail.dark .stat-value {
+    background: #4b5563;
+    color: #f1f5f9;
+}
+
+/* Detail Sections */
+.detail-section {
+    margin-bottom: 32px;
+    padding: 24px;
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.exercise-detail.light .detail-section {
+    background: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 4px 15px -4px rgba(0, 0, 0, 0.1);
+}
+
+.exercise-detail.dark .detail-section {
+    background: rgba(30, 41, 59, 0.8);
+    box-shadow: 0 4px 15px -4px rgba(0, 0, 0, 0.3);
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 16px 0;
+}
+
+.exercise-detail.light .section-title {
+    color: #1e293b;
+}
+
+.exercise-detail.dark .section-title {
+    color: #f1f5f9;
+}
+
+.section-icon {
+    font-size: 1.5rem;
+}
+
+.exercise-description,
+.exercise-target {
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.exercise-detail.light .exercise-description,
+.exercise-detail.light .exercise-target {
+    color: #475569;
+}
+
+.exercise-detail.dark .exercise-description,
+.exercise-detail.dark .exercise-target {
+    color: #cbd5e1;
+}
+
+/* Illustration */
+.illustration-container {
+    border-radius: 12px;
+    overflow: hidden;
+    max-width: 600px;
+}
+
+.illustration-image {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Video Section */
+.video-container {
+    text-align: center;
+}
+
+.video-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 32px;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px -4px rgba(139, 92, 246, 0.4);
+}
+
+.video-btn:hover {
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -8px rgba(139, 92, 246, 0.5);
+}
+
+.video-icon {
+    font-size: 18px;
+}
+
+/* Info Grid */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+}
+
+.exercise-detail.light .info-item {
+    background: rgba(248, 250, 252, 0.8);
+    border: 1px solid rgba(226, 232, 240, 0.5);
+}
+
+.exercise-detail.dark .info-item {
+    background: rgba(55, 65, 81, 0.8);
+    border: 1px solid rgba(75, 85, 99, 0.5);
+}
+
+.info-label {
+    font-weight: 500;
+}
+
+.exercise-detail.light .info-label {
+    color: #64748b;
+}
+
+.exercise-detail.dark .info-label {
+    color: #94a3b8;
+}
+
+.info-value {
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 8px;
+}
+
+.exercise-detail.light .info-value {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.exercise-detail.dark .info-value {
+    background: #4b5563;
+    color: #f1f5f9;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .exercise-detail {
+        padding: 16px;
+    }
+
+    .detail-header {
+        flex-direction: column;
+        gap: 16px;
+        align-items: stretch;
+    }
+
+    .header-actions {
+        justify-content: center;
+    }
+
+    .detail-hero {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        padding: 24px;
+    }
+
+    .exercise-title {
+        font-size: 2rem;
+        text-align: center;
+    }
+
+    .exercise-badges {
+        justify-content: center;
+    }
+
+    .detail-section {
+        padding: 20px;
+    }
+
+    .section-title {
+        font-size: 1.25rem;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .detail-header {
+        padding: 16px;
+    }
+
+    .detail-hero {
+        padding: 20px;
+    }
+
+    .exercise-title {
+        font-size: 1.75rem;
+    }
+
+    .detail-section {
+        padding: 16px;
+    }
+
+    .back-btn,
+    .action-btn {
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+
+    .video-btn {
+        padding: 14px 24px;
+        font-size: 14px;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .back-btn:hover,
+    .action-btn:hover,
+    .video-btn:hover {
+        transform: none;
+    }
+}

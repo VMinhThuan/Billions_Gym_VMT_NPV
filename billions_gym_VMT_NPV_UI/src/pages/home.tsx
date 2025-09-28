@@ -71,9 +71,9 @@ const HomePage = () => {
                         setIsLoading(true);
                         setTimeout(() => {
                             if (window.location.hash) {
-                                window.location.hash = '/admin';
+                                window.location.hash = '/login';
                             } else {
-                                window.history.pushState({}, '', '/admin');
+                                window.history.pushState({}, '', '/login');
                                 window.dispatchEvent(new PopStateEvent('popstate'));
                             }
                             setIsLoading(false);

@@ -45,27 +45,27 @@
     --primary-color-light: rgba(99, 102, 241, 0.1);
     --primary-color-border: rgba(99, 102, 241, 0.2);
     --primary-color-hover: rgba(99, 102, 241, 0.15);
-    
+
     --text-primary: #1f2937;
     --text-secondary: #4338ca;
     --text-muted: rgba(67, 56, 202, 0.7);
     --text-placeholder: rgba(107, 114, 128, 0.6);
-    
+
     --bg-primary: #f0f9ff;
     --bg-secondary: #e0f2fe;
     --bg-tertiary: #b3e5fc;
     --bg-modal: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #b3e5fc 100%);
     --bg-header: #ffffff;
     --bg-overlay: rgba(0, 0, 0, 0.5);
-    
+
     --border-color: rgba(99, 102, 241, 0.2);
     --border-light: rgba(99, 102, 241, 0.1);
     --shadow-color: rgba(99, 102, 241, 0.08);
     --shadow-hover: rgba(99, 102, 241, 0.2);
-    
+
     --header-text: #0f172a;
     --header-text-secondary: #64748b;
-    
+
     --success-color: #10b981;
     --error-color: #ef4444;
     --warning-color: #f59e0b;
@@ -77,37 +77,37 @@
     --primary-color-light: rgba(129, 140, 248, 0.15);
     --primary-color-border: rgba(129, 140, 248, 0.3);
     --primary-color-hover: rgba(129, 140, 248, 0.2);
-    
+
     --text-primary: #f3f4f6;
     --text-secondary: #a5b4fc;
     --text-muted: rgba(165, 180, 252, 0.8);
     --text-placeholder: rgba(156, 163, 175, 0.7);
-    
+
     --bg-primary: #1f2937;
     --bg-secondary: #374151;
     --bg-tertiary: #4b5563;
     --bg-modal: #1f2937;
     --bg-header: #374151;
     --bg-overlay: rgba(0, 0, 0, 0.7);
-    
+
     --border-color: rgba(129, 140, 248, 0.3);
     --border-light: rgba(129, 140, 248, 0.2);
     --shadow-color: rgba(129, 140, 248, 0.12);
     --shadow-hover: rgba(129, 140, 248, 0.25);
-    
+
     --header-text: #ffffff;
     --header-text-secondary: rgba(255, 255, 255, 0.9);
-    
+
     --success-color: #34d399;
     --error-color: #f87171;
     --warning-color: #fbbf24;
-    
+
     /* Override form background to white in dark mode */
     .modal-content {
         background-color: #ffffff !important;
         color: #111827 !important;
     }
-    
+
     .form-grid,
     .form-group,
     .form-input,
@@ -129,7 +129,7 @@
         color: #111827 !important;
         border-color: #d1d5db !important;
     }
-    
+
     .form-label,
     .form-group label,
     .label,
@@ -137,19 +137,19 @@
     .form-header p {
         color: #111827 !important;
     }
-    
+
     .modal-header,
     .form-actions,
     .form-header {
         background-color: #f9fafb !important;
         border-bottom: 1px solid #e5e7eb !important;
     }
-    
+
     /* Fix for dropdown menus */
     .select:after {
         border-color: #111827 !important;
     }
-    
+
     /* Fix for checkboxes and radio buttons */
     input[type="checkbox"],
     input[type="radio"] {
@@ -164,27 +164,27 @@
         --primary-color-light: rgba(129, 140, 248, 0.15);
         --primary-color-border: rgba(129, 140, 248, 0.3);
         --primary-color-hover: rgba(129, 140, 248, 0.2);
-        
+
         --text-primary: #f3f4f6;
         --text-secondary: #a5b4fc;
         --text-muted: rgba(165, 180, 252, 0.8);
         --text-placeholder: rgba(156, 163, 175, 0.7);
-        
+
         --bg-primary: #1f2937;
         --bg-secondary: #374151;
         --bg-tertiary: #4b5563;
         --bg-modal: #1f2937;
         --bg-header: #374151;
         --bg-overlay: rgba(0, 0, 0, 0.7);
-        
+
         --border-color: rgba(129, 140, 248, 0.3);
         --border-light: rgba(129, 140, 248, 0.2);
         --shadow-color: rgba(129, 140, 248, 0.12);
         --shadow-hover: rgba(129, 140, 248, 0.25);
-        
+
         --header-text: #ffffff;
         --header-text-secondary: rgba(255, 255, 255, 0.9);
-        
+
         --success-color: #34d399;
         --error-color: #f87171;
         --warning-color: #fbbf24;
@@ -199,9 +199,9 @@
     margin: 0;
     background: var(--bg-modal);
     border-radius: 24px;
-    box-shadow: 0 32px 64px -12px var(--shadow-color), 
-                0 0 0 1px var(--border-light),
-                0 8px 32px -8px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 32px 64px -12px var(--shadow-color),
+        0 0 0 1px var(--border-light),
+        0 8px 32px -8px rgba(0, 0, 0, 0.12);
     animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     border: 2px solid var(--border-color);
     position: relative;
