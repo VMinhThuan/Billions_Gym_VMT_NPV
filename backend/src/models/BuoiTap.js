@@ -17,7 +17,17 @@ const BuoiTapSchema = new mongoose.Schema({
     trangThaiTap: { type: String, enum: ['DA_HOAN_THANH', 'CHUA_HOAN_THANH'], default: 'CHUA_HOAN_THANH' },
     ghiChu: { type: String },
     thoiGianBatDau: { type: Date },
-    thoiGianKetThuc: { type: Date }
+    thoiGianKetThuc: { type: Date },
+    
+    // Thêm các trường mới
+    lichTap: { type: mongoose.Schema.Types.ObjectId, ref: 'LichTap' },
+    gioBatDauDuKien: { type: String }, // Format: "HH:mm"
+    gioKetThucDuKien: { type: String }, // Format: "HH:mm"
+    trangThaiXacNhan: { 
+        type: String, 
+        enum: ['CHO_XAC_NHAN', 'DA_XAC_NHAN', 'DA_HUY'], 
+        default: 'CHO_XAC_NHAN' 
+    }
 }, { collection: 'BuoiTap', timestamps: true });
 
 module.exports = mongoose.model('BuoiTap', BuoiTapSchema);

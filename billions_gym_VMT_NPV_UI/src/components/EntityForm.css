@@ -195,7 +195,9 @@
     max-width: 900px;
     width: 100%;
     max-height: 90vh;
-    overflow-y: auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
     margin: 0;
     background: var(--bg-modal);
     border-radius: 24px;
@@ -206,6 +208,43 @@
     border: 2px solid var(--border-color);
     position: relative;
     z-index: 100000 !important;
+}
+
+.entity-form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px;
+    padding: 36px;
+    background: var(--bg-primary);
+    overflow-y: auto;
+    flex: 1;
+    max-height: calc(90vh - 180px); /* Account for header and footer */
+}
+
+/* Custom scrollbar for form grid */
+.form-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.form-grid::-webkit-scrollbar-track {
+    background: rgba(99, 102, 241, 0.1);
+    border-radius: 4px;
+}
+
+.form-grid::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3);
+    border-radius: 4px;
+}
+
+.form-grid::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.5);
 }
 
 .modal-header {
@@ -272,26 +311,6 @@
     border-color: var(--primary-color-border);
 }
 
-.entity-form {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-}
-
-.form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 28px;
-    padding: 36px;
-    background: var(--bg-primary);
-    position: relative;
-}
-
-/* Make certain fields span full width */
-.form-group.full-width {
-    grid-column: 1 / -1;
-}
-
 .form-group {
     display: flex;
     flex-direction: column;
@@ -306,7 +325,6 @@
     letter-spacing: 0.3px;
     margin-bottom: 6px;
 }
-
 
 .form-input {
     padding: 16px 18px;

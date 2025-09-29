@@ -12,9 +12,14 @@ import AdvancedDashboard from '../components/AdvancedDashboard';
 import { api, auth } from '../services/api';
 import { geminiAI, AIWorkoutSuggestion, AINutritionSuggestion } from '../services/gemini';
 import { useCrudNotifications } from '../hooks/useNotification';
+import PackageWorkflowManager from '../components/PackageWorkflow/PackageWorkflowManager';
+import TrainerAvailabilityManager from '../components/PackageWorkflow/TrainerAvailabilityManager';
+import PackageRegistrationManager from '../components/PackageRegistrationManager';
+import '../components/PackageRegistrationManager.css';
+
 type Stat = { label: string; value: string; trend?: 'up' | 'down'; sub?: string };
 
-type SectionKey = 'overview' | 'members' | 'pt' | 'packages' | 'schedules' | 'sessions' | 'exercises' | 'body_metrics' | 'nutrition' | 'payments' | 'notifications' | 'feedback' | 'reports' | 'ai_suggestions' | 'appointments';
+type SectionKey = 'overview' | 'members' | 'pt' | 'packages' | 'schedules' | 'sessions' | 'exercises' | 'body_metrics' | 'nutrition' | 'payments' | 'notifications' | 'feedback' | 'reports' | 'ai_suggestions' | 'appointments' | 'package_workflow' | 'trainer_availability' | 'package_registrations';
 
 interface HoiVien {
     _id: string;
@@ -441,6 +446,18 @@ const AdminDashboard = () => {
                         <span className="nav-icon">📈</span>
                         Báo cáo
                     </a>
+                    <a className={`nav-item ${section === 'package_workflow' ? 'active' : ''}`} href="#/admin/package_workflow">
+                        <span className="nav-icon">🔄</span>
+                        Quy trình gói tập
+                    </a>
+                    <a className={`nav-item ${section === 'trainer_availability' ? 'active' : ''}`} href="#/admin/trainer_availability">
+                        <span className="nav-icon">⏰</span>
+                        Lịch PT
+                    </a>
+                    <a className={`nav-item ${section === 'package_registrations' ? 'active' : ''}`} href="#/admin/package_registrations">
+                        <span className="nav-icon">📋</span>
+                        Đăng ký gói tập
+                    </a>
                 </nav>
             </aside>
 
@@ -462,7 +479,10 @@ const AdminDashboard = () => {
                                                                         section === 'notifications' ? 'Thông báo' :
                                                                             section === 'feedback' ? 'Feedback' :
                                                                                 section === 'ai_suggestions' ? 'Gợi ý AI' :
-                                                                                    'Báo cáo'
+                                                                                    section === 'package_workflow' ? 'Quy trình gói tập' :
+                                                                                        section === 'trainer_availability' ? 'Quản lý lịch PT' :
+                                                                                            section === 'package_registrations' ? 'Quản lý đăng ký gói tập' :
+                                                                                                'Báo cáo'
                         }</h1>
                         <p>Quản trị toàn diện hệ thống Billions Fitness & Gym</p>
                     </div>
@@ -544,8 +564,281 @@ const AdminDashboard = () => {
                     {section === 'feedback' && <FeedbackPage />}
                     {section === 'ai_suggestions' && <AISuggestionsPage />}
                     {section === 'reports' && <ReportsPage />}
+                    {section === 'package_workflow' && <PackageWorkflowPage />}
+                    {section === 'trainer_availability' && <TrainerAvailabilityPage />}
+                    {section === 'package_registrations' && <PackageRegistrationManager />}
                 </div>
             </main>
+        </div>
+    );
+};
+
+// Package Workflow Management Page
+const PackageWorkflowPage = () => {
+    const [registrations, setRegistrations] = useState<any[]>([]);
+    const [selectedRegistration, setSelectedRegistration] = useState<string>('');
+    const [showWorkflow, setShowWorkflow] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const notifications = useCrudNotifications();
+
+    useEffect(() => {
+        fetchPackageRegistrations();
+    }, []);
+
+    const fetchPackageRegistrations = async () => {
+        setIsLoading(true);
+        try {
+            const response = await api.get('/api/chitietgoitap');
+            if (response && Array.isArray(response)) {
+                // Filter registrations that need workflow processing
+                const pendingRegistrations = response.filter((reg: any) => 
+                    reg.trangThaiThanhToan === 'DA_THANH_TOAN' && 
+                    (!reg.trangThaiDangKy || reg.trangThaiDangKy === 'CHO_CHON_PT')
+                );
+                setRegistrations(pendingRegistrations);
+            }
+        } catch (error) {
+            notifications.generic.error('Không thể tải danh sách đăng ký gói tập');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleStartWorkflow = (registrationId: string) => {
+        setSelectedRegistration(registrationId);
+        setShowWorkflow(true);
+    };
+
+    const handleWorkflowComplete = () => {
+        setShowWorkflow(false);
+        setSelectedRegistration('');
+        fetchPackageRegistrations(); // Refresh the list
+        notifications.generic.success('Đã hoàn thành thiết lập gói tập!');
+    };
+
+    if (showWorkflow && selectedRegistration) {
+        return (
+            <PackageWorkflowManager
+                chiTietGoiTapId={selectedRegistration}
+                onComplete={handleWorkflowComplete}
+            />
+        );
+    }
+
+    return (
+        <div className="package-workflow-page">
+            <Card className="panel">
+                <div className="toolbar">
+                    <div className="toolbar-left">
+                        <h2>Quy trình thiết lập gói tập</h2>
+                        <p>Quản lý việc chọn PT và tạo lịch tập cho khách hàng đã thanh toán</p>
+                    </div>
+                </div>
+
+                {isLoading ? (
+                    <Loading text="Đang tải danh sách đăng ký..." />
+                ) : (
+                    <>
+                        {registrations.length === 0 ? (
+                            <div className="empty-state">
+                                <h3>Không có đăng ký nào cần xử lý</h3>
+                                <p>Tất cả các đăng ký gói tập đã được thiết lập hoặc chưa thanh toán.</p>
+                            </div>
+                        ) : (
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>Hội viên</th>
+                                        <th>Gói tập</th>
+                                        <th>Ngày đăng ký</th>
+                                        <th>Ngày hết hạn</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {registrations.map(reg => (
+                                        <tr key={reg._id}>
+                                            <td>{reg.maHoiVien?.hoTen || 'N/A'}</td>
+                                            <td>{reg.maGoiTap?.tenGoiTap || 'N/A'}</td>
+                                            <td>{new Date(reg.ngayDangKy).toLocaleDateString('vi-VN')}</td>
+                                            <td>{new Date(reg.ngayKetThuc).toLocaleDateString('vi-VN')}</td>
+                                            <td>
+                                                <span className={`badge ${
+                                                    reg.trangThaiDangKy === 'CHO_CHON_PT' ? 'warning' :
+                                                    reg.trangThaiDangKy === 'DA_CHON_PT' ? 'info' :
+                                                    reg.trangThaiDangKy === 'DA_TAO_LICH' ? 'success' :
+                                                    'secondary'
+                                                }`}>
+                                                    {reg.trangThaiDangKy === 'CHO_CHON_PT' ? 'Chờ chọn PT' :
+                                                     reg.trangThaiDangKy === 'DA_CHON_PT' ? 'Đã chọn PT' :
+                                                     reg.trangThaiDangKy === 'DA_TAO_LICH' ? 'Đã tạo lịch' :
+                                                     'Chờ xử lý'}
+                                                </span>
+                                            </td>
+                                            <td className="row-actions">
+                                                <Button
+                                                    variant="primary"
+                                                    size="small"
+                                                    onClick={() => handleStartWorkflow(reg._id)}
+                                                >
+                                                    {reg.trangThaiDangKy === 'CHO_CHON_PT' ? 'Bắt đầu' : 'Tiếp tục'}
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </>
+                )}
+            </Card>
+        </div>
+    );
+};
+
+// Trainer Availability Management Page
+const TrainerAvailabilityPage = () => {
+    const [trainers, setTrainers] = useState<PT[]>([]);
+    const [selectedTrainer, setSelectedTrainer] = useState<string>('');
+    const [showAvailabilityManager, setShowAvailabilityManager] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const notifications = useCrudNotifications();
+
+    useEffect(() => {
+        fetchTrainers();
+    }, []);
+
+    const fetchTrainers = async () => {
+        setIsLoading(true);
+        try {
+            const response = await api.get('/api/user/pt');
+            console.log('PT response:', response);
+            if (response && Array.isArray(response)) {
+                setTrainers(response.filter((pt: PT) => pt.trangThaiPT === 'DANG_HOAT_DONG'));
+            } else if (response && response.data && Array.isArray(response.data)) {
+                setTrainers(response.data.filter((pt: PT) => pt.trangThaiPT === 'DANG_HOAT_DONG'));
+            }
+        } catch (error) {
+            console.error('Error fetching trainers:', error);
+            notifications.generic.error('Không thể tải danh sách PT');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleManageAvailability = (ptId: string) => {
+        setSelectedTrainer(ptId);
+        setShowAvailabilityManager(true);
+    };
+
+    const handleCloseAvailabilityManager = () => {
+        setShowAvailabilityManager(false);
+        setSelectedTrainer('');
+    };
+
+    if (showAvailabilityManager && selectedTrainer) {
+        return (
+            <TrainerAvailabilityManager
+                ptId={selectedTrainer}
+                onClose={handleCloseAvailabilityManager}
+            />
+        );
+    }
+
+    return (
+        <div className="trainer-availability-page">
+            <Card className="panel">
+                <div className="toolbar">
+                    <div className="toolbar-left">
+                        <h2>Quản lý lịch làm việc PT</h2>
+                        <p>Thiết lập thời gian rảnh cho các huấn luyện viên</p>
+                    </div>
+                </div>
+
+                {isLoading ? (
+                    <Loading text="Đang tải danh sách PT..." />
+                ) : (
+                    <>
+                        {trainers.length === 0 ? (
+                            <div className="empty-state">
+                                <h3>Không có PT nào đang hoạt động</h3>
+                                <p>Vui lòng thêm PT mới hoặc kích hoạt PT hiện có.</p>
+                                <Button 
+                                    variant="primary" 
+                                    onClick={fetchTrainers}
+                                    className="reload-button"
+                                >
+                                    Tải lại danh sách PT
+                                </Button>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="trainers-table">
+                                    <table className="pt-schedule-table">
+                                        <thead>
+                                            <tr>
+                                                <th>PT</th>
+                                                <th>Chuyên môn</th>
+                                                <th>Đánh giá</th>
+                                                <th>Kinh nghiệm</th>
+                                                <th>Email</th>
+                                                <th>Trạng thái</th>
+                                                <th>Thao tác</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {trainers.map(trainer => (
+                                                <tr key={trainer._id}>
+                                                    <td>
+                                                        <div className="trainer-cell">
+                                                            <div className="trainer-avatar-small">
+                                                                {trainer.anhDaiDien ? (
+                                                                    <img src={trainer.anhDaiDien} alt={trainer.hoTen} />
+                                                                ) : (
+                                                                    <div className="avatar-placeholder">
+                                                                        {trainer.hoTen.charAt(0)}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="trainer-name">
+                                                                <strong>{trainer.hoTen}</strong>
+                                                                <small>{trainer.sdt}</small>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td>{trainer.chuyenMon || 'Chưa cập nhật'}</td>
+                                                    <td>
+                                                        <div className="rating-cell">
+                                                            ⭐ {trainer.danhGia?.toFixed(1) || '0.0'}
+                                                        </div>
+                                                    </td>
+                                                    <td>{trainer.kinhNghiem || 0} năm</td>
+                                                    <td>{trainer.email}</td>
+                                                    <td>
+                                                        <span className={`status-badge ${trainer.trangThaiPT === 'DANG_HOAT_DONG' ? 'active' : 'inactive'}`}>
+                                                            {trainer.trangThaiPT === 'DANG_HOAT_DONG' ? 'Hoạt động' : 'Không hoạt động'}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <Button
+                                                            variant="primary"
+                                                            size="small"
+                                                            onClick={() => handleManageAvailability(trainer._id)}
+                                                        >
+                                                            Quản lý lịch
+                                                        </Button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
+                        )}
+                    </>
+                )}
+            </Card>
         </div>
     );
 };
@@ -1922,9 +2215,9 @@ const SchedulesPage = () => {
         return () => { mounted = false; };
     }, []);
     const filtered = rows.filter(r => {
-        const hoiVienName = r.hoiVien && typeof r.hoiVien === 'object' ? r.hoiVien.hoTen || '' : r.hoiVien || '';
+        const hoiVienName = r.hoiVien && typeof r.hoiVien === 'string' ? r.hoiVien.toLowerCase() : '';
         const ptName = typeof r.pt === 'object' ? r.pt?.hoTen || '' : r.pt || '';
-        return hoiVienName.toLowerCase().includes(q.toLowerCase()) ||
+        return hoiVienName.includes(q.toLowerCase()) ||
             ptName.toLowerCase().includes(q.toLowerCase());
     });
 
@@ -2022,23 +2315,21 @@ const SchedulesPage = () => {
                     { name: 'ngayBatDau', label: 'Ngày bắt đầu', type: 'date', validation: { required: true } },
                     { name: 'ngayKetThuc', label: 'Ngày kết thúc', type: 'date', validation: { required: true } }
                 ]}
-                onClose={() => { setShow(false); setEditingItem(null); }}
+                onClose={() => { setShow(false); setEditingItem(null); setIsCopying(false); }}
                 onSave={async (val) => {
                     try {
                         if (editingItem && !isCopying) {
-                            console.log('Updating schedule:', editingItem._id, val);
-                            // Update existing schedule
+                            // Update existing PT
                             const updated = await api.put(`/api/lichtap/${editingItem._id}`, val);
                             setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
                         } else {
-                            console.log('Creating new schedule:', val);
-                            // Create new schedule (including when copying)
+                            // Create new PT (including when copying)
                             const created = await api.post('/api/lichtap', val);
                             setRows([created, ...rows]);
                         }
                     } catch (error) {
                         console.error('Error saving schedule:', error);
-                    }
+                    }   
                     setShow(false);
                     setEditingItem(null);
                     setIsCopying(false);
@@ -2686,6 +2977,7 @@ const SessionsPage = () => {
         </Card>
     );
 };
+
 const ExercisesPage = () => {
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
@@ -3066,6 +3358,7 @@ const FeedbackPage = () => {
     const [show, setShow] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [rows, setRows] = useState<any[]>([]);
+    const notifications = useCrudNotifications();
 
     useEffect(() => {
         let mounted = true;
@@ -3083,6 +3376,7 @@ const FeedbackPage = () => {
         })();
         return () => { mounted = false; };
     }, []);
+
     return (
         <section className="panel">
             <div className="toolbar"><div className="toolbar-left"><h2>Feedback</h2></div><div className="toolbar-right"><button className="primary" onClick={() => setShow(true)}>Tạo mới</button></div></div>
@@ -3092,7 +3386,7 @@ const FeedbackPage = () => {
                     {rows.map(r => (
                         <tr key={r.id}><td>{r.id}</td><td>{r.user}</td><td>{r.content}</td><td>{r.created}</td>
                             <td className="row-actions">
-                                <button className="btn btn-secondary" onClick={() => setShow(true)}>💬 Trả lời</button>
+                                <button className="btn-icon btn-view" onClick={() => notifications.generic.info('Nội dung chi tiết', r.content)}>👁️ Xem</button>
                                 <button className="btn btn-danger" onClick={() => setRows(rows.filter(x => x.id !== r.id))}>🗑️ Xóa</button>
                             </td></tr>
                     ))}
@@ -3512,26 +3806,32 @@ const AISuggestionsPage = () => {
                     </tbody>
                 </table>
 
-                {show && <EntityForm title="Gợi ý AI" fields={[
-                    { name: 'hoiVien', label: 'Hội viên' },
-                    { name: 'mucTieu', label: 'Mục tiêu' },
-                    { name: 'doKho', label: 'Độ khó', options: ['DE', 'TRUNG_BINH', 'KHO'] },
-                    { name: 'thoiGianTap', label: 'Thời gian tập (phút)', type: 'number' },
-                    { name: 'noiDung', label: 'Nội dung gợi ý', type: 'textarea' }
-                ]} onClose={() => setShow(false)} onSave={async (val) => {
-                    setRows([{
-                        _id: `ai_${Date.now()}`,
-                        hoiVien: val.hoiVien || '',
-                        noiDung: val.noiDung || `Gợi ý cho ${val.mucTieu || 'mục tiêu'}`,
-                        mucTieu: val.mucTieu || '',
-                        doKho: val.doKho || 'TRUNG_BINH',
-                        thoiGianTap: parseInt(val.thoiGianTap) || 0,
-                        ngayGoiY: new Date(),
-                        createdAt: new Date(),
-                        updatedAt: new Date()
-                    }, ...rows]);
-                    setShow(false);
-                }} />}
+                {show && <EntityForm
+                    title="Gợi ý AI"
+                    initialData={undefined}
+                    fields={[
+                        { name: 'hoiVien', label: 'Hội viên' },
+                        { name: 'mucTieu', label: 'Mục tiêu' },
+                        { name: 'doKho', label: 'Độ khó', options: ['DE', 'TRUNG_BINH', 'KHO'] },
+                        { name: 'thoiGianTap', label: 'Thời gian tập (phút)', type: 'number' },
+                        { name: 'noiDung', label: 'Nội dung gợi ý', type: 'textarea' }
+                    ]}
+                    onClose={() => setShow(false)}
+                    onSave={async (val) => {
+                        setRows([{
+                            _id: `ai_${Date.now()}`,
+                            hoiVien: val.hoiVien || '',
+                            noiDung: val.noiDung || `Gợi ý cho ${val.mucTieu || 'mục tiêu'}`,
+                            mucTieu: val.mucTieu || '',
+                            doKho: val.doKho || 'TRUNG_BINH',
+                            thoiGianTap: parseInt(val.thoiGianTap) || 0,
+                            ngayGoiY: new Date(),
+                            createdAt: new Date(),
+                            updatedAt: new Date()
+                        }, ...rows]);
+                        setShow(false);
+                    }}
+                />}
             </Card>
 
             {/* AI Results Display */}
@@ -3581,4 +3881,8 @@ const AISuggestionsPage = () => {
             )}
         </div>
     );
+};
+
+const PackageRegistrationPage = () => {
+    return <PackageRegistrationManager />;
 };

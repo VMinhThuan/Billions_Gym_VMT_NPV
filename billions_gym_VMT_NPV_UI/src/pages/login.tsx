@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api, auth } from '../services/api';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -14,7 +14,15 @@ const LoginPage = () => {
     const [form, setForm] = useState<LoginForm>({ identifier: '', matKhau: '' });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const notifications = useCrudNotifications();
+
+    useEffect(() => {
+        if (auth.isAuthenticated()) {
+            setIsAuthenticated(true);
+            window.location.href = '#/admin';
+        }
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,7 +30,6 @@ const LoginPage = () => {
         setError('');
 
         try {
-            // Determine if identifier is email or phone number
             const isEmail = form.identifier.includes('@');
             const credentials = isEmail
                 ? { email: form.identifier, matKhau: form.matKhau }
@@ -32,7 +39,6 @@ const LoginPage = () => {
 
             if (response.token) {
                 notifications.auth.loginSuccess();
-                // Redirect to admin dashboard after a short delay to show notification
                 setTimeout(() => {
                     window.location.href = '#/admin';
                 }, 1000);
@@ -50,9 +56,7 @@ const LoginPage = () => {
         setForm(prev => ({ ...prev, [field]: e.target.value }));
     };
 
-    // Redirect if already authenticated
-    if (auth.isAuthenticated()) {
-        window.location.href = '#/admin';
+    if (isAuthenticated) {
         return null;
     }
 
