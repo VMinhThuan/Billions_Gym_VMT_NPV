@@ -4,6 +4,7 @@ const ChiTietGoiTapSchema = new mongoose.Schema({
     maHoiVien: { type: mongoose.Schema.Types.ObjectId, ref: 'HoiVien', required: true },
     maGoiTap: { type: mongoose.Schema.Types.ObjectId, ref: 'GoiTap', required: true },
     ngayDangKy: { type: Date, required: true, default: Date.now },
+    ngayBatDau: { type: Date, required: true }, // Ngày bắt đầu sử dụng gói tập
     ngayKetThuc: { type: Date, required: true },
     trangThaiThanhToan: { type: String, enum: ['DA_THANH_TOAN', 'CHUA_THANH_TOAN'], default: 'CHUA_THANH_TOAN' },
     isLocked: { type: Boolean, default: false }, // Khóa chỉnh sửa sau khi thanh toán

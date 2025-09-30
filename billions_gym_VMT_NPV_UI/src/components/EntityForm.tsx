@@ -104,11 +104,16 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
         const newErrors: Record<string, string> = {};
 
         for (const field of fields) {
-            const error = validateField(field, formData[field.name]);
+            const value = formData[field.name];
+            const error = validateField(field, value);
+            console.log(`🔍 Field: ${field.name}, Value: ${value}, Error: ${error}`);
             if (error) {
                 newErrors[field.name] = error;
             }
         }
+
+        console.log('🔍 Form validation errors:', newErrors);
+        console.log('🔍 Form data:', formData);
 
         setErrors(newErrors);
 
@@ -328,7 +333,7 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                                 <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
-                            {initialData ? 'Cập nhật' : 'Tạo mới'}
+                            {initialData ? 'Cập nhật' : 'Thêm mới'}
                         </Button>
                     </div>
                 </form>

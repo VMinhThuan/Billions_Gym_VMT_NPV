@@ -1,11 +1,13 @@
-const DangKyGoiTap = require('../models/DangKyGoiTap');
+const ChiTietGoiTap = require('../models/ChiTietGoiTap');
 const { HoiVien } = require('../models/NguoiDung');
 const GoiTap = require('../models/GoiTap');
 
 // Đăng ký gói tập mới
 const dangKyGoiTap = async (req, res) => {
     try {
-        const { maHoiVien, maGoiTap, ngayBatDau, soTienThanhToan, ghiChu } = req.body;
+        const { maHoiVien, maGoiTap, ngayBatDau, soTienThanhToan, trangThaiThanhToan, ghiChu } = req.body;
+
+        console.log('🔍 Backend - Received registration data:', req.body);
 
         // Kiểm tra hội viên tồn tại
         const hoiVien = await HoiVien.findById(maHoiVien);
@@ -30,19 +32,20 @@ const dangKyGoiTap = async (req, res) => {
         }
 
         // Tạo đăng ký mới
-        const dangKyMoi = new DangKyGoiTap({
+        const dangKyMoi = new ChiTietGoiTap({
             maHoiVien,
             maGoiTap,
             ngayBatDau: new Date(ngayBatDau),
             ngayKetThuc,
             soTienThanhToan: soTienThanhToan || goiTap.donGia,
+            trangThaiThanhToan,
             ghiChu
         });
 
         await dangKyMoi.save();
 
         // Populate thông tin chi tiết
-        const result = await DangKyGoiTap.findById(dangKyMoi._id)
+        const result = await ChiTietGoiTap.findById(dangKyMoi._id)
             .populate('maHoiVien', 'hoTen email sdt')
             .populate('maGoiTap', 'tenGoiTap donGia thoiHan donViThoiHan');
 
@@ -60,17 +63,51 @@ const dangKyGoiTap = async (req, res) => {
 const getDangKyByHoiVien = async (req, res) => {
     try {
         const { maHoiVien } = req.params;
-        const { trangThai } = req.query;
+        const { trangThai, tenHoiVien } = req.query;
 
-        let filter = { maHoiVien };
+        console.log('🔍 Backend - Fetching packages for member:', maHoiVien);
+        console.log('🔍 Backend - Query params:', { trangThai, tenHoiVien });
+
+        let filter = {};
+
+        // Nếu có tenHoiVien, tìm member ID trước
+        if (tenHoiVien) {
+            console.log('🔍 Backend - Searching by member name:', tenHoiVien);
+            const foundMembers = await HoiVien.find({
+                hoTen: { $regex: tenHoiVien, $options: 'i' }
+            }).limit(5);
+
+            if (foundMembers.length === 0) {
+                console.log('❌ No members found with name:', tenHoiVien);
+                return res.json({
+                    message: 'Không tìm thấy hội viên',
+                    data: []
+                });
+            }
+
+            const memberIds = foundMembers.map(m => m._id);
+            console.log('🔍 Backend - Found member IDs:', memberIds);
+
+            filter.maHoiVien = { $in: memberIds };
+        } else {
+            // Sử dụng trực tiếp member ID
+            filter.maHoiVien = maHoiVien;
+        }
+
         if (trangThai) {
             filter.trangThai = trangThai;
         }
 
-        const dangKyList = await DangKyGoiTap.find(filter)
+        console.log('🔍 Backend - MongoDB filter:', filter);
+
+        const dangKyList = await ChiTietGoiTap.find(filter)
+            .populate('maHoiVien', 'hoTen email sdt ngayThamGia trangThaiHoiVien')
             .populate('maGoiTap', 'tenGoiTap donGia thoiHan donViThoiHan moTa')
             .populate('ptDuocChon', 'hoTen chuyenMon danhGia')
             .sort({ thuTuUuTien: -1, createdAt: -1 });
+
+        console.log('🔍 Backend - Found packages:', dangKyList.length);
+        console.log('🔍 Backend - Package details:', dangKyList);
 
         res.json({
             message: 'Lấy danh sách đăng ký thành công',
@@ -95,7 +132,7 @@ const getHoiVienByGoiTap = async (req, res) => {
             filter.trangThai = { $in: ['DANG_HOAT_DONG', 'TAM_DUNG'] };
         }
 
-        const hoiVienList = await DangKyGoiTap.find(filter)
+        const hoiVienList = await ChiTietGoiTap.find(filter)
             .populate('maHoiVien', 'hoTen email sdt ngayThamGia trangThaiHoiVien')
             .populate('ptDuocChon', 'hoTen chuyenMon')
             .sort({ createdAt: -1 });
@@ -115,7 +152,7 @@ const getActivePackage = async (req, res) => {
     try {
         const { maHoiVien } = req.params;
 
-        const activePackage = await DangKyGoiTap.getActivePackage(maHoiVien);
+        const activePackage = await ChiTietGoiTap.getActivePackage(maHoiVien);
 
         if (!activePackage) {
             return res.status(404).json({ message: 'Không có gói tập đang hoạt động' });
@@ -136,13 +173,13 @@ const kichHoatLaiGoiTap = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const dangKy = await DangKyGoiTap.findById(id);
+        const dangKy = await ChiTietGoiTap.findById(id);
         if (!dangKy) {
             return res.status(404).json({ message: 'Không tìm thấy đăng ký gói tập' });
         }
 
         // Kiểm tra xem có gói nào đang hoạt động không
-        const activePackage = await DangKyGoiTap.findOne({
+        const activePackage = await ChiTietGoiTap.findOne({
             maHoiVien: dangKy.maHoiVien,
             trangThai: 'DANG_HOAT_DONG',
             _id: { $ne: id }
@@ -172,7 +209,7 @@ const capNhatThanhToan = async (req, res) => {
         const { id } = req.params;
         const { trangThaiThanhToan, maThanhToan } = req.body;
 
-        const dangKy = await DangKyGoiTap.findById(id);
+        const dangKy = await ChiTietGoiTap.findById(id);
         if (!dangKy) {
             return res.status(404).json({ message: 'Không tìm thấy đăng ký gói tập' });
         }
@@ -184,7 +221,7 @@ const capNhatThanhToan = async (req, res) => {
 
         await dangKy.save();
 
-        const result = await DangKyGoiTap.findById(id)
+        const result = await ChiTietGoiTap.findById(id)
             .populate('maHoiVien', 'hoTen email sdt')
             .populate('maGoiTap', 'tenGoiTap donGia');
 
@@ -204,7 +241,7 @@ const huyDangKy = async (req, res) => {
         const { id } = req.params;
         const { lyDo } = req.body;
 
-        const dangKy = await DangKyGoiTap.findById(id);
+        const dangKy = await ChiTietGoiTap.findById(id);
         if (!dangKy) {
             return res.status(404).json({ message: 'Không tìm thấy đăng ký gói tập' });
         }
@@ -233,10 +270,10 @@ const huyDangKy = async (req, res) => {
 // Thống kê gói tập
 const thongKeGoiTap = async (req, res) => {
     try {
-        const stats = await DangKyGoiTap.getPackageStats();
+        const stats = await ChiTietGoiTap.getPackageStats();
 
         // Thống kê tổng quan
-        const tongQuan = await DangKyGoiTap.aggregate([
+        const tongQuan = await ChiTietGoiTap.aggregate([
             {
                 $group: {
                     _id: null,
@@ -273,15 +310,50 @@ const thongKeGoiTap = async (req, res) => {
 // Lấy tất cả đăng ký (cho admin)
 const getAllDangKy = async (req, res) => {
     try {
-        const { page = 1, limit = 10, trangThai, search } = req.query;
+        const { page = 1, limit = 100, trangThai, search } = req.query; 
         const skip = (page - 1) * limit;
+
+        console.log('🔍 Backend - getAllDangKy params:', { page, limit, trangThai, search });
 
         let filter = {};
         if (trangThai) {
             filter.trangThai = trangThai;
         }
 
-        let query = DangKyGoiTap.find(filter)
+        // Nếu không có search và không có filter đặc biệt, trả về tất cả mà không phân trang
+        if (!search && !trangThai) {
+            console.log('🔍 Backend - Returning all registrations without pagination');
+            const allRegistrations = await ChiTietGoiTap.find(filter)
+                .populate('maHoiVien', 'hoTen email sdt')
+                .populate('maGoiTap', 'tenGoiTap donGia thoiHan donViThoiHan')
+                .populate('ptDuocChon', 'hoTen chuyenMon')
+                .sort({ createdAt: -1 });
+
+            return res.json({
+                message: 'Lấy danh sách đăng ký thành công',
+                data: allRegistrations,
+                pagination: {
+                    currentPage: 1,
+                    totalPages: 1,
+                    totalItems: allRegistrations.length,
+                    itemsPerPage: allRegistrations.length
+                }
+            });
+        }
+
+        // Xử lý tìm kiếm
+        if (search) {
+            const searchRegex = new RegExp(search, 'i');
+            const hoiVienIds = await HoiVien.find({ hoTen: searchRegex }).distinct('_id');
+            const goiTapIds = await GoiTap.find({ tenGoiTap: searchRegex }).distinct('_id');
+
+            filter.$or = [
+                { maHoiVien: { $in: hoiVienIds } },
+                { maGoiTap: { $in: goiTapIds } }
+            ];
+        }
+
+        const dangKyList = await ChiTietGoiTap.find(filter)
             .populate('maHoiVien', 'hoTen email sdt')
             .populate('maGoiTap', 'tenGoiTap donGia thoiHan donViThoiHan')
             .populate('ptDuocChon', 'hoTen chuyenMon')
@@ -289,28 +361,14 @@ const getAllDangKy = async (req, res) => {
             .skip(skip)
             .limit(parseInt(limit));
 
-        // Tìm kiếm theo tên hội viên hoặc tên gói tập
-        if (search) {
-            const searchRegex = new RegExp(search, 'i');
-            const hoiVienIds = await HoiVien.find({ hoTen: searchRegex }).distinct('_id');
-            const goiTapIds = await GoiTap.find({ tenGoiTap: searchRegex }).distinct('_id');
-            
-            filter.$or = [
-                { maHoiVien: { $in: hoiVienIds } },
-                { maGoiTap: { $in: goiTapIds } }
-            ];
-            
-            query = DangKyGoiTap.find(filter)
-                .populate('maHoiVien', 'hoTen email sdt')
-                .populate('maGoiTap', 'tenGoiTap donGia thoiHan donViThoiHan')
-                .populate('ptDuocChon', 'hoTen chuyenMon')
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(parseInt(limit));
-        }
+        const total = await ChiTietGoiTap.countDocuments(filter);
 
-        const dangKyList = await query;
-        const total = await DangKyGoiTap.countDocuments(filter);
+        console.log('🔍 Backend - Returning paginated results:', {
+            total,
+            returned: dangKyList.length,
+            page: parseInt(page),
+            limit: parseInt(limit)
+        });
 
         res.json({
             message: 'Lấy danh sách đăng ký thành công',
