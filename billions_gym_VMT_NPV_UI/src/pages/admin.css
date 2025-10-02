@@ -166,7 +166,6 @@
     overflow-y: auto;
     padding: 20px 16px;
     scrollbar-width: thin;
-    scrollbar-color: #475569 #1e293b;
 }
 
 .sidebar-nav::-webkit-scrollbar {
@@ -263,7 +262,8 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 24px; /* Add gap between sections */
+    gap: 24px;
+    /* Add gap between sections */
 }
 
 .admin-content::-webkit-scrollbar {
@@ -576,10 +576,9 @@
     background: var(--bg-card);
     flex: 1;
     overflow-y: auto;
-    max-height: calc(100vh - 200px);
+    max-height: calc(100vh - 300px);
     scrollbar-width: thin;
     scrollbar-color: var(--border-color) var(--bg-primary);
-    padding-bottom: 20px;
     position: relative;
 }
 
@@ -809,24 +808,9 @@
     font-weight: 500;
 }
 
-.status-badge {
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
 .status-badge.active {
     background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
     color: #166534;
-    border: 1px solid #22c55e;
-}
-
-.status-badge.inactive {
-    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-    color: #991b1b;
-    border: 1px solid #ef4444;
 }
 
 .trainers-table {
@@ -836,6 +820,7 @@
     padding: 24px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
+
 .table-enhanced .table {
     width: 100%;
     border-collapse: collapse;
@@ -845,23 +830,32 @@
 
 /* Base styles for all rows */
 .table-enhanced .table tbody tr {
-    background: #ffffff !important; /* Force white background */
+    background: #ffffff !important;
+    /* Force white background */
     border-bottom: 1px solid #e0e0e0;
 }
 
 /* Ensure all content is always visible */
 .table-enhanced .table tbody td {
-    color: #000000 !important; /* Force pure black text */
-    font-weight: 500; /* Slightly bolder text */
+    color: #000000 !important;
+    /* Force pure black text */
+    font-weight: 500;
+    /* Slightly bolder text */
     padding: 12px 16px;
     vertical-align: middle;
-    opacity: 1 !important; /* Force full opacity */
-    max-width: 200px; /* Prevent content from being cut off */
-    white-space: normal; /* Allow text to wrap */
+    opacity: 1 !important;
+    /* Force full opacity */
+    max-width: 200px;
+    /* Prevent content from being cut off */
+    white-space: normal;
+    /* Allow text to wrap */
     line-height: 1.5;
-    text-shadow: none !important; /* Remove any text shadow */
-    -webkit-text-fill-color: #000000 !important; /* For WebKit browsers */
-    background: #ffffff !important; /* Force white background on cells too */
+    text-shadow: none !important;
+    /* Remove any text shadow */
+    -webkit-text-fill-color: #000000 !important;
+    /* For WebKit browsers */
+    background: #ffffff !important;
+    /* Force white background on cells too */
 }
 
 /* Show all action buttons by default */
@@ -870,6 +864,9 @@
     visibility: visible !important;
     display: flex;
     gap: 8px;
+    gap: 16px;
+    margin-top: 8px;
+    margin-bottom: 8px;
 }
 
 /* Force light theme for schedule table in dark mode */
@@ -1127,8 +1124,6 @@
     font-size: 12px;
     font-weight: 600;
     color: #374151;
-    background: #f3f4f6;
-    padding: 4px 8px;
     border-radius: 8px;
 }
 
@@ -1291,7 +1286,7 @@
 
 .packages-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: 20px;
     padding: 20px;
     align-items: start;
@@ -1318,11 +1313,9 @@
 .package-image {
     width: 100%;
     height: 200px;
-    object-fit: contain;
+    object-fit: cover;
     display: block;
     margin: 0 auto;
-    max-width: 80%;
-    padding: 10px 0;
     background: linear-gradient(45deg, #3b82f6, #8b5cf6);
     display: flex;
     align-items: center;
@@ -1333,7 +1326,7 @@
 }
 
 .package-content {
-    padding: 20px;
+    padding: 20px 0;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -1383,8 +1376,19 @@
     gap: 4px;
 }
 
+.package-price-value {
+    font-size: 20px;
+    font-weight: 900;
+    color: #dc2626;
+}
+
+.package-info {
+    flex-direction: column;
+    gap: 8px;
+}
+
 .original-price {
-    font-size: 14px;
+    font-size: 17px;
     color: #94a3b8;
     text-decoration: line-through;
     font-weight: 500;
@@ -1398,7 +1402,7 @@
     font-size: 12px;
     font-weight: 600;
     text-align: center;
-    align-self: start;
+    margin-right: 12px;
 }
 
 .package-participants {
@@ -1409,7 +1413,7 @@
     font-size: 12px;
     font-weight: 600;
     text-align: center;
-    align-self: start;
+    margin-right: 12px;
 }
 
 .package-duration {
@@ -1420,24 +1424,44 @@
     font-size: 12px;
     font-weight: 600;
     text-align: center;
-    align-self: start;
+    margin-right: 12px;
 }
 
 .popular-badge {
-    background: linear-gradient(135deg, #f59e0b, #d97706);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    align-self: end;
+    animation: pulse 2s infinite;
+    margin-bottom: 10px;
+}
+
+.popular-badge-inline {
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
     color: white;
     padding: 4px 12px;
     border-radius: 20px;
     font-size: 12px;
     font-weight: 600;
     text-align: center;
-    align-self: start;
+    align-self: end;
     animation: pulse 2s infinite;
+    margin-bottom: 10px;
+    margin-bottom: 0;
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.8; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
 }
 
 /* Sorting Controls */
@@ -1488,10 +1512,11 @@
 
 /* Scrollable Container */
 .packages-container {
-    max-height: 70vh;
+    max-height: 55vh;
     overflow-y: auto;
     border-radius: 0 0 8px 8px;
     background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
 }
 
 .packages-container::-webkit-scrollbar {
@@ -1530,6 +1555,15 @@
     margin-top: auto;
 }
 
+.edit-btn {
+    color: #0046FF;
+}
+
+.edit-btn:hover {
+    color: white !important;
+    background: rgb(0, 70, 255, 0.5) !important;
+}
+
 /* Package Details Modal */
 .package-details-modal {
     max-width: 900px;
@@ -1562,7 +1596,7 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    font-size: 20px;
+    font-size: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1570,7 +1604,8 @@
 }
 
 .package-details-modal .close-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: red;
+    color: white;
     transform: scale(1.1);
 }
 
@@ -1615,7 +1650,6 @@
 }
 
 .package-image {
-    width: 250px;
     height: 180px;
     border-radius: 12px;
     margin: 0 auto;
@@ -1623,7 +1657,6 @@
     overflow: hidden;
     background: rgba(255, 255, 255, 0.2);
     backdrop-filter: blur(10px);
-    border: 2px solid rgba(255, 255, 255, 0.3);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1673,6 +1706,19 @@
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
+.package-status-badge.popular-badge-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #ea580c;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 20px;
+}
+
+
 .package-info-form {
     padding: 40px;
     background: white;
@@ -1697,6 +1743,7 @@
     font-size: 14px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    text-align: left;
 }
 
 .form-group input {
@@ -1845,7 +1892,7 @@
 
 .package-details-modal .modal-footer {
     padding: 24px 30px;
-    background: var(--bg-secondary);
+    background: #f0f9ff;
     border-radius: 0 0 16px 16px;
     border-top: 1px solid var(--border-color);
     display: flex;
@@ -1859,31 +1906,31 @@
         text-align: center;
         padding: 30px 20px;
     }
-    
+
     .package-image {
         width: 180px;
         height: 120px;
         margin: 0 auto;
     }
-    
+
     .package-name-section h3 {
         font-size: 24px;
     }
-    
+
     .package-info-form {
         padding: 30px 20px;
     }
-    
+
     .form-row {
         grid-template-columns: 1fr;
         gap: 16px;
     }
-    
+
     .duration-group {
         grid-template-columns: 1fr;
         gap: 8px;
     }
-    
+
     .detail-row label {
         font-weight: 700;
     }
@@ -2087,7 +2134,7 @@
     padding: 6px 12px;
     border-radius: 20px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -2102,12 +2149,6 @@
     background: rgba(251, 191, 36, 0.1);
     color: #fbbf24;
     border: 1px solid rgba(251, 191, 36, 0.2);
-}
-
-.status-badge.active {
-    background: rgba(59, 130, 246, 0.1);
-    color: #3b82f6;
-    border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 /* PT Status badges - same styling as member status with solid background */
@@ -2166,18 +2207,7 @@ span.status-badge.ngung-lam-viec {
     box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3) !important;
 }
 
-/* Maximum specificity override for PT status badges */
-table .status-badge.dang-hoat-dong,
-td .status-badge.dang-hoat-dong,
-.status-badge.dang-hoat-dong {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-    color: #ffffff !important;
-    border: 1px solid #34d399 !important;
-    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3) !important;
-}
-
-table .status-badge.ngung-lam-viec,
-td .status-badge.ngung-lam-viec,
+Chi ng-lam-viec,
 .status-badge.ngung-lam-viec {
     background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
     color: #ffffff !important;
@@ -2189,7 +2219,7 @@ td .status-badge.ngung-lam-viec,
 .rating-component {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
 }
 
 .rating-component .star {
@@ -2436,25 +2466,10 @@ td .status-badge.ngung-lam-viec,
     }
 }
 
-/* NEW MINIMAL DESIGN - PT Detail Modal Rating and Status Display */
-.rating-minimal {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 16px;
-    transition: all 0.2s ease;
-}
-
-.rating-minimal:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
 .rating-content {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 12px;
+    align-items: flex-start;
 }
 
 .stars-container {
@@ -2500,10 +2515,7 @@ td .status-badge.ngung-lam-viec,
 }
 
 .status-minimal {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 16px;
+    border-radius: 42px;
     transition: all 0.2s ease;
 }
 
@@ -2517,14 +2529,12 @@ td .status-badge.ngung-lam-viec,
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 8px 16px;
-    border-radius: 8px;
+    border-radius: 42px;
     transition: all 0.2s ease;
 }
 
 .status-badge-minimal.active {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
+    background: #d4ffe1;
 }
 
 .status-badge-minimal.inactive {
@@ -2562,7 +2572,7 @@ td .status-badge.ngung-lam-viec,
 }
 
 .status-badge-minimal.active .status-label {
-    color: #166534;
+    color: #2ac063;
 }
 
 .status-badge-minimal.inactive .status-label {
@@ -2997,10 +3007,6 @@ td .status-badge.ngung-lam-viec,
         display: none;
     }
 
-    .admin-main {
-        /* padding removed - handled by admin-content */
-    }
-
     .admin-content {
         padding: 0 16px 16px 16px;
         overflow-y: auto;
@@ -3041,7 +3047,7 @@ td .status-badge.ngung-lam-viec,
     .stat-card {
         padding: 12px;
     }
-    
+
     .stat-card:hover {
         box-shadow: 0 6px 12px -2px var(--shadow-color);
     }
@@ -3116,10 +3122,6 @@ td .status-badge.ngung-lam-viec,
 }
 
 @media (max-width: 480px) {
-    .admin-main {
-        /* padding removed - handled by admin-content */
-    }
-
     .admin-content {
         padding: 0 12px 12px 12px;
         overflow-y: auto;
@@ -3279,8 +3281,8 @@ td .status-badge.ngung-lam-viec,
 }
 
 .modal-close:hover {
-    background: #f1f5f9;
-    color: #334155;
+    background: #dc2626;
+    color: #ffffff;
 }
 
 .user-detail-content {
@@ -3289,22 +3291,151 @@ td .status-badge.ngung-lam-viec,
 }
 
 .user-profile-section {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    gap: 48px;
-    align-items: start;
-    margin-bottom: 32px;
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
 }
 
 .avatar-section {
     display: flex;
+    flex: 0 0 200px;
     flex-direction: column;
     align-items: center;
     text-align: center;
     padding: 32px 24px;
-    background: #f8fafc;
+    background: #ffffff;
     border-radius: 20px;
-    border: 1px solid #f1f5f9;
+    /* border: 1px solid #f1f5f9; */
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.12);
+    /* border: 1px solid #dedede; */
+}
+
+.user-info-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: 1;
+}
+
+/* User Detail Modal Styles */
+.user-detail-modal {
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.12);
+    max-width: 800px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.user-detail-modal .user-profile-section {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.user-detail-modal .avatar-section {
+    display: flex;
+    flex: 0 0 200px;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 20px;
+    border-radius: 20px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.user-detail-modal .user-info-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: 1;
+}
+
+.user-detail-modal .user-info-form {
+    background: #ffffff;
+    padding: 12px 24px 32px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.12);
+    border-radius: 20px;
+}
+
+/* Status badge styles for user detail modal */
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.status-badge.active {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #166534;
+}
+
+.status-badge.inactive {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    color: #dc2626;
+}
+
+/* Status badge classes for user role */
+
+.status-badge-active {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #166534;
+    border: 1px solid #22c55e;
+}
+
+.status-badge-inactive {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #d97706;
+    border: 1px solid #f59e0b;
+}
+
+.status-badge-expired {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    color: #dc2626;
+    border: 1px solid #ef4444;
+}
+
+/* User role styles */
+.user-role {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    display: inline-block;
+    margin-top: 8px;
+}
+
+/* Status badge styles for user info form */
+.user-info-form-content .status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.user-info-form-content .status-badge.active {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%) !important;
+    color: #166534 !important;
+    box-shadow: 0 2px 4px rgba(34, 197, 94, 0.3) !important;
+}
+
+.user-info-form-content .status-badge.inactive {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
+    color: #d97706 !important;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3) !important;
+}
+
+.user-info-form-content .status-badge.expired {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
+    color: #dc2626 !important;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3) !important;
 }
 
 .user-avatar {
@@ -3353,6 +3484,10 @@ td .status-badge.ngung-lam-viec,
     border: 4px solid #ffffff;
 }
 
+.user-name-section {
+    margin-bottom: 30px;
+}
+
 .user-name-section h3 {
     margin: 0 0 8px 0;
     font-size: 22px;
@@ -3361,24 +3496,58 @@ td .status-badge.ngung-lam-viec,
     letter-spacing: -0.025em;
 }
 
+.user-info-section p {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.user-info-section svg {
+    flex-shrink: 0;
+}
+
+.user-info-section span {
+    line-height: 1;
+    text-align: left;
+}
+
+
 .user-role {
     margin: 0;
-    color: #64748b;
+    color: #ffffff;
     font-size: 15px;
     font-weight: 500;
-    background: #f1f5f9;
+    background: #141414;
     padding: 6px 12px;
     border-radius: 20px;
     display: inline-block;
     margin-top: 8px;
 }
 
+.user-role.status-badge-active {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.user-role.status-badge-inactive {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.user-role.status-badge-expired {
+    background: #fef9c3;
+    color: #92400e;
+}
+
 .user-info-form {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 12px;
     background: #ffffff;
-    padding: 0;
+    padding: 12px 24px 32px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.12);
+    border-radius: 20px;
 }
 
 .gender-selection {
@@ -3451,6 +3620,53 @@ td .status-badge.ngung-lam-viec,
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
+.user-info-form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.user-info-form-header h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #334155;
+    letter-spacing: 0.025em;
+    margin: 0;
+}
+
+.user-info-form-header p {
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
+
+
+.user-info-form-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.user-info-form-content-item {
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+.user-info-form-content-item label {
+    color: #a3a0a0;
+    font-size: 15px;
+    letter-spacing: 0.025em;
+}
+
+.user-info-form-content-item-value {
+    color: black;
+    font-size: 15px;
+    letter-spacing: 0.025em;
+    font-weight: 500;
+}
+
 /* Dashboard Charts Styles */
 .dashboard-container {
     display: grid;
@@ -3468,11 +3684,6 @@ td .status-badge.ngung-lam-viec,
     overflow: hidden;
     /* transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); */
     border: 1px solid var(--border-color);
-}
-
-.chart-section:hover {
-    /* transform: translateY(-2px); */
-    /* box-shadow: 0 8px 30px var(--shadow-color); */
 }
 
 .chart-card {
@@ -3549,37 +3760,44 @@ td .status-badge.ngung-lam-viec,
 
 /* Specific overrides for pie chart legends */
 .chart-section:nth-child(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #10b981 !important; /* Green for "Đang hoạt động" */
+    color: #10b981 !important;
+    /* Green for "Đang hoạt động" */
     fill: #10b981 !important;
 }
 
 .chart-section:nth-child(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
-    color: #f59e0b !important; /* Amber for "Tạm ngừng" */
+    color: #f59e0b !important;
+    /* Amber for "Tạm ngừng" */
     fill: #f59e0b !important;
 }
 
 .chart-section:nth-child(3) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #ef4444 !important; /* Red for "Hết hạn" */
+    color: #ef4444 !important;
+    /* Red for "Hết hạn" */
     fill: #ef4444 !important;
 }
 
 .chart-section:nth-child(4) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #ff6b6b !important; /* Coral Red for "Gói 1 tháng" */
+    color: #ff6b6b !important;
+    /* Coral Red for "Gói 1 tháng" */
     fill: #ff6b6b !important;
 }
 
 .chart-section:nth-child(4) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
-    color: #4ecdc4 !important; /* Turquoise for "Gói 3 tháng" */
+    color: #4ecdc4 !important;
+    /* Turquoise for "Gói 3 tháng" */
     fill: #4ecdc4 !important;
 }
 
 .chart-section:nth-child(4) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #45b7d1 !important; /* Sky Blue for "Gói 6 tháng" */
+    color: #45b7d1 !important;
+    /* Sky Blue for "Gói 6 tháng" */
     fill: #45b7d1 !important;
 }
 
 .chart-section:nth-child(4) .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
-    color: #ffa726 !important; /* Orange for "Gói 12 tháng" */
+    color: #ffa726 !important;
+    /* Orange for "Gói 12 tháng" */
     fill: #ffa726 !important;
 }
 
@@ -3603,7 +3821,8 @@ td .status-badge.ngung-lam-viec,
 .chart-section:nth-child(6) .recharts-legend-wrapper .recharts-legend-item .recharts-legend-item-text,
 .chart-section:nth-child(6) .recharts-legend-wrapper .recharts-legend-item text,
 .chart-section:nth-child(6) .recharts-default-legend .recharts-legend-item-text {
-    color: var(--text-primary) !important; /* Theme-aware text color */
+    color: var(--text-primary) !important;
+    /* Theme-aware text color */
     fill: var(--text-primary) !important;
     font-size: 14px !important;
     font-weight: 700 !important;
@@ -3711,62 +3930,76 @@ body .admin-content .dashboard-container .chart-section:nth-child(6) .recharts-d
 /* Enhanced legend styling for dark theme */
 /* Package Popularity Chart - Dark Theme */
 [data-theme="dark"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #60a5fa !important; /* Lighter blue */
+    color: #60a5fa !important;
+    /* Lighter blue */
 }
 
 [data-theme="dark"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
-    color: #34d399 !important; /* Lighter green */
+    color: #34d399 !important;
+    /* Lighter green */
 }
 
 [data-theme="dark"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #a78bfa !important; /* Lighter purple */
+    color: #a78bfa !important;
+    /* Lighter purple */
 }
 
 [data-theme="dark"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
-    color: #22d3ee !important; /* Lighter cyan */
+    color: #22d3ee !important;
+    /* Lighter cyan */
 }
 
 /* Member Status Chart - Dark Theme */
 [data-theme="dark"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #34d399 !important; /* Lighter green - Đang hoạt động */
+    color: #34d399 !important;
+    /* Lighter green - Đang hoạt động */
 }
 
 [data-theme="dark"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
-    color: #fbbf24 !important; /* Lighter amber - Tạm ngừng */
+    color: #fbbf24 !important;
+    /* Lighter amber - Tạm ngừng */
 }
 
 [data-theme="dark"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #f87171 !important; /* Lighter red - Hết hạn */
+    color: #f87171 !important;
+    /* Lighter red - Hết hạn */
 }
 
 /* Package Popularity Chart - Light Theme */
 [data-theme="light"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #2563eb !important; /* Darker blue */
+    color: #2563eb !important;
+    /* Darker blue */
 }
 
 [data-theme="light"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
-    color: #059669 !important; /* Darker green */
+    color: #059669 !important;
+    /* Darker green */
 }
 
 [data-theme="light"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #7c3aed !important; /* Darker purple */
+    color: #7c3aed !important;
+    /* Darker purple */
 }
 
 [data-theme="light"] .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
-    color: #0891b2 !important; /* Darker cyan */
+    color: #0891b2 !important;
+    /* Darker cyan */
 }
 
 /* Member Status Chart - Light Theme */
 [data-theme="light"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #059669 !important; /* Darker green - Đang hoạt động */
+    color: #059669 !important;
+    /* Darker green - Đang hoạt động */
 }
 
 [data-theme="light"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
-    color: #d97706 !important; /* Darker amber - Tạm ngừng */
+    color: #d97706 !important;
+    /* Darker amber - Tạm ngừng */
 }
 
 [data-theme="light"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #dc2626 !important; /* Darker red - Hết hạn */
+    color: #dc2626 !important;
+    /* Darker red - Hết hạn */
 }
 
 [data-theme="dark"] .recharts-pie-label-text {
@@ -3851,76 +4084,90 @@ body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper
 }
 
 /* For Member Status Chart (Trạng thái hội viên) - Donut chart */
-.chart-section h3:contains("Trạng thái hội viên") ~ div .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
+.chart-section h3:contains("Trạng thái hội viên")~div .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
 .chart-section:has(h3:contains("Trạng thái hội viên")) .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
-.chart-card h3:contains("Trạng thái hội viên") ~ .recharts-wrapper .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #34d399 !important; /* Green - Đang hoạt động */
+.chart-card h3:contains("Trạng thái hội viên")~.recharts-wrapper .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #34d399 !important;
+    /* Green - Đang hoạt động */
 }
 
-.chart-section h3:contains("Trạng thái hội viên") ~ div .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
+.chart-section h3:contains("Trạng thái hội viên")~div .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
 .chart-section:has(h3:contains("Trạng thái hội viên")) .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
-.chart-card h3:contains("Trạng thái hội viên") ~ .recharts-wrapper .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
-    color: #fbbf24 !important; /* Amber - Tạm ngừng */
+.chart-card h3:contains("Trạng thái hội viên")~.recharts-wrapper .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #fbbf24 !important;
+    /* Amber - Tạm ngừng */
 }
 
-.chart-section h3:contains("Trạng thái hội viên") ~ div .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
+.chart-section h3:contains("Trạng thái hội viên")~div .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
 .chart-section:has(h3:contains("Trạng thái hội viên")) .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
-.chart-card h3:contains("Trạng thái hội viên") ~ .recharts-wrapper .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #f87171 !important; /* Red - Hết hạn */
+.chart-card h3:contains("Trạng thái hội viên")~.recharts-wrapper .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #f87171 !important;
+    /* Red - Hết hạn */
 }
 
 /* For Package Popularity Chart (Gói tập phổ biến) */
-.chart-section h3:contains("Gói tập phổ biến") ~ div .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
+.chart-section h3:contains("Gói tập phổ biến")~div .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
 .chart-section:has(h3:contains("Gói tập phổ biến")) .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
-.chart-card h3:contains("Gói tập phổ biến") ~ .recharts-wrapper .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #60a5fa !important; /* Blue - Gói 1 tháng */
+.chart-card h3:contains("Gói tập phổ biến")~.recharts-wrapper .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #60a5fa !important;
+    /* Blue - Gói 1 tháng */
 }
 
-.chart-section h3:contains("Gói tập phổ biến") ~ div .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
+.chart-section h3:contains("Gói tập phổ biến")~div .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
 .chart-section:has(h3:contains("Gói tập phổ biến")) .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
-.chart-card h3:contains("Gói tập phổ biến") ~ .recharts-wrapper .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
-    color: #34d399 !important; /* Green - Gói 12 tháng */
+.chart-card h3:contains("Gói tập phổ biến")~.recharts-wrapper .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #34d399 !important;
+    /* Green - Gói 12 tháng */
 }
 
-.chart-section h3:contains("Gói tập phổ biến") ~ div .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
+.chart-section h3:contains("Gói tập phổ biến")~div .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
 .chart-section:has(h3:contains("Gói tập phổ biến")) .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
-.chart-card h3:contains("Gói tập phổ biến") ~ .recharts-wrapper .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #a78bfa !important; /* Purple - Gói 3 tháng */
+.chart-card h3:contains("Gói tập phổ biến")~.recharts-wrapper .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #a78bfa !important;
+    /* Purple - Gói 3 tháng */
 }
 
-.chart-section h3:contains("Gói tập phổ biến") ~ div .recharts-legend-item:nth-child(4) .recharts-legend-item-text,
+.chart-section h3:contains("Gói tập phổ biến")~div .recharts-legend-item:nth-child(4) .recharts-legend-item-text,
 .chart-section:has(h3:contains("Gói tập phổ biến")) .recharts-legend-item:nth-child(4) .recharts-legend-item-text,
-.chart-card h3:contains("Gói tập phổ biến") ~ .recharts-wrapper .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
-    color: #22d3ee !important; /* Cyan - Gói 6 tháng */
+.chart-card h3:contains("Gói tập phổ biến")~.recharts-wrapper .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
+    color: #22d3ee !important;
+    /* Cyan - Gói 6 tháng */
 }
 
 /* Fallback with stronger selectors using nth-of-type */
-.dashboard-container > .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #34d399 !important; /* Green - Đang hoạt động */
+.dashboard-container>.chart-section:nth-of-type(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #34d399 !important;
+    /* Green - Đang hoạt động */
 }
 
-.dashboard-container > .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
-    color: #fbbf24 !important; /* Amber - Tạm ngừng */
+.dashboard-container>.chart-section:nth-of-type(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #fbbf24 !important;
+    /* Amber - Tạm ngừng */
 }
 
-.dashboard-container > .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #f87171 !important; /* Red - Hết hạn */
+.dashboard-container>.chart-section:nth-of-type(3) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #f87171 !important;
+    /* Red - Hết hạn */
 }
 
-.dashboard-container > .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #60a5fa !important; /* Blue - Gói 1 tháng */
+.dashboard-container>.chart-section:nth-of-type(4) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
+    color: #60a5fa !important;
+    /* Blue - Gói 1 tháng */
 }
 
-.dashboard-container > .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
-    color: #34d399 !important; /* Green - Gói 12 tháng */
+.dashboard-container>.chart-section:nth-of-type(4) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
+    color: #34d399 !important;
+    /* Green - Gói 12 tháng */
 }
 
-.dashboard-container > .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #a78bfa !important; /* Purple - Gói 3 tháng */
+.dashboard-container>.chart-section:nth-of-type(4) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
+    color: #a78bfa !important;
+    /* Purple - Gói 3 tháng */
 }
 
-.dashboard-container > .chart-section:nth-of-type(4) .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
-    color: #22d3ee !important; /* Cyan - Gói 6 tháng */
+.dashboard-container>.chart-section:nth-of-type(4) .recharts-legend-item:nth-child(4) .recharts-legend-item-text {
+    color: #22d3ee !important;
+    /* Cyan - Gói 6 tháng */
 }
 
 .dashboard-loading {
@@ -4159,6 +4406,17 @@ body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper
     font-size: 12px;
     font-weight: 600;
 }
+
+/* .un-verified-badge {
+    position: absolute;
+    right: 12px;
+    background: #f87171;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+} */
 
 .btn-view {
     background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
@@ -4473,17 +4731,17 @@ body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper
     .trainers-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .trainer-header {
         flex-direction: column;
         text-align: center;
         gap: 10px;
     }
-    
+
     .trainer-stats {
         padding: 10px 15px;
     }
-    
+
     .package-workflow-page,
     .trainer-availability-page {
         padding: 15px;

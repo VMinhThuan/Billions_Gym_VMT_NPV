@@ -9,7 +9,7 @@ const BaiTapSchema = new mongoose.Schema({
     thietBiSuDung: { type: String },
     soHiepvaSoLanLap: { type: Number, default: 0 },
     mucTieuBaiTap: { type: String },
-    hinhAnhMinhHoa: { type: String },
+    hinhAnhMinhHoa: { type: [String] },
     videoHuongDan: { type: String },
 }, { collection: 'BaiTap', timestamps: true });
 

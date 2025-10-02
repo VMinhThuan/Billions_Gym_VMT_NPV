@@ -180,6 +180,15 @@ const updateHoiVien = async (id, data) => {
         updateData.avatar = data.avatar;
     }
 
+    // Xử lý trangThaiHoiVien
+    if (data.trangThaiHoiVien !== undefined && data.trangThaiHoiVien !== oldHoiVien.trangThaiHoiVien) {
+        updateData.trangThaiHoiVien = data.trangThaiHoiVien;
+        
+        // Đồng bộ trạng thái tài khoản với trạng thái hội viên
+        const trangThaiTK = data.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'DANG_HOAT_DONG' : 'DA_KHOA';
+        await TaiKhoan.updateOne({ nguoiDung: id }, { trangThaiTK: trangThaiTK });
+    }
+
     // Xử lý ngaySinh - chỉ update nếu có giá trị mới
     if (data.ngaySinh !== undefined && data.ngaySinh !== null) {
         updateData.ngaySinh = data.ngaySinh;

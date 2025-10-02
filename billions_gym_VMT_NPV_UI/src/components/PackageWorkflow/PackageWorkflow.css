@@ -169,7 +169,7 @@
     margin-right: 8px;
 }
 
-.time-slot-option input[type="checkbox"]:checked + span {
+.time-slot-option input[type="checkbox"]:checked+span {
     color: var(--primary-color);
     font-weight: 500;
 }
@@ -243,7 +243,7 @@
 }
 
 .star.star-empty {
-    color: var(--border-color);
+    color: #ccc;
 }
 
 .trainer-specialty,
@@ -389,7 +389,7 @@
     margin-right: 8px;
 }
 
-.day-option input[type="checkbox"]:checked + .day-label {
+.day-option input[type="checkbox"]:checked+.day-label {
     color: var(--primary-color);
     font-weight: 500;
 }
@@ -642,7 +642,6 @@
     padding: 4px 8px;
     border-radius: 12px;
     font-size: 12px;
-    font-weight: 500;
 }
 
 .status-badge.pending {
@@ -1173,28 +1172,28 @@
         flex-direction: column;
         gap: 20px;
     }
-    
+
     .step-connector {
         display: none;
     }
-    
+
     .trainers-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .schedule-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .pattern-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .workflow-actions {
         flex-direction: column;
         gap: 15px;
     }
-    
+
     .completion-actions {
         flex-direction: column;
         width: 100%;
