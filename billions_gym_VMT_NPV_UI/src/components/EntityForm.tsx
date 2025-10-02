@@ -24,6 +24,7 @@ interface EntityFormProps {
     initialData?: Record<string, any>;
     onClose: () => void;
     onSave: (data: Record<string, any>) => void;
+    onFieldChange?: (name: string, value: any) => void;
 }
 
 interface ConfirmModalProps {
@@ -36,7 +37,7 @@ interface ConfirmModalProps {
     type?: 'danger' | 'warning' | 'info';
 }
 
-const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormProps) => {
+const EntityForm = ({ title, fields, initialData, onClose, onSave, onFieldChange }: EntityFormProps) => {
     const [formData, setFormData] = useState<Record<string, any>>(initialData || {});
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -142,6 +143,10 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
         // Clear error for this field when user starts typing
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }));
+        }
+
+        if (onFieldChange) {
+            onFieldChange(name, value);
         }
     };
 
