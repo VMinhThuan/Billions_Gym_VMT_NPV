@@ -1210,7 +1210,7 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 28px;
     padding: 36px;
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    /* background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); */
     border-radius: 0 0 20px 20px;
     position: relative;
 }
@@ -1222,7 +1222,7 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+    /* background: linear-gradient(90deg, transparent, #e2e8f0, transparent); */
 }
 
 /* Make certain fields span full width */
