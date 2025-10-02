@@ -591,8 +591,8 @@ const PackageWorkflowPage = () => {
             const response = await api.get('/api/chitietgoitap');
             if (response && Array.isArray(response)) {
                 // Filter registrations that need workflow processing
-                const pendingRegistrations = response.filter((reg: any) => 
-                    reg.trangThaiThanhToan === 'DA_THANH_TOAN' && 
+                const pendingRegistrations = response.filter((reg: any) =>
+                    reg.trangThaiThanhToan === 'DA_THANH_TOAN' &&
                     (!reg.trangThaiDangKy || reg.trangThaiDangKy === 'CHO_CHON_PT')
                 );
                 setRegistrations(pendingRegistrations);
@@ -664,16 +664,15 @@ const PackageWorkflowPage = () => {
                                             <td>{new Date(reg.ngayDangKy).toLocaleDateString('vi-VN')}</td>
                                             <td>{new Date(reg.ngayKetThuc).toLocaleDateString('vi-VN')}</td>
                                             <td>
-                                                <span className={`badge ${
-                                                    reg.trangThaiDangKy === 'CHO_CHON_PT' ? 'warning' :
+                                                <span className={`badge ${reg.trangThaiDangKy === 'CHO_CHON_PT' ? 'warning' :
                                                     reg.trangThaiDangKy === 'DA_CHON_PT' ? 'info' :
-                                                    reg.trangThaiDangKy === 'DA_TAO_LICH' ? 'success' :
-                                                    'secondary'
-                                                }`}>
+                                                        reg.trangThaiDangKy === 'DA_TAO_LICH' ? 'success' :
+                                                            'secondary'
+                                                    }`}>
                                                     {reg.trangThaiDangKy === 'CHO_CHON_PT' ? 'Chờ chọn PT' :
-                                                     reg.trangThaiDangKy === 'DA_CHON_PT' ? 'Đã chọn PT' :
-                                                     reg.trangThaiDangKy === 'DA_TAO_LICH' ? 'Đã tạo lịch' :
-                                                     'Chờ xử lý'}
+                                                        reg.trangThaiDangKy === 'DA_CHON_PT' ? 'Đã chọn PT' :
+                                                            reg.trangThaiDangKy === 'DA_TAO_LICH' ? 'Đã tạo lịch' :
+                                                                'Chờ xử lý'}
                                                 </span>
                                             </td>
                                             <td className="row-actions">
@@ -713,7 +712,6 @@ const TrainerAvailabilityPage = () => {
         setIsLoading(true);
         try {
             const response = await api.get('/api/user/pt');
-            console.log('PT response:', response);
             if (response && Array.isArray(response)) {
                 setTrainers(response.filter((pt: PT) => pt.trangThaiPT === 'DANG_HOAT_DONG'));
             } else if (response && response.data && Array.isArray(response.data)) {
@@ -764,8 +762,8 @@ const TrainerAvailabilityPage = () => {
                             <div className="empty-state">
                                 <h3>Không có PT nào đang hoạt động</h3>
                                 <p>Vui lòng thêm PT mới hoặc kích hoạt PT hiện có.</p>
-                                <Button 
-                                    variant="primary" 
+                                <Button
+                                    variant="primary"
                                     onClick={fetchTrainers}
                                     className="reload-button"
                                 >
@@ -940,7 +938,7 @@ const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, onClose }) => {
                                         value={pt.email}
                                         readOnly
                                     />
-                                    <span className="verified-badge">✓ Verified</span>
+                                    {pt.email ? <span className="verified-badge">✓ Verified</span> : ''}
                                 </div>
                             </div>
 
@@ -1097,7 +1095,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
         <div className="modal-overlay" onClick={onClose}>
             <div className="user-detail-modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-header" style={{ background: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
-                    <h2>Account Details</h2>
+                    <h2>Thông Tin Hội Viên</h2>
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
 
@@ -1115,7 +1113,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
                             </div>
                             <div className="user-name-section">
                                 <h3>{user.hoTen}</h3>
-                                <p className="user-role">
+                                <p className={`user-role status-badge-${user.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'active' : user.trangThaiHoiVien === 'TAM_NGUNG' ? 'inactive' : 'expired'}`}>
                                     {user.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'Đang Hoạt Động' :
                                         user.trangThaiHoiVien === 'TAM_NGUNG' ? 'Tạm Ngưng' : 'Hết Hạn'}
                                 </p>
@@ -1246,6 +1244,24 @@ export default AdminDashboard;
 
 // --- Subpages ---
 const MembersPage = () => {
+    // Hàm mở modal chi tiết và fetch lại dữ liệu mới nhất
+    const handleViewDetail = async (member: HoiVien) => {
+        try {
+            setIsLoading(true);
+            // Lấy lại thông tin hội viên mới nhất
+            const latest = await api.get(`/api/user/hoivien/${member._id}`);
+            // Lấy lại trạng thái tài khoản mới nhất
+            let taiKhoan = null;
+            try {
+                taiKhoan = await api.get(`/api/user/taikhoan/by-phone/${latest.sdt}`);
+            } catch { }
+            setViewingDetail({ ...latest, taiKhoan });
+        } catch (e) {
+            setViewingDetail(member); // fallback nếu lỗi
+        } finally {
+            setIsLoading(false);
+        }
+    };
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
     const [editingItem, setEditingItem] = useState<HoiVien | null>(null);
@@ -1259,7 +1275,6 @@ const MembersPage = () => {
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
     const notifications = useCrudNotifications();
 
-    // Sorting logic
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -1298,14 +1313,11 @@ const MembersPage = () => {
         try {
             const data = await api.get<HoiVien[]>(`/api/user/hoivien?q=${query}`);
             if (Array.isArray(data)) {
-                // Lấy thông tin tài khoản cho mỗi hội viên tìm được
                 const membersWithAccounts = await Promise.all(
                     data.map(async (member: HoiVien) => {
                         try {
                             // Lấy thông tin tài khoản dựa trên SDT
-                            console.log(`Fetching account for member ${member._id} with phone: ${member.sdt}`);
                             const taiKhoanResponse = await api.get(`/api/user/taikhoan/by-phone/${member.sdt}`);
-                            console.log(`Account found for member ${member._id}:`, taiKhoanResponse);
                             return {
                                 ...member,
                                 taiKhoan: taiKhoanResponse
@@ -1343,9 +1355,7 @@ const MembersPage = () => {
                     data.map(async (member: HoiVien) => {
                         try {
                             // Lấy thông tin tài khoản dựa trên SDT
-                            console.log(`Fetching account for member ${member._id} with phone: ${member.sdt}`);
                             const taiKhoanResponse = await api.get(`/api/user/taikhoan/by-phone/${member.sdt}`);
-                            console.log(`Account found for member ${member._id}:`, taiKhoanResponse);
                             return {
                                 ...member,
                                 taiKhoan: taiKhoanResponse
@@ -1400,13 +1410,11 @@ const MembersPage = () => {
 
             // Tìm hội viên để lấy thông tin tài khoản
             const member = rows.find(r => r._id === memberId);
-            console.log('Member found:', member);
             if (!member) {
                 throw new Error('Không tìm thấy hội viên');
             }
 
             // Kiểm tra xem có tài khoản không (chỉ cần kiểm tra tồn tại, không cần _id)
-            console.log('Member taiKhoan:', member.taiKhoan);
             if (!member.taiKhoan) {
                 notifications.generic.warning('Không thể thay đổi trạng thái', 'Hội viên chưa có tài khoản. Vui lòng tạo tài khoản trước khi thay đổi trạng thái.');
                 return;
@@ -1434,6 +1442,19 @@ const MembersPage = () => {
                         }
                         : member
                 )
+            );
+
+            // Nếu đang xem chi tiết hội viên này thì cập nhật luôn viewingDetail
+            setViewingDetail(prev =>
+                prev && prev._id === memberId
+                    ? {
+                        ...prev,
+                        taiKhoan: {
+                            ...prev.taiKhoan,
+                            trangThaiTK: newStatus
+                        }
+                    }
+                    : prev
             );
 
             notifications.generic.success('Cập nhật trạng thái tài khoản thành công!');
@@ -1549,7 +1570,7 @@ const MembersPage = () => {
                                 </td>
                                 <td>
                                     <div className="action-buttons">
-                                        <button className="btn-icon btn-view" onClick={() => setViewingDetail(r)}>
+                                        <button className="btn-icon btn-view" onClick={() => handleViewDetail(r)}>
                                             👁️ Chi tiết
                                         </button>
                                         <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
@@ -1627,9 +1648,7 @@ const MembersPage = () => {
 
                             if (editingItem && !isCopying) {
                                 // Cập nhật hội viên hiện tại
-                                console.log('Updating member:', editingItem._id, optimizedVal);
                                 const updated = await api.put(`/api/user/hoivien/${editingItem._id}`, optimizedVal);
-                                console.log('Update response:', updated);
                                 if (updated) {
                                     notifications.member.updateSuccess();
                                     setRefreshTrigger(prev => prev + 1);
@@ -1648,9 +1667,7 @@ const MembersPage = () => {
                                     ngayThamGia: new Date().toISOString(),
                                     ngayHetHan: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
                                 };
-                                console.log('Creating new member:', newMember);
                                 const created = await api.post('/api/user/hoivien', newMember);
-                                console.log('Create response:', created);
                                 if (created) {
                                     notifications.member.createSuccess();
                                     setRefreshTrigger(prev => prev + 1);
@@ -1692,7 +1709,6 @@ const MembersPage = () => {
                     cancelText="Hủy"
                     onConfirm={async () => {
                         try {
-                            console.log('Deleting member:', deleteConfirm.item!._id);
                             await api.delete(`/api/user/hoivien/${deleteConfirm.item!._id}`);
                             notifications.member.deleteSuccess();
                             setRefreshTrigger(prev => prev + 1);
@@ -1753,7 +1769,7 @@ const PackagesPage = () => {
 
     const sortedAndFiltered = [...filtered].sort((a, b) => {
         let comparison = 0;
-        
+
         switch (sortBy) {
             case 'name':
                 comparison = a.tenGoiTap.localeCompare(b.tenGoiTap, 'vi');
@@ -1763,16 +1779,16 @@ const PackagesPage = () => {
                 break;
             case 'duration':
                 // Convert duration to days for comparison
-                const aDays = a.donViThoiHan === 'Ngay' ? a.thoiHan : 
-                             a.donViThoiHan === 'Thang' ? a.thoiHan * 30 : 
-                             a.thoiHan * 365;
-                const bDays = b.donViThoiHan === 'Ngay' ? b.thoiHan : 
-                             b.donViThoiHan === 'Thang' ? b.thoiHan * 30 : 
-                             b.thoiHan * 365;
+                const aDays = a.donViThoiHan === 'Ngay' ? a.thoiHan :
+                    a.donViThoiHan === 'Thang' ? a.thoiHan * 30 :
+                        a.thoiHan * 365;
+                const bDays = b.donViThoiHan === 'Ngay' ? b.thoiHan :
+                    b.donViThoiHan === 'Thang' ? b.thoiHan * 30 :
+                        b.thoiHan * 365;
                 comparison = aDays - bDays;
                 break;
         }
-        
+
         return sortOrder === 'asc' ? comparison : -comparison;
     });
 
@@ -1794,23 +1810,23 @@ const PackagesPage = () => {
                     <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
                 </div>
             </div>
-            
+
             {/* Sorting Controls */}
             <div className="sorting-controls">
                 <span className="sort-label">Sắp xếp theo:</span>
-                <button 
+                <button
                     className={`sort-btn ${sortBy === 'name' ? 'active' : ''}`}
                     onClick={() => handleSort('name')}
                 >
                     Tên {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </button>
-                <button 
+                <button
                     className={`sort-btn ${sortBy === 'price' ? 'active' : ''}`}
                     onClick={() => handleSort('price')}
                 >
                     Giá {sortBy === 'price' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </button>
-                <button 
+                <button
                     className={`sort-btn ${sortBy === 'duration' ? 'active' : ''}`}
                     onClick={() => handleSort('duration')}
                 >
@@ -1820,46 +1836,48 @@ const PackagesPage = () => {
 
             <div className="packages-container">
                 <div className="packages-grid">
-                {sortedAndFiltered.map(pkg => (
-                    <Card key={pkg._id} className="package-card" hover>
-                        <img src={pkg.hinhAnhDaiDien} alt={pkg.tenGoiTap} className="package-image" />
-                        <div className="package-content">
-                            <h3 className="package-title">{pkg.tenGoiTap}</h3>
-                            <p className="package-description">{pkg.moTa}</p>
-                            <div className="package-details">
-                                <div className="package-price">
-                                    {pkg.donGia ? pkg.donGia.toLocaleString('vi-VN') : '0'}₫
-                                    {pkg.giaGoc && pkg.giaGoc > pkg.donGia && (
-                                        <span className="original-price">{pkg.giaGoc.toLocaleString('vi-VN')}₫</span>
-                                    )}
+                    {sortedAndFiltered.map(pkg => (
+                        <Card key={pkg._id} className="package-card" hover>
+                            {pkg.popular && <div className="popular-badge">Phổ biến</div>}
+                            <img src={pkg.hinhAnhDaiDien} alt={pkg.tenGoiTap} className="package-image" />
+                            <div className="package-content">
+                                <h3 className="package-title">{pkg.tenGoiTap}</h3>
+                                <p className="package-description">{pkg.moTa}</p>
+                                <div className="package-details">
+                                    <div className="package-price">
+                                        <span className='package-price-value'>{pkg.donGia ? pkg.donGia.toLocaleString('vi-VN') : '0'}₫</span>
+                                        {pkg.giaGoc && pkg.giaGoc > pkg.donGia && (
+                                            <span className="original-price">{pkg.giaGoc.toLocaleString('vi-VN')}₫</span>
+                                        )}
+                                    </div>
+                                    <div className='package-info'>
+                                        <span className="package-type">
+                                            {pkg.loaiGoiTap === 'CaNhan' ? 'Cá nhân' :
+                                                pkg.loaiGoiTap === 'Nhom' ? 'Nhóm' : 'Công ty'}
+                                        </span>
+                                        <span className="package-participants">
+                                            {pkg.soLuongNguoiThamGia} người
+                                        </span>
+                                        <span className="package-duration">
+                                            {pkg.loaiThoiHan === 'VinhVien' ? 'Vĩnh viễn' :
+                                                `${pkg.thoiHan} ${pkg.donViThoiHan === 'Ngay' ? 'ngày' :
+                                                    pkg.donViThoiHan === 'Thang' ? 'tháng' : 'năm'}`}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="package-type">
-                                    {pkg.loaiGoiTap === 'CaNhan' ? 'Cá nhân' : 
-                                     pkg.loaiGoiTap === 'Nhom' ? 'Nhóm' : 'Công ty'}
+                                <div className="package-status">
+                                    <span className={`badge ${pkg.kichHoat ? 'success' : 'danger'}`}>
+                                        {pkg.kichHoat ? 'ĐANG BÁN' : 'TẠM NGƯNG'}
+                                    </span>
                                 </div>
-                                <div className="package-participants">
-                                    {pkg.soLuongNguoiThamGia} người
+                                <div className="package-actions">
+                                    <Button className="edit-btn" variant="ghost" size="small" onClick={() => setEditingItem(pkg)}>Sửa</Button>
+                                    <Button variant="ghost" size="small" onClick={() => setViewingItem(pkg)}>Xem chi tiết</Button>
+                                    <Button variant="ghost" size="small" onClick={() => setDeleteConfirm({ show: true, item: pkg })}>Xóa</Button>
                                 </div>
-                                <div className="package-duration">
-                                    {pkg.loaiThoiHan === 'VinhVien' ? 'Vĩnh viễn' : 
-                                     `${pkg.thoiHan} ${pkg.donViThoiHan === 'Ngay' ? 'ngày' : 
-                                                      pkg.donViThoiHan === 'Thang' ? 'tháng' : 'năm'}`}
-                                </div>
-                                {pkg.popular && <div className="popular-badge">Phổ biến</div>}
                             </div>
-                            <div className="package-status">
-                                <span className={`badge ${pkg.kichHoat ? 'success' : 'danger'}`}>
-                                    {pkg.kichHoat ? 'ĐANG BÁN' : 'TẠM NGƯNG'}
-                                </span>
-                            </div>
-                            <div className="package-actions">
-                                <Button variant="ghost" size="small" onClick={() => setEditingItem(pkg)}>Sửa</Button>
-                                <Button variant="ghost" size="small" onClick={() => setViewingItem(pkg)}>Xem chi tiết</Button>
-                                <Button variant="ghost" size="small" onClick={() => setDeleteConfirm({ show: true, item: pkg })}>Xóa</Button>
-                            </div>
-                        </div>
-                    </Card>
-                ))}
+                        </Card>
+                    ))}
                 </div>
             </div>
             {(show || editingItem) && <EntityForm
@@ -1869,32 +1887,42 @@ const PackagesPage = () => {
                     { name: 'hinhAnhDaiDien', label: 'Hình ảnh đại diện', type: 'file', validation: { maxSize: 5 } },
                     { name: 'tenGoiTap', label: 'Tên gói tập', validation: { required: true, pattern: /^[\p{L}\d\s\-_]+$/u, message: 'Tên gói tập không được chứa ký tự đặc biệt' } },
                     { name: 'moTa', label: 'Mô tả', type: 'textarea', validation: { required: true } },
-                    { name: 'loaiGoiTap', label: 'Loại gói tập', options: [
-                        { value: 'CaNhan', label: 'Cá nhân' },
-                        { value: 'Nhom', label: 'Nhóm' },
-                        { value: 'CongTy', label: 'Công ty' }
-                    ], validation: { required: true } },
+                    {
+                        name: 'loaiGoiTap', label: 'Loại gói tập', options: [
+                            { value: 'CaNhan', label: 'Cá nhân' },
+                            { value: 'Nhom', label: 'Nhóm' },
+                            { value: 'CongTy', label: 'Công ty' }
+                        ], validation: { required: true }
+                    },
                     { name: 'soLuongNguoiThamGia', label: 'Số lượng người tham gia', type: 'number', validation: { required: true, pattern: /^[1-9]\d*$/, message: 'Số lượng phải là số nguyên dương' } },
                     { name: 'donGia', label: 'Đơn giá (VNĐ)', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Đơn giá phải là số nguyên dương' } },
                     { name: 'giaGoc', label: 'Giá gốc (VNĐ)', type: 'number', validation: { pattern: /^\d+$/, message: 'Giá gốc phải là số nguyên dương' } },
-                    { name: 'loaiThoiHan', label: 'Loại thời hạn', options: [
-                        { value: 'TinhTheoNgay', label: 'Tính theo ngày từ khi đăng ký' },
-                        { value: 'VinhVien', label: 'Vĩnh viễn' }
-                    ], validation: { required: true } },
+                    {
+                        name: 'loaiThoiHan', label: 'Loại thời hạn', options: [
+                            { value: 'TinhTheoNgay', label: 'Tính theo ngày từ khi đăng ký' },
+                            { value: 'VinhVien', label: 'Vĩnh viễn' }
+                        ], validation: { required: true }
+                    },
                     { name: 'thoiHan', label: 'Thời hạn', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Thời hạn phải là số nguyên dương' } },
-                    { name: 'donViThoiHan', label: 'Đơn vị thời hạn', options: [
-                        { value: 'Ngay', label: 'Ngày' },
-                        { value: 'Thang', label: 'Tháng' },
-                        { value: 'Nam', label: 'Năm' }
-                    ], validation: { required: true } },
-                    { name: 'popular', label: 'Gói phổ biến', type: 'radio', options: [
-                        { value: 'true', label: 'Có' },
-                        { value: 'false', label: 'Không' }
-                    ] },
-                    { name: 'kichHoat', label: 'Trạng thái', type: 'radio', options: [
-                        { value: 'true', label: 'Kích hoạt' },
-                        { value: 'false', label: 'Tạm ngưng' }
-                    ], validation: { required: true } }
+                    {
+                        name: 'donViThoiHan', label: 'Đơn vị thời hạn', options: [
+                            { value: 'Ngay', label: 'Ngày' },
+                            { value: 'Thang', label: 'Tháng' },
+                            { value: 'Nam', label: 'Năm' }
+                        ], validation: { required: true }
+                    },
+                    {
+                        name: 'popular', label: 'Gói phổ biến', type: 'radio', options: [
+                            { value: 'true', label: 'Có' },
+                            { value: 'false', label: 'Không' }
+                        ]
+                    },
+                    {
+                        name: 'kichHoat', label: 'Trạng thái', type: 'radio', options: [
+                            { value: 'true', label: 'Kích hoạt' },
+                            { value: 'false', label: 'Tạm ngưng' }
+                        ], validation: { required: true }
+                    }
                 ]}
                 onClose={() => { setShow(false); setEditingItem(null); }}
                 onSave={async (val) => {
@@ -1951,7 +1979,7 @@ const PackagesPage = () => {
                 }}
                 onCancel={() => setDeleteConfirm({ show: false, item: null })}
             />}
-            
+
             {/* Package Details Modal */}
             {viewingItem && (
                 <div className="modal-overlay" onClick={() => setViewingItem(null)}>
@@ -1981,7 +2009,7 @@ const PackagesPage = () => {
                                                 {viewingItem.kichHoat ? '🟢 Đang bán' : '🔴 Tạm ngưng'}
                                             </span>
                                             {viewingItem.popular && (
-                                                <span className="package-status-badge popular-badge">
+                                                <span className="package-status-badge popular-badge-inline">
                                                     ⭐ Phổ biến
                                                 </span>
                                             )}
@@ -1998,8 +2026,8 @@ const PackagesPage = () => {
                                         <div className="form-group">
                                             <label>Loại gói tập</label>
                                             <input type="text" value={
-                                                viewingItem.loaiGoiTap === 'CaNhan' ? 'Cá nhân' : 
-                                                viewingItem.loaiGoiTap === 'Nhom' ? 'Nhóm' : 'Công ty'
+                                                viewingItem.loaiGoiTap === 'CaNhan' ? 'Cá nhân' :
+                                                    viewingItem.loaiGoiTap === 'Nhom' ? 'Nhóm' : 'Công ty'
                                             } readOnly />
                                         </div>
                                     </div>
@@ -2007,19 +2035,19 @@ const PackagesPage = () => {
                                     <div className="form-row">
                                         <div className="form-group price-input">
                                             <label>Đơn giá</label>
-                                            <input 
-                                                type="text" 
-                                                value={viewingItem.donGia?.toLocaleString('vi-VN') || '0'} 
-                                                readOnly 
+                                            <input
+                                                type="text"
+                                                value={viewingItem.donGia?.toLocaleString('vi-VN') || '0'}
+                                                readOnly
                                             />
                                         </div>
                                         {viewingItem.giaGoc && viewingItem.giaGoc > (viewingItem.donGia || 0) && (
                                             <div className="form-group original-price-input">
                                                 <label>Giá gốc</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={viewingItem.giaGoc.toLocaleString('vi-VN')} 
-                                                    readOnly 
+                                                <input
+                                                    type="text"
+                                                    value={viewingItem.giaGoc.toLocaleString('vi-VN')}
+                                                    readOnly
                                                 />
                                             </div>
                                         )}
@@ -2050,27 +2078,27 @@ const PackagesPage = () => {
                                                 <label>Đơn vị</label>
                                                 <input type="text" value={
                                                     viewingItem.loaiThoiHan === 'VinhVien' ? '' :
-                                                    viewingItem.donViThoiHan === 'Ngay' ? 'Ngày' : 
-                                                    viewingItem.donViThoiHan === 'Thang' ? 'Tháng' : 'Năm'
+                                                        viewingItem.donViThoiHan === 'Ngay' ? 'Ngày' :
+                                                            viewingItem.donViThoiHan === 'Thang' ? 'Tháng' : 'Năm'
                                                 } readOnly />
                                             </div>
                                         </div>
                                         <div className="form-group">
                                             <label>Trạng thái</label>
-                                            <input 
-                                                type="text" 
-                                                value={viewingItem.kichHoat ? 'Đang bán' : 'Tạm ngưng'} 
+                                            <input
+                                                type="text"
+                                                value={viewingItem.kichHoat ? 'Đang bán' : 'Tạm ngưng'}
                                                 className={viewingItem.kichHoat ? 'status-active' : 'status-inactive'}
-                                                readOnly 
+                                                readOnly
                                             />
                                         </div>
                                     </div>
 
                                     <div className="form-group full-width">
                                         <label>Mô tả gói tập</label>
-                                        <textarea 
-                                            value={viewingItem.moTa || 'Chưa có mô tả'} 
-                                            readOnly 
+                                        <textarea
+                                            value={viewingItem.moTa || 'Chưa có mô tả'}
+                                            readOnly
                                             rows={4}
                                         />
                                     </div>
@@ -2078,9 +2106,9 @@ const PackagesPage = () => {
                                     {viewingItem.ghiChu && (
                                         <div className="form-group full-width">
                                             <label>Ghi chú</label>
-                                            <textarea 
-                                                value={viewingItem.ghiChu} 
-                                                readOnly 
+                                            <textarea
+                                                value={viewingItem.ghiChu}
+                                                readOnly
                                                 rows={3}
                                             />
                                         </div>
@@ -2090,27 +2118,27 @@ const PackagesPage = () => {
                                         <div className="form-group">
                                             <label>Ngày tạo</label>
                                             <input type="text" value={
-                                                viewingItem.createdAt ? 
-                                                new Date(viewingItem.createdAt).toLocaleDateString('vi-VN', {
-                                                    day: '2-digit',
-                                                    month: '2-digit', 
-                                                    year: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                }) : 'N/A'
+                                                viewingItem.createdAt ?
+                                                    new Date(viewingItem.createdAt).toLocaleDateString('vi-VN', {
+                                                        day: '2-digit',
+                                                        month: '2-digit',
+                                                        year: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    }) : 'N/A'
                                             } readOnly />
                                         </div>
                                         <div className="form-group">
                                             <label>Cập nhật lần cuối</label>
                                             <input type="text" value={
-                                                viewingItem.updatedAt ? 
-                                                new Date(viewingItem.updatedAt).toLocaleDateString('vi-VN', {
-                                                    day: '2-digit',
-                                                    month: '2-digit',
-                                                    year: 'numeric', 
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                }) : 'N/A'
+                                                viewingItem.updatedAt ?
+                                                    new Date(viewingItem.updatedAt).toLocaleDateString('vi-VN', {
+                                                        day: '2-digit',
+                                                        month: '2-digit',
+                                                        year: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    }) : 'N/A'
                                             } readOnly />
                                         </div>
                                     </div>
@@ -2167,7 +2195,6 @@ const SchedulesPage = () => {
                     }
 
                     // Set schedules data
-                    console.log('API response data: ', schedulesData);
                     if (Array.isArray(schedulesData)) {
                         setRows(schedulesData);
                     } else if (schedulesData && typeof schedulesData === 'object') {
@@ -2329,7 +2356,7 @@ const SchedulesPage = () => {
                         }
                     } catch (error) {
                         console.error('Error saving schedule:', error);
-                    }   
+                    }
                     setShow(false);
                     setEditingItem(null);
                     setIsCopying(false);
@@ -2358,6 +2385,23 @@ const SchedulesPage = () => {
 };
 
 const PTPage = () => {
+    const handleViewDetail = async (pt: PT) => {
+        try {
+            setIsLoading(true);
+            // Lấy lại thông tin PT mới nhất
+            const latest = await api.get(`/api/user/pt/${pt._id}`);
+            // Lấy lại trạng thái tài khoản mới nhất
+            let taiKhoan = null;
+            try {
+                taiKhoan = await api.get(`/api/user/taikhoan/by-phone/${latest.sdt}`);
+            } catch { }
+            setViewingDetail({ ...latest, taiKhoan });
+        } catch (e) {
+            setViewingDetail(pt); 
+        } finally {
+            setIsLoading(false);
+        }
+    };
     const [q, setQ] = useState('');
     const [show, setShow] = useState(false);
     const [editingItem, setEditingItem] = useState<PT | null>(null);
@@ -2371,7 +2415,6 @@ const PTPage = () => {
     const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
-    // Sorting logic
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -2433,7 +2476,6 @@ const PTPage = () => {
                                 taiKhoan: taiKhoanData || null
                             };
                         } catch (error) {
-                            console.log(`No account found for PT ${pt.hoTen}:`, error);
                             return {
                                 ...pt,
                                 taiKhoan: null
@@ -2469,7 +2511,6 @@ const PTPage = () => {
                                 taiKhoan: taiKhoanData || null
                             };
                         } catch (error) {
-                            console.log(`No account found for PT ${pt.hoTen}:`, error);
                             return {
                                 ...pt,
                                 taiKhoan: null
@@ -2512,6 +2553,19 @@ const PTPage = () => {
                     }
                     : pt
             ));
+
+            // Nếu đang xem chi tiết PT này thì cập nhật luôn viewingDetail
+            setViewingDetail(prev =>
+                prev && prev._id === ptId
+                    ? {
+                        ...prev,
+                        taiKhoan: {
+                            ...prev.taiKhoan,
+                            trangThaiTK: newStatus
+                        }
+                    }
+                    : prev
+            );
 
             notifications.generic.success(`Tài khoản PT đã được ${newStatus === 'DA_KHOA' ? 'khóa' : 'mở khóa'} thành công!`);
         } catch (error) {
@@ -2669,7 +2723,7 @@ const PTPage = () => {
                                 </td>
                                 <td>
                                     <div className="action-buttons">
-                                        <button className="btn-icon btn-view" onClick={() => setViewingDetail(r)}>
+                                        <button className="btn-icon btn-view" onClick={() => handleViewDetail(r)}>
                                             👁️ Chi tiết
                                         </button>
                                         <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
@@ -2729,11 +2783,6 @@ const PTPage = () => {
                 onClose={() => { setShow(false); setEditingItem(null); }}
                 onSave={async (val) => {
                     try {
-                        console.log('🔍 Frontend - Form values received:', JSON.stringify(val, null, 2));
-                        console.log('🔍 Frontend - Email value:', val.email);
-                        console.log('🔍 Frontend - Email type:', typeof val.email);
-                        console.log('🔍 Frontend - Email trim():', val.email?.trim ? val.email.trim() : 'N/A');
-                        console.log('🔍 Frontend - Email condition:', val.email && val.email.trim() !== '');
 
                         const ptData: any = {
                             hoTen: val.hoTen,
@@ -2755,9 +2804,6 @@ const PTPage = () => {
                         if (val.email && typeof val.email === 'string' && val.email.trim() !== '') {
                             ptData.email = val.email.trim();
                         }
-
-                        console.log('🚀 Frontend - Final ptData being sent:', JSON.stringify(ptData, null, 2));
-                        console.log('🚀 Frontend - ptData.email:', ptData.email);
 
                         if (editingItem) {
                             // When updating, do not change the start date but can change the status
@@ -2950,7 +2996,7 @@ const SessionsPage = () => {
                         }
                     } catch (error) {
                         console.error('Error saving session:', error);
-                    }   
+                    }
                     setShow(false);
                     setEditingItem(null);
                     setIsCopying(false);

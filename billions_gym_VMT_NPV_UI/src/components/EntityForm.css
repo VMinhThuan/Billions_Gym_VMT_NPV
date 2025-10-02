@@ -108,8 +108,11 @@
         color: #111827 !important;
     }
 
+    .form-group {
+        color: #111827 !important;
+    }
+
     .form-grid,
-    .form-group,
     .form-input,
     .form-input:focus,
     .form-input:active,
@@ -125,7 +128,7 @@
     textarea,
     textarea:focus,
     textarea:active {
-        background-color: #ffffff !important;
+        background-color: #f0f9ff !important;
         color: #111827 !important;
         border-color: #d1d5db !important;
     }
@@ -141,7 +144,7 @@
     .modal-header,
     .form-actions,
     .form-header {
-        background-color: #f9fafb !important;
+        background-color: #e0f2fe !important;
         border-bottom: 1px solid #e5e7eb !important;
     }
 
@@ -225,7 +228,8 @@
     background: var(--bg-primary);
     overflow-y: auto;
     flex: 1;
-    max-height: calc(90vh - 180px); /* Account for header and footer */
+    max-height: calc(90vh - 180px);
+    /* Account for header and footer */
 }
 
 /* Custom scrollbar for form grid */
@@ -284,7 +288,6 @@
 }
 
 .modal-close-btn {
-    background: var(--bg-secondary);
     border: 1px solid var(--border-light);
     padding: 10px;
     border-radius: 12px;
@@ -301,8 +304,8 @@
 }
 
 .modal-close-btn:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
+    background: #dc2626;
+    color: #ffffff;
     border-color: var(--border-color);
 }
 
@@ -382,7 +385,6 @@
     padding: 18px 20px;
     border: 2px dashed var(--primary-color-border);
     border-radius: 16px;
-    background: var(--bg-secondary);
     color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.3s ease;
@@ -396,7 +398,7 @@
 
 .file-upload-label:hover {
     border-color: var(--primary-color);
-    background: var(--bg-tertiary);
+    background: #dbeafe;
     color: var(--primary-color-dark);
 }
 
@@ -473,7 +475,6 @@
 .radio-option input[type="radio"] {
     width: 18px;
     height: 18px;
-    accent-color: var(--primary-color);
     cursor: pointer;
     margin: 0;
     flex-shrink: 0;
@@ -484,7 +485,7 @@
     margin: 10px;
     font-size: 14px;
     font-weight: 500;
-    color: var(--text-primary);
+    color: #1f2937;
     cursor: pointer;
     user-select: none;
     line-height: 1;
