@@ -130,7 +130,7 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                     }
                 }
             });
-            
+
             console.log('🚀 EntityForm - Final data being sent to onSave:', finalData);
             onSave(finalData);
         }

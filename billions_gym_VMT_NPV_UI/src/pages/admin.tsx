@@ -249,7 +249,6 @@ const Rating: React.FC<RatingProps> = ({
                     </span>
                 );
             })}
-            <span className="rating-number">({rating.toFixed(1)})</span>
         </div>
     );
 };
@@ -1029,9 +1028,6 @@ const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, onClose }) => {
                                     <label>Trạng Thái</label>
                                     <div className="status-minimal">
                                         <div className={`status-badge-minimal ${pt.trangThaiPT === 'DANG_HOAT_DONG' ? 'active' : 'inactive'}`}>
-                                            <div className="status-icon">
-                                                <div className={`status-dot-minimal ${pt.trangThaiPT === 'DANG_HOAT_DONG' ? 'active' : 'inactive'}`}></div>
-                                            </div>
                                             <span className="status-label">
                                                 {pt.trangThaiPT === 'DANG_HOAT_DONG' ? 'Đang Hoạt Động' : 'Ngừng Làm Việc'}
                                             </span>
@@ -1060,7 +1056,6 @@ const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, onClose }) => {
                                         border: '1px solid #d1d5db',
                                         borderRadius: '8px',
                                         fontSize: '16px',
-                                        background: '#f9fafb',
                                         color: '#374151',
                                         resize: 'none'
                                     }}
@@ -1279,6 +1274,9 @@ const MembersPage = () => {
         let direction: 'asc' | 'desc' = 'asc';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
             direction = 'desc';
+        } else if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
+            setSortConfig(null);
+            return;
         }
         setSortConfig({ key, direction });
     };
@@ -2397,7 +2395,7 @@ const PTPage = () => {
             } catch { }
             setViewingDetail({ ...latest, taiKhoan });
         } catch (e) {
-            setViewingDetail(pt); 
+            setViewingDetail(pt);
         } finally {
             setIsLoading(false);
         }
@@ -2419,6 +2417,9 @@ const PTPage = () => {
         let direction: 'asc' | 'desc' = 'asc';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
             direction = 'desc';
+        } else if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
+            setSortConfig(null);
+            return;
         }
         setSortConfig({ key, direction });
     };
@@ -2456,17 +2457,16 @@ const PTPage = () => {
         });
     }, [rows, sortConfig]);
 
-    // Handle row click to show detail modal (same as MembersPage)
     const handleRowClick = (pt: any) => {
         setViewingDetail(pt);
     };
 
+    // Search PTs
     const handleSearch = async (query: string) => {
         setIsLoading(true);
         try {
             const data = await api.get<PT[]>(`/api/user/pt?q=${query}`);
             if (Array.isArray(data)) {
-                // Lấy thông tin tài khoản cho từng PT
                 const ptsWithAccounts = await Promise.all(
                     data.map(async (pt) => {
                         try {
@@ -2495,13 +2495,12 @@ const PTPage = () => {
         }
     };
 
-    // Hàm để tải danh sách PT
+    // Load PTs
     const fetchPTs = async () => {
         try {
             setIsLoading(true);
             const data = await api.get<PT[]>('/api/user/pt');
             if (Array.isArray(data)) {
-                // Lấy thông tin tài khoản cho từng PT
                 const ptsWithAccounts = await Promise.all(
                     data.map(async (pt) => {
                         try {
@@ -2530,7 +2529,7 @@ const PTPage = () => {
         }
     };
 
-    // Hàm để thay đổi trạng thái tài khoản PT
+    // Change account status
     const handleChangeAccountStatus = async (ptId: string, newStatus: 'DANG_HOAT_DONG' | 'DA_KHOA') => {
         try {
             setIsChangingStatus(ptId);
@@ -2541,7 +2540,7 @@ const PTPage = () => {
                 await api.put(`/api/user/taikhoan/${ptId}/unlock`);
             }
 
-            // Cập nhật trạng thái trong danh sách
+            // Update PTs
             setRows(rows.map(pt =>
                 pt._id === ptId
                     ? {
@@ -2554,7 +2553,7 @@ const PTPage = () => {
                     : pt
             ));
 
-            // Nếu đang xem chi tiết PT này thì cập nhật luôn viewingDetail
+            // Update viewingDetail
             setViewingDetail(prev =>
                 prev && prev._id === ptId
                     ? {
@@ -2566,7 +2565,6 @@ const PTPage = () => {
                     }
                     : prev
             );
-
             notifications.generic.success(`Tài khoản PT đã được ${newStatus === 'DA_KHOA' ? 'khóa' : 'mở khóa'} thành công!`);
         } catch (error) {
             console.error('Error changing PT account status:', error);

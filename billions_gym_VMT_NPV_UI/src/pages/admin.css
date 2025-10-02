@@ -1139,8 +1139,6 @@
     font-size: 12px;
     font-weight: 600;
     color: #374151;
-    background: #f3f4f6;
-    padding: 4px 8px;
     border-radius: 8px;
 }
 
@@ -2243,7 +2241,7 @@ td .status-badge.ngung-lam-viec,
 .rating-component {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
 }
 
 .rating-component .star {
@@ -2490,25 +2488,10 @@ td .status-badge.ngung-lam-viec,
     }
 }
 
-/* NEW MINIMAL DESIGN - PT Detail Modal Rating and Status Display */
-.rating-minimal {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 16px;
-    transition: all 0.2s ease;
-}
-
-.rating-minimal:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
 .rating-content {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 12px;
+    align-items: flex-start;
 }
 
 .stars-container {
@@ -2554,10 +2537,7 @@ td .status-badge.ngung-lam-viec,
 }
 
 .status-minimal {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 16px;
+    border-radius: 42px;
     transition: all 0.2s ease;
 }
 
@@ -2571,14 +2551,12 @@ td .status-badge.ngung-lam-viec,
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 8px 16px;
-    border-radius: 8px;
+    border-radius: 42px;
     transition: all 0.2s ease;
 }
 
 .status-badge-minimal.active {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
+    background: #d4ffe1;
 }
 
 .status-badge-minimal.inactive {
@@ -2616,7 +2594,7 @@ td .status-badge.ngung-lam-viec,
 }
 
 .status-badge-minimal.active .status-label {
-    color: #166534;
+    color: #2ac063;
 }
 
 .status-badge-minimal.inactive .status-label {

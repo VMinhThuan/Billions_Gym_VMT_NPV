@@ -124,11 +124,16 @@
     .input:active,
     .select select,
     .select select:focus,
-    .select select:active,
+    .select select:active {
+        background-color: #f0f9ff !important;
+        color: #111827 !important;
+        border-color: #d1d5db !important;
+    }
+
     textarea,
     textarea:focus,
     textarea:active {
-        background-color: #f0f9ff !important;
+        background-color: #ffffff !important;
         color: #111827 !important;
         border-color: #d1d5db !important;
     }
@@ -144,7 +149,7 @@
     .modal-header,
     .form-actions,
     .form-header {
-        background-color: #e0f2fe !important;
+        background-color: #f7f7f7 !important;
         border-bottom: 1px solid #e5e7eb !important;
     }
 
