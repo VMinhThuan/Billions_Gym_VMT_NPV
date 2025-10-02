@@ -879,29 +879,227 @@ const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, onClose }) => {
                                 <h3>{pt.hoTen}</h3>
                                 <p className="user-role">Huấn Luyện Viên</p>
                             </div>
+                            <div className="user-info-section">
+                                <p>
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        xmlnsXlink="http://www.w3.org/1999/xlink"
+                                        version="1.1"
+                                        width="24"
+                                        height="24"
+                                        viewBox="0 0 256 256"
+                                        xmlSpace="preserve"
+                                    >
+                                        <g
+                                            style={{
+                                                stroke: "none",
+                                                strokeWidth: 0,
+                                                strokeDasharray: "none",
+                                                strokeLinecap: "butt",
+                                                strokeLinejoin: "miter",
+                                                strokeMiterlimit: 10,
+                                                fill: "none",
+                                                fillRule: "nonzero",
+                                                opacity: 1,
+                                            }}
+                                            transform="translate(1.4066 1.4066) scale(2.81 2.81)"
+                                        >
+                                            <path
+                                                d="M 45 0 C 27.395 0 13.123 14.272 13.123 31.877 c 0 7.86 2.858 15.043 7.573 20.6 L 45 81.101 l 24.304 -28.624 c 4.716 -5.558 7.573 -12.741 7.573 -20.6 C 76.877 14.272 62.605 0 45 0 z M 45 43.889 c -7.24 0 -13.11 -5.869 -13.11 -13.11 c 0 -7.24 5.869 -13.11 13.11 -13.11 s 13.11 5.869 13.11 13.11 C 58.11 38.02 52.24 43.889 45 43.889 z"
+                                                style={{
+                                                    stroke: "none",
+                                                    strokeWidth: 1,
+                                                    fill: "black",
+                                                    fillRule: "nonzero",
+                                                    opacity: 1,
+                                                }}
+                                                strokeLinecap="round"
+                                            />
+                                            <path
+                                                d="M 58.958 71.559 L 45 82.839 L 31.057 71.556 c -9.329 1.65 -15.682 4.901 -15.682 8.645 c 0 5.412 13.263 9.8 29.625 9.8 c 16.361 0 29.625 -4.388 29.625 -9.8 C 74.625 76.458 68.278 73.209 58.958 71.559 z"
+                                                style={{
+                                                    stroke: "none",
+                                                    strokeWidth: 1,
+                                                    fill: "black",
+                                                    fillRule: "nonzero",
+                                                    opacity: 1,
+                                                }}
+                                                strokeLinecap="round"
+                                            />
+                                        </g>
+                                    </svg>
+                                    <span> {pt.diaChi}</span>
+                                </p>
+                                <p>
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        xmlnsXlink="http://www.w3.org/1999/xlink"
+                                        version="1.1"
+                                        width="24"
+                                        height="24"
+                                        viewBox="0 0 256 256"
+                                        xmlSpace="preserve"
+                                    >
+                                        <g
+                                            style={{
+                                                stroke: "none",
+                                                strokeWidth: 0,
+                                                strokeDasharray: "none",
+                                                strokeLinecap: "butt",
+                                                strokeLinejoin: "miter",
+                                                strokeMiterlimit: 10,
+                                                fill: "none",
+                                                fillRule: "nonzero",
+                                                opacity: 1,
+                                            }}
+                                            transform="translate(1.4066 1.4066) scale(2.81 2.81)"
+                                        >
+                                            <path
+                                                d="M 0 11.755 v 66.489 h 90 V 11.755 H 0 z M 45 50.49 L 7.138 15.755 h 75.724 L 45 50.49 z M 33.099 45 L 4 71.695 V 18.304 L 33.099 45 z M 36.058 47.714 L 45 55.918 l 8.943 -8.204 l 28.919 26.53 H 7.138 L 36.058 47.714 z M 56.901 45 L 86 18.304 v 53.392 L 56.901 45 z"
+                                                style={{
+                                                    stroke: "none",
+                                                    strokeWidth: 1,
+                                                    fill: "black",
+                                                    fillRule: "nonzero",
+                                                    opacity: 1,
+                                                }}
+                                                strokeLinecap="round"
+                                            />
+                                        </g>
+                                    </svg>
+                                    <span> {pt.email}</span>
+                                </p>
+                                <p>
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        xmlnsXlink="http://www.w3.org/1999/xlink"
+                                        version="1.1"
+                                        width="24"
+                                        height="24"
+                                        viewBox="0 0 256 256"
+                                        xmlSpace="preserve"
+                                    >
+                                        <g
+                                            style={{
+                                                stroke: "none",
+                                                strokeWidth: 0,
+                                                strokeDasharray: "none",
+                                                strokeLinecap: "butt",
+                                                strokeLinejoin: "miter",
+                                                strokeMiterlimit: 10,
+                                                fill: "none",
+                                                fillRule: "nonzero",
+                                                opacity: 1,
+                                            }}
+                                            transform="translate(1.4066 1.4066) scale(2.81 2.81)"
+                                        >
+                                            <path
+                                                d="M 20.334 2 c 0.392 0 0.761 0.212 0.963 0.552 l 11.285 19.017 c 0.199 0.336 0.208 0.759 0.024 1.103 l -6.997 13.034 c -1.077 2.006 -0.719 4.434 0.891 6.044 l 10.876 10.876 l 10.876 10.876 c 0.967 0.967 2.254 1.5 3.623 1.5 c 0.842 0 1.679 -0.211 2.422 -0.609 l 13.034 -6.997 c 0.163 -0.087 0.346 -0.133 0.53 -0.133 c 0.201 0 0.399 0.054 0.572 0.157 l 19.017 11.285 c 0.487 0.289 0.683 0.895 0.457 1.409 c -1.654 3.763 -4.605 10.528 -5.789 13.547 c -0.147 0.374 -0.34 0.667 -0.575 0.871 C 78.885 86.833 75.455 88 71.345 88 c -11.841 0 -28.805 -9.608 -44.271 -25.074 C 17.172 53.024 9.436 42.21 5.291 32.476 C 2.19 25.191 -0.297 15.111 5.47 8.459 c 0.204 -0.235 0.497 -0.429 0.871 -0.575 C 9.36 6.7 16.125 3.748 19.888 2.095 C 20.031 2.032 20.181 2 20.334 2 M 20.334 0 c -0.419 0 -0.844 0.085 -1.25 0.264 C 15.386 1.889 8.607 4.847 5.611 6.022 C 4.98 6.269 4.402 6.637 3.958 7.149 c -10.986 12.674 2.4 37.89 21.701 57.191 C 40.159 78.84 57.994 90 71.345 90 c 4.421 0 8.353 -1.225 11.506 -3.958 c 0.512 -0.444 0.88 -1.022 1.127 -1.652 c 1.175 -2.996 4.133 -9.775 5.758 -13.473 c 0.635 -1.444 0.089 -3.128 -1.268 -3.933 L 69.452 55.699 c -0.49 -0.291 -1.041 -0.437 -1.593 -0.437 c -0.507 0 -1.015 0.123 -1.476 0.371 L 53.349 62.63 c -0.465 0.25 -0.972 0.371 -1.476 0.371 c -0.809 0 -1.608 -0.314 -2.208 -0.914 L 38.789 51.211 L 27.913 40.335 c -0.974 -0.974 -1.194 -2.471 -0.543 -3.684 l 6.997 -13.034 c 0.517 -0.964 0.493 -2.129 -0.066 -3.07 L 23.017 1.531 C 22.438 0.556 21.405 0 20.334 0 L 20.334 0 z"
+                                                style={{
+                                                    stroke: "none",
+                                                    strokeWidth: 1,
+                                                    fill: "black",
+                                                    fillRule: "nonzero",
+                                                    opacity: 1,
+                                                }}
+                                                strokeLinecap="round"
+                                            />
+                                        </g>
+                                    </svg>
+                                    <span> {pt.sdt}</span>
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="user-info-form">
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>Họ</label>
-                                    <input
-                                        type="text"
-                                        value={pt.hoTen.split(' ')[0] || ''}
-                                        readOnly
-                                    />
+                        <div className='user-info-wrapper'>
+                            <div className="user-info-form">
+                                <div className='user-info-form-header'>
+                                    <h3>Thông Tin Cá Nhân</h3>
+                                    <p>
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            xmlnsXlink="http://www.w3.org/1999/xlink"
+                                            version="1.1"
+                                            width="18"
+                                            height="18"
+                                            viewBox="0 0 256 256"
+                                            xmlSpace="preserve"
+                                        >
+                                            <g
+                                                style={{
+                                                    stroke: "none",
+                                                    strokeWidth: 0,
+                                                    strokeDasharray: "none",
+                                                    strokeLinecap: "butt",
+                                                    strokeLinejoin: "miter",
+                                                    strokeMiterlimit: 10,
+                                                    fill: "none",
+                                                    fillRule: "nonzero",
+                                                    opacity: 1,
+                                                }}
+                                                transform="translate(1.4066 1.4066) scale(2.81 2.81)"
+                                            >
+                                                <path
+                                                    d="M 87.851 6.29 L 83.71 2.15 C 82.324 0.763 80.48 0 78.521 0 c -1.961 0 -3.804 0.763 -5.19 2.15 l -6.181 6.181 L 22.822 52.658 c -0.074 0.074 -0.134 0.156 -0.194 0.238 c -0.016 0.022 -0.036 0.04 -0.052 0.063 c -0.087 0.13 -0.155 0.268 -0.208 0.411 c -0.004 0.011 -0.012 0.019 -0.015 0.03 l -6.486 18.178 c -0.26 0.728 -0.077 1.54 0.47 2.086 c 0.381 0.382 0.893 0.586 1.415 0.586 c 0.225 0 0.452 -0.038 0.671 -0.116 l 18.177 -6.485 c 0.014 -0.005 0.025 -0.014 0.038 -0.019 c 0.142 -0.054 0.279 -0.12 0.406 -0.206 c 0.017 -0.012 0.031 -0.027 0.048 -0.039 c 0.088 -0.063 0.174 -0.128 0.251 -0.206 l 44.328 -44.328 l 6.182 -6.181 C 90.712 13.808 90.712 9.152 87.851 6.29 z M 21.051 68.948 l 4.006 -11.226 l 3.61 3.611 l 3.61 3.611 L 21.051 68.948 z M 35.927 62.936 l -1.445 -1.445 l -7.418 -7.419 l 41.499 -41.499 l 8.863 8.863 L 35.927 62.936 z M 85.022 13.841 l -4.768 4.767 l -8.863 -8.863 l 4.767 -4.767 c 1.26 -1.263 3.46 -1.263 4.724 0 l 4.141 4.14 C 86.324 10.42 86.324 12.539 85.022 13.841 z"
+                                                    style={{
+                                                        stroke: "none",
+                                                        strokeWidth: 1,
+                                                        fill: "black",
+                                                        fillRule: "nonzero",
+                                                        opacity: 1,
+                                                    }}
+                                                    strokeLinecap="round"
+                                                />
+                                                <path
+                                                    d="M 79.388 45.667 c -1.104 0 -2 0.896 -2 2 v 34.804 c 0 1.946 -1.584 3.529 -3.53 3.529 H 7.53 C 5.583 86 4 84.417 4 82.471 V 16.142 c 0 -1.946 1.583 -3.53 3.53 -3.53 h 34.803 c 1.104 0 2 -0.896 2 -2 s -0.896 -2 -2 -2 H 7.53 C 3.378 8.612 0 11.99 0 16.142 v 66.329 C 0 86.622 3.378 90 7.53 90 h 66.328 c 4.152 0 7.53 -3.378 7.53 -7.529 V 47.667 C 81.388 46.562 80.492 45.667 79.388 45.667 z"
+                                                    style={{
+                                                        stroke: "none",
+                                                        strokeWidth: 1,
+                                                        fill: "black",
+                                                        fillRule: "nonzero",
+                                                        opacity: 1,
+                                                    }}
+                                                    strokeLinecap="round"
+                                                />
+                                            </g>
+                                        </svg>
+                                    </p>
                                 </div>
-                                <div className="form-group">
-                                    <label>Tên</label>
-                                    <input
-                                        type="text"
-                                        value={pt.hoTen.split(' ').slice(1).join(' ') || ''}
-                                        readOnly
-                                    />
-                                </div>
-                            </div>
 
-                            <div className="form-group">
+                                <div className='user-info-form-content'>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Số CCCD</label>
+                                        <span className='user-info-form-content-item-value'>{pt.soCCCD}</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Giới Tính</label>
+                                        <span className='user-info-form-content-item-value'>{pt.gioiTinh}</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Email</label>
+                                        <span className='user-info-form-content-item-value'>{pt.email}</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Địa Chỉ</label>
+                                        <span className='user-info-form-content-item-value'>{pt.diaChi}</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Số Điện Thoại</label>
+                                        <span className='user-info-form-content-item-value'>{pt.sdt}</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Ngày Sinh</label>
+                                        <span className='user-info-form-content-item-value'>
+                                            {pt.ngaySinh ? new Date(pt.ngaySinh).toLocaleDateString('vi-VN', {
+                                                day: '2-digit',
+                                                month: '2-digit',
+                                                year: 'numeric'
+                                            }) : 'N/A'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* <div className="form-group">
                                 <label>Số CCCD</label>
                                 <input
                                     type="text"
@@ -1060,6 +1258,96 @@ const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, onClose }) => {
                                         resize: 'none'
                                     }}
                                 />
+                            </div> */}
+                            </div>
+
+                            <div className="user-info-form">
+                                <div className='user-info-form-header'>
+                                    <h3>Thông Tin Nghề Nghiệp</h3>
+                                    <p>
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="18"
+                                            height="18"
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                        >
+                                            <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21C3 22.11 3.89 23 5 23H19C20.11 23 21 22.11 21 21V9M19 9H14V4H19V9Z" />
+                                        </svg>
+                                    </p>
+                                </div>
+
+                                <div className='user-info-form-content'>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Ngày Vào Làm</label>
+                                        <span className='user-info-form-content-item-value'>
+                                            {pt.ngayVaoLam ? new Date(pt.ngayVaoLam).toLocaleDateString('vi-VN', {
+                                                day: '2-digit',
+                                                month: '2-digit',
+                                                year: 'numeric'
+                                            }) : 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Kinh Nghiệm</label>
+                                        <span className='user-info-form-content-item-value'>{pt.kinhNghiem} năm</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Chuyên Môn</label>
+                                        <span className='user-info-form-content-item-value'>{pt.chuyenMon}</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Bằng Cấp/Chứng Chỉ</label>
+                                        <span className='user-info-form-content-item-value'>{pt.bangCapChungChi}</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Đánh Giá</label>
+                                        <span className='user-info-form-content-item-value'>
+                                            <div className="rating-display">
+                                                <Rating
+                                                    rating={pt.danhGia || 0}
+                                                    size="small"
+                                                    readonly={true}
+                                                />
+                                                <span className="rating-text">{pt.danhGia ? pt.danhGia.toFixed(1) : '0.0'}/5.0</span>
+                                            </div>
+                                        </span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Trạng Thái</label>
+                                        <span className='user-info-form-content-item-value'>
+                                            <div className={`status-badge ${pt.trangThaiPT === 'DANG_HOAT_DONG' ? 'active' : 'inactive'}`}>
+                                                {pt.trangThaiPT === 'DANG_HOAT_DONG' ? 'Đang Hoạt Động' : 'Ngừng Làm Việc'}
+                                            </div>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="user-info-form">
+                                <div className='user-info-form-header'>
+                                    <h3>Mô Tả Bản Thân</h3>
+                                    <p>
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="18"
+                                            height="18"
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                        >
+                                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                                        </svg>
+                                    </p>
+                                </div>
+
+                                <div className='user-info-form-content'>
+                                    <div className='user-info-form-content-item full-width'>
+                                        <label className='user-info-form-content-item-label'>Mô Tả</label>
+                                        <div className='user-info-form-content-item-value description-text'>
+                                            {pt.moTa || 'Chưa có mô tả'}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1083,7 +1371,6 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
     if (!modalRoot) {
         modalRoot = document.createElement('div');
         modalRoot.id = 'modal-root';
-        document.body.appendChild(modalRoot);
     }
 
     const modalContent = (
@@ -1108,122 +1395,99 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
                             </div>
                             <div className="user-name-section">
                                 <h3>{user.hoTen}</h3>
-                                <p className={`user-role status-badge-${user.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'active' : user.trangThaiHoiVien === 'TAM_NGUNG' ? 'inactive' : 'expired'}`}>
-                                    {user.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'Đang Hoạt Động' :
-                                        user.trangThaiHoiVien === 'TAM_NGUNG' ? 'Tạm Ngưng' : 'Hết Hạn'}
-                                </p>
+                                <p className='user-role'>Hội Viên</p>
                             </div>
                         </div>
 
-                        <div className="user-info-form">
-                            <div className="gender-selection">
-                                <label className="gender-option">
-                                    <input
-                                        type="radio"
-                                        checked={user.gioiTinh === 'Nam'}
-                                        readOnly
-                                    />
-                                    <span>Nam</span>
-                                </label>
-                                <label className="gender-option">
-                                    <input
-                                        type="radio"
-                                        checked={user.gioiTinh === 'Nữ'}
-                                        readOnly
-                                    />
-                                    <span>Nữ</span>
-                                </label>
-                            </div>
-
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>Họ</label>
-                                    <input
-                                        type="text"
-                                        value={user.hoTen.split(' ')[0] || ''}
-                                        readOnly
-                                    />
+                        <div className='user-info-wrapper'>
+                            <div className="user-info-form">
+                                <div className='user-info-form-header'>
+                                    <h3>Thông Tin Cá Nhân</h3>
+                                    <p>
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="18"
+                                            height="18"
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                        >
+                                            <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21C3 22.11 3.89 23 5 23H19C20.11 23 21 22.11 21 21V9M19 9H14V4H19V9Z" />
+                                        </svg>
+                                    </p>
                                 </div>
-                                <div className="form-group">
-                                    <label>Tên</label>
-                                    <input
-                                        type="text"
-                                        value={user.hoTen.split(' ').slice(1).join(' ') || ''}
-                                        readOnly
-                                    />
-                                </div>
-                            </div>
 
-                            <div className="form-group">
-                                <label>Email</label>
-                                <div className="email-input">
-                                    <input
-                                        type="email"
-                                        value={user.email}
-                                        readOnly
-                                    />
-                                    <span className="verified-badge">✓ Verified</span>
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label>Địa Chỉ</label>
-                                <input
-                                    type="text"
-                                    value={user.diaChi}
-                                    readOnly
-                                />
-                            </div>
-
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>Số Điện Thoại</label>
-                                    <input
-                                        type="tel"
-                                        value={user.sdt}
-                                        readOnly
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Ngày Sinh</label>
-                                    <input
-                                        type="text"
-                                        value={user.ngaySinh ? new Date(user.ngaySinh).toLocaleDateString('vi-VN', {
-                                            day: '2-digit',
-                                            month: '2-digit',
-                                            year: 'numeric'
-                                        }) : 'N/A'}
-                                        readOnly
-                                    />
+                                <div className='user-info-form-content'>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Số CCCD</label>
+                                        <span className='user-info-form-content-item-value'>{user.soCCCD}</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Giới Tính</label>
+                                        <span className='user-info-form-content-item-value'>{user.gioiTinh}</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Email</label>
+                                        <span className='user-info-form-content-item-value'>{user.email}</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Địa Chỉ</label>
+                                        <span className='user-info-form-content-item-value'>{user.diaChi}</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Số Điện Thoại</label>
+                                        <span className='user-info-form-content-item-value'>{user.sdt}</span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Ngày Sinh</label>
+                                        <span className='user-info-form-content-item-value'>
+                                            {user.ngaySinh ? new Date(user.ngaySinh).toLocaleDateString('vi-VN', {
+                                                day: '2-digit',
+                                                month: '2-digit',
+                                                year: 'numeric'
+                                            }) : 'N/A'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>Ngày Tham Gia</label>
-                                    <input
-                                        type="text"
-                                        value={user.ngayThamGia ? new Date(user.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'}
-                                        readOnly
-                                    />
+                            <div className="user-info-form">
+                                <div className='user-info-form-header'>
+                                    <h3>Thông Tin Hội Viên</h3>
+                                    <p>
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="18"
+                                            height="18"
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                        >
+                                            <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21C3 22.11 3.89 23 5 23H19C20.11 23 21 22.11 21 21V9M19 9H14V4H19V9Z" />
+                                        </svg>
+                                    </p>
                                 </div>
-                                <div className="form-group">
-                                    <label>Ngày Hết Hạn</label>
-                                    <input
-                                        type="text"
-                                        value={user.ngayHetHan ? new Date(user.ngayHetHan).toLocaleDateString('vi-VN') : 'N/A'}
-                                        readOnly
-                                    />
-                                </div>
-                            </div>
 
-                            <div className="form-group">
-                                <label>Số CCCD</label>
-                                <input
-                                    type="text"
-                                    value={user.soCCCD}
-                                    readOnly
-                                />
+                                <div className='user-info-form-content'>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Ngày Tham Gia</label>
+                                        <span className='user-info-form-content-item-value'>
+                                            {user.ngayThamGia ? new Date(user.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Ngày Hết Hạn</label>
+                                        <span className='user-info-form-content-item-value'>
+                                            {user.ngayHetHan ? new Date(user.ngayHetHan).toLocaleDateString('vi-VN') : 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Trạng Thái Hội Viên</label>
+                                        <span className='user-info-form-content-item-value'>
+                                            <div className={`status-badge ${user.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'active' : user.trangThaiHoiVien === 'TAM_NGUNG' ? 'inactive' : 'expired'}`}>
+                                                {user.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'Đang Hoạt Động' : user.trangThaiHoiVien === 'TAM_NGUNG' ? 'Tạm Ngưng' : 'Hết Hạn'}
+                                            </div>
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2008,9 +2272,32 @@ const PackagesPage = () => {
                                             </span>
                                             {viewingItem.popular && (
                                                 <span className="package-status-badge popular-badge-inline">
-                                                    ⭐ Phổ biến
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="14"
+                                                        height="14"
+                                                        viewBox="0 0 256 256"
+                                                        style={{ marginRight: "4px" }}
+                                                    >
+                                                        <g transform="translate(1.4066 1.4066) scale(2.81 2.81)">
+                                                            <path
+                                                                d="M 36.17 47.162 c -0.035 -0.106 -0.069 -0.213 -0.103 -0.319 c -5.999 -18.815 3.815 -39.21 22.146 -46.558 C 58.454 0.188 58.696 0.093 58.938 0 c -8.181 21.836 15.423 38.412 15.423 60.801 C 74.361 77.993 59.681 90 45 90 S 15.639 77.993 15.639 60.801 c 0 -8.39 2.672 -17.725 7.291 -26.607 C 27.048 40.04 31.579 44.659 36.17 47.162 z"
+                                                                fill="#ff641a"
+                                                            />
+                                                            <path
+                                                                d="M 38.722 64.603 c -0.026 -0.063 -0.052 -0.126 -0.077 -0.189 c 10.823 -10.35 4.959 -26.605 10.45 -37.896 c 0.18 -0.057 -0.181 0.055 0 0 c -0.906 13.578 22.022 33.376 18.098 46.171 C 64.205 82.434 56.249 90 45.305 90 s -22.903 -7.267 -22.903 -17.459 c 0 -4.974 0 -13.002 3.498 -21.539 C 27.997 64.786 34.886 67.501 38.722 64.603 z"
+                                                                fill="#ff9f00"
+                                                            />
+                                                            <path
+                                                                d="M 67.325 51.854 c -0.012 -0.06 -0.034 -0.115 -0.051 -0.173 c -0.02 -0.067 -0.035 -0.135 -0.062 -0.2 c -0.028 -0.069 -0.067 -0.131 -0.103 -0.196 c -0.027 -0.049 -0.049 -0.101 -0.081 -0.148 c -0.147 -0.22 -0.335 -0.408 -0.555 -0.555 c -0.047 -0.032 -0.099 -0.053 -0.148 -0.081 c -0.065 -0.036 -0.127 -0.075 -0.196 -0.103 c -0.065 -0.027 -0.133 -0.042 -0.2 -0.062 c -0.058 -0.017 -0.113 -0.039 -0.173 -0.051 c -0.129 -0.026 -0.26 -0.039 -0.392 -0.039 H 52.9 c -1.104 0 -2 0.896 -2 2 s 0.896 2 2 2 h 7.636 l -14.3 14.3 l -9.69 -9.44 c -0.786 -0.766 -2.044 -0.755 -2.816 0.025 l -9.906 10.003 c -0.777 0.785 -0.771 2.051 0.014 2.828 c 0.785 0.778 2.05 0.77 2.828 -0.014 l 8.51 -8.594 l 9.683 9.435 c 0.389 0.379 0.892 0.567 1.396 0.567 c 0.512 0 1.024 -0.195 1.414 -0.586 l 15.695 -15.696 v 7.637 c 0 1.104 0.896 2 2 2 s 2 -0.896 2 -2 V 52.245 C 67.364 52.114 67.351 51.983 67.325 51.854 z"
+                                                                fill="#f0feff"
+                                                            />
+                                                        </g>
+                                                    </svg>
+                                                    Phổ biến
                                                 </span>
                                             )}
+
                                         </div>
                                     </div>
                                 </div>
