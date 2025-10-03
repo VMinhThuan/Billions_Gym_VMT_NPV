@@ -121,7 +121,6 @@
     .select select,
     .select select:focus,
     .select select:active {
-        color: #111827 !important;
         border-color: #d1d5db !important;
     }
 

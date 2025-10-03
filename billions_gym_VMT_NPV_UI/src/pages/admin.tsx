@@ -2149,7 +2149,7 @@ const PackagesPage = () => {
                                 <h3 className="package-title">{pkg.tenGoiTap}</h3>
                                 <div className="package-details">
                                     <div className="package-price">
-                                        <span className='package-price-value'>{pkg.donGia ? pkg.donGia.toLocaleString('vi-VN') : '0'}₫</span>
+                                        <span className="package-price-value">{pkg.donGia ? pkg.donGia.toLocaleString('vi-VN') : '0'}₫</span>
                                         {pkg.giaGoc && pkg.giaGoc > pkg.donGia && (
                                             <span className="original-price">{pkg.giaGoc.toLocaleString('vi-VN')}₫</span>
                                         )}
@@ -2712,6 +2712,23 @@ const SchedulesPage = () => {
 };
 
 const PTPage = () => {
+    // Đóng menu khi click bên ngoài
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Element;
+            if (!target.closest('.pt-menu')) {
+                document.querySelectorAll('.pt-menu-dropdown.show').forEach(dropdown => {
+                    dropdown.classList.remove('show');
+                });
+            }
+        };
+
+        document.addEventListener('click', handleClickOutside);
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, []);
+
     const handleViewDetail = async (pt: PT) => {
         try {
             setIsLoading(true);
@@ -2985,119 +3002,107 @@ const PTPage = () => {
                     </div>
                 </div>
             </div>
-            <div className="table-container">
-                <table className="table">
-                    <thead>
-                        <tr>
-                            <SortableHeader
-                                sortKey="hoTen"
-                                currentSort={sortConfig}
-                                onSort={handleSort}
-                            >
-                                Họ tên
-                            </SortableHeader>
-                            <th>Email</th>
-                            <th>SĐT</th>
-                            <th>Giới tính</th>
-                            <th>Ngày sinh</th>
-                            <th>Chuyên môn</th>
-                            <SortableHeader
-                                sortKey="kinhNghiem"
-                                currentSort={sortConfig}
-                                onSort={handleSort}
-                            >
-                                Kinh nghiệm
-                            </SortableHeader>
-                            <SortableHeader
-                                sortKey="danhGia"
-                                currentSort={sortConfig}
-                                onSort={handleSort}
-                            >
-                                Đánh giá
-                            </SortableHeader>
-                            <SortableHeader
-                                sortKey="ngayVaoLam"
-                                currentSort={sortConfig}
-                                onSort={handleSort}
-                            >
-                                Ngày vào làm
-                            </SortableHeader>
-                            <th style={{ minWidth: '200px' }}>Trạng thái</th>
-                            <th>Hành động</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.map(r => (
-                            <tr key={r._id}>
-                                <td>
-                                    <div className="user-info">
-                                        <div>
-                                            <div className="user-name">{r.hoTen}</div>
+            <div className="pt-cards-container">
+                <div className="pt-cards-grid">
+                    {filtered.map(r => (
+                        <div key={r._id} className="pt-card">
+                            <div className="pt-card-header">
+                                <div className="pt-avatar">
+                                    {r.anhDaiDien ? (
+                                        <img src={r.anhDaiDien} alt={r.hoTen} className="pt-avatar-img" />
+                                    ) : (
+                                        <div className="pt-avatar-placeholder">
+                                            {r.hoTen.charAt(0).toUpperCase()}
                                         </div>
-                                    </div>
-                                </td>
-                                <td>{r.email || 'N/A'}</td>
-                                <td>{r.sdt}</td>
-                                <td>{r.gioiTinh === 'Nam' ? 'Nam' : 'Nữ'}</td>
-                                <td>{r.ngaySinh ? new Date(r.ngaySinh).toLocaleDateString('vi-VN', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric'
-                                }) : 'N/A'}</td>
-                                <td>{r.chuyenMon}</td>
-                                <td>{r.kinhNghiem} năm</td>
-                                <td>
-                                    <Rating
-                                        rating={r.danhGia || 0}
-                                        size="small"
-                                        readonly={true}
-                                    />
-                                </td>
-                                <td>{r.ngayVaoLam ? new Date(r.ngayVaoLam).toLocaleDateString('vi-VN', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric'
-                                }) : 'N/A'}</td>
-                                <td style={{ minWidth: '200px', whiteSpace: 'nowrap' }}>
-                                    <span className={`badge ${!r.taiKhoan?._id ? 'warning' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'success' : 'danger'}`}>
-                                        {!r.taiKhoan?._id ? 'CHƯA CÓ TÀI KHOẢN' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' : 'ĐÃ KHÓA'}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div className="action-buttons">
-                                        <button className="btn-icon btn-view" onClick={() => handleViewDetail(r)}>
-                                            👁️ Chi tiết
-                                        </button>
-                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
+                                    )}
+                                </div>
+                                <div className="pt-info">
+                                    <h3 className="pt-name">{r.hoTen}</h3>
+                                    <p className="pt-phone">{r.sdt}</p>
+                                </div>
+                                <div className="pt-menu">
+                                    <button
+                                        className="pt-menu-btn"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            // Đóng tất cả menu khác trước
+                                            document.querySelectorAll('.pt-menu-dropdown.show').forEach(dropdown => {
+                                                dropdown.classList.remove('show');
+                                            });
+
+                                            const menu = e.currentTarget.nextElementSibling;
+                                            if (menu) {
+                                                menu.classList.toggle('show');
+                                            }
+                                        }}
+                                    >
+                                        ⋯
+                                    </button>
+                                    <div className="pt-menu-dropdown">
+                                        <button
+                                            className="pt-menu-item"
+                                            onClick={() => setEditingItem(r)}
+                                        >
                                             ✏️ Sửa
                                         </button>
                                         <button
-                                            className="status-select"
-                                            onClick={() => {
-                                                const currentStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
-                                                const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
-                                                handleChangeAccountStatus(r._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
-                                            }}
-                                            disabled={isChangingStatus === r._id || !r.taiKhoan?._id}
-                                            style={{
-                                                background: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' :
-                                                    'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                boxShadow: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '0 2px 8px rgba(239, 68, 68, 0.3)' :
-                                                    '0 2px 8px rgba(16, 185, 129, 0.3)',
-                                                opacity: !r.taiKhoan?._id ? 0.5 : 1
-                                            }}
+                                            className="pt-menu-item pt-menu-delete"
+                                            onClick={() => setDeleteConfirm({ show: true, item: r })}
                                         >
-                                            {r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '🔒 Vô hiệu hóa' : '🔓 Kích hoạt'}
-                                        </button>
-                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
                                             🗑️ Xóa
                                         </button>
                                     </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                </div>
+                            </div>
+
+                            <div className="pt-card-divider"></div>
+
+                            <div className="pt-card-details">
+                                <div className="pt-detail-item">
+                                    <span className="pt-detail-label">Chuyên môn:</span>
+                                    <span className="pt-detail-value">{r.chuyenMon}</span>
+                                </div>
+                                <div className="pt-detail-item">
+                                    <span className="pt-detail-label">Kinh nghiệm:</span>
+                                    <span className="pt-detail-value">{r.kinhNghiem} năm</span>
+                                </div>
+                                <div className="pt-detail-item">
+                                    <span className="pt-detail-label">Đánh giá:</span>
+                                    <span className="pt-detail-value">
+                                        <Rating
+                                            rating={r.danhGia || 0}
+                                            size="small"
+                                            readonly={true}
+                                        />
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="pt-card-divider"></div>
+
+                            <div className="pt-card-actions">
+                                <button
+                                    className="pt-action-btn pt-action-disable"
+                                    data-status={r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG'}
+                                    onClick={() => {
+                                        const currentStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
+                                        const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
+                                        handleChangeAccountStatus(r._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
+                                    }}
+                                    disabled={isChangingStatus === r._id || !r.taiKhoan?._id}
+                                >
+                                    {r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                                </button>
+                                <button
+                                    className="pt-action-btn pt-action-view"
+                                    onClick={() => handleViewDetail(r)}
+                                >
+                                    Xem hồ sơ
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
             {(show || editingItem) && <EntityForm
                 title="Huấn luyện viên"
