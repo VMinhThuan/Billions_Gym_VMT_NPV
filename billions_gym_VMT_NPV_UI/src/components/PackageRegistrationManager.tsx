@@ -35,7 +35,7 @@ interface DangKyGoiTap {
     ngayDangKy: Date;
     ngayBatDau?: Date;
     ngayKetThuc: Date;
-    trangThai: 'DANG_HOAT_DONG' | 'TAM_DUNG' | 'HET_HAN' | 'DA_HUY' | 'DANG_SU_DUNG' | 'CHO_CHON_PT';
+    trangThai: 'DANG_HOAT_DONG' | 'TAM_DUNG' | 'HET_HAN' | 'DA_HUY' | 'DANG_SU_DUNG' | 'CHO_CHON_PT' | 'DANG_KICH_HOAT';
     trangThaiThanhToan: 'DA_THANH_TOAN' | 'CHUA_THANH_TOAN' | 'HOAN_TIEN';
     soTienThanhToan: number;
     thuTuUuTien: number;
@@ -112,6 +112,14 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
         trangThaiThanhToan: 'CHUA_THANH_TOAN' as const,
         ghiChu: ''
     });
+
+    // State for EntityForm data synchronization
+    const [formData, setFormData] = useState(newRegistration);
+
+    // Sync formData with newRegistration
+    useEffect(() => {
+        setFormData(newRegistration);
+    }, [newRegistration]);
 
     useEffect(() => {
         fetchInitialData();
@@ -236,7 +244,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                 ngayKetThuc: calculateEndDate(formData.ngayBatDau, selectedPackage.thoiHan, selectedPackage.donViThoiHan)
             };
 
-            await api.post('/api/dang-ky-goi-tap', formData);
+            await api.post('/api/dang-ky-goi-tap', registrationData);
             notifications.generic.success('Đăng ký gói tập thành công!');
             
             setShowNewRegistration(false);
@@ -340,6 +348,65 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
             fetchPackageStats();
         }
     }, [activeTab]);
+
+    const getPackageOptions = (memberId: string) => {
+        if (!memberId) {
+            return packages.map(pkg => ({
+                value: pkg._id,
+                label: `${pkg.tenGoiTap} - ${pkg.donGia.toLocaleString('vi-VN')}₫`
+            }));
+        }
+    
+        const sourcePackages = memberPackages.length > 0
+            ? memberPackages
+            : registrations.filter(r => r.maHoiVien._id === memberId);
+    
+        // fix chỗ filter active package
+        const activePackages = sourcePackages.filter(pkg => {
+            const status = pkg.trangThai || pkg.trangThaiDangKy || pkg.trangThaiGoiTap;
+            return (
+                (status === 'DANG_HOAT_DONG' ||
+                 status === 'DANG_SU_DUNG' ||
+                 status === 'CHO_CHON_PT' ||   // thêm case này vì log của bạn có giá trị này
+                 status === 'DANG_KICH_HOAT') &&
+                (!pkg.ngayKetThuc || new Date(pkg.ngayKetThuc) > new Date())
+            );
+        });
+    
+        if (activePackages.length === 0) {
+            return packages.map(pkg => ({
+                value: pkg._id,
+                label: `${pkg.tenGoiTap} - ${pkg.donGia.toLocaleString('vi-VN')}₫`
+            }));
+        }
+    
+        const currentPackage = activePackages[0];
+        const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap.donGia;
+        const currentPackageId = currentPackage.maGoiTap._id;
+    
+        return packages.map(pkg => {
+            if (pkg._id === currentPackageId) {
+                return {
+                    value: pkg._id,
+                    label: `${pkg.tenGoiTap} - ${pkg.donGia.toLocaleString('vi-VN')}₫ (Gói hiện đang đăng ký)`,
+                    disabled: true
+                };
+            } else if (pkg.donGia > currentPackagePrice) {
+                return {
+                    value: pkg._id,
+                    label: `${pkg.tenGoiTap} - ${pkg.donGia.toLocaleString('vi-VN')}₫ (Nâng cấp gói)`
+                };
+            } else {
+                return {
+                    value: pkg._id,
+                    label: `${pkg.tenGoiTap} - ${pkg.donGia.toLocaleString('vi-VN')}₫ (Không được đăng ký gói rẻ hơn)`,
+                    disabled: true
+                };
+            }
+        });
+    };
+    
+    
 
     return (
         <div className="package-registration-manager">
@@ -649,7 +716,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                             label: 'Gói tập',
                                             name: 'maGoiTap',
                                             type: 'select',
-                                            options: packages.map(pkg => ({ value: pkg._id, label: `${pkg.tenGoiTap} - ${pkg.donGia.toLocaleString('vi-VN')}₫` })),
+                                            options: getPackageOptions(newRegistration.maHoiVien),
                                         },
                                         {
                                             label: 'Ngày bắt đầu',
@@ -676,9 +743,29 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                             type: 'textarea',
                                         },
                                     ]}
-                                    initialData={undefined}
+                                    initialData={formData}
                                     onClose={() => setShowNewRegistration(false)}
                                     onSave={(formData) => handleCreateRegistration(formData)}
+                                    onFieldChange={(name, value) => {
+                                        console.log('🔍 onFieldChange called:', { name, value, packagesLength: packages.length });
+                                    
+                                        setNewRegistration(prev => ({ ...prev, [name]: value }));
+                                    
+                                        if (name === 'maHoiVien' && value) {
+                                            // Gọi API để lấy danh sách gói đã đăng ký của hội viên này
+                                            fetchMemberPackages(value);
+                                        }
+                                    
+                                        if (name === 'maGoiTap' && value) {
+                                            const selectedPackage = packages.find(p => p._id === value);
+                                            if (selectedPackage) {
+                                                setNewRegistration(prev => ({
+                                                    ...prev,
+                                                    soTienThanhToan: selectedPackage.donGia
+                                                }));
+                                            }
+                                        }
+                                    }}
                                 />
                             </div>
                             <div className="modal-footer">
