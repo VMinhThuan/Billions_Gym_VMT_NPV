@@ -1699,13 +1699,11 @@ const MembersPage = () => {
         try {
             setIsChangingStatus(memberId);
 
-            // Tìm hội viên để lấy thông tin tài khoản
             const member = rows.find(r => r._id === memberId);
             if (!member) {
                 throw new Error('Không tìm thấy hội viên');
             }
 
-            // Kiểm tra xem có tài khoản không (chỉ cần kiểm tra tồn tại, không cần _id)
             if (!member.taiKhoan) {
                 notifications.generic.warning('Không thể thay đổi trạng thái', 'Hội viên chưa có tài khoản. Vui lòng tạo tài khoản trước khi thay đổi trạng thái.');
                 return;
@@ -1747,6 +1745,20 @@ const MembersPage = () => {
                     }
                     : prev
             );
+
+            setEditingItem(prev =>
+                prev && prev._id === memberId
+                    ? {
+                        ...prev,
+                        taiKhoan: {
+                            ...prev.taiKhoan,
+                            trangThaiTK: newStatus
+                        }
+                    }
+                    : prev
+            );
+
+            setRefreshTrigger(prev => prev + 1);
 
             notifications.generic.success('Cập nhật trạng thái tài khoản thành công!');
         } catch (error) {
@@ -2129,11 +2141,12 @@ const PackagesPage = () => {
                 <div className="packages-grid">
                     {sortedAndFiltered.map(pkg => (
                         <Card key={pkg._id} className="package-card" hover>
-                            {pkg.popular && <div className="popular-badge">Phổ biến</div>}
-                            <img src={pkg.hinhAnhDaiDien} alt={pkg.tenGoiTap} className="package-image" />
+                            <div className="package-image-section">
+                                {pkg.popular && <div className="popular-badge">Phổ biến</div>}
+                                <img src={pkg.hinhAnhDaiDien} alt={pkg.tenGoiTap} className="package-image" />
+                            </div>
                             <div className="package-content">
                                 <h3 className="package-title">{pkg.tenGoiTap}</h3>
-                                <p className="package-description">{pkg.moTa}</p>
                                 <div className="package-details">
                                     <div className="package-price">
                                         <span className='package-price-value'>{pkg.donGia ? pkg.donGia.toLocaleString('vi-VN') : '0'}₫</span>
@@ -2141,7 +2154,7 @@ const PackagesPage = () => {
                                             <span className="original-price">{pkg.giaGoc.toLocaleString('vi-VN')}₫</span>
                                         )}
                                     </div>
-                                    <div className='package-info'>
+                                    <div className="package-info">
                                         <span className="package-type">
                                             {pkg.loaiGoiTap === 'CaNhan' ? 'Cá nhân' :
                                                 pkg.loaiGoiTap === 'Nhom' ? 'Nhóm' : 'Công ty'}
@@ -2881,6 +2894,21 @@ const PTPage = () => {
                     }
                     : prev
             );
+
+            // Update editingItem if currently editing this PT
+            setEditingItem(prev =>
+                prev && prev._id === ptId
+                    ? {
+                        ...prev,
+                        taiKhoan: {
+                            ...prev.taiKhoan,
+                            trangThaiTK: newStatus
+                        }
+                    }
+                    : prev
+            );
+
+            setRefreshTrigger(prev => prev + 1);
             notifications.generic.success(`Tài khoản PT đã được ${newStatus === 'DA_KHOA' ? 'khóa' : 'mở khóa'} thành công!`);
         } catch (error) {
             console.error('Error changing PT account status:', error);

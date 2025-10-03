@@ -11,21 +11,18 @@ const GoiTapSchema = new mongoose.Schema({
         default: 'Ngay',
         required: true
     },
-    // Trường mới: Loại thời hạn
     loaiThoiHan: {
         type: String,
         enum: ['VinhVien', 'TinhTheoNgay'],
         default: 'TinhTheoNgay',
         required: true
     },
-    // Trường mới: Số lượng người tham gia
     soLuongNguoiThamGia: {
         type: Number,
         required: true,
         min: 1,
         default: 1
     },
-    // Trường mới: Loại gói tập
     loaiGoiTap: {
         type: String,
         enum: ['CaNhan', 'Nhom', 'CongTy'],
