@@ -9,12 +9,13 @@ interface Field {
     name: string;
     label: string;
     type?: string;
-    options?: string[] | { value: string; label: string; }[];
+    options?: string[] | { value: string; label: string; disabled?: boolean; }[];
     validation?: {
         required?: boolean;
         pattern?: RegExp;
         message?: string;
         maxSize?: number; // for file uploads in MB
+        minDate?: string; // for date validation
     };
 }
 
@@ -59,6 +60,14 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave, onFieldChange
 
         if (field.validation?.pattern && value && !field.validation.pattern.test(value)) {
             return field.validation.message || `${field.label} không đúng định dạng`;
+        }
+
+        if (field.validation?.minDate && value && field.type === 'date') {
+            const selectedDate = new Date(value);
+            const minDate = new Date(field.validation.minDate);
+            if (selectedDate < minDate) {
+                return field.validation.message || `${field.label} phải từ ngày ${minDate.toLocaleDateString('vi-VN')} trở đi`;
+            }
         }
 
         return null;
@@ -292,7 +301,15 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave, onFieldChange
                                             if (typeof option === 'string') {
                                                 return <option key={option} value={option}>{option}</option>;
                                             } else {
-                                                return <option key={option.value} value={option.value}>{option.label}</option>;
+                                                return (
+                                                    <option
+                                                        key={option.value}
+                                                        value={option.value}
+                                                        disabled={option.disabled || false}
+                                                    >
+                                                        {option.label}
+                                                    </option>
+                                                );
                                             }
                                         })}
                                     </select>
@@ -310,6 +327,7 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave, onFieldChange
                                         value={formData[field.name] ? new Date(formData[field.name]).toISOString().split('T')[0] : ''}
                                         onChange={(e) => handleChange(field.name, e.target.value ? new Date(e.target.value).toISOString() : '')}
                                         className={`form-input ${errors[field.name] ? 'error' : ''}`}
+                                        min={field.validation?.minDate ? new Date(field.validation.minDate).toISOString().split('T')[0] : undefined}
                                     />
                                 ) : (
                                     <input

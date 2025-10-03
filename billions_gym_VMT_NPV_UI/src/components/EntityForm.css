@@ -348,6 +348,12 @@
     padding-right: 40px;
 }
 
+.form-select option:disabled {
+    color: #9ca3af;
+    background-color: #f9fafb;
+    font-style: italic;
+}
+
 .form-textarea {
     resize: vertical;
     min-height: 80px;

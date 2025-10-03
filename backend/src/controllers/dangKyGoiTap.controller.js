@@ -5,7 +5,17 @@ const GoiTap = require('../models/GoiTap');
 // Đăng ký gói tập mới
 const dangKyGoiTap = async (req, res) => {
     try {
-        const { maHoiVien, maGoiTap, ngayBatDau, soTienThanhToan, trangThaiThanhToan, ghiChu } = req.body;
+        const {
+            maHoiVien,
+            maGoiTap,
+            ngayBatDau,
+            soTienThanhToan,
+            trangThaiThanhToan,
+            ghiChu,
+            giaGoiTapGoc,
+            soTienBu,
+            isUpgrade
+        } = req.body;
 
         console.log('🔍 Backend - Received registration data:', req.body);
 
@@ -39,18 +49,60 @@ const dangKyGoiTap = async (req, res) => {
             ngayKetThuc,
             soTienThanhToan: soTienThanhToan || goiTap.donGia,
             trangThaiThanhToan,
-            ghiChu
+            ghiChu,
+            giaGoiTapGoc: giaGoiTapGoc || goiTap.donGia,
+            soTienBu: soTienBu || 0,
+            isUpgrade: isUpgrade || false
         });
 
         await dangKyMoi.save();
+
+        // Nếu là gói nâng cấp, cập nhật trạng thái gói cũ
+        if (isUpgrade) {
+            try {
+                // Tìm TẤT CẢ gói của hội viên (trừ gói vừa tạo) và chưa được nâng cấp
+                const activePackages = await ChiTietGoiTap.find({
+                    maHoiVien: maHoiVien,
+                    _id: { $ne: dangKyMoi._id }, // Loại trừ gói vừa tạo
+                    trangThai: { $ne: 'DA_NANG_CAP' }, // Chưa được nâng cấp
+                    trangThaiDangKy: { $ne: 'DA_NANG_CAP' } // Chưa được nâng cấp
+                }).sort({ ngayDangKy: -1 }); // Sắp xếp theo ngày đăng ký mới nhất
+
+                console.log(`🔍 Found ${activePackages.length} packages to update for member ${maHoiVien}`);
+
+                // Cập nhật tất cả gói cũ thành trạng thái đã nâng cấp
+                for (const oldPackage of activePackages) {
+                    oldPackage.trangThai = 'DA_NANG_CAP';
+                    oldPackage.trangThaiDangKy = 'DA_NANG_CAP';
+                    oldPackage.ngayKetThuc = new Date(); // Kết thúc gói cũ vào ngày hiện tại
+                    oldPackage.ngayTamDung = new Date(); // Ngày tạm dừng
+                    oldPackage.lyDoTamDung = 'Nâng cấp gói tập';
+                    oldPackage.ghiChu = `Đã nâng cấp lên gói ${goiTap.tenGoiTap} vào ngày ${new Date().toLocaleDateString('vi-VN')}. Số tiền bù: ${soTienBu.toLocaleString('vi-VN')}₫`;
+
+                    await oldPackage.save();
+                    console.log(`🔄 Old package ${oldPackage._id} marked as upgraded`);
+                }
+
+                if (activePackages.length > 0) {
+                    console.log(`✅ Successfully updated ${activePackages.length} old packages to DA_NANG_CAP status`);
+                }
+            } catch (upgradeError) {
+                console.error('❌ Error updating old package status:', upgradeError);
+                // Không throw error vì gói mới đã được tạo thành công
+            }
+        }
 
         // Populate thông tin chi tiết
         const result = await ChiTietGoiTap.findById(dangKyMoi._id)
             .populate('maHoiVien', 'hoTen email sdt')
             .populate('maGoiTap', 'tenGoiTap donGia thoiHan donViThoiHan');
 
+        const successMessage = isUpgrade
+            ? `Nâng cấp gói tập thành công! Số tiền cần thanh toán: ${soTienBu.toLocaleString('vi-VN')}₫`
+            : 'Đăng ký gói tập thành công!';
+
         res.status(201).json({
-            message: 'Đăng ký gói tập thành công',
+            message: successMessage,
             data: result
         });
     } catch (error) {
@@ -186,8 +238,8 @@ const kichHoatLaiGoiTap = async (req, res) => {
         });
 
         if (activePackage) {
-            return res.status(400).json({ 
-                message: 'Không thể kích hoạt vì đã có gói tập khác đang hoạt động' 
+            return res.status(400).json({
+                message: 'Không thể kích hoạt vì đã có gói tập khác đang hoạt động'
             });
         }
 
@@ -247,8 +299,8 @@ const huyDangKy = async (req, res) => {
         }
 
         if (dangKy.trangThaiThanhToan === 'DA_THANH_TOAN') {
-            return res.status(400).json({ 
-                message: 'Không thể hủy gói tập đã thanh toán' 
+            return res.status(400).json({
+                message: 'Không thể hủy gói tập đã thanh toán'
             });
         }
 
@@ -263,6 +315,37 @@ const huyDangKy = async (req, res) => {
         });
     } catch (error) {
         console.error('Error in huyDangKy:', error);
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+
+// Đánh dấu gói đã nâng cấp
+const nangCapGoiTap = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { ghiChu } = req.body;
+
+        const dangKy = await ChiTietGoiTap.findById(id);
+        if (!dangKy) {
+            return res.status(404).json({ message: 'Không tìm thấy đăng ký gói tập' });
+        }
+
+        // Cập nhật trạng thái gói cũ
+        dangKy.trangThai = 'DA_NANG_CAP';
+        dangKy.trangThaiDangKy = 'DA_NANG_CAP';
+        dangKy.ngayKetThuc = new Date(); // Kết thúc gói cũ vào ngày hiện tại
+        dangKy.ngayTamDung = new Date(); // Ngày tạm dừng
+        dangKy.lyDoTamDung = 'Nâng cấp gói tập';
+        dangKy.ghiChu = ghiChu || 'Đã nâng cấp gói tập';
+
+        await dangKy.save();
+
+        res.json({
+            message: 'Đánh dấu gói đã nâng cấp thành công',
+            data: dangKy
+        });
+    } catch (error) {
+        console.error('Error in nangCapGoiTap:', error);
         res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
 };
@@ -310,7 +393,7 @@ const thongKeGoiTap = async (req, res) => {
 // Lấy tất cả đăng ký (cho admin)
 const getAllDangKy = async (req, res) => {
     try {
-        const { page = 1, limit = 100, trangThai, search } = req.query; 
+        const { page = 1, limit = 100, trangThai, search } = req.query;
         const skip = (page - 1) * limit;
 
         console.log('🔍 Backend - getAllDangKy params:', { page, limit, trangThai, search });
@@ -394,6 +477,7 @@ module.exports = {
     kichHoatLaiGoiTap,
     capNhatThanhToan,
     huyDangKy,
+    nangCapGoiTap,
     thongKeGoiTap,
     getAllDangKy
 };

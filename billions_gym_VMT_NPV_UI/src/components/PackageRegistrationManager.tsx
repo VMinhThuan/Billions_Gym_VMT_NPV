@@ -35,9 +35,12 @@ interface DangKyGoiTap {
     ngayDangKy: Date;
     ngayBatDau?: Date;
     ngayKetThuc: Date;
-    trangThai: 'DANG_HOAT_DONG' | 'TAM_DUNG' | 'HET_HAN' | 'DA_HUY' | 'DANG_SU_DUNG' | 'CHO_CHON_PT' | 'DANG_KICH_HOAT';
+    trangThai: 'DANG_HOAT_DONG' | 'TAM_DUNG' | 'HET_HAN' | 'DA_HUY' | 'DANG_SU_DUNG' | 'CHO_CHON_PT' | 'DANG_KICH_HOAT' | 'DA_NANG_CAP' | string;
     trangThaiThanhToan: 'DA_THANH_TOAN' | 'CHUA_THANH_TOAN' | 'HOAN_TIEN';
     soTienThanhToan: number;
+    giaGoiTapGoc?: number; // Giá gốc của gói tập
+    soTienBu?: number; // Số tiền bù cho trường hợp nâng cấp
+    isUpgrade?: boolean; // Đánh dấu có phải gói nâng cấp không
     thuTuUuTien: number;
     soNgayConLai?: number;
     ngayTamDung?: Date;
@@ -49,6 +52,7 @@ interface DangKyGoiTap {
     thuTu?: number;
     laGoiHienTai?: boolean;
     ghiChuYeuCau?: string;
+    ghiChu?: string; // Ghi chú chung
     isLocked?: boolean;
 }
 
@@ -107,7 +111,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
     const [newRegistration, setNewRegistration] = useState({
         maHoiVien: '',
         maGoiTap: '',
-        ngayBatDau: new Date().toISOString().split('T')[0],
+        ngayBatDau: new Date().toISOString().split('T')[0], // Ngày hiện tại làm mặc định
         soTienThanhToan: 0,
         trangThaiThanhToan: 'CHUA_THANH_TOAN' as const,
         ghiChu: ''
@@ -115,6 +119,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
 
     // State for EntityForm data synchronization
     const [formData, setFormData] = useState(newRegistration);
+    const [upgradeInfo, setUpgradeInfo] = useState<{ amount: number; isUpgrade: boolean } | null>(null);
 
     // Sync formData with newRegistration
     useEffect(() => {
@@ -238,26 +243,94 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                 return;
             }
 
+            // Kiểm tra xem hội viên có gói đang hoạt động không
+            const sourcePackages = memberPackages.length > 0
+                ? memberPackages
+                : registrations.filter(r => r.maHoiVien._id === formData.maHoiVien);
+
+            const activePackages = sourcePackages.filter(pkg => {
+                const status = pkg.trangThai || pkg.trangThaiDangKy || pkg.trangThaiGoiTap;
+                return (
+                    (status === 'DANG_HOAT_DONG' ||
+                        status === 'DANG_SU_DUNG' ||
+                        status === 'CHO_CHON_PT' ||
+                        status === 'DANG_KICH_HOAT') &&
+                    !status.includes('DA_NANG_CAP') && // Loại trừ gói đã nâng cấp
+                    (!pkg.ngayKetThuc || new Date(pkg.ngayKetThuc) > new Date())
+                );
+            });
+
+            let finalAmount = selectedPackage.donGia;
+            let isUpgrade = false;
+
+            // Nếu hội viên có gói đang hoạt động và đang nâng cấp
+            if (activePackages.length > 0) {
+                const currentPackage = activePackages[0];
+                const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap.donGia;
+
+                // Nếu gói mới đắt hơn gói hiện tại -> nâng cấp
+                if (selectedPackage.donGia > currentPackagePrice) {
+                    finalAmount = calculateUpgradeAmount(selectedPackage.donGia, currentPackage);
+                    isUpgrade = true;
+                    console.log('🔄 Upgrade detected - Amount to pay:', finalAmount);
+                    console.log('📊 Calculation details:', {
+                        newPackagePrice: selectedPackage.donGia,
+                        currentPackagePrice: currentPackagePrice,
+                        startDate: currentPackage.ngayBatDau || currentPackage.ngayDangKy,
+                        endDate: currentPackage.ngayKetThuc,
+                        usedDays: calculateUsedDays(new Date(currentPackage.ngayBatDau || currentPackage.ngayDangKy)),
+                        totalDays: Math.ceil((new Date(currentPackage.ngayKetThuc).getTime() - new Date(currentPackage.ngayBatDau || currentPackage.ngayDangKy).getTime()) / (1000 * 60 * 60 * 24)),
+                        dailyRate: currentPackagePrice / Math.ceil((new Date(currentPackage.ngayKetThuc).getTime() - new Date(currentPackage.ngayBatDau || currentPackage.ngayDangKy).getTime()) / (1000 * 60 * 60 * 24)),
+                        remainingValue: currentPackagePrice - ((currentPackagePrice / Math.ceil((new Date(currentPackage.ngayKetThuc).getTime() - new Date(currentPackage.ngayBatDau || currentPackage.ngayDangKy).getTime()) / (1000 * 60 * 60 * 24))) * calculateUsedDays(new Date(currentPackage.ngayBatDau || currentPackage.ngayDangKy)))
+                    });
+                } else if (selectedPackage.donGia < currentPackagePrice) {
+                    // Không cho phép đăng ký gói rẻ hơn
+                    notifications.generic.error('Không thể đăng ký gói rẻ hơn gói hiện tại!');
+                    return;
+                } else if (selectedPackage._id === currentPackage.maGoiTap._id) {
+                    // Đăng ký lại gói hiện tại
+                    notifications.generic.error('Hội viên đã đăng ký gói này!');
+                    return;
+                }
+            }
+
             const registrationData = {
                 ...formData,
-                soTienThanhToan: formData.soTienThanhToan || selectedPackage.donGia,
-                ngayKetThuc: calculateEndDate(formData.ngayBatDau, selectedPackage.thoiHan, selectedPackage.donViThoiHan)
+                soTienThanhToan: finalAmount, // Số tiền thực tế hội viên phải trả
+                giaGoiTapGoc: selectedPackage.donGia, // Giá gốc của gói tập
+                ngayDangKy: new Date().toISOString(), // Ngày đăng ký gói tập mới
+                ngayKetThuc: calculateEndDate(formData.ngayBatDau, selectedPackage.thoiHan, selectedPackage.donViThoiHan),
+                isUpgrade: isUpgrade, // Đánh dấu đây có phải là gói nâng cấp không
+                soTienBu: isUpgrade ? finalAmount : 0, // Số tiền bù nếu là gói nâng cấp
+                ghiChu: isUpgrade ? `Nâng cấp từ gói cũ - Số tiền bù: ${finalAmount.toLocaleString('vi-VN')}₫` : formData.ghiChu
             };
 
-            await api.post('/api/dang-ky-goi-tap', registrationData);
-            notifications.generic.success('Đăng ký gói tập thành công!');
-            
+            // Tạo đăng ký gói tập mới (backend sẽ tự động xử lý việc cập nhật gói cũ nếu là nâng cấp)
+            const response = await api.post('/api/dang-ky-goi-tap', registrationData);
+
+            // Hiển thị thông báo thành công từ backend
+            notifications.generic.success(response.data.message || 'Đăng ký gói tập thành công!');
+
             setShowNewRegistration(false);
+            setUpgradeInfo(null);
             setNewRegistration({
                 maHoiVien: '',
                 maGoiTap: '',
-                ngayBatDau: new Date().toISOString().split('T')[0],
+                ngayBatDau: new Date().toISOString().split('T')[0], // Reset về ngày hiện tại
                 soTienThanhToan: 0,
                 trangThaiThanhToan: 'CHUA_THANH_TOAN',
                 ghiChu: ''
             });
-            
-            fetchInitialData();
+
+            // Reload data để cập nhật trạng thái gói cũ
+            console.log('🔄 Reloading data after package upgrade...');
+            await fetchInitialData();
+
+            // Nếu đang xem gói của hội viên cụ thể, refresh lại danh sách gói của hội viên đó
+            if (selectedMember && activeTab === 'member-packages') {
+                await fetchMemberPackages(selectedMember);
+                console.log('🔄 Refreshed member packages after upgrade');
+            }
         } catch (error) {
             console.error('Error creating registration:', error);
             notifications.generic.error('Không thể tạo đăng ký gói tập');
@@ -287,7 +360,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
         try {
             await api.put(`/api/dang-ky-goi-tap/${registrationId}/kich-hoat`);
             notifications.generic.success('Kích hoạt lại gói tập thành công!');
-            
+
             if (selectedMember) {
                 fetchMemberPackages(selectedMember);
             }
@@ -311,12 +384,13 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
             'CHO_CHON_PT': { class: 'info', text: 'Chờ chọn PT' },
             'DA_HET_HAN': { class: 'danger', text: 'Đã hết hạn' },
             'DANG_KICH_HOAT': { class: 'success', text: 'Đang kích hoạt' },
+            'DA_NANG_CAP': { class: 'info', text: 'Đã nâng cấp' },
             'DA_THANH_TOAN': { class: 'success', text: 'Đã thanh toán' },
             'CHUA_THANH_TOAN': { class: 'warning', text: 'Chưa thanh toán' }
         };
 
         const config = statusMap[actualStatus as keyof typeof statusMap] ||
-                      { class: 'secondary', text: actualStatus || 'Unknown' };
+            { class: 'secondary', text: actualStatus || 'Unknown' };
 
         return <span className={`badge ${config.class}`}>{config.text}</span>;
     };
@@ -349,6 +423,39 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
         }
     }, [activeTab]);
 
+    // Hàm tính số ngày đã sử dụng
+    const calculateUsedDays = (startDate: Date, currentDate: Date = new Date()) => {
+        const diffTime = currentDate.getTime() - startDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // Sử dụng Math.floor để lấy số ngày chính xác
+        return Math.max(0, diffDays); // Đảm bảo không âm
+    };
+
+    // Hàm tính số tiền đã sử dụng
+    const calculateUsedAmount = (packagePrice: number, totalDays: number, usedDays: number) => {
+        if (totalDays <= 0) return 0;
+        return (packagePrice / totalDays) * usedDays;
+    };
+
+    // Hàm tính số tiền cần bù khi nâng cấp
+    const calculateUpgradeAmount = (newPackagePrice: number, currentPackage: DangKyGoiTap) => {
+        const currentPrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap.donGia;
+        const startDate = new Date(currentPackage.ngayBatDau || currentPackage.ngayDangKy);
+        const endDate = new Date(currentPackage.ngayKetThuc);
+
+        // Tính tổng số ngày của gói hiện tại
+        const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        const usedDays = calculateUsedDays(startDate);
+
+        // Công thức đúng: Số tiền phải trả = Giá gói mới - (Giá gói cũ - (Giá gói cũ / Thời hạn (ngày) * Số ngày đã trôi qua))
+        const dailyRate = currentPrice / totalDays; // Giá gói cũ / Thời hạn (ngày)
+        const usedAmount = dailyRate * usedDays; // Số tiền đã sử dụng
+        const remainingValue = currentPrice - usedAmount; // Giá trị còn lại của gói cũ
+
+        // Số tiền cần bù = Giá gói mới - Giá trị còn lại của gói cũ
+        const upgradeAmount = newPackagePrice - remainingValue;
+        return Math.max(0, upgradeAmount); // Đảm bảo không âm
+    };
+
     const getPackageOptions = (memberId: string) => {
         if (!memberId) {
             return packages.map(pkg => ({
@@ -356,34 +463,37 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                 label: `${pkg.tenGoiTap} - ${pkg.donGia.toLocaleString('vi-VN')}₫`
             }));
         }
-    
+
         const sourcePackages = memberPackages.length > 0
             ? memberPackages
             : registrations.filter(r => r.maHoiVien._id === memberId);
-    
-        // fix chỗ filter active package
+
+        // Lọc gói đang hoạt động (chỉ lấy 1 gói hiện tại, loại trừ gói đã nâng cấp)
         const activePackages = sourcePackages.filter(pkg => {
             const status = pkg.trangThai || pkg.trangThaiDangKy || pkg.trangThaiGoiTap;
             return (
                 (status === 'DANG_HOAT_DONG' ||
-                 status === 'DANG_SU_DUNG' ||
-                 status === 'CHO_CHON_PT' ||   // thêm case này vì log của bạn có giá trị này
-                 status === 'DANG_KICH_HOAT') &&
+                    status === 'DANG_SU_DUNG' ||
+                    status === 'CHO_CHON_PT' ||
+                    status === 'DANG_KICH_HOAT') &&
+                !status.includes('DA_NANG_CAP') && // Loại trừ gói đã nâng cấp
                 (!pkg.ngayKetThuc || new Date(pkg.ngayKetThuc) > new Date())
             );
         });
-    
+
+        // Nếu hội viên chưa có gói nào hoặc không có gói đang hoạt động
         if (activePackages.length === 0) {
             return packages.map(pkg => ({
                 value: pkg._id,
                 label: `${pkg.tenGoiTap} - ${pkg.donGia.toLocaleString('vi-VN')}₫`
             }));
         }
-    
+
+        // Lấy gói hiện tại (chỉ lấy 1 gói)
         const currentPackage = activePackages[0];
         const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap.donGia;
         const currentPackageId = currentPackage.maGoiTap._id;
-    
+
         return packages.map(pkg => {
             if (pkg._id === currentPackageId) {
                 return {
@@ -392,9 +502,12 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                     disabled: true
                 };
             } else if (pkg.donGia > currentPackagePrice) {
+                // Tính số tiền cần bù cho gói nâng cấp
+                const upgradeAmount = calculateUpgradeAmount(pkg.donGia, currentPackage);
                 return {
                     value: pkg._id,
-                    label: `${pkg.tenGoiTap} - ${pkg.donGia.toLocaleString('vi-VN')}₫ (Nâng cấp gói)`
+                    label: `${pkg.tenGoiTap} - ${pkg.donGia.toLocaleString('vi-VN')}₫ (Nâng cấp gói - Cần bù: ${upgradeAmount.toLocaleString('vi-VN')}₫)`,
+                    upgradeAmount: upgradeAmount // Thêm thông tin số tiền cần bù
                 };
             } else {
                 return {
@@ -405,8 +518,8 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
             }
         });
     };
-    
-    
+
+
 
     return (
         <div className="package-registration-manager">
@@ -425,25 +538,25 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
 
                 {/* Tab Navigation */}
                 <div className="tab-navigation">
-                    <button 
+                    <button
                         className={`tab-btn ${activeTab === 'registrations' ? 'active' : ''}`}
                         onClick={() => setActiveTab('registrations')}
                     >
                         Tất cả đăng ký
                     </button>
-                    <button 
+                    <button
                         className={`tab-btn ${activeTab === 'member-packages' ? 'active' : ''}`}
                         onClick={() => setActiveTab('member-packages')}
                     >
                         Gói tập của hội viên
                     </button>
-                    <button 
+                    <button
                         className={`tab-btn ${activeTab === 'package-members' ? 'active' : ''}`}
                         onClick={() => setActiveTab('package-members')}
                     >
                         Hội viên của gói tập
                     </button>
-                    <button 
+                    <button
                         className={`tab-btn ${activeTab === 'statistics' ? 'active' : ''}`}
                         onClick={() => setActiveTab('statistics')}
                     >
@@ -480,7 +593,20 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                         <small>{reg.maHoiVien.sdt}</small>
                                                     </div>
                                                 </td>
-                                                <td>{reg.maGoiTap.tenGoiTap}</td>
+                                                <td>
+                                                    <div className="package-info">
+                                                        <strong>{reg.maGoiTap.tenGoiTap}</strong>
+                                                        {reg.isUpgrade && (
+                                                            <small className="upgrade-badge">Nâng cấp</small>
+                                                        )}
+                                                        {reg.giaGoiTapGoc && reg.soTienBu && (
+                                                            <div className="price-details">
+                                                                <small>Giá gốc: {reg.giaGoiTapGoc.toLocaleString('vi-VN')}₫</small>
+                                                                <small>Số tiền bù: {reg.soTienBu.toLocaleString('vi-VN')}₫</small>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td>{new Date(reg.ngayDangKy).toLocaleDateString('vi-VN')}</td>
                                                 <td>
                                                     {(() => {
@@ -563,18 +689,40 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                         <h3>Lịch sử gói tập của {members.find(m => m._id === selectedMember)?.hoTen}</h3>
                                         <div className="packages-timeline">
                                             {memberPackages.map((pkg, index) => (
-                                                <div key={pkg._id} className={`package-timeline-item ${(pkg.trangThaiGoiTap || pkg.trangThai || 'unknown').toLowerCase()}`}>
+                                                <div key={pkg._id} className={`package-timeline-item ${pkg.isUpgrade ? 'upgrade' :
+                                                    (pkg.trangThai === 'DA_NANG_CAP' || pkg.trangThaiDangKy === 'DA_NANG_CAP') ? 'da_nang_cap' :
+                                                        (pkg.trangThaiGoiTap || pkg.trangThai || 'unknown').toLowerCase()
+                                                    }`}>
                                                     <div className="timeline-marker">
-                                                        <span className="priority-number">#{pkg.thuTuUuTien || pkg.thuTu}</span>
+                                                        <div className="marker-dot"></div>
                                                     </div>
                                                     <div className="timeline-content">
                                                         <div className="package-header">
-                                                            <h4>{pkg.maGoiTap?.tenGoiTap}</h4>
+                                                            <h4>
+                                                                {pkg.maGoiTap?.tenGoiTap}
+                                                                {(pkg.isUpgrade) && (
+                                                                    <span className="upgrade-badge"> - Gói nâng cấp</span>
+                                                                )}
+                                                                {((pkg.trangThai === 'DA_NANG_CAP' || pkg.trangThaiDangKy === 'DA_NANG_CAP') && !pkg.isUpgrade) && (
+                                                                    <span className="old-package-badge"> - Gói cũ (đã nâng cấp)</span>
+                                                                )}
+                                                            </h4>
                                                             {getStatusBadge(pkg.trangThaiGoiTap, pkg.trangThaiDangKy, pkg.trangThai)}
                                                         </div>
                                                         <div className="package-details">
                                                             <p><strong>Thời gian:</strong> {pkg.ngayBatDau ? new Date(pkg.ngayBatDau).toLocaleDateString('vi-VN') : 'N/A'} - {new Date(pkg.ngayKetThuc).toLocaleDateString('vi-VN')}</p>
-                                                            <p><strong>Số tiền:</strong> {(pkg.soTienThanhToan || 0).toLocaleString('vi-VN')}₫</p>
+
+                                                            {/* Hiển thị số tiền dựa trên loại gói */}
+                                                            {pkg.isUpgrade && (pkg.soTienBu || 0) > 0 ? (
+                                                                <p><strong>Số tiền bù nâng cấp:</strong> <span className="upgrade-amount">{(pkg.soTienBu || 0).toLocaleString('vi-VN')}₫</span></p>
+                                                            ) : (
+                                                                <p><strong>Giá gói:</strong> {(pkg.giaGoiTapGoc || pkg.soTienThanhToan || 0).toLocaleString('vi-VN')}₫</p>
+                                                            )}
+
+                                                            {/* Hiển thị thông tin nâng cấp nếu có */}
+                                                            {pkg.isUpgrade && pkg.giaGoiTapGoc && (
+                                                                <p><strong>Giá gốc gói:</strong> {pkg.giaGoiTapGoc.toLocaleString('vi-VN')}₫</p>
+                                                            )}
                                                             {(pkg.trangThaiGoiTap || pkg.trangThai) === 'TAM_DUNG' && (
                                                                 <>
                                                                     <p><strong>Ngày tạm dừng:</strong> {pkg.ngayTamDung ? new Date(pkg.ngayTamDung).toLocaleDateString('vi-VN') : 'N/A'}</p>
@@ -696,13 +844,33 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
 
                 {/* New Registration Modal */}
                 {showNewRegistration && (
-                    <div className="modal-overlay" onClick={() => setShowNewRegistration(false)}>
+                    <div className="modal-overlay" onClick={() => {
+                        setShowNewRegistration(false);
+                        setUpgradeInfo(null);
+                    }}>
                         <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h3>Đăng ký gói tập mới</h3>
-                                <button className="close-btn" onClick={() => setShowNewRegistration(false)}>×</button>
+                                <button className="close-btn" onClick={() => {
+                                    setShowNewRegistration(false);
+                                    setUpgradeInfo(null);
+                                }}>×</button>
                             </div>
                             <div className="modal-body">
+                                {upgradeInfo && upgradeInfo.isUpgrade && (
+                                    <div className="upgrade-notification" style={{
+                                        backgroundColor: '#e3f2fd',
+                                        border: '1px solid #2196f3',
+                                        borderRadius: '8px',
+                                        padding: '12px',
+                                        marginBottom: '16px',
+                                        color: '#1976d2'
+                                    }}>
+                                        <strong>🔄 Nâng cấp gói tập</strong>
+                                        <p>Số tiền cần thanh toán: <strong>{upgradeInfo.amount.toLocaleString('vi-VN')}₫</strong></p>
+                                        <small>Số tiền này đã được tính toán dựa trên số ngày đã sử dụng gói hiện tại.</small>
+                                    </div>
+                                )}
                                 <EntityForm
                                     title="Đăng ký gói tập mới"
                                     fields={[
@@ -722,6 +890,11 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                             label: 'Ngày bắt đầu',
                                             name: 'ngayBatDau',
                                             type: 'date',
+                                            validation: {
+                                                required: true,
+                                                minDate: new Date().toISOString(),
+                                                message: 'Ngày bắt đầu phải từ hôm nay trở đi'
+                                            }
                                         },
                                         {
                                             label: 'Số tiền thanh toán',
@@ -748,20 +921,63 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                     onSave={(formData) => handleCreateRegistration(formData)}
                                     onFieldChange={(name, value) => {
                                         console.log('🔍 onFieldChange called:', { name, value, packagesLength: packages.length });
-                                    
+
                                         setNewRegistration(prev => ({ ...prev, [name]: value }));
-                                    
+
                                         if (name === 'maHoiVien' && value) {
                                             // Gọi API để lấy danh sách gói đã đăng ký của hội viên này
                                             fetchMemberPackages(value);
                                         }
-                                    
+
                                         if (name === 'maGoiTap' && value) {
                                             const selectedPackage = packages.find(p => p._id === value);
                                             if (selectedPackage) {
+                                                // Kiểm tra xem có phải nâng cấp không
+                                                const sourcePackages = memberPackages.length > 0
+                                                    ? memberPackages
+                                                    : registrations.filter(r => r.maHoiVien._id === newRegistration.maHoiVien);
+
+                                                const activePackages = sourcePackages.filter(pkg => {
+                                                    const status = pkg.trangThai || pkg.trangThaiDangKy || pkg.trangThaiGoiTap;
+                                                    return (
+                                                        (status === 'DANG_HOAT_DONG' ||
+                                                            status === 'DANG_SU_DUNG' ||
+                                                            status === 'CHO_CHON_PT' ||
+                                                            status === 'DANG_KICH_HOAT') &&
+                                                        !status.includes('DA_NANG_CAP') && // Loại trừ gói đã nâng cấp
+                                                        (!pkg.ngayKetThuc || new Date(pkg.ngayKetThuc) > new Date())
+                                                    );
+                                                });
+
+                                                let finalAmount = selectedPackage.donGia;
+                                                let isUpgrade = false;
+
+                                                // Nếu hội viên có gói đang hoạt động và đang nâng cấp
+                                                if (activePackages.length > 0) {
+                                                    const currentPackage = activePackages[0];
+                                                    const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap.donGia;
+
+                                                    // Nếu gói mới đắt hơn gói hiện tại -> nâng cấp
+                                                    if (selectedPackage.donGia > currentPackagePrice) {
+                                                        finalAmount = calculateUpgradeAmount(selectedPackage.donGia, currentPackage);
+                                                        isUpgrade = true;
+                                                        setUpgradeInfo({ amount: finalAmount, isUpgrade: true });
+                                                        console.log('🔍 onFieldChange - Upgrade calculation:', {
+                                                            selectedPackage: selectedPackage.tenGoiTap,
+                                                            newPrice: selectedPackage.donGia,
+                                                            currentPrice: currentPackagePrice,
+                                                            upgradeAmount: finalAmount
+                                                        });
+                                                    } else {
+                                                        setUpgradeInfo(null);
+                                                    }
+                                                } else {
+                                                    setUpgradeInfo(null);
+                                                }
+
                                                 setNewRegistration(prev => ({
                                                     ...prev,
-                                                    soTienThanhToan: selectedPackage.donGia
+                                                    soTienThanhToan: finalAmount
                                                 }));
                                             }
                                         }
@@ -769,7 +985,10 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                 />
                             </div>
                             <div className="modal-footer">
-                                <Button variant="ghost" onClick={() => setShowNewRegistration(false)}>
+                                <Button variant="ghost" onClick={() => {
+                                    setShowNewRegistration(false);
+                                    setUpgradeInfo(null);
+                                }}>
                                     Hủy
                                 </Button>
                                 <Button variant="primary" onClick={() => handleCreateRegistration(newRegistration)}>

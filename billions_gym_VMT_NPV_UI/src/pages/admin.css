@@ -218,7 +218,7 @@
 .admin-main {
     background: var(--bg-secondary);
     padding: 0;
-    overflow: hidden;
+    overflow-y: auto;
     height: 100vh;
     transition: all 0.3s ease;
     display: flex;
@@ -260,7 +260,7 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
-    /* Add gap between sections */
+    overflow-y: auto;
 }
 
 .admin-content::-webkit-scrollbar {
@@ -4468,6 +4468,7 @@ body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper
     padding: 0;
     background: transparent;
     min-height: auto;
+    overflow-y: auto;
 }
 
 .dashboard-controls {

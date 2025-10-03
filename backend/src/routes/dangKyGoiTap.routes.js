@@ -8,6 +8,7 @@ const {
     kichHoatLaiGoiTap,
     capNhatThanhToan,
     huyDangKy,
+    nangCapGoiTap,
     thongKeGoiTap,
     getAllDangKy
 } = require('../controllers/dangKyGoiTap.controller');
@@ -38,5 +39,8 @@ router.put('/:id/thanh-toan', capNhatThanhToan);
 
 // Hủy đăng ký
 router.put('/:id/huy', huyDangKy);
+
+// Đánh dấu gói đã nâng cấp
+router.put('/:id/nang-cap', nangCapGoiTap);
 
 module.exports = router;
