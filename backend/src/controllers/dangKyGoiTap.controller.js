@@ -178,16 +178,25 @@ const getHoiVienByGoiTap = async (req, res) => {
         const { trangThai } = req.query;
 
         let filter = { maGoiTap };
+
+        // Nếu có query trangThai thì filter theo trangThai, nếu không thì lấy tất cả
         if (trangThai) {
-            filter.trangThai = trangThai;
-        } else {
-            filter.trangThai = { $in: ['DANG_HOAT_DONG', 'TAM_DUNG'] };
+            filter.$or = [
+                { trangThai: trangThai },
+                { trangThaiDangKy: trangThai }
+            ];
         }
+        // Không filter theo trạng thái, lấy tất cả để hiển thị đầy đủ
+
+        console.log('🔍 Filter for package members:', JSON.stringify(filter, null, 2));
 
         const hoiVienList = await ChiTietGoiTap.find(filter)
             .populate('maHoiVien', 'hoTen email sdt ngayThamGia trangThaiHoiVien')
+            .populate('maGoiTap', 'tenGoiTap donGia thoiHan')
             .populate('ptDuocChon', 'hoTen chuyenMon')
-            .sort({ createdAt: -1 });
+            .sort({ ngayDangKy: -1 });
+
+        console.log(`📊 Found ${hoiVienList.length} members for package ${maGoiTap}`);
 
         res.json({
             message: 'Lấy danh sách hội viên thành công',

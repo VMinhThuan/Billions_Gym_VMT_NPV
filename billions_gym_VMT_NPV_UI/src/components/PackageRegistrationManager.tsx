@@ -773,38 +773,47 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                 {selectedPackage && (
                                     <div className="package-members-list">
                                         <h3>Danh sách hội viên của {packages.find(p => p._id === selectedPackage)?.tenGoiTap}</h3>
-                                        <table className="table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Hội viên</th>
-                                                    <th>Ngày đăng ký</th>
-                                                    <th>Thời hạn</th>
-                                                    <th>Trạng thái</th>
-                                                    <th>Thanh toán</th>
-                                                    <th>PT</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {packageMembers.map(member => (
-                                                    <tr key={member._id}>
-                                                        <td>
-                                                            <div className="member-info">
-                                                                <strong>{member.maHoiVien?.hoTen || 'N/A'}</strong>
-                                                                <small>{member.maHoiVien?.sdt || 'N/A'}</small>
-                                                            </div>
-                                                        </td>
-                                                        <td>{new Date(member.ngayDangKy).toLocaleDateString('vi-VN')}</td>
-                                                        <td>
-                                                            {member.ngayBatDau ? new Date(member.ngayBatDau).toLocaleDateString('vi-VN') : 'N/A'} - {' '}
-                                                            {new Date(member.ngayKetThuc).toLocaleDateString('vi-VN')}
-                                                        </td>
-                                                        <td>{getStatusBadge(member.trangThai, member.trangThaiDangKy, member.trangThaiGoiTap)}</td>
-                                                        <td>{getPaymentStatusBadge(member.trangThaiThanhToan)}</td>
-                                                        <td>{typeof member.ptDuocChon === 'object' && member.ptDuocChon ? member.ptDuocChon.hoTen : member.ptDuocChon || 'Chưa chọn'}</td>
+
+                                        {isLoading ? (
+                                            <div className="loading">Đang tải dữ liệu...</div>
+                                        ) : packageMembers.length === 0 ? (
+                                            <div className="no-data">
+                                                <p>Không có hội viên nào đăng ký gói tập này</p>
+                                            </div>
+                                        ) : (
+                                            <table className="table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Hội viên</th>
+                                                        <th>Ngày đăng ký</th>
+                                                        <th>Thời hạn</th>
+                                                        <th>Trạng thái</th>
+                                                        <th>Thanh toán</th>
+                                                        <th>PT</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody>
+                                                    {packageMembers.map(member => (
+                                                        <tr key={member._id}>
+                                                            <td>
+                                                                <div className="member-info">
+                                                                    <strong>{member.maHoiVien?.hoTen || 'N/A'}</strong>
+                                                                    <small>{member.maHoiVien?.sdt || 'N/A'}</small>
+                                                                </div>
+                                                            </td>
+                                                            <td>{new Date(member.ngayDangKy).toLocaleDateString('vi-VN')}</td>
+                                                            <td>
+                                                                {member.ngayBatDau ? new Date(member.ngayBatDau).toLocaleDateString('vi-VN') : 'N/A'} - {' '}
+                                                                {new Date(member.ngayKetThuc).toLocaleDateString('vi-VN')}
+                                                            </td>
+                                                            <td>{getStatusBadge(member.trangThai, member.trangThaiDangKy, member.trangThaiGoiTap)}</td>
+                                                            <td>{getPaymentStatusBadge(member.trangThaiThanhToan)}</td>
+                                                            <td>{typeof member.ptDuocChon === 'object' && member.ptDuocChon ? member.ptDuocChon.hoTen : member.ptDuocChon || 'Chưa chọn'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
                                     </div>
                                 )}
                             </div>
