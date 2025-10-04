@@ -28,6 +28,10 @@
     --hover-bg: #f1f5f9;
 }
 
+[data-theme="dark"] {
+    --text-secondary: #ffffff;
+}
+
 .admin-shell {
     display: grid;
     grid-template-columns: 280px 1fr;
@@ -476,12 +480,17 @@
     font-weight: 700;
     font-size: 18px;
     margin: 0;
-}
-
-.toolbar h2 {
-    margin: 0;
     font-size: 16px;
 }
+
+[data-theme="dark"] .toolbar .description {
+    color: var(--text-secondary);
+}
+
+[data-theme="light"] .toolbar .description {
+    color: #ffffff;
+}
+
 
 .toolbar-right {
     display: flex;
@@ -568,7 +577,6 @@
 
 .table-container {
     overflow-x: auto;
-    border-radius: 12px;
     border: 1px solid var(--border-color);
     background: var(--bg-card);
     flex: 1;
@@ -717,7 +725,7 @@
 }
 
 /* PT Schedule Table Styles */
-.pt-schedule-table {
+[data-theme="light"] .pt-schedule-table {
     width: 100%;
     border-collapse: collapse;
     background: white;
@@ -725,6 +733,102 @@
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     margin-bottom: 30px;
+    min-width: 800px;
+}
+
+[data-theme="dark"] .pt-schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-card);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    margin-bottom: 30px;
+    min-width: 800px;
+}
+
+[data-theme="dark"] .pt-schedule-table-container {
+    background: var(--bg-card);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .pt-schedule-table-container::-webkit-scrollbar-track {
+    background: #374151;
+}
+
+[data-theme="dark"] .pt-schedule-table-container::-webkit-scrollbar-thumb {
+    background: #6b7280;
+}
+
+[data-theme="dark"] .pt-schedule-table-container::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+
+/* Container for horizontal scrolling */
+.pt-schedule-table-container {
+    overflow-x: auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    margin-bottom: 30px;
+    background: white;
+    max-width: 100%;
+    position: relative;
+}
+
+/* Ensure table doesn't break out of container */
+.pt-schedule-table-container .pt-schedule-table {
+    margin-bottom: 0;
+    box-shadow: none;
+}
+
+/* Custom scrollbar for table container */
+.pt-schedule-table-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.pt-schedule-table-container::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.pt-schedule-table-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.pt-schedule-table-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Responsive horizontal scrolling */
+@media (max-width: 1200px) {
+    .pt-schedule-table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .pt-schedule-table {
+        min-width: 1000px;
+    }
+}
+
+@media (max-width: 768px) {
+    .pt-schedule-table-container {
+        margin-left: -16px;
+        margin-right: -16px;
+        border-radius: 0;
+    }
+
+    .pt-schedule-table {
+        min-width: 1200px;
+    }
+
+    .pt-schedule-table th,
+    .pt-schedule-table td {
+        padding: 12px 16px;
+        font-size: 14px;
+    }
 }
 
 .pt-schedule-table thead {
@@ -751,9 +855,94 @@
     transform: scale(1.01);
 }
 
+[data-theme="dark"] .pt-schedule-table tbody tr:hover {
+    background: var(--bg-card);
+    transform: scale(1.01);
+}
+
 .pt-schedule-table td {
     padding: 16px 20px;
     vertical-align: middle;
+    white-space: nowrap;
+    min-width: 120px;
+}
+
+/* Allow content to be fully visible */
+.pt-schedule-table td * {
+    white-space: nowrap;
+}
+
+.pt-schedule-table td p,
+.pt-schedule-table td div {
+    white-space: nowrap;
+    margin: 0;
+    padding: 0;
+}
+
+.pt-schedule-table td span {
+    padding: 4px 8px;
+}
+
+/* Specific column widths for better content display */
+.pt-schedule-table th:nth-child(1),
+.pt-schedule-table td:nth-child(1) {
+    min-width: 150px;
+    /* Trainer name */
+}
+
+.pt-schedule-table th:nth-child(2),
+.pt-schedule-table td:nth-child(2) {
+    min-width: 120px;
+    /* Date */
+}
+
+.pt-schedule-table th:nth-child(3),
+.pt-schedule-table td:nth-child(3) {
+    min-width: 200px;
+    /* Đánh giá - Rating column */
+}
+
+.pt-schedule-table th:nth-child(4),
+.pt-schedule-table td:nth-child(4) {
+    min-width: 200px;
+    /* Client */
+}
+
+.pt-schedule-table th:nth-child(5),
+.pt-schedule-table td:nth-child(5) {
+    min-width: 150px;
+    /* Status */
+}
+
+.pt-schedule-table th:nth-child(6),
+.pt-schedule-table td:nth-child(6) {
+    min-width: 250px;
+    /* Actions */
+}
+
+/* Special styling for rating column */
+.pt-schedule-table td:nth-child(3) {
+    min-width: 200px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+}
+
+.pt-schedule-table td:nth-child(3) .rating-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    min-width: 150px;
+}
+
+.pt-schedule-table td:nth-child(3) .rating {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
 }
 
 .trainer-cell {
@@ -790,13 +979,11 @@
 
 .trainer-name strong {
     display: block;
-    color: #1e293b;
     font-size: 14px;
     margin-bottom: 2px;
 }
 
 .trainer-name small {
-    color: #64748b;
     font-size: 12px;
 }
 
@@ -810,9 +997,17 @@
     color: #166534;
 }
 
-.trainers-table {
+[data-theme="light"] .trainers-table {
     margin-bottom: 30px;
     background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .trainers-table {
+    margin-bottom: 30px;
+    background: #1e293b;
     border-radius: 16px;
     padding: 24px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
@@ -933,7 +1128,7 @@
     color: var(--text-primary);
     font-weight: 600;
     vertical-align: middle;
-    padding: 12px 16px;
+    padding: 0px 16px;
     line-height: 1.4;
 }
 
@@ -1023,17 +1218,27 @@
 /* Action buttons styling */
 .action-buttons {
     display: flex !important;
-    gap: 4px !important;
+    gap: 8px !important;
     white-space: nowrap !important;
     justify-content: flex-start;
     align-items: center;
+    padding: 8px 12px;
+    min-width: 200px;
 }
 
 .action-buttons .btn {
-    font-size: 11px !important;
-    padding: 4px 8px !important;
-    min-width: unset !important;
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+    min-width: 80px !important;
     white-space: nowrap !important;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.action-buttons .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* Table improvements for PT page */
@@ -1290,12 +1495,12 @@
 }
 
 .package-card {
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    border: 1px solid #334155;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 16px;
     overflow: hidden;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px -1px var(--shadow-color);
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -1303,8 +1508,8 @@
 
 .package-card:hover {
     transform: translateY (-4px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
-    border-color: #60a5fa;
+    box-shadow: 0 20px 25px -5px var(--shadow-color);
+    border-color: var(--accent-color);
 }
 
 .package-image {
@@ -1333,7 +1538,7 @@
     font-size: 18px;
     font-weight: 800;
     margin: 0 0 8px 0;
-    color: #ffffff;
+    color: var(--text-primary);
     height: 50px;
     display: flex;
     align-items: center;
@@ -1343,7 +1548,7 @@
 }
 
 .package-description {
-    color: #cbd5e1;
+    color: var(--text-secondary);
     font-size: 14px;
     margin: 0 0 16px 0;
     line-height: 1.4;
@@ -1602,7 +1807,7 @@
     padding: 20px;
     max-height: calc(95vh - 120px);
     overflow-y: auto;
-    background: #f8fafc;
+    background: #ffffff;
     text-align: center;
     width: 100%;
 }
@@ -1677,6 +1882,7 @@
     font-weight: 800;
     margin: 0 0 8px 0;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    text-align: left;
 }
 
 .package-status {
@@ -3763,9 +3969,9 @@ Chi ng-lam-viec,
 
 /* Specific overrides for pie chart legends */
 .chart-section:nth-child(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #10b981 !important;
-    /* Green for "Đang hoạt động" */
-    fill: #10b981 !important;
+    color: rgb(16, 185, 129) !important;
+    /* Green for "Đang hoạt động" - rgb(16, 185, 129) */
+    fill: rgb(16, 185, 129) !important;
 }
 
 .chart-section:nth-child(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
@@ -3775,9 +3981,9 @@ Chi ng-lam-viec,
 }
 
 .chart-section:nth-child(3) .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #ef4444 !important;
-    /* Red for "Hết hạn" */
-    fill: #ef4444 !important;
+    color: rgb(239, 68, 68) !important;
+    /* Red for "Hết hạn" - rgb(239, 68, 68) */
+    fill: rgb(239, 68, 68) !important;
 }
 
 .chart-section:nth-child(4) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
@@ -3954,8 +4160,8 @@ body .admin-content .dashboard-container .chart-section:nth-child(6) .recharts-d
 
 /* Member Status Chart - Dark Theme */
 [data-theme="dark"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #34d399 !important;
-    /* Lighter green - Đang hoạt động */
+    color: rgb(16, 185, 129) !important;
+    /* Green for "Đang hoạt động" - rgb(16, 185, 129) */
 }
 
 [data-theme="dark"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
@@ -3991,8 +4197,8 @@ body .admin-content .dashboard-container .chart-section:nth-child(6) .recharts-d
 
 /* Member Status Chart - Light Theme */
 [data-theme="light"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #059669 !important;
-    /* Darker green - Đang hoạt động */
+    color: rgb(16, 185, 129) !important;
+    /* Green for "Đang hoạt động" - rgb(16, 185, 129) */
 }
 
 [data-theme="light"] .chart-section:nth-of-type(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text {
@@ -4032,8 +4238,8 @@ body .admin-content .dashboard-container .chart-section:nth-child(6) .recharts-d
 /* Nuclear option - Force legend colors with highest specificity */
 body .dashboard-container .chart-section:nth-of-type(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(1) text,
 body .dashboard-container .chart-section:nth-of-type(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #10b981 !important;
-    fill: #10b981 !important;
+    color: rgb(16, 185, 129) !important;
+    fill: rgb(16, 185, 129) !important;
     font-size: 14px !important;
     font-weight: 600 !important;
 }
@@ -4048,8 +4254,8 @@ body .dashboard-container .chart-section:nth-of-type(3) .recharts-legend-wrapper
 
 body .dashboard-container .chart-section:nth-of-type(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(3) text,
 body .dashboard-container .chart-section:nth-of-type(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #ef4444 !important;
-    fill: #ef4444 !important;
+    color: rgb(239, 68, 68) !important;
+    fill: rgb(239, 68, 68) !important;
     font-size: 14px !important;
     font-weight: 600 !important;
 }
@@ -4090,8 +4296,8 @@ body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper
 .chart-section h3:contains("Trạng thái hội viên")~div .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
 .chart-section:has(h3:contains("Trạng thái hội viên")) .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
 .chart-card h3:contains("Trạng thái hội viên")~.recharts-wrapper .recharts-legend-item:nth-child(1) .recharts-legend-item-text {
-    color: #34d399 !important;
-    /* Green - Đang hoạt động */
+    color: rgb(16, 185, 129) !important;
+    /* Green - Đang hoạt động - rgb(16, 185, 129) */
 }
 
 .chart-section h3:contains("Trạng thái hội viên")~div .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
@@ -4104,8 +4310,8 @@ body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper
 .chart-section h3:contains("Trạng thái hội viên")~div .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
 .chart-section:has(h3:contains("Trạng thái hội viên")) .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
 .chart-card h3:contains("Trạng thái hội viên")~.recharts-wrapper .recharts-legend-item:nth-child(3) .recharts-legend-item-text {
-    color: #f87171 !important;
-    /* Red - Hết hạn */
+    color: rgb(239, 68, 68) !important;
+    /* Red - Hết hạn - rgb(239, 68, 68) */
 }
 
 /* For Package Popularity Chart (Gói tập phổ biến) */
@@ -4463,7 +4669,11 @@ body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
-/* Advanced Dashboard Styles */
+/* Package Card Theme-specific styling */
+[data-theme="light"] .package-card:hover {
+    border-color: #3b82f6;
+}
+
 .advanced-dashboard {
     padding: 0;
     background: transparent;
@@ -4517,6 +4727,7 @@ body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
     gap: 24px;
+    overflow-y: auto;
 }
 
 .chart-section.interactive {
@@ -5011,4 +5222,80 @@ body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper
     .trainer-availability-page {
         padding: 15px;
     }
+}
+
+/* ULTIMATE OVERRIDE - Force "Đang hoạt động" color with maximum specificity */
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(1) text,
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-default-legend .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-legend-item:nth-child(1) text {
+    color: rgb(16, 185, 129) !important;
+    fill: rgb(16, 185, 129) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+/* ULTIMATE OVERRIDE - Force "Tạm ngừng" color with maximum specificity */
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(2) text,
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-default-legend .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-legend-item:nth-child(2) .recharts-legend-item-text,
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-legend-item:nth-child(2) text {
+    color: #f59e0b !important;
+    fill: #f59e0b !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+/* ULTIMATE OVERRIDE - Force "Hết hạn" color with maximum specificity */
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-legend-wrapper .recharts-legend-item:nth-child(3) text,
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-default-legend .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
+html body .admin-content .dashboard-container .chart-section:nth-child(3) .recharts-legend-item:nth-child(3) text {
+    color: rgb(239, 68, 68) !important;
+    fill: rgb(239, 68, 68) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+/* SUPER ULTIMATE OVERRIDE - Force exact color match for "Đang hoạt động" legend text */
+html body * .recharts-legend-item-text[style*="color: rgb(16, 185, 129)"],
+html body * span:contains("Đang hoạt động"),
+html body * text:contains("Đang hoạt động"),
+html body * .recharts-legend-item:nth-child(1) .recharts-legend-item-text,
+html body * .recharts-legend-item:nth-child(1) span,
+html body * .recharts-legend-item:nth-child(1) text {
+    color: #10b981 !important;
+    fill: #10b981 !important;
+}
+
+/* SUPER ULTIMATE OVERRIDE - Force exact color match for "Hết hạn" legend text */
+html body * span:contains("Hết hạn"),
+html body * text:contains("Hết hạn"),
+html body * .recharts-legend-item:nth-child(3) .recharts-legend-item-text,
+html body * .recharts-legend-item:nth-child(3) span,
+html body * .recharts-legend-item:nth-child(3) text {
+    color: #ef4444 !important;
+    fill: #ef4444 !important;
+}
+
+/* MASTER OVERRIDE - Force all legend text colors to match their icons exactly */
+.recharts-legend-item:nth-child(1) .recharts-legend-item-text,
+.recharts-legend-item:nth-child(1) span {
+    color: #10b981 !important;
+    /* Đang hoạt động - Green */
+}
+
+.recharts-legend-item:nth-child(2) .recharts-legend-item-text,
+.recharts-legend-item:nth-child(2) span {
+    color: #f59e0b !important;
+    /* Tạm ngừng - Orange */
+}
+
+.recharts-legend-item:nth-child(3) .recharts-legend-item-text,
+.recharts-legend-item:nth-child(3) span {
+    color: #ef4444 !important;
+    /* Hết hạn - Red */
 }

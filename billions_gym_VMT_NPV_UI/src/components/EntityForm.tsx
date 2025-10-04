@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import Button from './Button';
 import Card from './Card';
@@ -37,6 +37,67 @@ interface ConfirmModalProps {
     cancelText?: string;
     type?: 'danger' | 'warning' | 'info';
 }
+
+interface CustomSelectProps {
+    value: string;
+    onChange: (value: string) => void;
+    options: { value: string; label: string }[];
+    placeholder?: string;
+    error?: string;
+}
+
+const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, placeholder = "Chọn trạng thái", error }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const selectedOption = options.find(option => option.value === value);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
+    return (
+        <div className="custom-select-container" ref={dropdownRef}>
+            <div
+                className={`custom-select ${error ? 'error' : ''}`}
+                onClick={() => setIsOpen(!isOpen)}
+            >
+                <span className="custom-select-text">
+                    {selectedOption ? selectedOption.label : placeholder}
+                </span>
+                <span className="custom-select-arrow">▼</span>
+            </div>
+
+            {isOpen && (
+                <div className="custom-select-options">
+                    {options.map(option => (
+                        <div
+                            key={option.value}
+                            className={`custom-select-option ${value === option.value ? 'selected' : ''}`}
+                            data-value={option.value}
+                            onClick={() => {
+                                onChange(option.value);
+                                setIsOpen(false);
+                            }}
+                        >
+                            {option.label}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 const EntityForm = ({ title, fields, initialData, onClose, onSave, onFieldChange }: EntityFormProps) => {
     const [formData, setFormData] = useState<Record<string, any>>(initialData || {});
@@ -290,6 +351,19 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave, onFieldChange
                                             );
                                         })}
                                     </div>
+                                ) : field.name === 'trangThaiHoiVien' || field.name === 'trangThaiPT' ? (
+                                    <CustomSelect
+                                        value={formData[field.name] || ''}
+                                        onChange={(value) => handleChange(field.name, value)}
+                                        options={[
+                                            { value: 'DANG_HOAT_DONG', label: 'Đang hoạt động' },
+                                            { value: 'TAM_NGUNG', label: 'Tạm ngưng' },
+                                            { value: 'HET_HAN', label: 'Hết hạn' },
+                                            { value: 'DA_KHOA', label: 'Đã khóa' }
+                                        ]}
+                                        placeholder="Chọn trạng thái"
+                                        error={errors[field.name]}
+                                    />
                                 ) : field.options ? (
                                     <select
                                         value={formData[field.name] || ''}

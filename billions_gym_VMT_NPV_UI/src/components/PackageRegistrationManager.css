@@ -443,7 +443,7 @@
     backdrop-filter: blur(10px);
     border-radius: 16px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-    width: 600px;
+    width: 750px;
     max-width: 95%;
     max-height: 90vh;
     overflow: hidden;
@@ -465,7 +465,7 @@
 
 .modal-header {
     padding: 24px 24px 16px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e5e7eb !important;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -829,7 +829,6 @@
     margin: 0;
     font-size: 20px;
     font-weight: 600;
-    color: navy;
 }
 
 .toolbar-right {
@@ -875,7 +874,6 @@
     margin: 0;
     background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(5px);
-    border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     border: 1px solid rgba(226, 232, 240, 0.5);
@@ -897,7 +895,7 @@
     padding: 8px 8px;
     border-bottom: 1px solid rgba(241, 245, 249, 0.8);
     vertical-align: top;
-    font-size: 12px;
+    font-size: 14px;
 }
 
 .table tbody tr:hover {

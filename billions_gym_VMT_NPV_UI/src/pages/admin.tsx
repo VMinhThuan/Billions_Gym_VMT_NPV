@@ -630,7 +630,7 @@ const PackageWorkflowPage = () => {
                 <div className="toolbar">
                     <div className="toolbar-left">
                         <h2>Quy trình thiết lập gói tập</h2>
-                        <p>Quản lý việc chọn PT và tạo lịch tập cho khách hàng đã thanh toán</p>
+                        <p className="description">Quản lý việc chọn PT và tạo lịch tập cho khách hàng đã thanh toán</p>
                     </div>
                 </div>
 
@@ -749,7 +749,7 @@ const TrainerAvailabilityPage = () => {
                 <div className="toolbar">
                     <div className="toolbar-left">
                         <h2>Quản lý lịch làm việc PT</h2>
-                        <p>Thiết lập thời gian rảnh cho các huấn luyện viên</p>
+                        <p className="description">Thiết lập thời gian rảnh cho các huấn luyện viên</p>
                     </div>
                 </div>
 
@@ -807,7 +807,17 @@ const TrainerAvailabilityPage = () => {
                                                     <td>{trainer.chuyenMon || 'Chưa cập nhật'}</td>
                                                     <td>
                                                         <div className="rating-cell">
-                                                            ⭐ {trainer.danhGia?.toFixed(1) || '0.0'}
+                                                            <svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                width="16"
+                                                                height="16"
+                                                                viewBox="0 0 122.88 117.1"
+                                                                fill="#f59e0b"
+                                                                style={{ marginRight: "4px" }}
+                                                            >
+                                                                <path d="M64.42,2,80.13,38.7,120,42.26a3.2,3.2,0,0,1,1.82,5.62L91.64,74.18l8.9,39a3.19,3.19,0,0,1-2.42,3.8,3.27,3.27,0,0,1-2.46-.46L61.41,96.1,27.07,116.64a3.18,3.18,0,0,1-4.38-1.09,3.14,3.14,0,0,1-.37-2.38l8.91-39L1.09,47.88a3.24,3.24,0,0,1-.32-4.52,3.32,3.32,0,0,1,2.29-1l39.72-3.56L58.49,2a3.24,3.24,0,0,1,5.93,0Z" />
+                                                            </svg>
+                                                            {trainer.danhGia?.toFixed(1) || '0.0'}
                                                         </div>
                                                     </td>
                                                     <td>{trainer.kinhNghiem || 0} năm</td>
@@ -2421,7 +2431,7 @@ const PackagesPage = () => {
                                         </div>
                                     </div>
 
-                                    <div className="form-group full-width">
+                                    <div className="form-group full-width" style={{ marginBottom: '24px' }}>
                                         <label>Mô tả gói tập</label>
                                         <textarea
                                             value={viewingItem.moTa || 'Chưa có mô tả'}
