@@ -114,6 +114,14 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave, onFieldChange
         }
     }, [initialData]);
 
+    // Add/remove modal-open class to body
+    useEffect(() => {
+        document.body.classList.add('modal-open');
+        return () => {
+            document.body.classList.remove('modal-open');
+        };
+    }, []);
+
     const validateField = (field: Field, value: any): string | null => {
         if (field.validation?.required && (!value || value.toString().trim() === '')) {
             return `${field.label} là bắt buộc`;
@@ -125,7 +133,7 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave, onFieldChange
 
         if (field.validation?.minDate && value && field.type === 'date') {
             const selectedDate = new Date(value);
-            const minDate = new Date(field.validation.minDate);
+            const minDate = new Date(field.validation.minDate + 'T00:00:00'); // Thêm time để so sánh chính xác
             if (selectedDate < minDate) {
                 return field.validation.message || `${field.label} phải từ ngày ${minDate.toLocaleDateString('vi-VN')} trở đi`;
             }

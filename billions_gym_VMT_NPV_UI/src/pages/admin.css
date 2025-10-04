@@ -1827,6 +1827,31 @@
     overflow: hidden;
 }
 
+/* Style riêng cho modal chi tiết gói tập */
+.package-details-modal .package-profile-section {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+    padding: 30px 25px;
+    gap: 25px;
+    border-radius: 20px 20px 0 0;
+    position: relative;
+}
+
+.package-details-modal .package-profile-section::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg,
+            rgba(59, 130, 246, 0.1) 0%,
+            rgba(139, 92, 246, 0.1) 25%,
+            rgba(236, 72, 153, 0.1) 50%,
+            rgba(245, 158, 11, 0.1) 75%,
+            rgba(16, 185, 129, 0.1) 100%);
+    pointer-events: none;
+}
+
 .package-profile-section::before {
     content: '';
     position: absolute;
@@ -1844,6 +1869,10 @@
     overflow: hidden;
 }
 
+.package-details-modal .package-image-section {
+    flex-shrink: 0;
+}
+
 .package-image {
     height: 180px;
     margin: 0 auto;
@@ -1856,6 +1885,15 @@
     justify-content: center;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     border-radius: 12px 12px 0 0;
+}
+
+.package-details-modal .package-image {
+    height: 150px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
 }
 
 .package-image img {
@@ -1885,6 +1923,17 @@
     text-align: left;
 }
 
+.package-details-modal .package-name-section h3 {
+    font-size: 28px;
+    font-weight: 900;
+    margin: 0 0 12px 0;
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
 .package-status {
     font-size: 16px;
     opacity: 0.9;
@@ -1900,6 +1949,17 @@
     font-size: 14px;
     font-weight: 600;
     border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.package-details-modal .package-status-badge {
+    background: rgba(16, 185, 129, 0.2);
+    padding: 8px 16px;
+    border-radius: 25px;
+    font-size: 14px;
+    font-weight: 700;
+    border: 2px solid rgba(16, 185, 129, 0.4);
+    backdrop-filter: blur(15px);
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
 }
 
 .package-status-badge.popular-badge-inline {
@@ -1925,6 +1985,16 @@
     grid-template-columns: 1fr 1fr;
     gap: 24px;
     margin-bottom: 24px;
+}
+
+.form-row:last-child {
+    margin-top: 32px;
+}
+
+.date-info-row {
+    margin-top: 40px !important;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
 }
 
 .form-group {
@@ -1962,30 +2032,41 @@
 
 .price-input {
     position: relative;
+    background: #dbeafe;
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    padding: 8px 12px;
 }
 
 .price-input input {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
-    color: #059669;
-    text-align: right;
+    color: #1e40af;
+    text-align: center;
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 100%;
 }
 
-.price-input::after {
-    content: 'VNĐ';
-    position: absolute;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #6b7280;
-    font-weight: 600;
-    pointer-events: none;
+.original-price-input {
+    position: relative;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 8px 12px;
 }
 
 .original-price-input input {
     text-decoration: line-through;
     color: #9ca3af;
     font-weight: 500;
+    font-size: 14px;
+    text-align: center;
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 100%;
 }
 
 .status-active {

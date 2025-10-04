@@ -5,6 +5,31 @@ import Card from './Card';
 import Loading from './Loading';
 import { useCrudNotifications } from '../hooks/useNotification';
 import EntityForm from './EntityForm';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    Tooltip,
+    Legend,
+    ArcElement,
+    PointElement,
+    LineElement,
+} from 'chart.js';
+import { Bar, Doughnut, Line } from 'react-chartjs-2';
+
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    Tooltip,
+    Legend,
+    ArcElement,
+    PointElement,
+    LineElement
+);
 
 interface DangKyGoiTap {
     _id: string;
@@ -76,12 +101,37 @@ interface GoiTap {
 }
 
 interface PackageStats {
-    _id: string;
-    tongSoLuotDangKy: number;
-    soLuongDangHoatDong: number;
-    soLuongTamDung: number;
-    tongDoanhThu: number;
-    thongTinGoiTap: GoiTap;
+    tongQuan: {
+        tongSoDangKy: number;
+        tongSoHoiVienDaThanhToan: number;
+        tongSoHoiVienChuaThanhToan: number;
+        soDangKyDangHoatDong: number;
+        soDangKyHetHan: number;
+        tongDoanhThu: number;
+    };
+    theoGoiTap: Array<{
+        _id: {
+            maGoiTap: string;
+            tenGoiTap: string;
+            donGia: number;
+        };
+        soLuongDangKy: number;
+        doanhThu: number;
+        tyLe: string;
+    }>;
+    theoTrangThai: Array<{
+        _id: string;
+        soLuong: number;
+        tyLe: string;
+    }>;
+    theoThang: Array<{
+        _id: {
+            nam: number;
+            thang: number;
+        };
+        soDangKyMoi: number;
+        doanhThu: number;
+    }>;
 }
 
 interface PackageRegistrationManagerProps {
@@ -93,7 +143,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
     const [registrations, setRegistrations] = useState<DangKyGoiTap[]>([]);
     const [members, setMembers] = useState<HoiVien[]>([]);
     const [packages, setPackages] = useState<GoiTap[]>([]);
-    const [packageStats, setPackageStats] = useState<PackageStats[]>([]);
+    const [packageStats, setPackageStats] = useState<PackageStats | null>(null);
     const [selectedMember, setSelectedMember] = useState<string>('');
     const [selectedPackage, setSelectedPackage] = useState<string>('');
     const [memberPackages, setMemberPackages] = useState<DangKyGoiTap[]>([]);
@@ -209,7 +259,8 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
         setIsLoading(true);
         try {
             const response = await api.get('/api/dang-ky-goi-tap/thong-ke');
-            setPackageStats(response?.data || []);
+            setPackageStats(response?.data || null);
+            console.log('📊 Package stats loaded:', response?.data);
         } catch (error) {
             console.error('Error fetching package stats:', error);
             notifications.generic.error('Không thể tải thống kê gói tập');
@@ -331,9 +382,19 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                 await fetchMemberPackages(selectedMember);
                 console.log('🔄 Refreshed member packages after upgrade');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creating registration:', error);
-            notifications.generic.error('Không thể tạo đăng ký gói tập');
+
+            // Xử lý lỗi có gói đang hoạt động
+            if (error.response?.status === 400 && error.response?.data?.message?.includes('đã có gói tập đang hoạt động')) {
+                const existingPackage = error.response.data.existingPackage;
+                notifications.generic.error(
+                    `Hội viên đã có gói tập đang hoạt động: ${existingPackage?.tenGoiTap || 'N/A'}. ` +
+                    'Vui lòng chọn "Nâng cấp gói" thay vì "Đăng ký mới".'
+                );
+            } else {
+                notifications.generic.error('Không thể tạo đăng ký gói tập');
+            }
         }
     };
 
@@ -403,6 +464,152 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
         };
         const config = statusMap[status as keyof typeof statusMap] || { class: 'secondary', text: status };
         return <span className={`badge ${config.class}`}>{config.text}</span>;
+    };
+
+    // Tạo dữ liệu biểu đồ cho thống kê theo gói tập
+    const getPackageChartData = () => {
+        console.log('🔍 Debug packageStats:', packageStats);
+        console.log('🔍 Debug theoGoiTap:', packageStats?.theoGoiTap);
+
+        if (!packageStats?.theoGoiTap || packageStats.theoGoiTap.length === 0) {
+            console.log('❌ No package data available');
+            return null;
+        }
+
+        const labels = packageStats.theoGoiTap.map(item => item._id.tenGoiTap);
+        const registrationData = packageStats.theoGoiTap.map(item => item.soLuongDangKy);
+        const revenueData = packageStats.theoGoiTap.map(item => item.doanhThu);
+
+        console.log('📊 Chart labels:', labels);
+        console.log('📊 Registration data:', registrationData);
+        console.log('📊 Revenue data:', revenueData);
+
+        const chartData = {
+            registrationChart: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Số lượng đăng ký',
+                        data: registrationData,
+                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1,
+                    }
+                ]
+            },
+            revenueChart: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Doanh thu (₫)',
+                        data: revenueData,
+                        backgroundColor: 'rgba(16, 185, 129, 0.5)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        borderWidth: 1,
+                    }
+                ]
+            },
+            pieChart: {
+                labels,
+                datasets: [
+                    {
+                        data: registrationData,
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(139, 92, 246, 0.8)',
+                            'rgba(236, 72, 153, 0.8)',
+                        ],
+                        borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(245, 158, 11, 1)',
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(139, 92, 246, 1)',
+                            'rgba(236, 72, 153, 1)',
+                        ],
+                        borderWidth: 2,
+                    }
+                ]
+            }
+        };
+
+        console.log('📊 Final chart data:', chartData);
+        return chartData;
+    };
+
+    // Tạo dữ liệu biểu đồ cho thống kê theo trạng thái
+    const getStatusChartData = () => {
+        if (!packageStats?.theoTrangThai) return null;
+
+        const labels = packageStats.theoTrangThai.map(item => item._id);
+        const data = packageStats.theoTrangThai.map(item => item.soLuong);
+
+        return {
+            labels,
+            datasets: [
+                {
+                    data,
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.8)',
+                        'rgba(16, 185, 129, 0.8)',
+                        'rgba(245, 158, 11, 0.8)',
+                        'rgba(239, 68, 68, 0.8)',
+                        'rgba(139, 92, 246, 0.8)',
+                    ],
+                    borderColor: [
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(16, 185, 129, 1)',
+                        'rgba(245, 158, 11, 1)',
+                        'rgba(239, 68, 68, 1)',
+                        'rgba(139, 92, 246, 1)',
+                    ],
+                    borderWidth: 2,
+                }
+            ]
+        };
+    };
+
+    // Tạo dữ liệu biểu đồ cho thống kê theo thời gian
+    const getTimeChartData = () => {
+        if (!packageStats?.theoThang) return null;
+
+        const labels = packageStats.theoThang
+            .slice()
+            .reverse()
+            .map(item => `${item._id.thang}/${item._id.nam}`);
+        const registrationData = packageStats.theoThang
+            .slice()
+            .reverse()
+            .map(item => item.soDangKyMoi);
+        const revenueData = packageStats.theoThang
+            .slice()
+            .reverse()
+            .map(item => item.doanhThu);
+
+        return {
+            labels,
+            datasets: [
+                {
+                    label: 'Số đăng ký mới',
+                    data: registrationData,
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    yAxisID: 'y',
+                },
+                {
+                    label: 'Doanh thu (₫)',
+                    data: revenueData,
+                    borderColor: 'rgba(16, 185, 129, 1)',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4,
+                    yAxisID: 'y1',
+                }
+            ]
+        };
     };
 
     useEffect(() => {
@@ -485,7 +692,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
         if (activePackages.length === 0) {
             return packages.map(pkg => ({
                 value: pkg._id,
-                label: `${pkg.tenGoiTap} - ${pkg.donGia.toLocaleString('vi-VN')}₫`
+                label: `${pkg.tenGoiTap} - ${pkg.donGia.toLocaleString('vi-VN')}₫ (Gói đầu tiên)`
             }));
         }
 
@@ -700,12 +907,24 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                         <div className="package-header">
                                                             <h4>
                                                                 {pkg.maGoiTap?.tenGoiTap}
-                                                                {(pkg.isUpgrade) && (
-                                                                    <span className="upgrade-badge"> - Gói nâng cấp</span>
-                                                                )}
-                                                                {((pkg.trangThai === 'DA_NANG_CAP' || pkg.trangThaiDangKy === 'DA_NANG_CAP') && !pkg.isUpgrade) && (
-                                                                    <span className="old-package-badge"> - Gói cũ (đã nâng cấp)</span>
-                                                                )}
+                                                                {(() => {
+                                                                    // Tìm gói mới nhất (có ngày đăng ký gần nhất)
+                                                                    const latestPackage = memberPackages
+                                                                        .filter(p => p.trangThai !== 'DA_NANG_CAP' && p.trangThaiDangKy !== 'DA_NANG_CAP')
+                                                                        .sort((a, b) => new Date(b.ngayDangKy).getTime() - new Date(a.ngayDangKy).getTime())[0];
+
+                                                                    // Chỉ gói mới nhất mới được đánh dấu là "nâng cấp"
+                                                                    if (pkg._id === latestPackage?._id && pkg.isUpgrade) {
+                                                                        return <span className="upgrade-badge"> - Gói nâng cấp</span>;
+                                                                    }
+
+                                                                    // Các gói khác đều là "gói cũ"
+                                                                    if (pkg._id !== latestPackage?._id && (pkg.trangThai === 'DA_NANG_CAP' || pkg.trangThaiDangKy === 'DA_NANG_CAP' || pkg.isUpgrade)) {
+                                                                        return <span className="old-package-badge"> - Gói cũ (đã nâng cấp)</span>;
+                                                                    }
+
+                                                                    return null;
+                                                                })()}
                                                             </h4>
                                                             {getStatusBadge(pkg.trangThaiGoiTap, pkg.trangThaiDangKy, pkg.trangThai)}
                                                         </div>
@@ -713,11 +932,24 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                             <p><strong>Thời gian:</strong> {pkg.ngayBatDau ? new Date(pkg.ngayBatDau).toLocaleDateString('vi-VN') : 'N/A'} - {new Date(pkg.ngayKetThuc).toLocaleDateString('vi-VN')}</p>
 
                                                             {/* Hiển thị số tiền dựa trên loại gói */}
-                                                            {pkg.isUpgrade && (pkg.soTienBu || 0) > 0 ? (
-                                                                <p><strong>Số tiền bù nâng cấp:</strong> <span className="upgrade-amount">{(pkg.soTienBu || 0).toLocaleString('vi-VN')}₫</span></p>
-                                                            ) : (
-                                                                <p><strong>Giá gói:</strong> {(pkg.giaGoiTapGoc || pkg.soTienThanhToan || 0).toLocaleString('vi-VN')}₫</p>
-                                                            )}
+                                                            {(() => {
+                                                                // Tìm gói mới nhất
+                                                                const latestPackage = memberPackages
+                                                                    .filter(p => p.trangThai !== 'DA_NANG_CAP' && p.trangThaiDangKy !== 'DA_NANG_CAP')
+                                                                    .sort((a, b) => new Date(b.ngayDangKy).getTime() - new Date(a.ngayDangKy).getTime())[0];
+
+                                                                // Chỉ gói mới nhất mới hiển thị "Số tiền bù nâng cấp"
+                                                                if (pkg._id === latestPackage?._id && pkg.isUpgrade && (pkg.soTienBu || 0) > 0) {
+                                                                    return (
+                                                                        <p><strong>Số tiền bù nâng cấp:</strong> <span className="upgrade-amount">{(pkg.soTienBu || 0).toLocaleString('vi-VN')}₫</span></p>
+                                                                    );
+                                                                }
+
+                                                                // Các gói khác hiển thị "Giá gói"
+                                                                return (
+                                                                    <p><strong>Giá gói:</strong> {(pkg.giaGoiTapGoc || pkg.soTienThanhToan || 0).toLocaleString('vi-VN')}₫</p>
+                                                                );
+                                                            })()}
 
                                                             {/* Hiển thị thông tin nâng cấp nếu có */}
                                                             {pkg.isUpgrade && pkg.giaGoiTapGoc && (
@@ -822,30 +1054,359 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                         {/* Statistics Tab */}
                         {activeTab === 'statistics' && (
                             <div className="statistics-section">
-                                <h3>Thống kê gói tập</h3>
-                                <div className="stats-grid">
-                                    {packageStats.map(stat => (
-                                        <Card key={stat._id} className="stat-card">
-                                            <h4>{stat.thongTinGoiTap.tenGoiTap}</h4>
-                                            <div className="stat-item">
-                                                <span className="stat-label">Tổng lượt đăng ký:</span>
-                                                <span className="stat-value">{stat.tongSoLuotDangKy}</span>
+                                {isLoading ? (
+                                    <div className="loading">Đang tải thống kê...</div>
+                                ) : packageStats ? (
+                                    <>
+                                        {/* 1. Thống kê tổng quan */}
+                                        <div className="stats-overview">
+                                            <h3>📊 Thống kê tổng quan</h3>
+                                            <div className="overview-grid">
+                                                <div className="overview-card">
+                                                    <div className="overview-icon">📋</div>
+                                                    <div className="overview-content">
+                                                        <h4>Tổng số đăng ký</h4>
+                                                        <span className="overview-number">{packageStats.tongQuan.tongSoDangKy}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="overview-card">
+                                                    <div className="overview-icon">✅</div>
+                                                    <div className="overview-content">
+                                                        <h4>Đã thanh toán</h4>
+                                                        <span className="overview-number success">{packageStats.tongQuan.tongSoHoiVienDaThanhToan}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="overview-card">
+                                                    <div className="overview-icon">⏳</div>
+                                                    <div className="overview-content">
+                                                        <h4>Chưa thanh toán</h4>
+                                                        <span className="overview-number warning">{packageStats.tongQuan.tongSoHoiVienChuaThanhToan}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="overview-card">
+                                                    <div className="overview-icon">🟢</div>
+                                                    <div className="overview-content">
+                                                        <h4>Đang hoạt động</h4>
+                                                        <span className="overview-number success">{packageStats.tongQuan.soDangKyDangHoatDong}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="overview-card">
+                                                    <div className="overview-icon">🔴</div>
+                                                    <div className="overview-content">
+                                                        <h4>Đã hết hạn</h4>
+                                                        <span className="overview-number error">{packageStats.tongQuan.soDangKyHetHan}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="overview-card">
+                                                    <div className="overview-icon">💰</div>
+                                                    <div className="overview-content">
+                                                        <h4>Tổng doanh thu</h4>
+                                                        <span className="overview-number primary">{packageStats.tongQuan.tongDoanhThu.toLocaleString('vi-VN')}₫</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="stat-item">
-                                                <span className="stat-label">Đang hoạt động:</span>
-                                                <span className="stat-value success">{stat.soLuongDangHoatDong}</span>
+                                        </div>
+
+                                        {/* 2. Thống kê theo gói tập */}
+                                        <div className="stats-by-package">
+                                            <h3>📦 Thống kê theo gói tập</h3>
+
+                                            {/* Biểu đồ cột cho số lượng đăng ký */}
+                                            <div className="chart-section">
+                                                <h4>📊 Số lượng đăng ký theo gói tập</h4>
+                                                <div className="chart-container">
+                                                    {(() => {
+                                                        const chartData = getPackageChartData();
+                                                        if (!chartData?.registrationChart) {
+                                                            return (
+                                                                <div style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    height: '100%',
+                                                                    color: '#666',
+                                                                    fontSize: '16px'
+                                                                }}>
+                                                                    Không có dữ liệu để hiển thị biểu đồ
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return (
+                                                            <Bar
+                                                                data={chartData.registrationChart}
+                                                                options={{
+                                                                    responsive: true,
+                                                                    maintainAspectRatio: false,
+                                                                    plugins: {
+                                                                        title: {
+                                                                            display: true,
+                                                                            text: 'Số lượng đăng ký từng gói tập'
+                                                                        },
+                                                                        legend: {
+                                                                            display: false
+                                                                        }
+                                                                    },
+                                                                    scales: {
+                                                                        y: {
+                                                                            beginAtZero: true
+                                                                        }
+                                                                    }
+                                                                }}
+                                                            />
+                                                        );
+                                                    })()}
+                                                </div>
                                             </div>
-                                            <div className="stat-item">
-                                                <span className="stat-label">Tạm dừng:</span>
-                                                <span className="stat-value warning">{stat.soLuongTamDung}</span>
+
+                                            {/* Biểu đồ cột cho doanh thu */}
+                                            <div className="chart-section">
+                                                <h4>💰 Doanh thu theo gói tập</h4>
+                                                <div className="chart-container">
+                                                    {(() => {
+                                                        const chartData = getPackageChartData();
+                                                        return chartData?.revenueChart && (
+                                                            <Bar
+                                                                data={chartData.revenueChart}
+                                                                options={{
+                                                                    responsive: true,
+                                                                    maintainAspectRatio: false,
+                                                                    plugins: {
+                                                                        title: {
+                                                                            display: true,
+                                                                            text: 'Doanh thu từng gói tập'
+                                                                        },
+                                                                        legend: {
+                                                                            display: false
+                                                                        }
+                                                                    },
+                                                                    scales: {
+                                                                        y: {
+                                                                            beginAtZero: true,
+                                                                            ticks: {
+                                                                                callback: function (value) {
+                                                                                    return value.toLocaleString('vi-VN') + '₫';
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }}
+                                                            />
+                                                        );
+                                                    })()}
+                                                </div>
                                             </div>
-                                            <div className="stat-item">
-                                                <span className="stat-label">Tổng doanh thu:</span>
-                                                <span className="stat-value primary">{(stat.tongDoanhThu || 0).toLocaleString('vi-VN')}₫</span>
+
+                                            {/* Biểu đồ tròn cho tỷ lệ phần trăm */}
+                                            <div className="chart-section">
+                                                <h4>🥧 Tỷ lệ phần trăm đăng ký</h4>
+                                                <div className="chart-container pie-chart">
+                                                    {(() => {
+                                                        const chartData = getPackageChartData();
+                                                        return chartData?.pieChart && (
+                                                            <Doughnut
+                                                                data={chartData.pieChart}
+                                                                options={{
+                                                                    responsive: true,
+                                                                    maintainAspectRatio: false,
+                                                                    plugins: {
+                                                                        title: {
+                                                                            display: true,
+                                                                            text: 'Tỷ lệ % đăng ký theo gói tập'
+                                                                        },
+                                                                        legend: {
+                                                                            position: 'bottom'
+                                                                        }
+                                                                    }
+                                                                }}
+                                                            />
+                                                        );
+                                                    })()}
+                                                </div>
                                             </div>
-                                        </Card>
-                                    ))}
-                                </div>
+
+                                            {/* Bảng chi tiết */}
+                                            <div className="package-stats-grid">
+                                                {packageStats.theoGoiTap.map((pkg, index) => (
+                                                    <div key={pkg._id.maGoiTap} className="package-stat-card">
+                                                        <div className="package-stat-header">
+                                                            <h4>{pkg._id.tenGoiTap}</h4>
+                                                            <span className="package-stat-rate">{pkg.tyLe}%</span>
+                                                        </div>
+                                                        <div className="package-stat-details">
+                                                            <div className="package-stat-item">
+                                                                <span className="package-stat-label">Số đăng ký:</span>
+                                                                <span className="package-stat-value">{pkg.soLuongDangKy}</span>
+                                                            </div>
+                                                            <div className="package-stat-item">
+                                                                <span className="package-stat-label">Doanh thu:</span>
+                                                                <span className="package-stat-value">{pkg.doanhThu.toLocaleString('vi-VN')}₫</span>
+                                                            </div>
+                                                            <div className="package-stat-item">
+                                                                <span className="package-stat-label">Giá gói:</span>
+                                                                <span className="package-stat-value">{pkg._id.donGia.toLocaleString('vi-VN')}₫</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* 3. Thống kê theo trạng thái */}
+                                        <div className="stats-by-status">
+                                            <h3>🔄 Thống kê theo trạng thái</h3>
+
+                                            {/* Biểu đồ tròn cho trạng thái */}
+                                            <div className="chart-section">
+                                                <h4>📊 Phân bố trạng thái đăng ký</h4>
+                                                <div className="chart-container pie-chart">
+                                                    {getStatusChartData() && (
+                                                        <Doughnut
+                                                            data={getStatusChartData()!}
+                                                            options={{
+                                                                responsive: true,
+                                                                maintainAspectRatio: false,
+                                                                plugins: {
+                                                                    title: {
+                                                                        display: true,
+                                                                        text: 'Phân bố trạng thái đăng ký gói tập'
+                                                                    },
+                                                                    legend: {
+                                                                        position: 'bottom'
+                                                                    }
+                                                                }
+                                                            }}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Bảng chi tiết */}
+                                            <div className="status-stats-grid">
+                                                {packageStats.theoTrangThai.map((status, index) => (
+                                                    <div key={status._id} className="status-stat-card">
+                                                        <div className="status-stat-header">
+                                                            <h4>{status._id}</h4>
+                                                            <span className="status-stat-rate">{status.tyLe}%</span>
+                                                        </div>
+                                                        <div className="status-stat-details">
+                                                            <div className="status-stat-item">
+                                                                <span className="status-stat-label">Số lượng:</span>
+                                                                <span className="status-stat-value">{status.soLuong}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* 4. Thống kê theo thời gian */}
+                                        <div className="stats-by-time">
+                                            <h3>📅 Thống kê theo thời gian (12 tháng gần nhất)</h3>
+
+                                            {/* Biểu đồ đường cho xu hướng */}
+                                            <div className="chart-section">
+                                                <h4>📈 Xu hướng đăng ký và doanh thu theo thời gian</h4>
+                                                <div className="chart-container">
+                                                    {getTimeChartData() && (
+                                                        <Line
+                                                            data={getTimeChartData()!}
+                                                            options={{
+                                                                responsive: true,
+                                                                maintainAspectRatio: false,
+                                                                layout: {
+                                                                    padding: {
+                                                                        left: 20,
+                                                                        right: 20,
+                                                                        top: 10,
+                                                                        bottom: 10
+                                                                    }
+                                                                },
+                                                                plugins: {
+                                                                    title: {
+                                                                        display: true,
+                                                                        text: 'Xu hướng đăng ký và doanh thu theo tháng'
+                                                                    }
+                                                                },
+                                                                scales: {
+                                                                    x: {
+                                                                        display: true,
+                                                                        grid: {
+                                                                            display: false
+                                                                        },
+                                                                        ticks: {
+                                                                            padding: 20, // Tạo khoảng cách giữa nhãn và trục
+                                                                            maxRotation: 0, // Không xoay nhãn
+                                                                            minRotation: 0,
+                                                                            font: {
+                                                                                size: 12
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    y: {
+                                                                        type: 'linear',
+                                                                        display: true,
+                                                                        position: 'left',
+                                                                        beginAtZero: true,
+                                                                        ticks: {
+                                                                            padding: 15, // Tạo khoảng cách cho trục Y
+                                                                            font: {
+                                                                                size: 12
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    y1: {
+                                                                        type: 'linear',
+                                                                        display: true,
+                                                                        position: 'right',
+                                                                        beginAtZero: true,
+                                                                        ticks: {
+                                                                            padding: 15, // Tạo khoảng cách cho trục Y bên phải
+                                                                            callback: function (value) {
+                                                                                return value.toLocaleString('vi-VN') + '₫';
+                                                                            },
+                                                                            font: {
+                                                                                size: 12
+                                                                            }
+                                                                        },
+                                                                        grid: {
+                                                                            drawOnChartArea: false,
+                                                                        },
+                                                                    }
+                                                                }
+                                                            }}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Bảng chi tiết */}
+                                            <div className="time-stats-table">
+                                                <table className="table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Tháng/Năm</th>
+                                                            <th>Số đăng ký mới</th>
+                                                            <th>Doanh thu</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {packageStats.theoThang.map((month, index) => (
+                                                            <tr key={`${month._id.nam}-${month._id.thang}`}>
+                                                                <td>{month._id.thang}/{month._id.nam}</td>
+                                                                <td>{month.soDangKyMoi}</td>
+                                                                <td>{month.doanhThu.toLocaleString('vi-VN')}₫</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="no-data">
+                                        <p>Không có dữ liệu thống kê</p>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </>
@@ -894,6 +1455,10 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                             name: 'maGoiTap',
                                             type: 'select',
                                             options: getPackageOptions(newRegistration.maHoiVien),
+                                            validation: {
+                                                required: true,
+                                                message: 'Vui lòng chọn gói tập. Nếu hội viên đã có gói đang hoạt động, chỉ có thể nâng cấp.'
+                                            }
                                         },
                                         {
                                             label: 'Ngày bắt đầu',
@@ -901,7 +1466,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                             type: 'date',
                                             validation: {
                                                 required: true,
-                                                minDate: new Date().toISOString(),
+                                                minDate: new Date().toISOString().split('T')[0],
                                                 message: 'Ngày bắt đầu phải từ hôm nay trở đi'
                                             }
                                         },

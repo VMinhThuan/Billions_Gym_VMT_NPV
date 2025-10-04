@@ -2374,7 +2374,7 @@ const PackagesPage = () => {
                                             <label>Đơn giá</label>
                                             <input
                                                 type="text"
-                                                value={viewingItem.donGia?.toLocaleString('vi-VN') || '0'}
+                                                value={`${viewingItem.donGia?.toLocaleString('vi-VN') || '0'} VNĐ`}
                                                 readOnly
                                             />
                                         </div>
@@ -2383,7 +2383,7 @@ const PackagesPage = () => {
                                                 <label>Giá gốc</label>
                                                 <input
                                                     type="text"
-                                                    value={viewingItem.giaGoc.toLocaleString('vi-VN')}
+                                                    value={`${viewingItem.giaGoc.toLocaleString('vi-VN')} VNĐ`}
                                                     readOnly
                                                 />
                                             </div>
@@ -2451,7 +2451,7 @@ const PackagesPage = () => {
                                         </div>
                                     )}
 
-                                    <div className="form-row">
+                                    <div className="form-row date-info-row">
                                         <div className="form-group">
                                             <label>Ngày tạo</label>
                                             <input type="text" value={

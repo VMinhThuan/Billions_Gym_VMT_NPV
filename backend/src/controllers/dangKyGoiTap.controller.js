@@ -31,6 +31,33 @@ const dangKyGoiTap = async (req, res) => {
             return res.status(404).json({ message: 'Không tìm thấy gói tập' });
         }
 
+        // Kiểm tra hội viên có gói tập đang hoạt động không
+        const existingActivePackage = await ChiTietGoiTap.findOne({
+            maHoiVien: maHoiVien,
+            $or: [
+                { trangThai: { $in: ['DANG_HOAT_DONG', 'CHO_CHON_PT', 'DANG_KICH_HOAT', 'DANG_SU_DUNG'] } },
+                { trangThaiDangKy: { $in: ['CHO_CHON_PT', 'DA_CHON_PT', 'DA_TAO_LICH', 'HOAN_THANH'] } }
+            ],
+            ngayKetThuc: { $gte: new Date() }, // Chưa hết hạn
+            trangThai: { $ne: 'DA_NANG_CAP' }, // Chưa bị nâng cấp
+            trangThaiDangKy: { $ne: 'DA_NANG_CAP' } // Chưa bị nâng cấp
+        });
+
+        console.log('🔍 Existing active package check:', existingActivePackage ? 'Found active package' : 'No active package');
+
+        // Nếu có gói đang hoạt động và không phải nâng cấp
+        if (existingActivePackage && !isUpgrade) {
+            return res.status(400).json({
+                message: 'Hội viên đã có gói tập đang hoạt động. Vui lòng nâng cấp gói tập thay vì đăng ký mới.',
+                existingPackage: {
+                    tenGoiTap: existingActivePackage.maGoiTap?.tenGoiTap || 'N/A',
+                    ngayBatDau: existingActivePackage.ngayBatDau,
+                    ngayKetThuc: existingActivePackage.ngayKetThuc,
+                    trangThai: existingActivePackage.trangThai
+                }
+            });
+        }
+
         // Tính ngày kết thúc dựa trên thời hạn gói tập
         const ngayKetThuc = new Date(ngayBatDau);
         if (goiTap.donViThoiHan === 'Ngay') {
@@ -362,39 +389,349 @@ const nangCapGoiTap = async (req, res) => {
 // Thống kê gói tập
 const thongKeGoiTap = async (req, res) => {
     try {
-        const stats = await ChiTietGoiTap.getPackageStats();
+        console.log('📊 Bắt đầu tính toán thống kê gói tập...');
 
-        // Thống kê tổng quan
+        // Debug: Kiểm tra dữ liệu gốc
+        const totalRegistrations = await ChiTietGoiTap.countDocuments();
+        console.log('📊 Tổng số đăng ký trong DB:', totalRegistrations);
+
+        const sampleRegistrations = await ChiTietGoiTap.find().limit(5).populate('maGoiTap', 'tenGoiTap donGia');
+        console.log('📊 Sample registrations:', JSON.stringify(sampleRegistrations, null, 2));
+
+        // Debug: Kiểm tra tất cả đăng ký có maGoiTap
+        const registrationsWithPackage = await ChiTietGoiTap.find({ maGoiTap: { $exists: true, $ne: null } });
+        console.log('📊 Registrations with maGoiTap:', registrationsWithPackage.length);
+
+        // Debug: Kiểm tra tất cả gói tập
+        const GoiTap = require('../models/GoiTap');
+        const allPackages = await GoiTap.find();
+        console.log('📊 All packages in DB:', JSON.stringify(allPackages, null, 2));
+
+        // Debug: Kiểm tra ObjectId types
+        if (registrationsWithPackage.length > 0) {
+            console.log('📊 First registration maGoiTap type:', typeof registrationsWithPackage[0].maGoiTap);
+            console.log('📊 First registration maGoiTap value:', registrationsWithPackage[0].maGoiTap);
+            console.log('📊 First registration maGoiTap toString:', registrationsWithPackage[0].maGoiTap.toString());
+        }
+
+        if (allPackages.length > 0) {
+            console.log('📊 First package _id type:', typeof allPackages[0]._id);
+            console.log('📊 First package _id value:', allPackages[0]._id);
+            console.log('📊 First package _id toString:', allPackages[0]._id.toString());
+        }
+
+        // 1. Thống kê tổng quan
         const tongQuan = await ChiTietGoiTap.aggregate([
             {
                 $group: {
                     _id: null,
                     tongSoDangKy: { $sum: 1 },
-                    soGoiDangHoatDong: {
-                        $sum: { $cond: [{ $eq: ['$trangThai', 'DANG_HOAT_DONG'] }, 1, 0] }
+                    tongSoHoiVienDaThanhToan: {
+                        $sum: { $cond: [{ $eq: ['$trangThaiThanhToan', 'DA_THANH_TOAN'] }, 1, 0] }
                     },
-                    soGoiTamDung: {
-                        $sum: { $cond: [{ $eq: ['$trangThai', 'TAM_DUNG'] }, 1, 0] }
+                    tongSoHoiVienChuaThanhToan: {
+                        $sum: { $cond: [{ $eq: ['$trangThaiThanhToan', 'CHUA_THANH_TOAN'] }, 1, 0] }
                     },
-                    soGoiHetHan: {
-                        $sum: { $cond: [{ $eq: ['$trangThai', 'HET_HAN'] }, 1, 0] }
+                    soDangKyDangHoatDong: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $and: [
+                                        { $ne: ['$trangThai', 'HET_HAN'] },
+                                        { $ne: ['$trangThai', 'DA_HUY'] },
+                                        { $ne: ['$trangThai', 'DA_NANG_CAP'] },
+                                        { $gte: ['$ngayKetThuc', new Date()] }
+                                    ]
+                                }, 1, 0
+                            ]
+                        }
+                    },
+                    soDangKyHetHan: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $or: [
+                                        { $eq: ['$trangThai', 'HET_HAN'] },
+                                        { $lt: ['$ngayKetThuc', new Date()] }
+                                    ]
+                                }, 1, 0
+                            ]
+                        }
                     },
                     tongDoanhThu: {
-                        $sum: { $cond: [{ $eq: ['$trangThaiThanhToan', 'DA_THANH_TOAN'] }, '$soTienThanhToan', 0] }
+                        $sum: {
+                            $cond: [
+                                { $eq: ['$trangThaiThanhToan', 'DA_THANH_TOAN'] },
+                                {
+                                    // Tổng doanh thu = soTienThanhToan (tiền thực tế khách đã trả)
+                                    // Bao gồm cả tiền bù nâng cấp
+                                    $cond: [
+                                        { $and: [{ $ne: ['$soTienThanhToan', null] }, { $ne: ['$soTienThanhToan', 0] }] },
+                                        '$soTienThanhToan',
+                                        // Nếu không có soTienThanhToan, dùng giaGoiTapGoc (giá gói đã nâng cấp)
+                                        {
+                                            $cond: [
+                                                { $and: [{ $ne: ['$giaGoiTapGoc', null] }, { $ne: ['$giaGoiTapGoc', 0] }] },
+                                                '$giaGoiTapGoc',
+                                                0 // Nếu không có dữ liệu nào thì = 0
+                                            ]
+                                        }
+                                    ]
+                                },
+                                0
+                            ]
+                        }
                     }
                 }
             }
         ]);
 
+        // 2. Thống kê theo gói tập - Sử dụng cách đơn giản hơn
+        const theoGoiTap = await ChiTietGoiTap.aggregate([
+            {
+                $match: {
+                    maGoiTap: { $exists: true, $ne: null } // Chỉ lấy các đăng ký có maGoiTap
+                }
+            },
+            {
+                $lookup: {
+                    from: 'goitaps',
+                    localField: 'maGoiTap',
+                    foreignField: '_id',
+                    as: 'goiTapInfo'
+                }
+            },
+            {
+                $match: {
+                    'goiTapInfo.0': { $exists: true } // Đảm bảo có thông tin gói tập
+                }
+            },
+            {
+                $addFields: {
+                    goiTap: { $arrayElemAt: ['$goiTapInfo', 0] }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        maGoiTap: '$maGoiTap',
+                        tenGoiTap: '$goiTap.tenGoiTap',
+                        donGia: '$goiTap.donGia'
+                    },
+                    soLuongDangKy: { $sum: 1 },
+                    doanhThu: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ['$trangThaiThanhToan', 'DA_THANH_TOAN'] },
+                                {
+                                    // Doanh thu thực tế = soTienThanhToan (tiền thực tế khách đã trả)
+                                    $cond: [
+                                        { $and: [{ $ne: ['$soTienThanhToan', null] }, { $ne: ['$soTienThanhToan', 0] }] },
+                                        '$soTienThanhToan',
+                                        // Nếu không có soTienThanhToan, dùng giaGoiTapGoc (giá gói đã nâng cấp)
+                                        {
+                                            $cond: [
+                                                { $and: [{ $ne: ['$giaGoiTapGoc', null] }, { $ne: ['$giaGoiTapGoc', 0] }] },
+                                                '$giaGoiTapGoc',
+                                                '$goiTap.donGia' // Fallback cuối cùng
+                                            ]
+                                        }
+                                    ]
+                                },
+                                0
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                $sort: { soLuongDangKy: -1 }
+            }
+        ]);
+
+        console.log('🔍 Debug theoGoiTap aggregation result:', JSON.stringify(theoGoiTap, null, 2));
+
+        // Fallback: Nếu aggregation không hoạt động, sử dụng populate
+        if (theoGoiTap.length === 0) {
+            console.log('⚠️ Aggregation returned empty, using populate fallback...');
+            const allRegistrations = await ChiTietGoiTap.find({
+                maGoiTap: { $exists: true, $ne: null }
+            }).populate('maGoiTap', 'tenGoiTap donGia');
+
+            console.log('📊 All registrations with populated packages:', JSON.stringify(allRegistrations, null, 2));
+
+            // Group manually
+            const packageMap = new Map();
+            allRegistrations.forEach(reg => {
+                const packageId = reg.maGoiTap._id.toString();
+                const packageName = reg.maGoiTap.tenGoiTap;
+                const packagePrice = reg.maGoiTap.donGia;
+
+                if (!packageMap.has(packageId)) {
+                    packageMap.set(packageId, {
+                        _id: {
+                            maGoiTap: reg.maGoiTap._id,
+                            tenGoiTap: packageName,
+                            donGia: packagePrice
+                        },
+                        soLuongDangKy: 0,
+                        doanhThu: 0
+                    });
+                }
+
+                const packageData = packageMap.get(packageId);
+                packageData.soLuongDangKy++;
+
+                if (reg.trangThaiThanhToan === 'DA_THANH_TOAN') {
+                    let revenue = 0;
+                    if (reg.soTienThanhToan && reg.soTienThanhToan !== 0) {
+                        revenue = reg.soTienThanhToan;
+                    } else if (reg.giaGoiTapGoc && reg.giaGoiTapGoc !== 0) {
+                        revenue = reg.giaGoiTapGoc;
+                    } else {
+                        revenue = packagePrice;
+                    }
+                    packageData.doanhThu += revenue;
+                }
+            });
+
+            const manualTheoGoiTap = Array.from(packageMap.values());
+            console.log('📊 Manual theoGoiTap result:', JSON.stringify(manualTheoGoiTap, null, 2));
+
+            // Tính tỷ lệ phần trăm
+            const totalRegistrations = manualTheoGoiTap.reduce((sum, item) => sum + item.soLuongDangKy, 0);
+            const theoGoiTapWithPercentage = manualTheoGoiTap.map(item => ({
+                ...item,
+                tyLe: totalRegistrations > 0 ? ((item.soLuongDangKy / totalRegistrations) * 100).toFixed(1) : '0.0'
+            }));
+
+            // Override theoGoiTap với kết quả manual
+            theoGoiTap.length = 0;
+            theoGoiTap.push(...theoGoiTapWithPercentage);
+        }
+
+        // 3. Thống kê theo trạng thái
+        const theoTrangThai = await ChiTietGoiTap.aggregate([
+            {
+                $group: {
+                    _id: '$trangThaiDangKy',
+                    soLuong: { $sum: 1 }
+                }
+            },
+            {
+                $sort: { soLuong: -1 }
+            }
+        ]);
+
+        // 4. Thống kê theo thời gian (theo tháng)
+        const theoThang = await ChiTietGoiTap.aggregate([
+            {
+                $group: {
+                    _id: {
+                        nam: { $year: '$ngayDangKy' },
+                        thang: { $month: '$ngayDangKy' }
+                    },
+                    soDangKyMoi: { $sum: 1 },
+                    doanhThu: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ['$trangThaiThanhToan', 'DA_THANH_TOAN'] },
+                                {
+                                    // Doanh thu thực tế = soTienThanhToan (tiền thực tế khách đã trả)
+                                    $cond: [
+                                        { $and: [{ $ne: ['$soTienThanhToan', null] }, { $ne: ['$soTienThanhToan', 0] }] },
+                                        '$soTienThanhToan',
+                                        // Nếu không có soTienThanhToan, dùng giaGoiTapGoc (giá gói đã nâng cấp)
+                                        {
+                                            $cond: [
+                                                { $and: [{ $ne: ['$giaGoiTapGoc', null] }, { $ne: ['$giaGoiTapGoc', 0] }] },
+                                                '$giaGoiTapGoc',
+                                                '$goiTapInfo.donGia' // Fallback cuối cùng
+                                            ]
+                                        }
+                                    ]
+                                },
+                                0
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                $sort: { '_id.nam': -1, '_id.thang': -1 }
+            },
+            {
+                $limit: 12 // Lấy 12 tháng gần nhất
+            }
+        ]);
+
+        // Tính tỷ lệ phần trăm cho từng gói tập
+        const tongSoDangKy = tongQuan[0]?.tongSoDangKy || 1;
+        const theoGoiTapVoiTyLe = theoGoiTap.map(item => ({
+            ...item,
+            tyLe: ((item.soLuongDangKy / tongSoDangKy) * 100).toFixed(1)
+        }));
+
+        // Tính tỷ lệ phần trăm cho trạng thái
+        const theoTrangThaiVoiTyLe = theoTrangThai.map(item => ({
+            ...item,
+            tyLe: ((item.soLuong / tongSoDangKy) * 100).toFixed(1)
+        }));
+
+        const result = {
+            tongQuan: tongQuan[0] || {
+                tongSoDangKy: 0,
+                tongSoHoiVienDaThanhToan: 0,
+                tongSoHoiVienChuaThanhToan: 0,
+                soDangKyDangHoatDong: 0,
+                soDangKyHetHan: 0,
+                tongDoanhThu: 0
+            },
+            theoGoiTap: theoGoiTapVoiTyLe,
+            theoTrangThai: theoTrangThaiVoiTyLe,
+            theoThang: theoThang
+        };
+
+        console.log('📊 Thống kê hoàn thành:', JSON.stringify(result, null, 2));
+
+        // Debug: Kiểm tra tất cả đăng ký đã thanh toán để tính doanh thu thực tế
+        const allPaidRegistrations = await ChiTietGoiTap.find({ trangThaiThanhToan: 'DA_THANH_TOAN' })
+            .populate('maGoiTap', 'tenGoiTap donGia')
+            .sort({ ngayDangKy: -1 });
+
+        console.log('🔍 Tất cả đăng ký đã thanh toán:');
+        let totalRevenueManual = 0;
+        allPaidRegistrations.forEach((reg, index) => {
+            // Logic tính revenue giống như trong aggregation
+            let revenue = 0;
+            if (reg.soTienThanhToan && reg.soTienThanhToan !== 0) {
+                revenue = reg.soTienThanhToan;
+            } else if (reg.giaGoiTapGoc && reg.giaGoiTapGoc !== 0) {
+                revenue = reg.giaGoiTapGoc;
+            } else if (reg.maGoiTap?.donGia) {
+                revenue = reg.maGoiTap.donGia;
+            }
+
+            totalRevenueManual += revenue;
+            console.log(`${index + 1}. ${reg.maGoiTap?.tenGoiTap}:`);
+            console.log(`   - soTienThanhToan: ${reg.soTienThanhToan || 'null/undefined'}`);
+            console.log(`   - giaGoiTapGoc: ${reg.giaGoiTapGoc || 'null/undefined'}`);
+            console.log(`   - donGia (gốc): ${reg.maGoiTap?.donGia || 'null/undefined'}`);
+            console.log(`   - Revenue used: ${revenue.toLocaleString('vi-VN')}₫`);
+            console.log(`   - isUpgrade: ${reg.isUpgrade || false}`);
+            console.log(`   - soTienBu: ${reg.soTienBu || 0}`);
+            console.log('---');
+        });
+
+        console.log(`💰 Tổng doanh thu tính bằng tay: ${totalRevenueManual.toLocaleString('vi-VN')}₫`);
+        console.log(`📊 Tổng doanh thu từ aggregation: ${result.tongQuan.tongDoanhThu.toLocaleString('vi-VN')}₫`);
+
         res.json({
             message: 'Lấy thống kê thành công',
-            data: {
-                tongQuan: tongQuan[0] || {},
-                chiTietTheoGoiTap: stats
-            }
+            data: result
         });
     } catch (error) {
-        console.error('Error in thongKeGoiTap:', error);
+        console.error('❌ Error in thongKeGoiTap:', error);
         res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
 };
