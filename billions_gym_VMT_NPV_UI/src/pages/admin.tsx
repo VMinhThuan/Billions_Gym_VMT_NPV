@@ -771,7 +771,7 @@ const TrainerAvailabilityPage = () => {
                             </div>
                         ) : (
                             <>
-                                <div className="trainers-table">
+                                <div className="pt-schedule-table-container">
                                     <table className="pt-schedule-table">
                                         <thead>
                                             <tr>

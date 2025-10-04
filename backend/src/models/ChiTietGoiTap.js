@@ -46,20 +46,21 @@ ChiTietGoiTapSchema.pre('save', function (next) {
     next();
 });
 
-// Middleware để ngăn chặn chỉnh sửa khi đã khóa
-ChiTietGoiTapSchema.pre(['updateOne', 'findOneAndUpdate'], function (next) {
-    if (this.getFilter().isLocked === true || this.getFilter()._id) {
-        mongoose.model('ChiTietGoiTap').findOne(this.getFilter()).then(doc => {
-            if (doc && doc.isLocked) {
-                const error = new Error('Không thể chỉnh sửa đăng ký gói tập đã thanh toán');
-                error.code = 'REGISTRATION_LOCKED';
-                return next(error);
-            }
-            next();
-        }).catch(next);
-    } else {
-        next();
-    }
-});
+// Middleware để ngăn chặn chỉnh sửa khi đã khóa - TẠM THỜI DISABLE
+// ChiTietGoiTapSchema.pre(['updateOne', 'findOneAndUpdate', 'update', 'updateMany'], function (next) {
+//     // Chỉ chặn khi thực sự cần update, không chặn khi find
+//     if (this.getFilter().isLocked === true || this.getFilter()._id) {
+//         mongoose.model('ChiTietGoiTap').findOne(this.getFilter()).then(doc => {
+//             if (doc && doc.isLocked) {
+//                 const error = new Error('Không thể chỉnh sửa đăng ký gói tập đã thanh toán');
+//                 error.code = 'REGISTRATION_LOCKED';
+//                 return next(error);
+//             }
+//             next();
+//         }).catch(next);
+//     } else {
+//         next();
+//     }
+// });
 
 module.exports = mongoose.model('ChiTietGoiTap', ChiTietGoiTapSchema);

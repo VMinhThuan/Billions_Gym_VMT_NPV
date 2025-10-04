@@ -54,12 +54,22 @@ const ScheduleGeneration: React.FC<ScheduleGenerationProps> = ({
     const fetchPTSchedule = async () => {
         setIsLoadingPTSchedule(true);
         try {
+            console.log('🔍 Fetching PT schedule for ID:', selectedPTId);
             const response = await api.get(`/api/package-workflow/trainer-schedule/${selectedPTId}`);
+            console.log('🔍 PT Schedule API response:', response);
+
             if (response.success) {
-                setPtSchedule(response.data);
+                // API trả về { lichLamViec: [...], cacBuoiTapDaLenLich: [...] }
+                const scheduleData = response.data?.lichLamViec || [];
+                console.log('🔍 Extracted lichLamViec:', scheduleData);
+                setPtSchedule(Array.isArray(scheduleData) ? scheduleData : []);
+            } else {
+                console.log('🔍 API response not successful:', response);
+                setPtSchedule([]);
             }
         } catch (error) {
             console.error('Error fetching PT schedule:', error);
+            setPtSchedule([]);
         } finally {
             setIsLoadingPTSchedule(false);
         }
@@ -67,22 +77,22 @@ const ScheduleGeneration: React.FC<ScheduleGenerationProps> = ({
 
     const handleDaySelection = (day: string) => {
         setSelectedDays(prev => {
-            const newDays = prev.includes(day) 
+            const newDays = prev.includes(day)
                 ? prev.filter(d => d !== day)
                 : [...prev, day];
-            
+
             // Update time slots when days change
-            setTimeSlots(prevSlots => 
+            setTimeSlots(prevSlots =>
                 prevSlots.filter(slot => newDays.includes(slot.ngayTrongTuan))
             );
-            
+
             return newDays;
         });
     };
 
     const handleTimeSlotChange = (day: string, timeRange: string) => {
         const [gioBatDau, gioKetThuc] = timeRange.split('-');
-        
+
         setTimeSlots(prev => {
             const filtered = prev.filter(slot => slot.ngayTrongTuan !== day);
             return [...filtered, { ngayTrongTuan: day, gioBatDau, gioKetThuc }];
@@ -91,13 +101,19 @@ const ScheduleGeneration: React.FC<ScheduleGenerationProps> = ({
 
     const isPTAvailable = (day: string, timeRange: string) => {
         const ptDaySchedule = ptSchedule.find(schedule => schedule.thu === day);
-        if (!ptDaySchedule) return false;
+
+        // Nếu PT chưa có lịch làm việc thì coi như rảnh (available)
+        if (!ptDaySchedule) {
+            console.log('🔍 No schedule found for day:', day, '- Assuming PT is available');
+            return true;
+        }
 
         const [startTime, endTime] = timeRange.split('-');
-        
-        return ptDaySchedule.gioLamViec.some((slot: any) => 
-            slot.trangThai === 'RANH' && 
-            slot.gioBatDau <= startTime && 
+
+        // Kiểm tra xem có slot nào rảnh trong khung giờ này không
+        return ptDaySchedule.gioLamViec.some((slot: any) =>
+            slot.trangThai === 'RANH' &&
+            slot.gioBatDau <= startTime &&
             slot.gioKetThuc >= endTime
         );
     };
@@ -173,19 +189,19 @@ const ScheduleGeneration: React.FC<ScheduleGenerationProps> = ({
                     {selectedDays.map(day => {
                         const dayLabel = daysOfWeek.find(d => d.key === day)?.label;
                         const currentTimeSlot = timeSlots.find(slot => slot.ngayTrongTuan === day);
-                        
+
                         return (
                             <div key={day} className="day-time-selection">
                                 <h4>{dayLabel}</h4>
                                 <div className="time-slots-grid">
                                     {availableTimeSlots.map(timeRange => {
                                         const isAvailable = isPTAvailable(day, timeRange);
-                                        const isSelected = currentTimeSlot && 
+                                        const isSelected = currentTimeSlot &&
                                             `${currentTimeSlot.gioBatDau}-${currentTimeSlot.gioKetThuc}` === timeRange;
-                                        
+
                                         return (
-                                            <label 
-                                                key={timeRange} 
+                                            <label
+                                                key={timeRange}
                                                 className={`time-slot-option ${!isAvailable ? 'unavailable' : ''} ${isSelected ? 'selected' : ''}`}
                                             >
                                                 <input
@@ -229,7 +245,7 @@ const ScheduleGeneration: React.FC<ScheduleGenerationProps> = ({
             {/* PT Availability Info */}
             <Card className="pt-availability-card">
                 <h3>Lịch làm việc của PT</h3>
-                {ptSchedule.length === 0 ? (
+                {!ptSchedule || ptSchedule.length === 0 ? (
                     <p>PT chưa cập nhật lịch làm việc</p>
                 ) : (
                     <div className="pt-schedule-grid">
@@ -240,8 +256,8 @@ const ScheduleGeneration: React.FC<ScheduleGenerationProps> = ({
                                     <h4>{dayLabel}</h4>
                                     <div className="pt-time-slots">
                                         {schedule.gioLamViec.map((slot: any, index: number) => (
-                                            <span 
-                                                key={index} 
+                                            <span
+                                                key={index}
                                                 className={`pt-time-slot ${slot.trangThai.toLowerCase()}`}
                                             >
                                                 {slot.gioBatDau}-{slot.gioKetThuc}
@@ -261,8 +277,8 @@ const ScheduleGeneration: React.FC<ScheduleGenerationProps> = ({
                 <Button variant="ghost" onClick={onBack}>
                     Quay lại
                 </Button>
-                <Button 
-                    variant="primary" 
+                <Button
+                    variant="primary"
                     onClick={handleGenerateSchedule}
                     disabled={selectedDays.length === 0 || timeSlots.length !== selectedDays.length || isGenerating}
                 >

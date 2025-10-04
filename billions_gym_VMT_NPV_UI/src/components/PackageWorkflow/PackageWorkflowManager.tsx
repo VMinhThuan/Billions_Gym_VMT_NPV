@@ -9,15 +9,15 @@ import './PackageWorkflow.css';
 
 interface PackageWorkflowManagerProps {
     chiTietGoiTapId: string;
-    initialStep?: 'trainer-selection' | 'schedule-generation' | 'schedule-view';
+    initialStep?: 'overview' | 'trainer-selection' | 'schedule-generation' | 'schedule-view';
     onComplete?: () => void;
 }
 
-type WorkflowStep = 'trainer-selection' | 'schedule-generation' | 'schedule-view' | 'completed';
+type WorkflowStep = 'overview' | 'trainer-selection' | 'schedule-generation' | 'schedule-view' | 'completed';
 
 const PackageWorkflowManager: React.FC<PackageWorkflowManagerProps> = ({
     chiTietGoiTapId,
-    initialStep = 'trainer-selection',
+    initialStep = 'overview',
     onComplete
 }) => {
     const [currentStep, setCurrentStep] = useState<WorkflowStep>(initialStep);
@@ -32,7 +32,14 @@ const PackageWorkflowManager: React.FC<PackageWorkflowManagerProps> = ({
     ];
 
     const getCurrentStepIndex = () => {
+        if (currentStep === 'overview') return -1;
         return steps.findIndex(step => step.key === currentStep);
+    };
+
+    const handleStepClick = (stepKey: string) => {
+        if (stepKey === 'trainer-selection') {
+            setCurrentStep('trainer-selection');
+        }
     };
 
     const handleTrainerSelected = (ptId: string) => {
@@ -52,6 +59,11 @@ const PackageWorkflowManager: React.FC<PackageWorkflowManagerProps> = ({
         }
     };
 
+    const handleBackToOverview = () => {
+        setCurrentStep('overview');
+        setSelectedPTId('');
+    };
+
     const handleBackToTrainerSelection = () => {
         setCurrentStep('trainer-selection');
         setSelectedPTId('');
@@ -63,35 +75,50 @@ const PackageWorkflowManager: React.FC<PackageWorkflowManagerProps> = ({
 
     const renderStepIndicator = () => {
         const currentIndex = getCurrentStepIndex();
-        
+
         return (
             <div className="workflow-steps">
                 {steps.slice(0, -1).map((step, index) => (
-                    <div key={step.key} className="step-container">
+                    <div
+                        key={step.key}
+                        className="step-container"
+                        onClick={() => handleStepClick(step.key)}
+                        style={{ cursor: step.key === 'trainer-selection' ? 'pointer' : 'default' }}
+                    >
                         <div className={`step-indicator ${index <= currentIndex ? 'completed' : 'pending'} ${index === currentIndex ? 'active' : ''}`}>
                             <span className="step-icon">{step.icon}</span>
                             <span className="step-number">{index + 1}</span>
                         </div>
                         <div className="step-label">{step.label}</div>
-                        {index < steps.length - 2 && (
-                            <div className={`step-connector ${index < currentIndex ? 'completed' : 'pending'}`}></div>
-                        )}
                     </div>
                 ))}
             </div>
         );
     };
 
+    const renderOverview = () => {
+        return (
+            <div className="workflow-overview">
+                <div className="overview-instructions">
+                    <p className="instruction-text">
+                        💡 <strong>Hướng dẫn:</strong> Bấm vào icon "Chọn PT" để bắt đầu thiết lập gói tập
+                    </p>
+                </div>
+            </div>
+        );
+    };
+
     const renderCurrentStep = () => {
         switch (currentStep) {
+            case 'overview':
+                return renderOverview();
+
             case 'trainer-selection':
                 return (
                     <TrainerSelection
                         chiTietGoiTapId={chiTietGoiTapId}
                         onTrainerSelected={handleTrainerSelected}
-                        onBack={() => {
-                            if (onComplete) onComplete();
-                        }}
+                        onBack={handleBackToOverview}
                     />
                 );
 
@@ -139,13 +166,15 @@ const PackageWorkflowManager: React.FC<PackageWorkflowManagerProps> = ({
     };
 
     return (
-        <div className="package-workflow-manager">
-            <div className="workflow-header">
-                <h1>Thiết lập gói tập</h1>
-                <p>Hoàn thành các bước sau để bắt đầu hành trình tập luyện của bạn</p>
-            </div>
+        <div className={`package-workflow-manager ${currentStep === 'overview' ? 'overview-mode' : ''}`}>
+            {currentStep === 'overview' && (
+                <div className="workflow-header">
+                    <h1>Thiết lập gói tập</h1>
+                    <p>Hoàn thành các bước sau để bắt đầu hành trình tập luyện của bạn</p>
+                </div>
+            )}
 
-            {currentStep !== 'completed' && renderStepIndicator()}
+            {currentStep === 'overview' && renderStepIndicator()}
 
             <div className="workflow-content">
                 {renderCurrentStep()}

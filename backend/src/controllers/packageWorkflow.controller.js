@@ -1,21 +1,30 @@
-const { ChiTietGoiTap } = require('../models/ChiTietGoiTap');
-const { GoiTap } = require('../models/GoiTap');
-const { NguoiDung } = require('../models/NguoiDung');
+const ChiTietGoiTap = require('../models/ChiTietGoiTap');
+const GoiTap = require('../models/GoiTap');
+const { NguoiDung, PT } = require('../models/NguoiDung');
 const LichTap = require('../models/LichTap');
-const { BuoiTap } = require('../models/BuoiTap');
+const BuoiTap = require('../models/BuoiTap');
 const LichLamViecPT = require('../models/LichLamViecPT');
 const mongoose = require('mongoose');
 
 // Lấy danh sách PT phù hợp sau khi đăng ký gói tập thành công
 const getAvailableTrainers = async (req, res) => {
     try {
+        console.log('🔍 getAvailableTrainers called with:', req.params, req.body);
         const { chiTietGoiTapId } = req.params;
         const { gioTapUuTien, soNgayTapTrongTuan = 3 } = req.body;
 
+        // Validate ID
+        if (!mongoose.Types.ObjectId.isValid(chiTietGoiTapId)) {
+            return res.status(400).json({ message: 'ID đăng ký gói tập không hợp lệ' });
+        }
+
         // Kiểm tra chi tiết gói tập
+        console.log('🔍 Finding ChiTietGoiTap with ID:', chiTietGoiTapId);
         const chiTietGoiTap = await ChiTietGoiTap.findById(chiTietGoiTapId)
             .populate('maGoiTap')
             .populate('maHoiVien');
+
+        console.log('🔍 ChiTietGoiTap found:', chiTietGoiTap);
 
         if (!chiTietGoiTap) {
             return res.status(404).json({ message: 'Không tìm thấy thông tin đăng ký gói tập' });
@@ -26,20 +35,22 @@ const getAvailableTrainers = async (req, res) => {
         }
 
         // Lấy tất cả PT đang hoạt động
-        const allPTs = await NguoiDung.find({ vaiTro: 'PT', trangThaiPT: 'DANG_HOAT_DONG' });
+        console.log('🔍 PT model:', typeof PT, PT);
+        const allPTs = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG' });
+        console.log('🔍 Found PTs:', allPTs.length, allPTs);
 
         // Nếu có giờ tập ưu tiên, lọc PT có thời gian rảnh phù hợp
         let availablePTs = allPTs;
-        
+
         if (gioTapUuTien && gioTapUuTien.length > 0) {
             const ptAvailability = await Promise.all(
                 allPTs.map(async (pt) => {
                     const lichLamViec = await LichLamViecPT.find({ pt: pt._id });
-                    
+
                     // Kiểm tra xem PT có thời gian rảnh trong khung giờ ưu tiên không
-                    const hasAvailableTime = lichLamViec.some(lich => 
-                        lich.gioLamViec.some(gio => 
-                            gio.trangThai === 'RANH' && 
+                    const hasAvailableTime = lichLamViec.some(lich =>
+                        lich.gioLamViec.some(gio =>
+                            gio.trangThai === 'RANH' &&
                             gioTapUuTien.some(gioUuTien => {
                                 const [gioStart, gioEnd] = gioUuTien.split('-');
                                 return gio.gioBatDau <= gioStart && gio.gioKetThuc >= gioEnd;
@@ -96,8 +107,8 @@ const selectTrainer = async (req, res) => {
         }
 
         // Kiểm tra PT
-        const pt = await NguoiDung.findOne({ _id: ptId, vaiTro: 'PT' });
-        if (!pt || pt.trangThaiPT !== 'DANG_HOAT_DONG') {
+        const pt = await PT.findOne({ _id: ptId, trangThaiPT: 'DANG_HOAT_DONG' });
+        if (!pt) {
             return res.status(404).json({ message: 'PT không tồn tại hoặc không hoạt động' });
         }
 
@@ -143,7 +154,7 @@ const generateWorkoutSchedule = async (req, res) => {
         }
 
         const goiTap = chiTietGoiTap.maGoiTap;
-        
+
         // Tính toán ngày bắt đầu và kết thúc dựa trên gói tập
         const ngayBatDau = new Date();
         const ngayKetThuc = new Date(chiTietGoiTap.ngayKetThuc);
@@ -192,10 +203,10 @@ const generateWorkoutSessions = async (lichTap, goiTap) => {
     const buoiTapList = [];
     const ngayBatDau = new Date(lichTap.ngayBatDau);
     const ngayKetThuc = new Date(lichTap.ngayKetThuc);
-    
+
     // Tính tổng số ngày trong gói tập
     const totalDays = Math.ceil((ngayKetThuc - ngayBatDau) / (1000 * 60 * 60 * 24));
-    
+
     // Tính số buổi tập dựa trên thời hạn gói và số ngày tập trong tuần
     const soTuanTap = Math.ceil(totalDays / 7);
     const soBuoiTapToiDa = soTuanTap * lichTap.soNgayTapTrongTuan;
@@ -205,12 +216,12 @@ const generateWorkoutSessions = async (lichTap, goiTap) => {
 
     while (currentDate <= ngayKetThuc && buoiTapCount < soBuoiTapToiDa) {
         const dayOfWeek = getDayOfWeek(currentDate);
-        
+
         // Kiểm tra xem ngày này có trong lịch tập không
         if (lichTap.cacNgayTap.includes(dayOfWeek)) {
             // Tìm khung giờ tương ứng
             const khungGio = lichTap.khungGioTap.find(kg => kg.ngayTrongTuan === dayOfWeek);
-            
+
             if (khungGio) {
                 const buoiTap = new BuoiTap({
                     ngayTap: new Date(currentDate),
@@ -318,7 +329,7 @@ const getTrainerSchedule = async (req, res) => {
         }
 
         // Kiểm tra PT có tồn tại không
-        const pt = await NguoiDung.findOne({ _id: ptId, vaiTro: 'PT' });
+        const pt = await PT.findOne({ _id: ptId });
         if (!pt) {
             return res.status(404).json({
                 success: false,

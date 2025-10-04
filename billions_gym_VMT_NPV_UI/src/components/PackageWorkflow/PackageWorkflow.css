@@ -1,37 +1,59 @@
 /* Package Workflow Styles */
 .package-workflow-manager {
-    max-width: 1200px;
+    width: 100%;
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 24px;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    min-height: 100vh;
 }
 
 .workflow-header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 48px;
+    padding: 32px 0;
 }
 
 .workflow-header h1 {
-    color: var(--primary-color);
-    margin-bottom: 10px;
+    color: #1e293b;
+    margin-bottom: 16px;
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .workflow-header h2 {
-    color: var(--primary-color);
-    margin-bottom: 10px;
+    color: #1e293b;
+    margin-bottom: 16px;
+    font-size: 2.2rem;
+    font-weight: 700;
 }
 
 .workflow-header p {
-    color: var(--text-secondary);
-    font-size: 16px;
+    color: #64748b;
+    font-size: 18px;
+    font-weight: 500;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
 }
 
 /* Step Indicator */
 .workflow-steps {
     display: flex;
     justify-content: center;
-    align-items: center;
-    margin-bottom: 40px;
-    padding: 20px;
+    align-items: flex-start;
+    margin-bottom: 60px;
+    padding: 40px 32px;
+    background: white;
+    border-radius: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    min-height: 200px;
 }
 
 .step-container {
@@ -39,271 +61,625 @@
     flex-direction: column;
     align-items: center;
     position: relative;
+    margin: 0 60px;
+    transition: all 0.3s ease;
+    flex: 1;
+    max-width: 200px;
 }
 
 .step-indicator {
-    width: 60px;
-    height: 60px;
+    width: 90px;
+    height: 90px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
-    margin-bottom: 10px;
     transition: all 0.3s ease;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    border: 3px solid transparent;
+    position: relative;
+    margin-bottom: 20px;
+    flex-shrink: 0;
 }
 
 .step-indicator.pending {
-    background: var(--background-secondary);
-    border: 2px solid var(--border-color);
-    color: var(--text-secondary);
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    border: 3px solid #cbd5e1;
+    color: #64748b;
+    transform: scale(0.95);
 }
 
 .step-indicator.active {
-    background: var(--primary-color);
-    border: 2px solid var(--primary-color);
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    border: 3px solid #3b82f6;
     color: white;
-    box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.3);
+    box-shadow: 0 12px 32px rgba(59, 130, 246, 0.4);
+    transform: scale(1.05);
 }
 
 .step-indicator.completed {
-    background: var(--success-color);
-    border: 2px solid var(--success-color);
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: 3px solid #10b981;
     color: white;
+    box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4);
 }
 
 .step-icon {
-    font-size: 24px;
+    font-size: 28px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .step-number {
     position: absolute;
-    bottom: -5px;
-    right: -5px;
-    background: white;
-    border: 2px solid currentColor;
+    bottom: -10px;
+    right: -10px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 3px solid currentColor;
     border-radius: 50%;
-    width: 20px;
-    height: 20px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 12px;
-    font-weight: bold;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 2;
 }
 
 .step-label {
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 16px;
+    font-weight: 600;
     text-align: center;
-    max-width: 100px;
+    max-width: 140px;
+    margin-top: 16px;
+    color: #374151;
+    line-height: 1.4;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.step-connector {
-    width: 80px;
-    height: 2px;
-    margin: 0 20px;
-    margin-top: -35px;
+/* Removed step connectors for cleaner design */
+
+/* Overview Page Styles */
+.workflow-overview {
+    text-align: center;
+    padding: 40px 20px;
 }
 
-.step-connector.pending {
-    background: var(--border-color);
+.workflow-content {
+    width: 100%;
 }
 
-.step-connector.completed {
-    background: var(--success-color);
+/* Hide workflow header when not in overview */
+.package-workflow-manager:not(.overview-mode) .workflow-header {
+    display: none;
 }
 
-/* Trainer Selection Styles */
-.trainer-selection-container {
-    max-width: 1000px;
+.package-workflow-manager:not(.overview-mode) .workflow-steps {
+    display: none;
+}
+
+.overview-header {
+    margin-bottom: 60px;
+}
+
+.overview-header h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.overview-header p {
+    font-size: 18px;
+    color: #64748b;
+    font-weight: 500;
+    max-width: 600px;
     margin: 0 auto;
+    line-height: 1.6;
 }
 
+.overview-instructions {
+    margin-top: 40px;
+    display: flex;
+    justify-content: center;
+}
+
+.instruction-text {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border: 2px solid #cbd5e1;
+    border-radius: 16px;
+    padding: 20px 32px;
+    font-size: 16px;
+    color: #374151;
+    text-align: center;
+    max-width: 500px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.instruction-text:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    border-color: #3b82f6;
+}
+
+.instruction-text strong {
+    color: #1d4ed8;
+}
+
+/* ========================================
+   MODERN TRAINER SELECTION STYLES
+   ======================================== */
+
+.trainer-selection-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Header Section */
+.trainer-selection-container .workflow-header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 30px 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+}
+
+.trainer-selection-container .workflow-header h2 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0 0 10px 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.trainer-selection-container .workflow-header p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    margin: 0;
+}
+
+/* Modern Preferences Card */
 .preferences-card {
-    margin-bottom: 30px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: none;
+    border-radius: 24px;
+    padding: 32px;
+    margin-bottom: 32px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+}
+
+.preferences-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+    border-radius: 24px 24px 0 0;
+}
+
+.preferences-card h3 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin-bottom: 28px;
+    text-align: center;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .preference-group {
-    margin-bottom: 20px;
+    margin-bottom: 28px;
 }
 
 .preference-group label {
     display: block;
-    font-weight: 500;
-    margin-bottom: 8px;
-    color: var(--text-primary);
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: #2d3748;
+    font-size: 1.1rem;
 }
 
 .preference-group select {
-    width: 200px;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    background: var(--background-primary);
-    color: var(--text-primary);
+    width: 100%;
+    max-width: 250px;
+    padding: 16px 20px;
+    border: 2px solid #e2e8f0;
+    border-radius: 16px;
+    background: white;
+    font-size: 16px;
+    font-weight: 500;
+    color: #2d3748;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
+.preference-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    transform: translateY(-2px);
+}
+
+/* Modern Time Slots Grid - FIXED LAYOUT */
 .time-slots-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 10px;
-    margin-top: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
 }
 
 .time-slot-option {
     display: flex;
     align-items: center;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
+    gap: 16px;
+    padding: 18px 24px;
+    border: 2px solid #e2e8f0;
+    border-radius: 16px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: white;
+    position: relative;
+    overflow: hidden;
+    min-height: 60px;
+}
+
+.time-slot-option::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+    transition: left 0.5s ease;
 }
 
 .time-slot-option:hover {
-    background: var(--background-secondary);
+    border-color: #667eea;
+    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px rgba(102, 126, 234, 0.15);
+}
+
+.time-slot-option:hover::before {
+    left: 100%;
 }
 
 .time-slot-option input[type="checkbox"] {
-    margin-right: 8px;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: #667eea;
+    flex-shrink: 0;
+    cursor: pointer;
+    align-self: center;
+    vertical-align: middle;
+}
+
+.time-slot-option span {
+    font-size: 15px;
+    font-weight: 500;
+    color: #374151;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+    padding-left: 4px;
 }
 
 .time-slot-option input[type="checkbox"]:checked+span {
-    color: var(--primary-color);
-    font-weight: 500;
+    font-weight: 700;
+    color: #667eea;
 }
 
-/* Recommended Trainer */
-.recommended-trainer-card {
-    margin-bottom: 30px;
-    border: 2px solid var(--primary-color);
-    position: relative;
+.time-slot-option:has(input[type="checkbox"]:checked) {
+    border-color: #667eea;
+    background: linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
 }
+
+/* Modern Find PT Button - PERFECTLY CENTERED & ROUNDED */
+.preferences-card .btn {
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 22px 45px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 30px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+    text-align: center;
+    text-decoration: none;
+    outline: none;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    line-height: 1.2;
+}
+
+.preferences-card .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.preferences-card .btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
+}
+
+.preferences-card .btn:hover::before {
+    left: 100%;
+}
+
+.preferences-card .btn:active {
+    transform: translateY(-1px);
+}
+
+.preferences-card .btn:disabled {
+    opacity: 0.7;
+    transform: none;
+    cursor: not-allowed;
+}
+
+.preferences-card .btn:disabled:hover {
+    transform: none;
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+}
+
+/* Premium Recommended Trainer Card - FIXED LAYOUT */
+.recommended-trainer-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 28px;
+    padding: 50px 40px 40px 40px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: visible;
+    box-shadow: 0 25px 50px rgba(102, 126, 234, 0.3);
+    color: white;
+    min-height: 200px;
+}
+
+/* Removed shimmer animation for cleaner look */
 
 .recommended-badge {
     position: absolute;
-    top: -10px;
-    left: 20px;
-    background: var(--primary-color);
+    top: -8px;
+    right: 40px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     color: white;
-    padding: 5px 15px;
-    border-radius: 15px;
+    padding: 12px 24px;
+    border-radius: 25px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 700;
+    box-shadow: 0 8px 20px rgba(245, 87, 108, 0.4);
+    z-index: 10;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    max-width: 200px;
+    overflow: visible;
+    text-overflow: unset;
+    min-width: 160px;
+    text-align: center;
 }
 
 .trainer-info {
     display: flex;
-    gap: 20px;
-    padding: 20px;
+    gap: 32px;
+    align-items: flex-start;
+    position: relative;
+    z-index: 1;
 }
 
 .trainer-avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    overflow: hidden;
     flex-shrink: 0;
+    position: relative;
+    width: 120px;
+    height: 120px;
 }
 
-.trainer-avatar img {
-    width: 100%;
-    height: 100%;
+.trainer-avatar img,
+.avatar-placeholder {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
     object-fit: cover;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    display: block;
 }
 
 .avatar-placeholder {
-    width: 100%;
-    height: 100%;
-    background: var(--primary-color);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 32px;
-    font-weight: bold;
+    font-size: 28px;
+    font-weight: 700;
+    backdrop-filter: blur(10px);
+}
+
+.trainer-details {
+    flex: 1;
+    padding-left: 8px;
+    min-width: 0;
 }
 
 .trainer-details h3 {
-    margin: 0 0 10px 0;
-    color: var(--text-primary);
+    margin: 0 0 12px 0;
+    font-size: 1.8rem;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    word-wrap: break-word;
+    line-height: 1.3;
 }
 
 .trainer-rating {
     display: flex;
     align-items: center;
-    gap: 5px;
-    margin-bottom: 10px;
+    gap: 8px;
+    margin-bottom: 12px;
 }
 
 .star {
-    color: #ffd700;
-    font-size: 16px;
+    font-size: 18px;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
-.star.star-empty {
-    color: #ccc;
+.star-filled {
+    color: #fbbf24;
 }
 
-.trainer-specialty,
-.trainer-experience,
+.star-empty {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.trainer-specialty {
+    font-weight: 600;
+    color: #a7f3d0;
+    margin-bottom: 8px;
+    font-size: 1.1rem;
+}
+
+.trainer-experience {
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 12px;
+    font-size: 1rem;
+}
+
 .trainer-description {
-    margin: 5px 0;
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.6;
+    font-size: 1rem;
 }
 
-/* Trainers Grid */
+/* Modern Trainers List */
 .trainers-list h3 {
-    margin-bottom: 20px;
-    color: var(--text-primary);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin-bottom: 24px;
+    text-align: center;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .trainers-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 24px;
 }
 
 .trainer-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 2px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 24px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    border: 2px solid transparent;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.trainer-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
 }
 
 .trainer-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(102, 126, 234, 0.15);
+    border-color: #667eea;
+}
+
+.trainer-card:hover::before {
+    transform: scaleX(1);
 }
 
 .trainer-card.selected {
-    border-color: var(--primary-color);
-    background: rgba(var(--primary-rgb), 0.05);
+    border-color: #667eea;
+    background: linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%);
+    box-shadow: 0 15px 30px rgba(102, 126, 234, 0.25);
+    transform: translateY(-4px);
+}
+
+.trainer-card.selected::before {
+    transform: scaleX(1);
 }
 
 .trainer-card-content {
     display: flex;
     align-items: center;
-    gap: 15px;
-    padding: 15px;
+    gap: 20px;
+    position: relative;
 }
 
-.trainer-avatar-small {
-    width: 50px;
-    height: 50px;
+.trainer-avatar-small img,
+.trainer-avatar-small .avatar-placeholder {
+    width: 70px;
+    height: 70px;
     border-radius: 50%;
-    overflow: hidden;
-    flex-shrink: 0;
+    object-fit: cover;
+    border: 3px solid #e2e8f0;
+    transition: all 0.3s ease;
 }
 
-.trainer-avatar-small img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+.trainer-card:hover .trainer-avatar-small img,
+.trainer-card:hover .trainer-avatar-small .avatar-placeholder {
+    border-color: #667eea;
+    transform: scale(1.05);
 }
 
 .trainer-avatar-small .avatar-placeholder {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 20px;
+    font-weight: 700;
 }
 
 .trainer-info-compact {
@@ -311,44 +687,276 @@
 }
 
 .trainer-info-compact h4 {
-    margin: 0 0 5px 0;
-    color: var(--text-primary);
+    margin: 0 0 8px 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #1a202c;
+    transition: color 0.3s ease;
+}
+
+.trainer-card:hover .trainer-info-compact h4 {
+    color: #667eea;
 }
 
 .trainer-rating-small {
     display: flex;
     align-items: center;
-    gap: 3px;
-    margin-bottom: 5px;
+    gap: 6px;
+    margin-bottom: 8px;
 }
 
 .trainer-rating-small .star {
-    font-size: 14px;
-}
-
-.trainer-specialty-small,
-.trainer-experience-small {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin: 2px 0;
-}
-
-.selection-indicator {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--primary-color);
-    color: white;
     font-size: 16px;
 }
 
+.trainer-specialty-small {
+    font-weight: 600;
+    color: #059669;
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+.trainer-experience-small {
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.selection-indicator {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: white;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+
+.trainer-card.selected .selection-indicator {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.trainer-card:hover .selection-indicator {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    transform: scale(1.1);
+}
+
+/* No Trainers Card */
 .no-trainers-card {
     text-align: center;
-    padding: 40px;
-    color: var(--text-secondary);
+    padding: 60px 40px;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-radius: 20px;
+    border: 2px dashed #cbd5e1;
+    color: #6b7280;
+}
+
+.no-trainers-card p {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+}
+
+/* Modern Action Buttons */
+.workflow-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 48px;
+    padding: 32px 0;
+    border-top: 2px solid #e2e8f0;
+    gap: 20px;
+}
+
+.workflow-actions .btn {
+    padding: 16px 32px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 16px;
+    transition: all 0.3s ease;
+    min-width: 150px;
+}
+
+.workflow-actions .btn[variant="ghost"] {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    color: #6b7280;
+    border: 2px solid #e2e8f0;
+}
+
+.workflow-actions .btn[variant="ghost"]:hover {
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.workflow-actions .btn[variant="primary"] {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+}
+
+.workflow-actions .btn[variant="primary"]:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
+}
+
+.workflow-actions .btn[variant="primary"]:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN FOR TRAINER SELECTION
+   ======================================== */
+
+@media (max-width: 768px) {
+    .trainer-selection-container {
+        padding: 0 16px;
+    }
+
+    .trainer-selection-container .workflow-header {
+        padding: 24px 0;
+        margin-bottom: 32px;
+    }
+
+    .trainer-selection-container .workflow-header h2 {
+        font-size: 1.8rem;
+    }
+
+    .preferences-card {
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+
+    .preferences-card h3 {
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+    }
+
+    .time-slots-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 12px;
+    }
+
+    .time-slot-option {
+        padding: 12px 16px;
+        font-size: 14px;
+    }
+
+    .recommended-trainer-card {
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+
+    .trainer-info {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+    }
+
+    .trainer-avatar img,
+    .avatar-placeholder {
+        width: 80px;
+        height: 80px;
+    }
+
+    .trainer-details h3 {
+        font-size: 1.5rem;
+    }
+
+    .trainers-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .trainer-card {
+        padding: 20px;
+    }
+
+    .trainer-card-content {
+        gap: 16px;
+    }
+
+    .trainer-avatar-small img,
+    .trainer-avatar-small .avatar-placeholder {
+        width: 60px;
+        height: 60px;
+    }
+
+    .workflow-actions {
+        flex-direction: column;
+        gap: 16px;
+        margin-top: 32px;
+        padding: 24px 0;
+    }
+
+    .workflow-actions .btn {
+        width: 100%;
+        min-width: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .trainer-selection-container .workflow-header h2 {
+        font-size: 1.5rem;
+    }
+
+    .preferences-card {
+        padding: 20px;
+    }
+
+    .preferences-card h3 {
+        font-size: 1.3rem;
+    }
+
+    .time-slots-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .time-slot-option {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .recommended-trainer-card {
+        padding: 20px;
+    }
+
+    .recommended-badge {
+        left: 20px;
+        padding: 8px 16px;
+        font-size: 12px;
+    }
+
+    .trainer-avatar img,
+    .avatar-placeholder {
+        width: 70px;
+        height: 70px;
+    }
+
+    .trainer-details h3 {
+        font-size: 1.3rem;
+    }
+
+    .trainer-card {
+        padding: 16px;
+    }
+
+    .trainer-avatar-small img,
+    .trainer-avatar-small .avatar-placeholder {
+        width: 50px;
+        height: 50px;
+    }
+
+    .trainer-info-compact h4 {
+        font-size: 1.1rem;
+    }
 }
 
 /* Schedule Generation Styles */
@@ -731,14 +1339,34 @@
 
 /* Trainer Availability Manager */
 .trainer-availability-manager {
-    width: 100vw;
-    max-width: none;
-    margin: 0 -50vw;
-    margin-left: calc(-50vw + 50%);
-    padding: 40px;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 20px;
     background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-    min-height: 100vh;
+    min-height: calc(100vh - 120px);
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
     box-sizing: border-box;
+}
+
+/* Custom scrollbar for trainer-availability-manager */
+.trainer-availability-manager::-webkit-scrollbar {
+    width: 8px;
+}
+
+.trainer-availability-manager::-webkit-scrollbar-track {
+    background: rgba(148, 163, 184, 0.1);
+    border-radius: 4px;
+}
+
+.trainer-availability-manager::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-radius: 4px;
+}
+
+.trainer-availability-manager::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #2563eb, #1e40af);
 }
 
 .quick-actions {
@@ -799,10 +1427,31 @@
 .schedule-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 20px;
-    max-width: 900px;
+    gap: 16px;
+    max-width: 100%;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 10px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}
+
+/* Custom scrollbar for schedule-grid */
+.schedule-grid::-webkit-scrollbar {
+    width: 6px;
+}
+
+.schedule-grid::-webkit-scrollbar-track {
+    background: rgba(148, 163, 184, 0.1);
+    border-radius: 3px;
+}
+
+.schedule-grid::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-radius: 3px;
+}
+
+.schedule-grid::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #2563eb, #1e40af);
 }
 
 .day-schedule-card {
@@ -823,14 +1472,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 24px;
+    padding: 16px 20px;
     background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
     color: white;
 }
 
 .day-header h3 {
     margin: 0;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 600;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -858,22 +1507,41 @@
 }
 
 .time-slots {
-    padding: 24px;
-    max-height: 500px;
+    padding: 20px;
+    max-height: 400px;
     overflow-y: auto;
+}
+
+/* Custom scrollbar for time-slots */
+.time-slots::-webkit-scrollbar {
+    width: 6px;
+}
+
+.time-slots::-webkit-scrollbar-track {
+    background: rgba(148, 163, 184, 0.1);
+    border-radius: 3px;
+}
+
+.time-slots::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-radius: 3px;
+}
+
+.time-slots::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #2563eb, #1e40af);
 }
 
 .time-slot-editor {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 20px;
+    gap: 12px;
+    padding: 16px;
     background: #f8fafc;
     border: 2px solid #e2e8f0;
     border-radius: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     transition: all 0.2s ease;
-    min-height: 60px;
+    min-height: 50px;
 }
 
 .time-slot-editor:hover {
@@ -1122,43 +1790,329 @@
     background: linear-gradient(135deg, #64748b 0%, #475569 100%);
 }
 
+/* Content Sections */
+.content-section {
+    margin-bottom: 32px;
+    background: white;
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.content-section:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.section-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.section-description {
+    font-size: 16px;
+    color: #64748b;
+    margin-bottom: 24px;
+    line-height: 1.6;
+}
+
+/* Schedule Options Card */
+.schedule-options-card {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 2px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.schedule-options-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.schedule-options-title::before {
+    content: '⚙️';
+    font-size: 1.2rem;
+}
+
+/* Form Elements */
+.form-group {
+    margin-bottom: 24px;
+}
+
+.form-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.form-select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 16px;
+    background: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Checkbox Grid */
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.checkbox-item:hover {
+    border-color: #3b82f6;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.checkbox-item input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: #3b82f6;
+}
+
+.checkbox-label {
+    font-weight: 500;
+    color: #374151;
+}
+
 /* Workflow Actions */
 .workflow-actions {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border-color);
+    margin-top: 40px;
+    padding-top: 32px;
+    border-top: 2px solid #f1f5f9;
 }
 
 /* Completion Card */
 .workflow-completed-card {
     text-align: center;
-    padding: 40px;
-    max-width: 500px;
+    padding: 60px 40px;
+    max-width: 600px;
     margin: 0 auto;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .completion-content {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: 24px;
 }
 
 .completion-icon {
-    font-size: 64px;
+    font-size: 80px;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1));
 }
 
 .completion-content h2 {
-    color: var(--primary-color);
+    color: #1e293b;
     margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .completion-content p {
-    color: var(--text-secondary);
+    color: #64748b;
     line-height: 1.6;
+    font-size: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .package-workflow-manager {
+        padding: 16px;
+    }
+
+    .workflow-header h1 {
+        font-size: 2rem;
+    }
+
+    .workflow-header h2 {
+        font-size: 1.8rem;
+    }
+
+    .workflow-steps {
+        padding: 24px 16px;
+        margin-bottom: 40px;
+        min-height: 160px;
+    }
+
+    .step-container {
+        margin: 0 30px;
+        max-width: 120px;
+    }
+
+    .step-indicator {
+        width: 70px;
+        height: 70px;
+    }
+
+    .step-icon {
+        font-size: 24px;
+    }
+
+    .step-label {
+        font-size: 14px;
+        max-width: 100px;
+        min-height: 40px;
+    }
+
+    /* Removed step connector responsive styles */
+
+    .step-number {
+        width: 24px;
+        height: 24px;
+        font-size: 10px;
+    }
+
+    .content-section {
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+    }
+
+    .checkbox-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .workflow-actions {
+        flex-direction: column;
+        gap: 16px;
+        align-items: stretch;
+    }
+
+    .overview-header h1 {
+        font-size: 2rem;
+    }
+
+    .overview-header p {
+        font-size: 16px;
+    }
+
+    .overview-instructions {
+        margin-top: 32px;
+    }
+
+    .instruction-text {
+        padding: 16px 24px;
+        font-size: 14px;
+        max-width: 400px;
+    }
+}
+
+@media (max-width: 480px) {
+    .workflow-header {
+        padding: 16px 0;
+        margin-bottom: 32px;
+    }
+
+    .workflow-header h1 {
+        font-size: 1.8rem;
+    }
+
+    .workflow-header p {
+        font-size: 16px;
+    }
+
+    .workflow-steps {
+        flex-direction: column;
+        gap: 32px;
+        align-items: center;
+        min-height: auto;
+        padding: 32px 20px;
+    }
+
+    .step-container {
+        margin: 0;
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .step-indicator {
+        width: 80px;
+        height: 80px;
+    }
+
+    /* Removed step connector mobile styles */
+
+    .content-section {
+        padding: 20px;
+    }
+
+    .schedule-options-card {
+        padding: 20px;
+    }
+
+    .overview-header {
+        margin-bottom: 40px;
+    }
+
+    .overview-header h1 {
+        font-size: 1.8rem;
+    }
+
+    .overview-instructions {
+        margin-top: 24px;
+    }
+
+    .instruction-text {
+        padding: 12px 20px;
+        font-size: 14px;
+        max-width: 300px;
+    }
 }
 
 .completion-actions {
