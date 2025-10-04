@@ -153,7 +153,6 @@
 }
 
 .member-info small {
-    color: #64748b;
     font-size: 12px;
 }
 
@@ -857,7 +856,6 @@
     align-items: center;
     padding: 20px;
     border-bottom: none;
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
 }
 
 .toolbar-left h2 {
@@ -1151,6 +1149,57 @@
     --secondary-light: rgba(107, 114, 128, 0.1);
 }
 
+/* Dark mode chart legend styling - More specific selectors */
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend,
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-item,
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-item-text,
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-item span,
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-item label,
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-item-text,
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-item-text span {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+}
+
+/* Chart.js legend override for dark mode */
+[data-theme="dark"] .package-registration-manager .chart-container canvas {
+    filter: brightness(1.2);
+}
+
+/* Specific Chart.js legend styling for dark mode */
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-wrapper,
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-wrapper * {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+}
+
+/* Override Chart.js default legend colors in dark mode */
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-item-text {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    font-weight: 500;
+}
+
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-item {
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-item span {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+}
+
+/* Force legend text color in dark mode */
+[data-theme="dark"] .package-registration-manager .chart-container * {
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-item-text,
+[data-theme="dark"] .package-registration-manager .chart-container .chartjs-legend-item-text * {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+}
+
 /* Light mode support */
 [data-theme="light"] .package-registration-manager {
     --card-bg: #ffffff;
@@ -1413,12 +1462,26 @@
     gap: 16px;
     transition: all 0.3s ease;
     border: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    width: 214px;
+}
+
+/* Special styling for revenue card to accommodate longer numbers */
+.overview-card.revenue-card {
+    width: 300px;
+    min-width: 300px;
+    flex-shrink: 0;
 }
 
 .overview-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.overview-card svg {
+    flex-shrink: 0;
+    display: block;
+    margin-right: 12px;
 }
 
 .overview-icon {
@@ -1458,7 +1521,7 @@
 }
 
 .overview-number.primary {
-    color: #3b82f6;
+    color: #ffffff;
 }
 
 /* Thống kê theo gói tập */
@@ -1485,12 +1548,12 @@
     padding: 20px;
     transition: all 0.3s ease;
     border: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .package-stat-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .package-stat-header {
@@ -1566,12 +1629,12 @@
     padding: 20px;
     transition: all 0.3s ease;
     border: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .status-stat-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .status-stat-header {
@@ -1654,18 +1717,16 @@
 /* Chart Styles */
 .chart-section {
     margin-bottom: 32px;
-    background: white;
     border-radius: 12px;
     padding: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e5e7eb;
+    border: none;
 }
 
 .chart-section h4 {
     margin-bottom: 16px;
     font-size: 16px;
     font-weight: 600;
-    color: #1f2937;
     text-align: center;
 }
 
@@ -1674,6 +1735,7 @@
     position: relative;
     margin: 0 auto;
     padding: 0 20px;
+    border: none;
     /* Thêm padding để tạo khoảng cách với trục Y */
 }
 
@@ -1688,12 +1750,19 @@
     /* Tạo khoảng cách cho trục Y */
     padding-right: 20px;
     /* Tạo khoảng cách cho trục bên phải */
+    border: none;
 }
 
 /* Override Chart.js default styles for better spacing */
 .chart-container .chartjs-render-monitor {
     padding-left: 20px;
     padding-right: 20px;
+    border: none;
+}
+
+/* Dark mode chart section title only */
+[data-theme="dark"] .package-registration-manager .chart-section h4 {
+    color: #ffffff;
 }
 
 /* Responsive charts */
@@ -1715,5 +1784,11 @@
     .chart-section h4 {
         font-size: 14px;
         margin-bottom: 12px;
+    }
+
+    /* Responsive revenue card */
+    .overview-card.revenue-card {
+        width: 100%;
+        min-width: auto;
     }
 }

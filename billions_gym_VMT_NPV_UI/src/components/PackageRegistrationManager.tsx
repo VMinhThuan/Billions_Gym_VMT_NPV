@@ -155,6 +155,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
+    const [chartKey, setChartKey] = useState(0); // Force re-render charts
     const notifications = useCrudNotifications();
 
     // Form states for new registration
@@ -484,6 +485,10 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
         console.log('📊 Registration data:', registrationData);
         console.log('📊 Revenue data:', revenueData);
 
+        // Get current theme
+        const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDarkMode ? '#ffffff' : '#374151';
+
         const chartData = {
             registrationChart: {
                 labels,
@@ -533,6 +538,20 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                         borderWidth: 2,
                     }
                 ]
+            },
+            // Common chart options for dark mode
+            chartOptions: {
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: textColor,
+                            font: {
+                                size: 12,
+                                weight: '500'
+                            }
+                        }
+                    }
+                }
             }
         };
 
@@ -544,8 +563,29 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
     const getStatusChartData = () => {
         if (!packageStats?.theoTrangThai) return null;
 
-        const labels = packageStats.theoTrangThai.map(item => item._id);
+        const statusTranslation: { [key: string]: string } = {
+            'DANG_HOAT_DONG': 'Đang hoạt động',
+            'TAM_DUNG': 'Tạm dừng',
+            'HET_HAN': 'Hết hạn',
+            'DA_HUY': 'Đã hủy',
+            'DANG_SU_DUNG': 'Đang sử dụng',
+            'CHO_CHON_PT': 'Chờ chọn PT',
+            'DA_HET_HAN': 'Đã hết hạn',
+            'DANG_KICH_HOAT': 'Đang kích hoạt',
+            'DA_NANG_CAP': 'Đã nâng cấp',
+            'DA_CHON_PT': 'Đã chọn PT',
+            'DA_THANH_TOAN': 'Đã thanh toán',
+            'CHUA_THANH_TOAN': 'Chưa thanh toán',
+            'HOAN_TIEN': 'Hoàn tiền'
+        };
+
+        const labels = packageStats.theoTrangThai.map(item =>
+            statusTranslation[item._id] || item._id
+        );
         const data = packageStats.theoTrangThai.map(item => item.soLuong);
+
+        const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDarkMode ? '#ffffff' : '#374151';
 
         return {
             labels,
@@ -568,7 +608,20 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                     ],
                     borderWidth: 2,
                 }
-            ]
+            ],
+            chartOptions: {
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: textColor,
+                            font: {
+                                size: 12,
+                                weight: '500'
+                            }
+                        }
+                    }
+                }
+            }
         };
     };
 
@@ -589,6 +642,10 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
             .reverse()
             .map(item => item.doanhThu);
 
+        // Get current theme
+        const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDarkMode ? '#ffffff' : '#374151';
+
         return {
             labels,
             datasets: [
@@ -608,7 +665,20 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                     tension: 0.4,
                     yAxisID: 'y1',
                 }
-            ]
+            ],
+            chartOptions: {
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: textColor,
+                            font: {
+                                size: 12,
+                                weight: '500'
+                            }
+                        }
+                    }
+                }
+            }
         };
     };
 
@@ -627,6 +697,39 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
     useEffect(() => {
         if (activeTab === 'statistics') {
             fetchPackageStats();
+        }
+    }, [activeTab]);
+
+    // Force re-render charts when theme changes
+    useEffect(() => {
+        if (activeTab === 'statistics' && packageStats) {
+            // Small delay to ensure theme is applied
+            setTimeout(() => {
+                // Force re-render by updating chart key
+                setChartKey(prev => prev + 1);
+            }, 100);
+        }
+    }, [document.documentElement.getAttribute('data-theme')]);
+
+    // Listen for theme changes using MutationObserver
+    useEffect(() => {
+        if (activeTab === 'statistics') {
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+                        setTimeout(() => {
+                            setChartKey(prev => prev + 1);
+                        }, 100);
+                    }
+                });
+            });
+
+            observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ['data-theme']
+            });
+
+            return () => observer.disconnect();
         }
     }, [activeTab]);
 
@@ -1063,42 +1166,166 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                             <h3>📊 Thống kê tổng quan</h3>
                                             <div className="overview-grid">
                                                 <div className="overview-card">
-                                                    <div className="overview-icon">📋</div>
+                                                    {/* <div className="overview-icon">📋</div> */}
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        viewBox="0 0 6.827 6.827"
+                                                        width="54"
+                                                        height="54"
+                                                        style={{
+                                                            shapeRendering: "geometricPrecision",
+                                                            textRendering: "geometricPrecision",
+                                                            fillRule: "evenodd",
+                                                            clipRule: "evenodd",
+                                                        }}
+                                                    >
+                                                        <g id="Layer_1">
+                                                            <g>
+                                                                <path fill="#64b5f6" d="M2.653 4.96V3.547h-.651V4.96z" />
+                                                                <path fill="#64b5f6" d="M3.133 4.96V2.623h.651V4.96z" />
+                                                                <path fill="#64b5f6" d="M4.916 4.96V1.957h-.651V4.96z" />
+                                                            </g>
+                                                            <path
+                                                                fill="#64b5f6"
+                                                                fillRule="nonzero"
+                                                                d="M2.013 1.162h.133l.068.22.063-.22h.125l-.13.352a.21.21 0 0 1-.046.082c-.022.02-.056.03-.1.03a.727.727 0 0 1-.085-.008l-.01-.088a.199.199 0 0 0 .06.009.06.06 0 0 0 .037-.01.078.078 0 0 0 .023-.037l-.138-.33z"
+                                                            />
+                                                            <path
+                                                                fill="#424242"
+                                                                fillRule="nonzero"
+                                                                d="M1.496 1.4v3.64h4.303v.266H1.23V1.4z"
+                                                            />
+                                                            <path fill="#424242" d="M1.871 1.654H.853l.51-.51z" />
+                                                            <path
+                                                                fill="#64b5f6"
+                                                                fillRule="nonzero"
+                                                                d="M5.408 4.235h.15l.053.092.06-.092h.14l-.112.157.12.173h-.147l-.061-.107-.072.107h-.137l.12-.173z"
+                                                            />
+                                                            <path fill="#424242" d="M5.464 5.682V4.664l.51.509z" />
+                                                        </g>
+                                                    </svg>
+
                                                     <div className="overview-content">
                                                         <h4>Tổng số đăng ký</h4>
                                                         <span className="overview-number">{packageStats.tongQuan.tongSoDangKy}</span>
                                                     </div>
                                                 </div>
                                                 <div className="overview-card">
-                                                    <div className="overview-icon">✅</div>
+                                                    {/* <div className="overview-icon">✅</div> */}
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="54"
+                                                        height="54"
+                                                        viewBox="0 0 122.88 116.87"
+                                                        style={{ marginLeft: "6px" }}
+                                                    >
+                                                        <polygon
+                                                            fill="#10a64a"
+                                                            fillRule="evenodd"
+                                                            points="61.37 8.24 80.43 0 90.88 17.79 111.15 22.32 109.15 42.85 122.88 58.43 109.2 73.87 111.15 94.55 91 99 80.43 116.87 61.51 108.62 42.45 116.87 32 99.08 11.73 94.55 13.73 74.01 0 58.43 13.68 42.99 11.73 22.32 31.88 17.87 42.45 0 61.37 8.24"
+                                                        />
+                                                        <path
+                                                            fill="#ffffff"
+                                                            d="M37.92,65c-6.07-6.53,3.25-16.26,10-10.1,2.38,2.17,5.84,5.34,8.24,7.49L74.66,39.66C81.1,33,91.27,42.78,84.91,49.48L61.67,77.2a7.13,7.13,0,0,1-9.9.44C47.83,73.89,42.05,68.5,37.92,65Z"
+                                                        />
+                                                    </svg>
                                                     <div className="overview-content">
                                                         <h4>Đã thanh toán</h4>
                                                         <span className="overview-number success">{packageStats.tongQuan.tongSoHoiVienDaThanhToan}</span>
                                                     </div>
                                                 </div>
                                                 <div className="overview-card">
-                                                    <div className="overview-icon">⏳</div>
+                                                    {/* <div className="overview-icon">⏳</div> */}
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        viewBox="0 0 48 48"
+                                                        width="44"
+                                                        height="44"
+                                                    >
+                                                        <g id="Money_and_Hourglass" data-name="Money and Hourglass">
+                                                            <path fill="#7c7d7d" d="M35 1v2a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V1z" />
+                                                            <path fill="#919191" d="M35 1v2H10a2 2 0 0 1-2-2z" />
+                                                            <path fill="#7c7d7d" d="M35 45v2H5v-2a2 2 0 0 1 2-2h26a2 2 0 0 1 2 2z" />
+                                                            <path fill="#919191" d="M35 45H10a2 2 0 0 1-2-2c0-.1-1.26 0 25 0a2 2 0 0 1 2 2z" />
+                                                            <path fill="#dad7e5" d="M32 43H8l.46-7A15 15 0 0 1 16 24a15 15 0 0 1-7.54-12L8 5h24l-.46 7A15 15 0 0 1 24 24a15 15 0 0 1 7.54 12c.4 6 .3 4.48.46 7z" />
+                                                            <path fill="#edebf2" d="m31.54 36 .33 5H14.34a3 3 0 0 1-3-3.2l.12-1.8A15 15 0 0 1 19 24a15 15 0 0 1-7.54-12L11 5h21l-.46 7A15 15 0 0 1 24 24a15 15 0 0 1 7.54 12z" />
+                                                            <path fill="#ffcc66" d="M27.54 43H12.46a11 11 0 0 1 4.29-8c1.54-1.23 3.16-2 4.74-1.13 3.89 2.19 5.83 5.43 6.05 9.13z" />
+                                                            <path fill="#ffde76" d="M27.23 41H20a3 3 0 0 1-2.39-4.82 11.54 11.54 0 0 1 2.84-2.68c1.86.25 5.66 3.15 6.78 7.5z" />
+                                                            <path fill="#ffcc66" d="M26.94 13.94a10.94 10.94 0 0 1-4.38 5.56c-1.32.88-2.57 1.48-4 .64A11.11 11.11 0 0 1 12.78 13c2 .18 2.15 1 4.55 1 2.67 0 2.67-1 5.34-1 2.25 0 2.6.72 4.27.94z" />
+                                                            <path fill="#ffde76" d="M26.94 13.94a10.94 10.94 0 0 1-4.38 5.56c-1.37-.19-4.56-2.25-6.08-5.5 3 .36 3.39-1 6.19-1 2.25 0 2.6.72 4.27.94zM19.29 28.29a1 1 0 0 1 1.42 1.42 1 1 0 0 1-1.42-1.42zM19.08 24.62a1 1 0 0 1 1.84.76 1 1 0 0 1-1.84-.76z" />
+                                                            <path fill="#ffcc66" d="M43 38a9 9 0 1 1-14.28-7.28A9 9 0 0 1 43 38z" />
+                                                            <path fill="#ffde76" d="M41.67 42.69c-8 4.86-17.26-4.33-12.36-12.36 8.03-4.92 17.26 4.36 12.36 12.36z" />
+                                                            <path fill="#f8834b" d="M34 37a1 1 0 1 1 1-1 1 1 0 0 0 1 1c1.66 0 1.21-3-1-3.82a1 1 0 1 0-2 0A3 3 0 0 0 34 39a1 1 0 1 1-1 1 1 1 0 0 0-1-1c-1.66 0-1.21 3 1 3.82a1 1 0 1 0 2 0A3 3 0 0 0 34 37z" />
+                                                        </g>
+                                                    </svg>
+
                                                     <div className="overview-content">
                                                         <h4>Chưa thanh toán</h4>
                                                         <span className="overview-number warning">{packageStats.tongQuan.tongSoHoiVienChuaThanhToan}</span>
                                                     </div>
                                                 </div>
                                                 <div className="overview-card">
-                                                    <div className="overview-icon">🟢</div>
+                                                    {/* <div className="overview-icon">🟢</div> */}
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        viewBox="0 0 36 36"
+                                                        width="34"
+                                                        height="34"
+                                                        aria-hidden="true"
+                                                        role="img"
+                                                        preserveAspectRatio="xMidYMid meet"
+                                                    >
+                                                        <circle fill="#10b981" cx="18" cy="18" r="18" />
+                                                    </svg>
                                                     <div className="overview-content">
                                                         <h4>Đang hoạt động</h4>
                                                         <span className="overview-number success">{packageStats.tongQuan.soDangKyDangHoatDong}</span>
                                                     </div>
                                                 </div>
                                                 <div className="overview-card">
-                                                    <div className="overview-icon">🔴</div>
+                                                    {/* <div className="overview-icon">🔴</div> */}
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        viewBox="0 0 36 36"
+                                                        width="34"
+                                                        height="34"
+                                                        aria-hidden="true"
+                                                        role="img"
+                                                        preserveAspectRatio="xMidYMid meet"
+                                                    >
+                                                        <circle fill="#ef4444" cx="18" cy="18" r="18" />
+                                                    </svg>
                                                     <div className="overview-content">
                                                         <h4>Đã hết hạn</h4>
                                                         <span className="overview-number error">{packageStats.tongQuan.soDangKyHetHan}</span>
                                                     </div>
                                                 </div>
-                                                <div className="overview-card">
-                                                    <div className="overview-icon">💰</div>
+                                                <div className="overview-card revenue-card">
+                                                    {/* Icon doanh thu SVG */}
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        viewBox="0 0 48 48"
+                                                        width="50"
+                                                        height="50"
+                                                        style={{ marginBottom: '8px', display: 'block' }}
+                                                    >
+                                                        <defs>
+                                                            <style>{`.cls-1{fill:#a87e6b}.cls-2{fill:#be927c}.cls-3{fill:#ffde76}.cls-4{fill:#fc6}`}</style>
+                                                        </defs>
+                                                        <g id="Budget">
+                                                            <path className="cls-1" d="M37 38c0 7.82-9.19 9-17 9-9.39 0-17-1.82-17-9 0-5.67 4.74-17.33 11.35-22h11.3C32.26 20.67 37 32.33 37 38z" />
+                                                            <path className="cls-2" d="M37 38a7 7 0 0 1-2.69 5.82A36.64 36.64 0 0 1 24 45c-9.39 0-17-1.82-17-9 0-5 3.66-14.58 9-20h9.63C32.26 20.67 37 32.33 37 38z" />
+                                                            <path className="cls-1" d="M28.78 5.94C26 10.38 27.11 8.63 25 12H15l-3.8-6.06a3 3 0 0 1 2.39-4.53C15 1.32 15 2 16.49 2c1.75 0 1.75-1 3.5-1s1.76 1 3.51 1a3 3 0 0 0 1.36-.29 3 3 0 0 1 3.92 4.23z" />
+                                                            <path className="cls-2" d="M28.78 5.94 26.87 9c-11.25 0-9.56.92-12.67-4.06a2.88 2.88 0 0 1 .31-3.45c.66.12.82.51 2 .51 1.75 0 1.75-1 3.5-1s1.76 1 3.51 1a2.92 2.92 0 0 0 1.39-.31 3 3 0 0 1 3.87 4.25z" />
+                                                            <path className="cls-3" d="M35 21c-.3 0-.38-.07-1.27-.52-2.55-1.27-1.6-3.48-3.73-3.86l-2.55-.51a1 1 0 0 1 .4-2c2.53.51 4.79.62 5.68 3.28.33 1 1.06 1.25 1.92 1.68A1 1 0 0 1 35 21zM35 14a5.49 5.49 0 0 1-3.49-.78 2.69 2.69 0 0 0-3 0l-.46.3a1 1 0 0 1-1.1-1.66l.45-.3a4.66 4.66 0 0 1 5.23 0A3.77 3.77 0 0 0 35 12a1 1 0 0 1 0 2z" />
+                                                            <path className="cls-4" d="M28 14a2 2 0 0 1-2 2H14a2 2 0 0 1 0-4h12a2 2 0 0 1 2 2z" />
+                                                            <path className="cls-3" d="M28 14H17a2 2 0 0 1-2-2h11a2 2 0 0 1 2 2zM20 30a2 2 0 1 1 2-2 1 1 0 0 0 1 1c1.89 0 1.06-4.06-2-4.86V23a1 1 0 0 0-2 0v1.14A4 4 0 0 0 20 32a2 2 0 1 1-2 2 1 1 0 0 0-1-1c-1.89 0-1.06 4.06 2 4.86V39a1 1 0 0 0 2 0v-1.14A4 4 0 0 0 20 30z" />
+                                                            <path className="cls-4" d="M45 38a9 9 0 1 1-14.28-7.28A9 9 0 0 1 45 38z" />
+                                                            <path className="cls-3" d="M43.67 42.69c-8 4.86-17.26-4.33-12.36-12.36 8.03-4.92 17.26 4.36 12.36 12.36z" />
+                                                            <path d="M36 37a1 1 0 1 1 1-1 1 1 0 0 0 1 1c1.66 0 1.21-3-1-3.82a1 1 0 1 0-2 0A3 3 0 0 0 36 39a1 1 0 1 1-1 1 1 1 0 0 0-1-1c-1.66 0-1.21 3 1 3.82a1 1 0 1 0 2 0A3 3 0 0 0 36 37z" style={{ fill: "#f8834b" }} />
+                                                        </g>
+                                                    </svg>
+
                                                     <div className="overview-content">
                                                         <h4>Tổng doanh thu</h4>
                                                         <span className="overview-number primary">{packageStats.tongQuan.tongDoanhThu.toLocaleString('vi-VN')}₫</span>
@@ -1133,6 +1360,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                         }
                                                         return (
                                                             <Bar
+                                                                key={`registration-chart-${chartKey}`}
                                                                 data={chartData.registrationChart}
                                                                 options={{
                                                                     responsive: true,
@@ -1140,7 +1368,8 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                                     plugins: {
                                                                         title: {
                                                                             display: true,
-                                                                            text: 'Số lượng đăng ký từng gói tập'
+                                                                            text: 'Số lượng đăng ký từng gói tập',
+                                                                            color: chartData.chartOptions.plugins.legend.labels.color
                                                                         },
                                                                         legend: {
                                                                             display: false
@@ -1148,7 +1377,15 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                                     },
                                                                     scales: {
                                                                         y: {
-                                                                            beginAtZero: true
+                                                                            beginAtZero: true,
+                                                                            ticks: {
+                                                                                color: chartData.chartOptions.plugins.legend.labels.color
+                                                                            }
+                                                                        },
+                                                                        x: {
+                                                                            ticks: {
+                                                                                color: chartData.chartOptions.plugins.legend.labels.color
+                                                                            }
                                                                         }
                                                                     }
                                                                 }}
@@ -1166,6 +1403,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                         const chartData = getPackageChartData();
                                                         return chartData?.revenueChart && (
                                                             <Bar
+                                                                key={`revenue-chart-${chartKey}`}
                                                                 data={chartData.revenueChart}
                                                                 options={{
                                                                     responsive: true,
@@ -1173,7 +1411,8 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                                     plugins: {
                                                                         title: {
                                                                             display: true,
-                                                                            text: 'Doanh thu từng gói tập'
+                                                                            text: 'Doanh thu từng gói tập',
+                                                                            color: chartData.chartOptions.plugins.legend.labels.color
                                                                         },
                                                                         legend: {
                                                                             display: false
@@ -1183,9 +1422,15 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                                         y: {
                                                                             beginAtZero: true,
                                                                             ticks: {
+                                                                                color: chartData.chartOptions.plugins.legend.labels.color,
                                                                                 callback: function (value) {
                                                                                     return value.toLocaleString('vi-VN') + '₫';
                                                                                 }
+                                                                            }
+                                                                        },
+                                                                        x: {
+                                                                            ticks: {
+                                                                                color: chartData.chartOptions.plugins.legend.labels.color
                                                                             }
                                                                         }
                                                                     }
@@ -1204,6 +1449,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                         const chartData = getPackageChartData();
                                                         return chartData?.pieChart && (
                                                             <Doughnut
+                                                                key={`pie-chart-${chartKey}`}
                                                                 data={chartData.pieChart}
                                                                 options={{
                                                                     responsive: true,
@@ -1211,10 +1457,18 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                                     plugins: {
                                                                         title: {
                                                                             display: true,
-                                                                            text: 'Tỷ lệ % đăng ký theo gói tập'
+                                                                            text: 'Tỷ lệ % đăng ký theo gói tập',
+                                                                            color: chartData.chartOptions.plugins.legend.labels.color
                                                                         },
                                                                         legend: {
-                                                                            position: 'bottom'
+                                                                            position: 'bottom',
+                                                                            labels: {
+                                                                                color: chartData.chartOptions.plugins.legend.labels.color,
+                                                                                font: {
+                                                                                    size: 12,
+                                                                                    weight: 'bold'
+                                                                                }
+                                                                            }
                                                                         }
                                                                     }
                                                                 }}
@@ -1261,6 +1515,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                 <div className="chart-container pie-chart">
                                                     {getStatusChartData() && (
                                                         <Doughnut
+                                                            key={`status-chart-${chartKey}`}
                                                             data={getStatusChartData()!}
                                                             options={{
                                                                 responsive: true,
@@ -1268,10 +1523,18 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                                 plugins: {
                                                                     title: {
                                                                         display: true,
-                                                                        text: 'Phân bố trạng thái đăng ký gói tập'
+                                                                        text: 'Phân bố trạng thái đăng ký gói tập',
+                                                                        color: getStatusChartData()!.chartOptions.plugins.legend.labels.color
                                                                     },
                                                                     legend: {
-                                                                        position: 'bottom'
+                                                                        position: 'bottom',
+                                                                        labels: {
+                                                                            color: getStatusChartData()!.chartOptions.plugins.legend.labels.color,
+                                                                            font: {
+                                                                                size: 12,
+                                                                                weight: 'bold'
+                                                                            }
+                                                                        }
                                                                     }
                                                                 }
                                                             }}
@@ -1309,6 +1572,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                 <div className="chart-container">
                                                     {getTimeChartData() && (
                                                         <Line
+                                                            key={`time-chart-${chartKey}`}
                                                             data={getTimeChartData()!}
                                                             options={{
                                                                 responsive: true,
@@ -1324,7 +1588,17 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                                 plugins: {
                                                                     title: {
                                                                         display: true,
-                                                                        text: 'Xu hướng đăng ký và doanh thu theo tháng'
+                                                                        text: 'Xu hướng đăng ký và doanh thu theo tháng',
+                                                                        color: getTimeChartData()!.chartOptions.plugins.legend.labels.color
+                                                                    },
+                                                                    legend: {
+                                                                        labels: {
+                                                                            color: getTimeChartData()!.chartOptions.plugins.legend.labels.color,
+                                                                            font: {
+                                                                                size: 12,
+                                                                                weight: 'bold'
+                                                                            }
+                                                                        }
                                                                     }
                                                                 },
                                                                 scales: {
@@ -1334,6 +1608,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                                             display: false
                                                                         },
                                                                         ticks: {
+                                                                            color: getTimeChartData()!.chartOptions.plugins.legend.labels.color,
                                                                             padding: 20, // Tạo khoảng cách giữa nhãn và trục
                                                                             maxRotation: 0, // Không xoay nhãn
                                                                             minRotation: 0,
@@ -1348,6 +1623,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                                         position: 'left',
                                                                         beginAtZero: true,
                                                                         ticks: {
+                                                                            color: getTimeChartData()!.chartOptions.plugins.legend.labels.color,
                                                                             padding: 15, // Tạo khoảng cách cho trục Y
                                                                             font: {
                                                                                 size: 12
@@ -1360,6 +1636,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                                         position: 'right',
                                                                         beginAtZero: true,
                                                                         ticks: {
+                                                                            color: getTimeChartData()!.chartOptions.plugins.legend.labels.color,
                                                                             padding: 15, // Tạo khoảng cách cho trục Y bên phải
                                                                             callback: function (value) {
                                                                                 return value.toLocaleString('vi-VN') + '₫';
@@ -1369,7 +1646,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                                             }
                                                                         },
                                                                         grid: {
-                                                                            drawOnChartArea: false,
+                                                                            drawOnChartArea: false
                                                                         },
                                                                     }
                                                                 }
