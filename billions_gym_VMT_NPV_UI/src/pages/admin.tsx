@@ -588,15 +588,53 @@ const PackageWorkflowPage = () => {
         setIsLoading(true);
         try {
             const response = await api.get('/api/chitietgoitap');
+            console.log('🔍 fetchPackageRegistrations response:', response);
+
             if (response && Array.isArray(response)) {
+                console.log('🔍 Total registrations:', response.length);
+
                 // Filter registrations that need workflow processing
-                const pendingRegistrations = response.filter((reg: any) =>
-                    reg.trangThaiThanhToan === 'DA_THANH_TOAN' &&
-                    (!reg.trangThaiDangKy || reg.trangThaiDangKy === 'CHO_CHON_PT')
-                );
+                // Hiển thị các gói đã thanh toán nhưng chưa hoàn thành đủ 3 bước workflow
+                const pendingRegistrations = response.filter((reg: any) => {
+                    console.log('🔍 Checking registration:', {
+                        _id: reg._id,
+                        trangThaiThanhToan: reg.trangThaiThanhToan,
+                        trangThaiDangKy: reg.trangThaiDangKy,
+                        isUpgrade: reg.isUpgrade,
+                        maHoiVien: reg.maHoiVien?.hoTen || 'Unknown'
+                    });
+
+                    // Chỉ hiển thị gói đã thanh toán
+                    if (reg.trangThaiThanhToan !== 'DA_THANH_TOAN') {
+                        console.log('🔍 Filtered out - not paid:', reg._id);
+                        return false;
+                    }
+
+                    // Loại bỏ các gói đã hoàn thành hoàn toàn (HOAN_THANH)
+                    if (reg.trangThaiDangKy === 'HOAN_THANH') {
+                        console.log('🔍 Filtered out - completed:', reg._id);
+                        return false;
+                    }
+
+                    // Loại bỏ các gói đã được nâng cấp (DA_NANG_CAP)
+                    if (reg.trangThaiDangKy === 'DA_NANG_CAP') {
+                        console.log('🔍 Filtered out - upgraded package:', reg._id);
+                        return false;
+                    }
+
+                    // Hiển thị các trạng thái cần xử lý:
+                    // - CHO_CHON_PT: Chưa chọn PT (bước 1)
+                    // - DA_CHON_PT: Đã chọn PT nhưng chưa tạo lịch (bước 2) 
+                    // - DA_TAO_LICH: Đã tạo lịch nhưng chưa xem lịch (bước 3)
+                    console.log('🔍 Should show - active package:', reg._id);
+                    return true;
+                });
+
+                console.log('🔍 Pending registrations:', pendingRegistrations.length);
                 setRegistrations(pendingRegistrations);
             }
         } catch (error) {
+            console.error('🔍 Error fetching package registrations:', error);
             notifications.generic.error('Không thể tải danh sách đăng ký gói tập');
         } finally {
             setIsLoading(false);
@@ -644,49 +682,53 @@ const PackageWorkflowPage = () => {
                                 <p>Tất cả các đăng ký gói tập đã được thiết lập hoặc chưa thanh toán.</p>
                             </div>
                         ) : (
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>Hội viên</th>
-                                        <th>Gói tập</th>
-                                        <th>Ngày đăng ký</th>
-                                        <th>Ngày hết hạn</th>
-                                        <th>Trạng thái</th>
-                                        <th>Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {registrations.map(reg => (
-                                        <tr key={reg._id}>
-                                            <td>{reg.maHoiVien?.hoTen || 'N/A'}</td>
-                                            <td>{reg.maGoiTap?.tenGoiTap || 'N/A'}</td>
-                                            <td>{new Date(reg.ngayDangKy).toLocaleDateString('vi-VN')}</td>
-                                            <td>{new Date(reg.ngayKetThuc).toLocaleDateString('vi-VN')}</td>
-                                            <td>
-                                                <span className={`badge ${reg.trangThaiDangKy === 'CHO_CHON_PT' ? 'warning' :
-                                                    reg.trangThaiDangKy === 'DA_CHON_PT' ? 'info' :
-                                                        reg.trangThaiDangKy === 'DA_TAO_LICH' ? 'success' :
-                                                            'secondary'
-                                                    }`}>
-                                                    {reg.trangThaiDangKy === 'CHO_CHON_PT' ? 'Chờ chọn PT' :
-                                                        reg.trangThaiDangKy === 'DA_CHON_PT' ? 'Đã chọn PT' :
-                                                            reg.trangThaiDangKy === 'DA_TAO_LICH' ? 'Đã tạo lịch' :
-                                                                'Chờ xử lý'}
-                                                </span>
-                                            </td>
-                                            <td className="row-actions">
-                                                <Button
-                                                    variant="primary"
-                                                    size="small"
-                                                    onClick={() => handleStartWorkflow(reg._id)}
-                                                >
-                                                    {reg.trangThaiDangKy === 'CHO_CHON_PT' ? 'Bắt đầu' : 'Tiếp tục'}
-                                                </Button>
-                                            </td>
+                            <div className="table-container">
+                                <table className="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Hội viên</th>
+                                            <th>Gói tập</th>
+                                            <th>Ngày đăng ký</th>
+                                            <th>Ngày hết hạn</th>
+                                            <th>Trạng thái</th>
+                                            <th>Thao tác</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {registrations.map(reg => (
+                                            <tr key={reg._id}>
+                                                <td>{reg.maHoiVien?.hoTen || 'N/A'}</td>
+                                                <td>{reg.maGoiTap?.tenGoiTap || 'N/A'}</td>
+                                                <td>{new Date(reg.ngayDangKy).toLocaleDateString('vi-VN')}</td>
+                                                <td>{new Date(reg.ngayKetThuc).toLocaleDateString('vi-VN')}</td>
+                                                <td>
+                                                    <span className={`badge ${reg.trangThaiDangKy === 'CHO_CHON_PT' ? 'warning' :
+                                                        reg.trangThaiDangKy === 'DA_CHON_PT' ? 'info' :
+                                                            reg.trangThaiDangKy === 'DA_TAO_LICH' ? 'success' :
+                                                                'secondary'
+                                                        }`}>
+                                                        {reg.trangThaiDangKy === 'CHO_CHON_PT' ? 'Chờ chọn PT' :
+                                                            reg.trangThaiDangKy === 'DA_CHON_PT' ? 'Đã chọn PT' :
+                                                                reg.trangThaiDangKy === 'DA_TAO_LICH' ? 'Đã tạo lịch' :
+                                                                    'Chờ xử lý'}
+                                                    </span>
+                                                </td>
+                                                <td className="row-actions">
+                                                    <button
+                                                        className="btn"
+                                                        onClick={() => handleStartWorkflow(reg._id)}
+                                                    >
+                                                        {reg.trangThaiDangKy === 'CHO_CHON_PT' ? 'Bắt đầu' :
+                                                            reg.trangThaiDangKy === 'DA_CHON_PT' ? 'Tiếp tục (Bước 2)' :
+                                                                reg.trangThaiDangKy === 'DA_TAO_LICH' ? 'Tiếp tục (Bước 3)' :
+                                                                    'Tiếp tục'}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         )}
                     </>
                 )}

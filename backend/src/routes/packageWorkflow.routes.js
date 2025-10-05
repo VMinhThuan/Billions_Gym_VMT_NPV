@@ -7,6 +7,7 @@ const authenticateToken = require('../middlewares/auth.middleware');
 router.post('/available-trainers/:chiTietGoiTapId', authenticateToken, packageWorkflowController.getAvailableTrainers);
 router.post('/select-trainer/:chiTietGoiTapId', authenticateToken, packageWorkflowController.selectTrainer);
 router.post('/generate-schedule/:chiTietGoiTapId', authenticateToken, packageWorkflowController.generateWorkoutSchedule);
+router.post('/complete-workflow/:chiTietGoiTapId', authenticateToken, packageWorkflowController.completeWorkflow);
 router.get('/member-schedule/:hoiVienId', authenticateToken, packageWorkflowController.getMemberWorkoutSchedule);
 
 // Routes cho quản lý lịch làm việc PT

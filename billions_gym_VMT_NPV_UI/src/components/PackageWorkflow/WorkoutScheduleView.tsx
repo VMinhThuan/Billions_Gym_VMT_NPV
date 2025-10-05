@@ -10,6 +10,7 @@ interface WorkoutScheduleViewProps {
     chiTietGoiTapId: string;
     onComplete: () => void;
     onBack: () => void;
+    onStepCompleted?: (step: string) => void;
 }
 
 interface BuoiTap {
@@ -46,7 +47,8 @@ interface LichTap {
 const WorkoutScheduleView: React.FC<WorkoutScheduleViewProps> = ({
     chiTietGoiTapId,
     onComplete,
-    onBack
+    onBack,
+    onStepCompleted
 }) => {
     const [lichTap, setLichTap] = useState<LichTap | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -65,25 +67,39 @@ const WorkoutScheduleView: React.FC<WorkoutScheduleViewProps> = ({
 
     useEffect(() => {
         fetchWorkoutSchedule();
+        // KHÔNG tự động đánh dấu bước 3 hoàn thành khi reload
+        // Chỉ đánh dấu khi người dùng thực sự xem và xác nhận lịch tập
     }, []);
 
     const fetchWorkoutSchedule = async () => {
         setIsLoading(true);
         try {
-            // Get member ID from chiTietGoiTap first
+            // Get chiTietGoiTap with populated lichTapDuocTao
             const chiTietResponse = await api.get(`/api/chitietgoitap/${chiTietGoiTapId}`);
-            if (chiTietResponse && chiTietResponse.maHoiVien) {
+            console.log('🔍 ChiTietGoiTap response:', chiTietResponse);
+
+            if (chiTietResponse && chiTietResponse.lichTapDuocTao) {
+                // Lịch tập đã được tạo và lưu trong chiTietGoiTap
+                console.log('🔍 lichTapDuocTao data:', chiTietResponse.lichTapDuocTao);
+                console.log('🔍 cacBuoiTap count:', chiTietResponse.lichTapDuocTao.cacBuoiTap?.length || 0);
+                setLichTap(chiTietResponse.lichTapDuocTao);
+            } else if (chiTietResponse && chiTietResponse.maHoiVien) {
+                // Fallback: tìm lịch tập từ member schedule
                 const response = await api.get(`/api/package-workflow/member-schedule/${chiTietResponse.maHoiVien}`);
                 if (response.success && response.data.length > 0) {
                     // Find the schedule for this specific package registration
-                    const relevantSchedule = response.data.find((schedule: any) => 
+                    const relevantSchedule = response.data.find((schedule: any) =>
                         schedule.chiTietGoiTap === chiTietGoiTapId
                     );
                     setLichTap(relevantSchedule || response.data[0]);
                 }
+            } else {
+                console.log('❌ No lichTapDuocTao found in chiTietGoiTap');
+                notifications.generic.error('Chưa có lịch tập được tạo cho gói này');
             }
         } catch (error) {
-            notifications.generic.error('Không thể tải lịch tập');
+            console.error('❌ Error fetching workout schedule:', error);
+            notifications.generic.error('Không thể tải lịch tập: ' + (error as any)?.message || 'Lỗi không xác định');
         } finally {
             setIsLoading(false);
         }
@@ -91,43 +107,66 @@ const WorkoutScheduleView: React.FC<WorkoutScheduleViewProps> = ({
 
     const getWeeksInSchedule = () => {
         if (!lichTap) return [];
-        
+
         const startDate = new Date(lichTap.ngayBatDau);
         const endDate = new Date(lichTap.ngayKetThuc);
         const weeks = [];
-        
+
         let currentWeekStart = new Date(startDate);
         currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() + 1); // Start from Monday
-        
+
         while (currentWeekStart <= endDate) {
             const weekEnd = new Date(currentWeekStart);
             weekEnd.setDate(weekEnd.getDate() + 6);
-            
+
             weeks.push({
                 start: new Date(currentWeekStart),
                 end: weekEnd,
                 label: `Tuần ${weeks.length + 1}`
             });
-            
+
             currentWeekStart.setDate(currentWeekStart.getDate() + 7);
         }
-        
+
         return weeks;
     };
 
     const getSessionsForWeek = (weekIndex: number) => {
         if (!lichTap) return [];
-        
+
         const weeks = getWeeksInSchedule();
         if (!weeks[weekIndex]) return [];
-        
+
         const weekStart = weeks[weekIndex].start;
         const weekEnd = weeks[weekIndex].end;
-        
-        return lichTap.cacBuoiTap.filter(session => {
-            const sessionDate = new Date(session.ngayTap);
-            return sessionDate >= weekStart && sessionDate <= weekEnd;
+
+        console.log('🔍 getSessionsForWeek debug:', {
+            weekIndex,
+            weekStart: weekStart.toISOString(),
+            weekEnd: weekEnd.toISOString(),
+            totalSessions: lichTap.cacBuoiTap?.length || 0,
+            sessions: lichTap.cacBuoiTap?.map(s => ({
+                ngayTap: s.ngayTap,
+                ngayTapISO: new Date(s.ngayTap).toISOString(),
+                gioBatDauDuKien: s.gioBatDauDuKien,
+                gioKetThucDuKien: s.gioKetThucDuKien
+            }))
         });
+
+        const filteredSessions = lichTap.cacBuoiTap.filter(session => {
+            const sessionDate = new Date(session.ngayTap);
+            const isInRange = sessionDate >= weekStart && sessionDate <= weekEnd;
+            console.log('🔍 Session filter:', {
+                sessionDate: sessionDate.toISOString(),
+                weekStart: weekStart.toISOString(),
+                weekEnd: weekEnd.toISOString(),
+                isInRange
+            });
+            return isInRange;
+        });
+
+        console.log('🔍 Filtered sessions:', filteredSessions);
+        return filteredSessions;
     };
 
     const formatDate = (date: Date) => {
@@ -152,7 +191,7 @@ const WorkoutScheduleView: React.FC<WorkoutScheduleViewProps> = ({
             'DA_HOAN_THANH': { label: 'Hoàn thành', class: 'completed' },
             'CHUA_HOAN_THANH': { label: 'Chưa hoàn thành', class: 'incomplete' }
         };
-        
+
         const statusInfo = statusMap[status as keyof typeof statusMap] || { label: status, class: 'default' };
         return <span className={`status-badge ${statusInfo.class}`}>{statusInfo.label}</span>;
     };
@@ -251,7 +290,7 @@ const WorkoutScheduleView: React.FC<WorkoutScheduleViewProps> = ({
                                             {session.gioBatDauDuKien} - {session.gioKetThucDuKien}
                                         </div>
                                     </div>
-                                    
+
                                     <div className="session-status">
                                         {getStatusBadge(session.trangThaiXacNhan)}
                                         {getStatusBadge(session.trangThaiTap)}
@@ -287,7 +326,7 @@ const WorkoutScheduleView: React.FC<WorkoutScheduleViewProps> = ({
                     {daysOfWeek.map(day => {
                         const isWorkoutDay = lichTap.cacNgayTap.includes(day.key);
                         const timeSlot = lichTap.khungGioTap.find(slot => slot.ngayTrongTuan === day.key);
-                        
+
                         return (
                             <div key={day.key} className={`pattern-day ${isWorkoutDay ? 'workout-day' : 'rest-day'}`}>
                                 <div className="day-label">{day.label}</div>
@@ -309,7 +348,10 @@ const WorkoutScheduleView: React.FC<WorkoutScheduleViewProps> = ({
                 <Button variant="ghost" onClick={onBack}>
                     Chỉnh sửa lịch
                 </Button>
-                <Button variant="primary" onClick={onComplete}>
+                <Button variant="primary" onClick={() => {
+                    // Gọi onComplete - handleWorkflowComplete sẽ tự động đánh dấu bước 3 hoàn thành
+                    onComplete();
+                }}>
                     Hoàn thành
                 </Button>
             </div>

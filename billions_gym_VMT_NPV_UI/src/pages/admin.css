@@ -3087,9 +3087,424 @@ Chi ng-lam-viec,
 .action-buttons {
     display: flex;
     gap: 8px;
+}
+
+/* Package Workflow Page Styles */
+.package-workflow-page {
+    padding: 20px;
+    height: calc(100vh - 40px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.package-workflow-page .panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-card);
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color);
+}
+
+.package-workflow-page .toolbar {
+    flex-shrink: 0;
+    padding: 24px;
+    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(135deg, var(--bg-card) 0%, rgba(139, 92, 246, 0.05) 100%);
+}
+
+.package-workflow-page .toolbar h2 {
+    color: var(--text-primary);
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.package-workflow-page .description {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin: 0;
+    opacity: 0.8;
+}
+
+/* Scrollable table container */
+.package-workflow-page .table-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: calc(100vh - 200px);
+    padding: 0 24px 24px 24px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+}
+
+.package-workflow-page .table-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.package-workflow-page .table-container::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+}
+
+.package-workflow-page .table-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--border-color) 0%, var(--accent-color) 100%);
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.package-workflow-page .table-container::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, var(--accent-color) 0%, #667eea 100%);
+    transform: scale(1.1);
+}
+
+/* Table styles */
+.package-workflow-page .table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-card);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    margin: 0;
+    table-layout: fixed;
+}
+
+/* Column widths for package workflow table */
+.package-workflow-page .table th:nth-child(1),
+.package-workflow-page .table td:nth-child(1) {
+    width: 13%;
+    /* Hội viên - giảm để nhường chỗ cho cột ngày */
+}
+
+.package-workflow-page .table th:nth-child(2),
+.package-workflow-page .table td:nth-child(2) {
+    width: 17%;
+    /* Gói tập - giảm để nhường chỗ cho cột ngày */
+}
+
+.package-workflow-page .table th:nth-child(3),
+.package-workflow-page .table td:nth-child(3) {
+    width: 14%;
+    /* Ngày đăng ký - tăng để hiển thị đầy đủ "NGÀY ĐĂNG KÝ" */
+}
+
+.package-workflow-page .table th:nth-child(4),
+.package-workflow-page .table td:nth-child(4) {
+    width: 14%;
+    /* Ngày hết hạn - tăng để hiển thị đầy đủ "NGÀY HẾT HẠN" */
+}
+
+.package-workflow-page .table th:nth-child(5),
+.package-workflow-page .table td:nth-child(5) {
+    width: 18%;
+    /* Trạng thái - tăng từ 12% lên 18% */
+}
+
+.package-workflow-page .table th:nth-child(6),
+.package-workflow-page .table td:nth-child(6) {
+    width: 24%;
+    /* Thao tác - giảm để cân bằng với cột ngày tăng */
+}
+
+.package-workflow-page .table thead th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 16px 20px;
+    text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border: none;
+}
+
+.package-workflow-page .table tbody tr {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.package-workflow-page .table tbody tr:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.package-workflow-page .table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.package-workflow-page .table tbody td {
+    padding: 16px 20px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    vertical-align: middle;
+}
+
+/* Status badge styles with different colors */
+.package-workflow-page .badge {
+    display: inline-flex;
     align-items: center;
-    flex-wrap: nowrap;
+    justify-content: center;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    min-width: 100px;
+    max-width: 100%;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-wrap: break-word;
+}
+
+.package-workflow-page .badge.warning {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    color: #ffffff;
+    border-color: #f59e0b;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.package-workflow-page .badge.warning:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+}
+
+.package-workflow-page .badge.info {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: #ffffff;
+    border-color: #1d4ed8;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.package-workflow-page .badge.info:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.package-workflow-page .badge.success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #ffffff;
+    border-color: #059669;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.package-workflow-page .badge.success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.package-workflow-page .badge.secondary {
+    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+    color: #ffffff;
+    border-color: #4b5563;
+    box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+}
+
+.package-workflow-page .badge.secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
+}
+
+/* Action button styles - centered */
+.package-workflow-page .row-actions {
+    text-align: center !important;
+    padding: 16px 20px;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100%;
+}
+
+.package-workflow-page .row-actions .btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    cursor: pointer;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 160px;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: unset;
+    word-wrap: normal;
+    margin: 0 auto !important;
+    text-align: center !important;
+}
+
+.package-workflow-page .row-actions .btn:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.package-workflow-page .row-actions .btn:active {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* Force center alignment for action buttons */
+.package-workflow-page .table td:nth-child(6) {
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+.package-workflow-page .table td:nth-child(6) .row-actions {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    text-align: center !important;
+}
+
+/* Empty state styles */
+.package-workflow-page .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+    border-radius: 16px;
+    margin: 20px;
+    border: 2px dashed var(--border-color);
+}
+
+.package-workflow-page .empty-state h3 {
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.package-workflow-page .empty-state p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin: 0;
+    opacity: 0.8;
+}
+
+/* Loading state */
+.package-workflow-page .loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+    color: var(--text-secondary);
+}
+
+/* Responsive design for package workflow table */
+@media (max-width: 1200px) {
+
+    .package-workflow-page .table th:nth-child(1),
+    .package-workflow-page .table td:nth-child(1) {
+        width: 11%;
+        /* Hội viên - giảm để nhường chỗ cho cột ngày */
+    }
+
+    .package-workflow-page .table th:nth-child(2),
+    .package-workflow-page .table td:nth-child(2) {
+        width: 16%;
+        /* Gói tập - giảm để nhường chỗ cho cột ngày */
+    }
+
+    .package-workflow-page .table th:nth-child(3),
+    .package-workflow-page .table td:nth-child(3) {
+        width: 12%;
+        /* Ngày đăng ký - tăng để hiển thị đầy đủ */
+    }
+
+    .package-workflow-page .table th:nth-child(4),
+    .package-workflow-page .table td:nth-child(4) {
+        width: 12%;
+        /* Ngày hết hạn - tăng để hiển thị đầy đủ */
+    }
+
+    .package-workflow-page .table th:nth-child(5),
+    .package-workflow-page .table td:nth-child(5) {
+        width: 20%;
+        /* Trạng thái */
+    }
+
+    .package-workflow-page .table th:nth-child(6),
+    .package-workflow-page .table td:nth-child(6) {
+        width: 36%;
+        /* Thao tác - tăng để đủ chỗ cho button */
+    }
+
+    .package-workflow-page .row-actions .btn {
+        font-size: 11px;
+        padding: 8px 16px;
+        min-width: 140px;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 auto !important;
+        text-align: center !important;
+    }
+
+    .package-workflow-page .badge {
+        font-size: 10px;
+        padding: 6px 10px;
+        min-width: 90px;
+    }
+}
+
+@media (max-width: 768px) {
+    .package-workflow-page .table-container {
+        overflow-x: auto;
+    }
+
+    .package-workflow-page .table {
+        min-width: 600px;
+    }
+
+    .package-workflow-page .row-actions .btn {
+        font-size: 10px;
+        padding: 6px 12px;
+        min-width: 120px;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 auto !important;
+        text-align: center !important;
+    }
+
+    .package-workflow-page .badge {
+        font-size: 9px;
+        padding: 5px 8px;
+        min-width: 80px;
+    }
 }
 
 .btn-icon {

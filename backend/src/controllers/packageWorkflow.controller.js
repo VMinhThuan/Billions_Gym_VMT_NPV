@@ -155,9 +155,32 @@ const generateWorkoutSchedule = async (req, res) => {
 
         const goiTap = chiTietGoiTap.maGoiTap;
 
+        console.log('🔍 GoiTap info:', {
+            tenGoiTap: goiTap.tenGoiTap,
+            thoiHan: goiTap.thoiHan,
+            donViThoiHan: goiTap.donViThoiHan
+        });
+
         // Tính toán ngày bắt đầu và kết thúc dựa trên gói tập
         const ngayBatDau = new Date();
-        const ngayKetThuc = new Date(chiTietGoiTap.ngayKetThuc);
+        // Tính ngày kết thúc dựa trên thời hạn gói tập
+        const ngayKetThuc = new Date(ngayBatDau);
+
+        // Tính toán dựa trên đơn vị thời hạn
+        if (goiTap.donViThoiHan === 'Thang') {
+            ngayKetThuc.setMonth(ngayKetThuc.getMonth() + goiTap.thoiHan);
+        } else if (goiTap.donViThoiHan === 'Ngay') {
+            ngayKetThuc.setDate(ngayKetThuc.getDate() + goiTap.thoiHan);
+        } else if (goiTap.donViThoiHan === 'Nam') {
+            ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + goiTap.thoiHan);
+        }
+
+        console.log('🔍 Date calculation:', {
+            ngayBatDau: ngayBatDau.toISOString(),
+            ngayKetThuc: ngayKetThuc.toISOString(),
+            thoiHan: goiTap.thoiHan,
+            donViThoiHan: goiTap.donViThoiHan
+        });
 
         // Tạo lịch tập
         const lichTap = new LichTap({
@@ -176,6 +199,9 @@ const generateWorkoutSchedule = async (req, res) => {
 
         // Tạo các buổi tập dựa trên lịch
         const buoiTapList = await generateWorkoutSessions(lichTap, goiTap);
+
+        console.log('🔍 Generated buoiTapList:', buoiTapList.length);
+        console.log('🔍 lichTap.cacBuoiTap after generation:', lichTap.cacBuoiTap);
 
         // Cập nhật chi tiết gói tập
         await ChiTietGoiTap.findByIdAndUpdate(chiTietGoiTapId, {
@@ -200,6 +226,15 @@ const generateWorkoutSchedule = async (req, res) => {
 
 // Hàm phụ trợ tạo các buổi tập
 const generateWorkoutSessions = async (lichTap, goiTap) => {
+    console.log('🔍 generateWorkoutSessions called with:', {
+        lichTapId: lichTap._id,
+        ngayBatDau: lichTap.ngayBatDau,
+        ngayKetThuc: lichTap.ngayKetThuc,
+        soNgayTapTrongTuan: lichTap.soNgayTapTrongTuan,
+        cacNgayTap: lichTap.cacNgayTap,
+        khungGioTap: lichTap.khungGioTap
+    });
+
     const buoiTapList = [];
     const ngayBatDau = new Date(lichTap.ngayBatDau);
     const ngayKetThuc = new Date(lichTap.ngayKetThuc);
@@ -211,16 +246,30 @@ const generateWorkoutSessions = async (lichTap, goiTap) => {
     const soTuanTap = Math.ceil(totalDays / 7);
     const soBuoiTapToiDa = soTuanTap * lichTap.soNgayTapTrongTuan;
 
+    console.log('🔍 Schedule calculation:', {
+        totalDays,
+        soTuanTap,
+        soBuoiTapToiDa
+    });
+
     let currentDate = new Date(ngayBatDau);
     let buoiTapCount = 0;
 
     while (currentDate <= ngayKetThuc && buoiTapCount < soBuoiTapToiDa) {
         const dayOfWeek = getDayOfWeek(currentDate);
 
+        console.log('🔍 Processing date:', {
+            currentDate: currentDate.toISOString(),
+            dayOfWeek,
+            isInSchedule: lichTap.cacNgayTap.includes(dayOfWeek)
+        });
+
         // Kiểm tra xem ngày này có trong lịch tập không
         if (lichTap.cacNgayTap.includes(dayOfWeek)) {
             // Tìm khung giờ tương ứng
             const khungGio = lichTap.khungGioTap.find(kg => kg.ngayTrongTuan === dayOfWeek);
+
+            console.log('🔍 Found time slot:', khungGio);
 
             if (khungGio) {
                 const buoiTap = new BuoiTap({
@@ -237,6 +286,12 @@ const generateWorkoutSessions = async (lichTap, goiTap) => {
                 await buoiTap.save();
                 buoiTapList.push(buoiTap);
                 buoiTapCount++;
+
+                console.log('🔍 Created buoiTap:', {
+                    ngayTap: buoiTap.ngayTap,
+                    gioBatDauDuKien: buoiTap.gioBatDauDuKien,
+                    gioKetThucDuKien: buoiTap.gioKetThucDuKien
+                });
             }
         }
 
@@ -246,6 +301,15 @@ const generateWorkoutSessions = async (lichTap, goiTap) => {
     // Cập nhật danh sách buổi tập vào lịch tập
     lichTap.cacBuoiTap = buoiTapList.map(bt => bt._id);
     await lichTap.save();
+
+    console.log('🔍 generateWorkoutSessions result:', {
+        totalSessions: buoiTapList.length,
+        sessionDates: buoiTapList.map(bt => ({
+            ngayTap: bt.ngayTap,
+            gioBatDauDuKien: bt.gioBatDauDuKien,
+            gioKetThucDuKien: bt.gioKetThucDuKien
+        }))
+    });
 
     return buoiTapList;
 };
@@ -385,11 +449,51 @@ const getTrainerSchedule = async (req, res) => {
     }
 };
 
+// Hoàn thành workflow gói tập
+const completeWorkflow = async (req, res) => {
+    try {
+        const { chiTietGoiTapId } = req.params;
+
+        // Kiểm tra chi tiết gói tập
+        const chiTietGoiTap = await ChiTietGoiTap.findById(chiTietGoiTapId);
+        if (!chiTietGoiTap) {
+            return res.status(404).json({ message: 'Không tìm thấy thông tin đăng ký gói tập' });
+        }
+
+        // Kiểm tra xem đã hoàn thành đủ các bước chưa
+        if (chiTietGoiTap.trangThaiDangKy !== 'DA_TAO_LICH') {
+            return res.status(400).json({
+                message: 'Chưa hoàn thành đủ các bước workflow. Cần hoàn thành: chọn PT, tạo lịch tập, và xem lịch tập'
+            });
+        }
+
+        // Cập nhật trạng thái thành hoàn thành
+        const updatedChiTiet = await ChiTietGoiTap.findByIdAndUpdate(
+            chiTietGoiTapId,
+            {
+                trangThaiDangKy: 'HOAN_THANH'
+            },
+            { new: true }
+        ).populate('ptDuocChon').populate('maGoiTap').populate('maHoiVien');
+
+        res.json({
+            success: true,
+            message: 'Đã hoàn thành workflow gói tập thành công',
+            data: updatedChiTiet
+        });
+
+    } catch (error) {
+        console.error('Error completing workflow:', error);
+        res.status(500).json({ message: 'Lỗi server khi hoàn thành workflow' });
+    }
+};
+
 module.exports = {
     getAvailableTrainers,
     selectTrainer,
     generateWorkoutSchedule,
     getMemberWorkoutSchedule,
     updateTrainerSchedule,
-    getTrainerSchedule
+    getTrainerSchedule,
+    completeWorkflow
 };

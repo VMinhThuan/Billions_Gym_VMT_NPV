@@ -68,8 +68,8 @@ const TrainerSelection: React.FC<TrainerSelectionProps> = ({
     };
 
     const handleTimeSlotChange = (timeSlot: string) => {
-        setGioTapUuTien(prev => 
-            prev.includes(timeSlot) 
+        setGioTapUuTien(prev =>
+            prev.includes(timeSlot)
                 ? prev.filter(t => t !== timeSlot)
                 : [...prev, timeSlot]
         );
@@ -129,11 +129,11 @@ const TrainerSelection: React.FC<TrainerSelectionProps> = ({
             {/* Preferences Section */}
             <Card className="preferences-card">
                 <h3>Tùy chọn lịch tập</h3>
-                
+
                 <div className="preference-group">
                     <label>Số ngày tập trong tuần:</label>
-                    <select 
-                        value={soNgayTapTrongTuan} 
+                    <select
+                        value={soNgayTapTrongTuan}
                         onChange={(e) => setSoNgayTapTrongTuan(Number(e.target.value))}
                     >
                         <option value={2}>2 ngày/tuần</option>
@@ -151,7 +151,7 @@ const TrainerSelection: React.FC<TrainerSelectionProps> = ({
                             <label key={slot} className="time-slot-option">
                                 <input
                                     type="checkbox"
-                                    checked={gioTapUuTien.includes(slot)}
+                                    checked={Boolean(gioTapUuTien.includes(slot))}
                                     onChange={() => handleTimeSlotChange(slot)}
                                 />
                                 <span>{slot}</span>
@@ -160,8 +160,8 @@ const TrainerSelection: React.FC<TrainerSelectionProps> = ({
                     </div>
                 </div>
 
-                <Button 
-                    variant="secondary" 
+                <Button
+                    variant="secondary"
                     onClick={fetchAvailableTrainers}
                     disabled={isLoading}
                 >
@@ -202,7 +202,7 @@ const TrainerSelection: React.FC<TrainerSelectionProps> = ({
             {/* Available Trainers List */}
             <div className="trainers-list">
                 <h3>Danh sách PT có sẵn ({availablePTs.length})</h3>
-                
+
                 {availablePTs.length === 0 ? (
                     <Card className="no-trainers-card">
                         <p>Không tìm thấy PT phù hợp với khung giờ bạn chọn.</p>
@@ -211,8 +211,8 @@ const TrainerSelection: React.FC<TrainerSelectionProps> = ({
                 ) : (
                     <div className="trainers-grid">
                         {availablePTs.map(pt => (
-                            <Card 
-                                key={pt._id} 
+                            <Card
+                                key={pt._id}
                                 className={`trainer-card ${selectedPT === pt._id ? 'selected' : ''}`}
                                 onClick={() => setSelectedPT(pt._id)}
                             >
@@ -250,8 +250,8 @@ const TrainerSelection: React.FC<TrainerSelectionProps> = ({
                 <Button variant="ghost" onClick={onBack}>
                     Quay lại
                 </Button>
-                <Button 
-                    variant="primary" 
+                <Button
+                    variant="primary"
                     onClick={handleSelectTrainer}
                     disabled={!selectedPT || isSelecting}
                 >

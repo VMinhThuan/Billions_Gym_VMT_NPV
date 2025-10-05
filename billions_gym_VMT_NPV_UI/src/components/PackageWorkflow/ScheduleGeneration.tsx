@@ -170,7 +170,7 @@ const ScheduleGeneration: React.FC<ScheduleGenerationProps> = ({
                         <label key={day.key} className="day-option">
                             <input
                                 type="checkbox"
-                                checked={selectedDays.includes(day.key)}
+                                checked={Boolean(selectedDays.includes(day.key))}
                                 onChange={() => handleDaySelection(day.key)}
                             />
                             <span className="day-label">{day.label}</span>
@@ -208,7 +208,7 @@ const ScheduleGeneration: React.FC<ScheduleGenerationProps> = ({
                                                     type="radio"
                                                     name={`time-${day}`}
                                                     value={timeRange}
-                                                    checked={isSelected}
+                                                    checked={Boolean(isSelected)}
                                                     disabled={!isAvailable}
                                                     onChange={() => handleTimeSlotChange(day, timeRange)}
                                                 />
@@ -249,21 +249,25 @@ const ScheduleGeneration: React.FC<ScheduleGenerationProps> = ({
                     <p>PT chưa cập nhật lịch làm việc</p>
                 ) : (
                     <div className="pt-schedule-grid">
-                        {ptSchedule.map(schedule => {
-                            const dayLabel = daysOfWeek.find(d => d.key === schedule.thu)?.label;
+                        {daysOfWeek.map(day => {
+                            const schedule = ptSchedule.find(s => s.thu === day.key);
                             return (
-                                <div key={schedule.thu} className="pt-day-schedule">
-                                    <h4>{dayLabel}</h4>
+                                <div key={day.key} className="pt-day-schedule">
+                                    <h4>{day.label}</h4>
                                     <div className="pt-time-slots">
-                                        {schedule.gioLamViec.map((slot: any, index: number) => (
-                                            <span
-                                                key={index}
-                                                className={`pt-time-slot ${slot.trangThai.toLowerCase()}`}
-                                            >
-                                                {slot.gioBatDau}-{slot.gioKetThuc}
-                                                <small>({slot.trangThai === 'RANH' ? 'Rảnh' : slot.trangThai === 'BAN' ? 'Bận' : 'Nghỉ'})</small>
-                                            </span>
-                                        ))}
+                                        {schedule && schedule.gioLamViec ? (
+                                            schedule.gioLamViec.map((slot: any, index: number) => (
+                                                <span
+                                                    key={index}
+                                                    className={`pt-time-slot ${slot.trangThai.toLowerCase()}`}
+                                                >
+                                                    {slot.gioBatDau}-{slot.gioKetThuc}
+                                                    <small>({slot.trangThai === 'RANH' ? 'Rảnh' : slot.trangThai === 'BAN' ? 'Bận' : 'Nghỉ'})</small>
+                                                </span>
+                                            ))
+                                        ) : (
+                                            <span className="pt-time-slot no-schedule">Chưa cập nhật</span>
+                                        )}
                                     </div>
                                 </div>
                             );

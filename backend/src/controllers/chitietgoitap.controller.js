@@ -29,12 +29,30 @@ exports.createChiTietGoiTap = async (req, res) => {
 
 exports.getAllChiTietGoiTap = async (req, res) => {
     try {
+        console.log('🔍 getAllChiTietGoiTap called');
         const filter = {};
         if (req.query.maHoiVien) filter.maHoiVien = req.query.maHoiVien;
         if (req.query.maGoiTap) filter.maGoiTap = req.query.maGoiTap;
         const ds = await chiTietGoiTapService.getAllChiTietGoiTap(filter);
+        console.log('🔍 getAllChiTietGoiTap result:', ds.length, 'registrations');
         res.json(ds);
     } catch (err) {
+        console.error('🔍 getAllChiTietGoiTap error:', err);
+        res.status(500).json({ message: 'Lỗi server', error: err.message });
+    }
+};
+
+exports.getChiTietGoiTapById = async (req, res) => {
+    try {
+        console.log('🔍 getChiTietGoiTapById called with ID:', req.params.id);
+        const chiTiet = await chiTietGoiTapService.getChiTietGoiTapById(req.params.id);
+        console.log('🔍 getChiTietGoiTapById result:', chiTiet ? 'Found' : 'Not found');
+        if (!chiTiet) {
+            return res.status(404).json({ message: 'Không tìm thấy đăng ký gói tập' });
+        }
+        res.json(chiTiet);
+    } catch (err) {
+        console.error('🔍 getChiTietGoiTapById error:', err);
         res.status(500).json({ message: 'Lỗi server', error: err.message });
     }
 };

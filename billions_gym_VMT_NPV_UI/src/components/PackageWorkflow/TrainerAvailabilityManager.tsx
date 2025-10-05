@@ -183,7 +183,7 @@ const TrainerAvailabilityManager: React.FC<TrainerAvailabilityManagerProps> = ({
         try {
             console.log('Saving schedule for PT:', ptId);
             console.log('Schedule data:', schedule);
-            
+
             const response = await api.put(`/api/package-workflow/trainer-schedule/${ptId}`, {
                 lichLamViec: schedule
             });
@@ -192,7 +192,7 @@ const TrainerAvailabilityManager: React.FC<TrainerAvailabilityManagerProps> = ({
 
             if (response && response.success) {
                 notifications.generic.success('Đã cập nhật lịch làm việc thành công!');
-                
+
                 // Redirect to PT Schedule page instead of just closing modal
                 setTimeout(() => {
                     window.location.hash = '#/admin/trainer_availability';
@@ -244,8 +244,8 @@ const TrainerAvailabilityManager: React.FC<TrainerAvailabilityManagerProps> = ({
                 <h2>Quản lý lịch làm việc</h2>
                 <p>Thiết lập thời gian rảnh để khách hàng có thể đặt lịch tập</p>
                 <div className="quick-actions">
-                    <Button 
-                        variant="secondary" 
+                    <Button
+                        variant="secondary"
                         onClick={() => {
                             const allAvailableSchedule = daysOfWeek.map(day => ({
                                 thu: day.key,
@@ -257,8 +257,8 @@ const TrainerAvailabilityManager: React.FC<TrainerAvailabilityManagerProps> = ({
                     >
                         Đặt tất cả rảnh
                     </Button>
-                    <Button 
-                        variant="ghost" 
+                    <Button
+                        variant="ghost"
                         onClick={() => {
                             const allOffSchedule = daysOfWeek.map(day => ({
                                 thu: day.key,
@@ -289,15 +289,15 @@ const TrainerAvailabilityManager: React.FC<TrainerAvailabilityManagerProps> = ({
                                     <div className="day-header">
                                         <h3>{day.label}</h3>
                                         <div className="day-actions">
-                                            <Button 
-                                                variant="ghost" 
+                                            <Button
+                                                variant="ghost"
                                                 size="small"
                                                 onClick={() => setDayAvailable(day.key)}
                                             >
                                                 Tất cả rảnh
                                             </Button>
-                                            <Button 
-                                                variant="ghost" 
+                                            <Button
+                                                variant="ghost"
                                                 size="small"
                                                 onClick={() => setDayOff(day.key)}
                                             >
@@ -312,13 +312,13 @@ const TrainerAvailabilityManager: React.FC<TrainerAvailabilityManagerProps> = ({
                                                 <div className="time-inputs">
                                                     <input
                                                         type="time"
-                                                        value={slot.gioBatDau}
+                                                        value={slot.gioBatDau || ''}
                                                         onChange={(e) => updateTimeSlot(day.key, slotIndex, 'gioBatDau', e.target.value)}
                                                     />
                                                     <span>-</span>
                                                     <input
                                                         type="time"
-                                                        value={slot.gioKetThuc}
+                                                        value={slot.gioKetThuc || ''}
                                                         onChange={(e) => updateTimeSlot(day.key, slotIndex, 'gioKetThuc', e.target.value)}
                                                     />
                                                 </div>
@@ -329,7 +329,7 @@ const TrainerAvailabilityManager: React.FC<TrainerAvailabilityManagerProps> = ({
                                                             <input
                                                                 type="radio"
                                                                 name={`${day.key}-${slotIndex}-status`}
-                                                                checked={slot.trangThai === status}
+                                                                checked={Boolean(slot.trangThai === status)}
                                                                 onChange={() => updateTimeSlotStatus(day.key, slotIndex, status as any)}
                                                             />
                                                             <span className={`status-label ${getStatusColor(status)}`}>
@@ -377,15 +377,15 @@ const TrainerAvailabilityManager: React.FC<TrainerAvailabilityManagerProps> = ({
                                 <div className="day-header">
                                     <h3>{day.label}</h3>
                                     <div className="day-actions">
-                                        <Button 
-                                            variant="ghost" 
+                                        <Button
+                                            variant="ghost"
                                             size="small"
                                             onClick={() => setDayAvailable(day.key)}
                                         >
                                             Tất cả rảnh
                                         </Button>
-                                        <Button 
-                                            variant="ghost" 
+                                        <Button
+                                            variant="ghost"
                                             size="small"
                                             onClick={() => setDayOff(day.key)}
                                         >
@@ -401,13 +401,13 @@ const TrainerAvailabilityManager: React.FC<TrainerAvailabilityManagerProps> = ({
                                                 <div className="time-inputs">
                                                     <input
                                                         type="time"
-                                                        value={slot.gioBatDau}
+                                                        value={slot.gioBatDau || ''}
                                                         onChange={(e) => updateTimeSlot(day.key, slotIndex, 'gioBatDau', e.target.value)}
                                                     />
                                                     <span>-</span>
                                                     <input
                                                         type="time"
-                                                        value={slot.gioKetThuc}
+                                                        value={slot.gioKetThuc || ''}
                                                         onChange={(e) => updateTimeSlot(day.key, slotIndex, 'gioKetThuc', e.target.value)}
                                                     />
                                                 </div>
@@ -418,7 +418,7 @@ const TrainerAvailabilityManager: React.FC<TrainerAvailabilityManagerProps> = ({
                                                             <input
                                                                 type="radio"
                                                                 name={`${day.key}-${slotIndex}-status`}
-                                                                checked={slot.trangThai === status}
+                                                                checked={Boolean(slot.trangThai === status)}
                                                                 onChange={() => updateTimeSlotStatus(day.key, slotIndex, status as any)}
                                                             />
                                                             <span className={`status-label ${getStatusColor(status)}`}>
@@ -469,8 +469,8 @@ const TrainerAvailabilityManager: React.FC<TrainerAvailabilityManagerProps> = ({
             ) : (
                 <div className="no-schedule">
                     <p>Đang tải lịch làm việc...</p>
-                    <Button 
-                        variant="primary" 
+                    <Button
+                        variant="primary"
                         onClick={() => {
                             const defaultSchedule = daysOfWeek.map(day => ({
                                 thu: day.key,
@@ -491,8 +491,8 @@ const TrainerAvailabilityManager: React.FC<TrainerAvailabilityManagerProps> = ({
                         Hủy
                     </Button>
                 )}
-                <Button 
-                    variant="primary" 
+                <Button
+                    variant="primary"
                     onClick={saveSchedule}
                     disabled={isSaving}
                 >
