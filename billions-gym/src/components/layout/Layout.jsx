@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Header from './Header';
 import Footer from './Footer';
 import content1 from "../../assets/images/content/ex1.jpg";
@@ -12,6 +12,29 @@ import Card from '../ui/Card';
 import "../../pages/Home.css"
 
 const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
+    useEffect(() => {
+        const selector = '[data-reveal="slow-up"]';
+        const nodes = document.querySelectorAll(selector);
+
+        nodes.forEach((el) => el.classList.add('reveal-initial'));
+
+        const io = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.remove('reveal-initial');
+                    entry.target.classList.add('animate-fadeInUp-slow');
+                    io.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.15,
+        });
+
+        nodes.forEach((el) => io.observe(el));
+
+        return () => io.disconnect();
+    }, []);
+
     return (
         <>
             <div className="min-h-screen flex flex-col">
@@ -28,12 +51,12 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                             {/* Left Side - Main Introduction */}
                             <div className="py-[60px] relative">
                                 <div className="mb-10">
-                                    <h1 className="text-[4rem] font-[900] leading-[1.05] m-0 font-[Roboto,sans-serif] uppercase tracking-[-0.02em] bg-gradient-to-br from-[#ffffff] to-[#f0f0f0] bg-clip-text text-transparent [text-shadow:0_4px_8px_rgba(0,0,0,0.3)]">
+                                    <h1 data-reveal="slow-up" className="text-[4rem] font-[900] leading-[1.05] m-0 font-[Roboto,sans-serif] uppercase tracking-[-0.02em] bg-gradient-to-br from-[#ffffff] to-[#f0f0f0] bg-clip-text text-transparent [text-shadow:0_4px_8px_rgba(0,0,0,0.3)]">
                                         CHÚNG TÔI LÀ BILLIONS
                                     </h1>
                                 </div>
                                 <div className="mb-[50px]">
-                                    <p className="text-[1.25rem] leading-[1.8] m-0 opacity-95 text-[#e0e0e0] max-w-[90%]">
+                                    <p data-reveal="slow-up" className="text-[1.25rem] leading-[1.8] m-0 opacity-95 text-[#e0e0e0] max-w-[90%]">
                                         Billions Fitness & Yoga là thương hiệu sức khỏe lớn nhất Việt Nam,
                                         mang đến hạnh phúc và những khoảnh khắc đáng nhớ thông qua các dịch vụ
                                         toàn diện về sức khỏe thể chất, dinh dưỡng và tinh thần.
@@ -52,7 +75,7 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                                                 Các lớp nhảy năng động như Pop dance, Sexy Dance, Pole dance
                                                 hoặc Zumba được dẫn dắt bởi các huấn luyện viên Billions quốc tế.
                                             </p>
-                                            <a href="#" className="content-link">Tìm hiểu thêm →</a>
+                                            <a href="#" data-reveal="slow-up" className="content-link">Tìm hiểu thêm →</a>
                                         </div>
                                     </div>
                                     <div className="content-image-item">
@@ -63,7 +86,7 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                                                 Các huấn luyện viên được chứng nhận NASM giúp tạo ra kế hoạch
                                                 tập luyện và dinh dưỡng cá nhân hóa, hướng dẫn thành viên đạt được mục tiêu.
                                             </p>
-                                            <a href="#" className="content-link">Tìm hiểu thêm →</a>
+                                            <a href="#" data-reveal="slow-up" className="content-link">Tìm hiểu thêm →</a>
                                         </div>
                                     </div>
                                     <div className="content-image-item">
@@ -74,7 +97,7 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                                                 Khuyến khích thành viên áp dụng lối sống lành mạnh, thử những điều mới
                                                 và sống cuộc sống nhiệt huyết, tự tin.
                                             </p>
-                                            <a href="#" className="content-link">Tìm hiểu thêm →</a>
+                                            <a href="#" data-reveal="slow-up" className="content-link">Tìm hiểu thêm →</a>
                                         </div>
                                     </div>
                                     <div className="content-image-item">
@@ -85,7 +108,7 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                                                 Hơn 50 lớp tập nhóm có bản quyền Lesmills (Body Combat, Body Jam, RPM, SH'Bam)
                                                 và các chương trình độc quyền Billions như BillionsDrumfit, BillionsStep, cập nhật hàng tháng.
                                             </p>
-                                            <a href="#" className="content-link">Tìm hiểu thêm →</a>
+                                            <a href="#" data-reveal="slow-up" className="content-link">Tìm hiểu thêm →</a>
                                         </div>
                                     </div>
                                     <div className="content-image-item">
@@ -112,17 +135,17 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                             {/* Left Side - Luxury Standards Introduction */}
                             <div className="left-content">
                                 <div className="mb-10">
-                                    <h2 className="text-[4rem] font-black leading-[1.05] m-0 font-[Roboto,sans-serif] uppercase tracking-[-0.02em] bg-gradient-to-br from-[#ffffff] to-[#f0f0f0] bg-clip-text text-transparent [text-shadow:0_4px_8px_rgba(0,0,0,0.3)]">TIÊU CHUẨN CỦA SỰ SANG TRỌNG</h2>
+                                    <h2 data-reveal="slow-up" className="text-[4rem] font-black leading-[1.05] m-0 font-[Roboto,sans-serif] uppercase tracking-[-0.02em] bg-gradient-to-br from-[#ffffff] to-[#f0f0f0] bg-clip-text text-transparent [text-shadow:0_4px_8px_rgba(0,0,0,0.3)]">TIÊU CHUẨN CỦA SỰ SANG TRỌNG</h2>
                                 </div>
                                 <div className="mb-[50px]">
-                                    <p className="text-[1.25rem] leading-[1.8] m-0 opacity-95 text-[#e0e0e0] max-w-[90%]">
+                                    <p data-reveal="slow-up" className="text-[1.25rem] leading-[1.8] m-0 opacity-95 text-[#e0e0e0] max-w-[90%]">
                                         Hơn 37 câu lạc bộ trên toàn quốc, mang đến môi trường tập luyện cao cấp
                                         với trang thiết bị hàng đầu, khu vực VIP và các tiện ích đặc biệt như
                                         phòng xông hơi, bể bơi và Jacuzzi.
                                     </p>
                                 </div>
                                 <div className="mt-10">
-                                    <a href="#" className="cta-link">
+                                    <a href="#" data-reveal="slow-up" className="cta-link">
                                         <span>Tìm Câu Lạc Bộ Gần Bạn</span>
                                         <span className="arrow">→</span>
                                     </a>
@@ -146,17 +169,17 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                             {/* Left Side - Dream to Reality Introduction */}
                             <div className="left-content">
                                 <div className="mb-10">
-                                    <h2 className="text-[4rem] font-black leading-[1.05] m-0 font-[Roboto,sans-serif] uppercase tracking-[-0.02em] bg-gradient-to-br from-[#ffffff] to-[#f0f0f0] bg-clip-text text-transparent [text-shadow:0_4px_8px_rgba(0,0,0,0.3)]">BIẾN GIẤC MƠ TRỞ THÀNH HIỆN THỰC</h2>
+                                    <h2 data-reveal="slow-up" className="text-[4rem] font-black leading-[1.05] m-0 font-[Roboto,sans-serif] uppercase tracking-[-0.02em] bg-gradient-to-br from-[#ffffff] to-[#f0f0f0] bg-clip-text text-transparent [text-shadow:0_4px_8px_rgba(0,0,0,0.3)]">BIẾN GIẤC MƠ TRỞ THÀNH HIỆN THỰC</h2>
                                 </div>
                                 <div className="mb-[50px]">
-                                    <p className="text-[1.25rem] leading-[1.8] m-0 opacity-95 text-[#e0e0e0] max-w-[90%]">
+                                    <p data-reveal="slow-up" className="text-[1.25rem] leading-[1.8] m-0 opacity-95 text-[#e0e0e0] max-w-[90%]">
                                         Trong thập kỷ qua, hơn 500.000 người đã chọn chúng tôi để bắt đầu hành
                                         trình tập luyện. Hãy cùng khám phá vì sao Billions được nhiều hội viên
                                         tin tưởng lựa chọn nhé!
                                     </p>
                                 </div>
                                 <div className="mt-10">
-                                    <a href="#" className="cta-link">
+                                    <a href="#" data-reveal="slow-up" className="cta-link">
                                         <span>Tìm Hiểu Về Dịch Vụ Huấn Luyện Viên Cá Nhân</span>
                                         <span className="arrow">→</span>
                                     </a>
@@ -177,9 +200,9 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                 <section className="free-trial-section">
                     <div className="max-w-[1200px] mx-auto px-[20px]">
                         <div className="grid grid-cols-2 items-center gap-[80px] relative z-[2]">
-                            <div className="py-5 animate-fade-in-up">
-                                <h2 className="text-[3.5rem] font-black leading-[1.1] mb-[30px] uppercase tracking-[-0.02em] text-white">TRẢI NGHIỆM MIỄN PHÍ NGAY!</h2>
-                                <p className="text-[1.2rem] leading-[1.8] text-gray-400 opacity-90 max-w-[85%]">
+                            <div className="py-5">
+                                <h2 data-reveal="slow-up" className="text-[3.5rem] font-black leading-[1.1] mb-[30px] uppercase tracking-[-0.02em] text-white">TRẢI NGHIỆM MIỄN PHÍ NGAY!</h2>
+                                <p data-reveal="slow-up" className="text-[1.2rem] leading-[1.8] text-gray-400 opacity-90 max-w-[85%]">
                                     Chào mừng bạn đến với Billions Fitness & Yoga! Chúng tôi dành tặng bạn
                                     7 ngày trải nghiệm miễn phí để khám phá tất cả các dịch vụ và tiện ích
                                     tại câu lạc bộ. Hãy để lại thông tin để chúng tôi liên hệ tư vấn chi tiết.
