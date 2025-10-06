@@ -7,13 +7,6 @@ const DinhDuongSchema = new mongoose.Schema({
     buaAn: { type: String, required: true },
     luongCalo: { type: Number, required: true },
 
-    // Loại gợi ý
-    loaiGoiY: {
-        type: String,
-        enum: ['DINH_DUONG_TONG_QUAT', 'GIAM_CAN', 'TANG_CAN', 'TANG_CO_BAP', 'GIAM_MO', 'DUY_TRI'],
-        default: 'DINH_DUONG_TONG_QUAT'
-    },
-
     // Phân tích tập luyện
     phanTichTapLuyen: {
         tanSuatTap: { type: Number, default: 0 },
@@ -39,6 +32,13 @@ const DinhDuongSchema = new mongoose.Schema({
         }
     },
 
+    // Loại gợi ý
+    loaiGoiY: {
+        type: String,
+        enum: ['DINH_DUONG_TONG_QUAT', 'GIAM_CAN', 'TANG_CAN', 'TANG_CO_BAP', 'GIAM_MO', 'DUY_TRI'],
+        default: 'DINH_DUONG_TONG_QUAT'
+    },
+
     // Gợi ý AI chi tiết
     goiYAI: {
         tieuDe: { type: String, required: true },
@@ -51,7 +51,7 @@ const DinhDuongSchema = new mongoose.Schema({
         danhGiaDoPhuhop: { type: Number, min: 1, max: 10, default: 8 }
     },
 
-    // Thực đơn liên kết (nếu có)
+    // Thực đơn liên kết 
     thucDonLienKet: { type: mongoose.Schema.Types.ObjectId, ref: 'ThucDon' },
 
     // Phản hồi từ người dùng

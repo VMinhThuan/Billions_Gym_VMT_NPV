@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-// Schema cho một món ăn trong thực đơn
 const MonAnSchema = new mongoose.Schema({
     tenMonAn: { type: String, required: true },
     moTa: { type: String },
@@ -45,7 +44,6 @@ const ThucDonHangNgaySchema = new mongoose.Schema({
     ghiChu: { type: String }
 });
 
-// Schema cho thực đơn theo tuần/tháng
 const ThucDonSchema = new mongoose.Schema({
     hoiVien: { type: mongoose.Schema.Types.ObjectId, ref: 'HoiVien', required: true },
     ngayBatDau: { type: Date, required: true },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import Button from './Button';
 import Card from './Card';
@@ -9,12 +9,13 @@ interface Field {
     name: string;
     label: string;
     type?: string;
-    options?: string[] | { value: string; label: string; }[];
+    options?: string[] | { value: string; label: string; disabled?: boolean; }[];
     validation?: {
         required?: boolean;
         pattern?: RegExp;
         message?: string;
         maxSize?: number; // for file uploads in MB
+        minDate?: string; // for date validation
     };
 }
 
@@ -24,6 +25,7 @@ interface EntityFormProps {
     initialData?: Record<string, any>;
     onClose: () => void;
     onSave: (data: Record<string, any>) => void;
+    onFieldChange?: (name: string, value: any) => void;
 }
 
 interface ConfirmModalProps {
@@ -36,7 +38,68 @@ interface ConfirmModalProps {
     type?: 'danger' | 'warning' | 'info';
 }
 
-const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormProps) => {
+interface CustomSelectProps {
+    value: string;
+    onChange: (value: string) => void;
+    options: { value: string; label: string }[];
+    placeholder?: string;
+    error?: string;
+}
+
+const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, placeholder = "Chọn trạng thái", error }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const selectedOption = options.find(option => option.value === value);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
+    return (
+        <div className="custom-select-container" ref={dropdownRef}>
+            <div
+                className={`custom-select ${error ? 'error' : ''}`}
+                onClick={() => setIsOpen(!isOpen)}
+            >
+                <span className="custom-select-text">
+                    {selectedOption ? selectedOption.label : placeholder}
+                </span>
+                <span className="custom-select-arrow">▼</span>
+            </div>
+
+            {isOpen && (
+                <div className="custom-select-options">
+                    {options.map(option => (
+                        <div
+                            key={option.value}
+                            className={`custom-select-option ${value === option.value ? 'selected' : ''}`}
+                            data-value={option.value}
+                            onClick={() => {
+                                onChange(option.value);
+                                setIsOpen(false);
+                            }}
+                        >
+                            {option.label}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+
+const EntityForm = ({ title, fields, initialData, onClose, onSave, onFieldChange }: EntityFormProps) => {
     const [formData, setFormData] = useState<Record<string, any>>(initialData || {});
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -51,6 +114,14 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
         }
     }, [initialData]);
 
+    // Add/remove modal-open class to body
+    useEffect(() => {
+        document.body.classList.add('modal-open');
+        return () => {
+            document.body.classList.remove('modal-open');
+        };
+    }, []);
+
     const validateField = (field: Field, value: any): string | null => {
         if (field.validation?.required && (!value || value.toString().trim() === '')) {
             return `${field.label} là bắt buộc`;
@@ -58,6 +129,14 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
 
         if (field.validation?.pattern && value && !field.validation.pattern.test(value)) {
             return field.validation.message || `${field.label} không đúng định dạng`;
+        }
+
+        if (field.validation?.minDate && value && field.type === 'date') {
+            const selectedDate = new Date(value);
+            const minDate = new Date(field.validation.minDate + 'T00:00:00'); // Thêm time để so sánh chính xác
+            if (selectedDate < minDate) {
+                return field.validation.message || `${field.label} phải từ ngày ${minDate.toLocaleDateString('vi-VN')} trở đi`;
+            }
         }
 
         return null;
@@ -104,32 +183,35 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
         const newErrors: Record<string, string> = {};
 
         for (const field of fields) {
-            const error = validateField(field, formData[field.name]);
+            const value = formData[field.name];
+            const error = validateField(field, value);
+            console.log(`🔍 Field: ${field.name}, Value: ${value}, Error: ${error}`);
             if (error) {
                 newErrors[field.name] = error;
             }
-
-            // Check for duplicate email/phone
-            if (field.name === 'email' && formData[field.name]) {
-                const isDuplicate = await checkDuplicateEmail(formData[field.name], initialData?._id);
-                if (isDuplicate) {
-                    newErrors[field.name] = 'Email đã tồn tại trong hệ thống';
-                }
-            }
-
-            if (field.name === 'sdt' && formData[field.name]) {
-                const isDuplicate = await checkDuplicatePhone(formData[field.name], initialData?._id);
-                if (isDuplicate) {
-                    newErrors[field.name] = 'Số điện thoại đã tồn tại trong hệ thống';
-                }
-            }
         }
+
+        console.log('🔍 Form validation errors:', newErrors);
+        console.log('🔍 Form data:', formData);
 
         setErrors(newErrors);
 
         // Only submit if no errors
         if (Object.keys(newErrors).length === 0) {
-            onSave(formData);
+            const finalData = { ...formData };
+
+            // Final cleanup: remove optional fields if they are empty
+            fields.forEach(field => {
+                if (!field.validation?.required) {
+                    const value = finalData[field.name];
+                    if (value === '' || value === null || value === undefined) {
+                        delete finalData[field.name];
+                    }
+                }
+            });
+
+            console.log('🚀 EntityForm - Final data being sent to onSave:', finalData);
+            onSave(finalData);
         }
     };
 
@@ -139,6 +221,10 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
         // Clear error for this field when user starts typing
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }));
+        }
+
+        if (onFieldChange) {
+            onFieldChange(name, value);
         }
     };
 
@@ -210,10 +296,9 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
     const modalContent = (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e?.stopPropagation()}>
-                <div className="modal-header">
+                <div className="modal-header" style={{ background: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
                     <div className="modal-title-section">
                         <h2 className="modal-title">{title}</h2>
-                        <p className="modal-subtitle">{initialData ? 'Chỉnh sửa thông tin' : 'Tạo mới'}</p>
                     </div>
                     <button className="modal-close-btn" onClick={onClose}>
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -274,6 +359,19 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                                             );
                                         })}
                                     </div>
+                                ) : field.name === 'trangThaiHoiVien' || field.name === 'trangThaiPT' ? (
+                                    <CustomSelect
+                                        value={formData[field.name] || ''}
+                                        onChange={(value) => handleChange(field.name, value)}
+                                        options={[
+                                            { value: 'DANG_HOAT_DONG', label: 'Đang hoạt động' },
+                                            { value: 'TAM_NGUNG', label: 'Tạm ngưng' },
+                                            { value: 'HET_HAN', label: 'Hết hạn' },
+                                            { value: 'DA_KHOA', label: 'Đã khóa' }
+                                        ]}
+                                        placeholder="Chọn trạng thái"
+                                        error={errors[field.name]}
+                                    />
                                 ) : field.options ? (
                                     <select
                                         value={formData[field.name] || ''}
@@ -285,7 +383,15 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                                             if (typeof option === 'string') {
                                                 return <option key={option} value={option}>{option}</option>;
                                             } else {
-                                                return <option key={option.value} value={option.value}>{option.label}</option>;
+                                                return (
+                                                    <option
+                                                        key={option.value}
+                                                        value={option.value}
+                                                        disabled={option.disabled || false}
+                                                    >
+                                                        {option.label}
+                                                    </option>
+                                                );
                                             }
                                         })}
                                     </select>
@@ -303,6 +409,7 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                                         value={formData[field.name] ? new Date(formData[field.name]).toISOString().split('T')[0] : ''}
                                         onChange={(e) => handleChange(field.name, e.target.value ? new Date(e.target.value).toISOString() : '')}
                                         className={`form-input ${errors[field.name] ? 'error' : ''}`}
+                                        min={field.validation?.minDate ? new Date(field.validation.minDate).toISOString().split('T')[0] : undefined}
                                     />
                                 ) : (
                                     <input
@@ -331,7 +438,7 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave }: EntityFormP
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                                 <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
-                            {initialData ? 'Cập nhật' : 'Tạo mới'}
+                            {initialData ? 'Cập nhật' : 'Thêm mới'}
                         </Button>
                     </div>
                 </form>

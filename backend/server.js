@@ -39,6 +39,8 @@ const hangHoiVienRouter = require('./src/routes/hanghoivien.route');
 const chatbotRouter = require('./src/routes/chatbot.route');
 const mlTrainingRouter = require('./src/routes/mlTraining.route');
 const workoutPredictionRouter = require('./src/routes/workoutPrediction.route');
+const packageWorkflowRouter = require('./src/routes/packageWorkflow.routes');
+const dangKyGoiTapRouter = require('./src/routes/dangKyGoiTap.routes');
 
 app.use('/api/auth', authRouter);
 app.use('/api/user', userRouter);
@@ -56,6 +58,8 @@ app.use('/api/hanghoivien', hangHoiVienRouter);
 app.use('/api/chatbot', chatbotRouter);
 app.use('/api/ml-training', mlTrainingRouter);
 app.use('/api/workout-prediction', workoutPredictionRouter);
+app.use('/api/package-workflow', packageWorkflowRouter);
+app.use('/api/dang-ky-goi-tap', dangKyGoiTapRouter);
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

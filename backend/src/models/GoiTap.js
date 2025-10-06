@@ -11,10 +11,29 @@ const GoiTapSchema = new mongoose.Schema({
         default: 'Ngay',
         required: true
     },
-    giaGoc: { type: Number }, // Giá gốc để hiển thị giảm giá
-    popular: { type: Boolean, default: false }, // Gói phổ biến
+    loaiThoiHan: {
+        type: String,
+        enum: ['VinhVien', 'TinhTheoNgay'],
+        default: 'TinhTheoNgay',
+        required: true
+    },
+    soLuongNguoiThamGia: {
+        type: Number,
+        required: true,
+        min: 1,
+        default: 1
+    },
+    loaiGoiTap: {
+        type: String,
+        enum: ['CaNhan', 'Nhom', 'CongTy'],
+        default: 'CaNhan',
+        required: true
+    },
+    giaGoc: { type: Number },
+    popular: { type: Boolean, default: false },
     hinhAnhDaiDien: { type: String },
     kichHoat: { type: Boolean, default: true },
+    ghiChu: { type: String },
 }, { collection: 'goiTaps', timestamps: true });
 
 module.exports = mongoose.model('GoiTap', GoiTapSchema);

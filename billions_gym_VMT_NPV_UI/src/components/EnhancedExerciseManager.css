@@ -1,0 +1,425 @@
+/* EnhancedExerciseManager.css - Modern exercise management interface */
+
+.enhanced-exercise-manager {
+    min-height: 100vh;
+    transition: all 0.3s ease;
+}
+
+/* Light Mode */
+.enhanced-exercise-manager.light {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    color: #1e293b;
+}
+
+/* Dark Mode */
+.enhanced-exercise-manager.dark {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: #f1f5f9;
+}
+
+/* Manager Header */
+.manager-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 32px;
+    margin: 24px;
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: sticky;
+    top: 24px;
+    z-index: 100;
+}
+
+.enhanced-exercise-manager.light .manager-header {
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.1);
+}
+
+.enhanced-exercise-manager.dark .manager-header {
+    background: rgba(30, 41, 59, 0.9);
+    box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.3);
+}
+
+.header-left {
+    flex: 1;
+}
+
+.header-title {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.title {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.enhanced-exercise-manager.light .title {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.enhanced-exercise-manager.dark .title {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.title-icon {
+    font-size: 3rem;
+    animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-8px); }
+    60% { transform: translateY(-4px); }
+}
+
+.subtitle {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.enhanced-exercise-manager.light .subtitle {
+    color: #64748b;
+}
+
+.enhanced-exercise-manager.dark .subtitle {
+    color: #94a3b8;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+/* Theme Toggle Button */
+.theme-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.enhanced-exercise-manager.light .theme-toggle-btn {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+.enhanced-exercise-manager.light .theme-toggle-btn:hover {
+    background: #e2e8f0;
+    transform: translateY(-1px);
+}
+
+.enhanced-exercise-manager.dark .theme-toggle-btn {
+    background: #374151;
+    color: #f1f5f9;
+}
+
+.enhanced-exercise-manager.dark .theme-toggle-btn:hover {
+    background: #4b5563;
+    transform: translateY(-1px);
+}
+
+.theme-icon {
+    font-size: 16px;
+}
+
+.theme-text {
+    font-size: 14px;
+}
+
+/* Create Button */
+.create-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px -4px rgba(16, 185, 129, 0.4);
+}
+
+.create-btn:hover {
+    background: linear-gradient(135deg, #059669 0%, #065f46 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -8px rgba(16, 185, 129, 0.5);
+}
+
+.btn-icon {
+    font-size: 16px;
+}
+
+/* Close Button */
+.close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.enhanced-exercise-manager.light .close-btn {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.enhanced-exercise-manager.light .close-btn:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+    transform: scale(1.1);
+}
+
+.enhanced-exercise-manager.dark .close-btn {
+    background: #374151;
+    color: #94a3b8;
+}
+
+.enhanced-exercise-manager.dark .close-btn:hover {
+    background: #4b5563;
+    color: #f1f5f9;
+    transform: scale(1.1);
+}
+
+.close-icon {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* Form Header (when in form view) */
+.form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 32px;
+    margin: 24px;
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: sticky;
+    top: 24px;
+    z-index: 100;
+}
+
+.enhanced-exercise-manager.light .form-header {
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.1);
+}
+
+.enhanced-exercise-manager.dark .form-header {
+    background: rgba(30, 41, 59, 0.9);
+    box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.3);
+}
+
+.back-to-list-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.enhanced-exercise-manager.light .back-to-list-btn {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+.enhanced-exercise-manager.light .back-to-list-btn:hover {
+    background: #e2e8f0;
+    transform: translateX(-2px);
+}
+
+.enhanced-exercise-manager.dark .back-to-list-btn {
+    background: #374151;
+    color: #f1f5f9;
+}
+
+.enhanced-exercise-manager.dark .back-to-list-btn:hover {
+    background: #4b5563;
+    transform: translateX(-2px);
+}
+
+.back-icon {
+    font-size: 18px;
+}
+
+.form-title {
+    flex: 1;
+    text-align: center;
+}
+
+.form-title h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.enhanced-exercise-manager.light .form-title h1 {
+    color: #1e293b;
+}
+
+.enhanced-exercise-manager.dark .form-title h1 {
+    color: #f1f5f9;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .manager-header,
+    .form-header {
+        flex-direction: column;
+        gap: 20px;
+        align-items: stretch;
+        padding: 24px 20px;
+        margin: 16px;
+    }
+
+    .header-right {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .title {
+        font-size: 2rem;
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+
+    .title-icon {
+        font-size: 2.5rem;
+    }
+
+    .subtitle {
+        text-align: center;
+    }
+
+    .create-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .form-header {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .form-title h1 {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .manager-header,
+    .form-header {
+        padding: 20px 16px;
+        margin: 12px;
+    }
+
+    .title {
+        font-size: 1.75rem;
+    }
+
+    .title-icon {
+        font-size: 2rem;
+    }
+
+    .subtitle {
+        font-size: 1rem;
+    }
+
+    .create-btn,
+    .theme-toggle-btn,
+    .back-to-list-btn {
+        padding: 12px 16px;
+        font-size: 14px;
+    }
+
+    .form-title h1 {
+        font-size: 1.25rem;
+    }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .manager-header,
+    .form-header {
+        border-width: 2px;
+    }
+
+    .create-btn,
+    .theme-toggle-btn,
+    .close-btn,
+    .back-to-list-btn {
+        border: 2px solid rgba(0, 0, 0, 0.2);
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .title-icon {
+        animation: none;
+    }
+
+    .create-btn:hover,
+    .theme-toggle-btn:hover,
+    .close-btn:hover,
+    .back-to-list-btn:hover {
+        transform: none;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .enhanced-exercise-manager {
+        background: white;
+    }
+
+    .manager-header,
+    .form-header {
+        background: white;
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+
+    .header-right,
+    .theme-toggle-btn,
+    .create-btn,
+    .close-btn {
+        display: none;
+    }
+}

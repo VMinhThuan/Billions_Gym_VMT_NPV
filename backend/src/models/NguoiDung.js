@@ -6,7 +6,12 @@ const NguoiDungSchema = new mongoose.Schema({
     diaChi: { type: String },
     gioiTinh: { type: String, required: true },
     anhDaiDien: { type: String },
-    email: { type: String, unique: true },
+    email: {
+        type: String,
+        unique: true,
+        sparse: true,
+        default: undefined
+    },
     sdt: { type: String, unique: true, required: true },
 }, { discriminatorKey: 'vaiTro', collection: 'nguoiDungs' });
 
@@ -41,6 +46,7 @@ const PTSchema = new mongoose.Schema({
     chuyenMon: { type: String },
     danhGia: { type: Number, min: 1, max: 5 },
     moTa: { type: String },
+    ngayVaoLam: { type: Date, default: Date.now },
     trangThaiPT: { type: String, enum: ['DANG_HOAT_DONG', 'NGUNG_LAM_VIEC'], default: 'DANG_HOAT_DONG' },
 });
 

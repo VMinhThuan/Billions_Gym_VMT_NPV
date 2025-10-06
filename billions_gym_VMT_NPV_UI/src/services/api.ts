@@ -52,6 +52,13 @@ async function request<T>(path: string, options: { method?: HttpMethod; body?: a
         if (res.status === 401) {
             // Clear invalid token
             auth.clearToken();
+            // Show notification and redirect to login
+            if (typeof window !== 'undefined') {
+                // Dispatch custom event for token expiration
+                window.dispatchEvent(new CustomEvent('tokenExpired', {
+                    detail: { message: 'Phiên đã hết hạn. Vui lòng đăng nhập lại.' }
+                }));
+            }
             throw new Error('Unauthorized - please login again');
         }
 

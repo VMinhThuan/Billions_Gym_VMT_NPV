@@ -18,7 +18,7 @@ exports.login = async (req, res) => {
     try {
         const taiKhoan = await authService.findTaiKhoanBySdt(sdt);
         if (!taiKhoan) {
-            return res.status(401).json({ message: 'Đăng nhập thất bại' });
+            return res.status(401).json({ message: 'Số điện thoại hoặc mật khẩu không đúng.' });
         }
 
         if (taiKhoan.trangThaiTK === 'DA_KHOA') {
@@ -27,21 +27,17 @@ exports.login = async (req, res) => {
 
         const isMatch = await bcrypt.compare(matKhau, taiKhoan.matKhau);
         if (!isMatch) {
-            return res.status(401).json({ message: 'Đăng nhập thất bại' });
+            return res.status(401).json({ message: 'Số điện thoại hoặc mật khẩu không đúng.' });
         }
 
         const nguoiDung = await authService.findNguoiDungById(taiKhoan.nguoiDung);
         if (!nguoiDung) return res.status(401).json({ message: 'Không tìm thấy người dùng' });
 
-        // Validate nguoiDung._id
         if (!nguoiDung._id) {
-            console.error('No _id found in nguoiDung:', nguoiDung);
             return res.status(500).json({ message: 'Lỗi dữ liệu người dùng' });
         }
 
-        // Validate ObjectId format
         if (!mongoose.Types.ObjectId.isValid(nguoiDung._id)) {
-            console.error('Invalid ObjectId in nguoiDung._id:', nguoiDung._id);
             return res.status(500).json({ message: 'Lỗi dữ liệu người dùng' });
         }
 
@@ -68,7 +64,6 @@ exports.forgotPassword = async (req, res) => {
             message: result.message
         });
     } catch (err) {
-        // Trả về thông báo cụ thể cho từng loại lỗi
         if (err.message.includes('Số điện thoại chưa được đăng ký')) {
             return res.status(404).json({
                 success: false,
@@ -149,43 +144,6 @@ exports.resetPassword = async (req, res) => {
     }
 };
 
-// Debug endpoint để kiểm tra cấu hình Twilio
-exports.debugTwilio = async (req, res) => {
-    try {
-        const accountSid = process.env.TWILIO_ACCOUNT_SID;
-        const authToken = process.env.TWILIO_AUTH_TOKEN ? 'Hidden' : 'Not set';
-        const phoneNumber = process.env.TWILIO_PHONE_NUMBER;
-
-        // Test Twilio connection
-        const twilio = require('twilio');
-        const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-
-        try {
-            const account = await client.api.accounts(process.env.TWILIO_ACCOUNT_SID).fetch();
-
-            res.json({
-                status: 'success',
-                twilioAccountStatus: account.status,
-                configuredPhoneNumber: phoneNumber,
-                accountSid: accountSid
-            });
-        } catch (twilioError) {
-            res.status(500).json({
-                status: 'error',
-                message: 'Twilio connection failed',
-                error: twilioError.message
-            });
-        }
-
-    } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: 'Debug failed',
-            error: error.message
-        });
-    }
-};
-
 exports.changePassword = async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
@@ -205,7 +163,7 @@ exports.changePassword = async (req, res) => {
             });
         }
 
-        // Find user's account
+        // Tìm tài khoản của người dùng
         const taiKhoan = await authService.findTaiKhoanByUserId(userId);
         if (!taiKhoan) {
             return res.status(404).json({
@@ -214,7 +172,7 @@ exports.changePassword = async (req, res) => {
             });
         }
 
-        // Verify current password
+        // Kiểm tra mật khẩu hiện tại
         const isCurrentPasswordValid = await bcrypt.compare(currentPassword, taiKhoan.matKhau);
         if (!isCurrentPasswordValid) {
             return res.status(400).json({
@@ -223,11 +181,11 @@ exports.changePassword = async (req, res) => {
             });
         }
 
-        // Hash new password
+        // Hash mật khẩu mới
         const saltRounds = 10;
         const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
 
-        // Update password
+        // Cập nhật mật khẩu
         await authService.updatePassword(taiKhoan._id, hashedNewPassword);
 
         res.json({

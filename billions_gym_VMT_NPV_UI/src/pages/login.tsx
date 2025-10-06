@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api, auth } from '../services/api';
 import Button from '../components/Button';
 import Card from '../components/Card';
+import { useCrudNotifications } from '../hooks/useNotification';
 import './login.css';
 
 interface LoginForm {
@@ -13,6 +14,15 @@ const LoginPage = () => {
     const [form, setForm] = useState<LoginForm>({ identifier: '', matKhau: '' });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const notifications = useCrudNotifications();
+
+    useEffect(() => {
+        if (auth.isAuthenticated()) {
+            setIsAuthenticated(true);
+            window.location.href = '#/admin';
+        }
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -20,20 +30,23 @@ const LoginPage = () => {
         setError('');
 
         try {
-            // Determine if identifier is email or phone number
             const isEmail = form.identifier.includes('@');
-            const credentials = isEmail 
+            const credentials = isEmail
                 ? { email: form.identifier, matKhau: form.matKhau }
                 : { sdt: form.identifier, matKhau: form.matKhau };
 
             const response = await api.login(credentials);
-            
+
             if (response.token) {
-                // Redirect to admin dashboard
-                window.location.href = '#/admin';
+                notifications.auth.loginSuccess();
+                setTimeout(() => {
+                    window.location.href = '#/admin';
+                }, 1000);
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');
+            const errorMessage = err instanceof Error ? err.message : 'Đăng nhập thất bại';
+            setError(errorMessage);
+            notifications.auth.loginError(errorMessage);
         } finally {
             setIsLoading(false);
         }
@@ -43,9 +56,7 @@ const LoginPage = () => {
         setForm(prev => ({ ...prev, [field]: e.target.value }));
     };
 
-    // Redirect if already authenticated
-    if (auth.isAuthenticated()) {
-        window.location.href = '#/admin';
+    if (isAuthenticated) {
         return null;
     }
 
@@ -105,7 +116,7 @@ const LoginPage = () => {
                     </form>
 
                     <div className="login-footer">
-                        <p>Hệ thống quản lý Billions Fitness & Yoga</p>
+                        <p>Hệ thống quản lý Billions Fitness & Gym</p>
                     </div>
                 </Card>
             </div>

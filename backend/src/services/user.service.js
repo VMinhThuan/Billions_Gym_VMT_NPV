@@ -66,7 +66,9 @@ const createHoiVien = async (data) => {
     const yyyy = ngaySinh.getFullYear();
     const plainPassword = `${dd}${mm}${yyyy}`;
     const hashedPassword = await hashPassword(plainPassword);
+
     await TaiKhoan.create({ sdt, matKhau: hashedPassword, nguoiDung: hoiVien._id });
+
     return hoiVien;
 };
 
@@ -94,9 +96,7 @@ const getPTById = async (id) => {
 }
 
 const updateHoiVien = async (id, data) => {
-    console.log('🔧 SERVICE - updateHoiVien called with:', { id, data });
-
-    // ✅ SỬA: Chỉ convert date nếu có giá trị
+    // Chỉ convert date nếu có giá trị
     if (data.ngaySinh && data.ngaySinh !== null) {
         data.ngaySinh = toVNTime(data.ngaySinh);
     }
@@ -108,29 +108,16 @@ const updateHoiVien = async (id, data) => {
     }
 
     const oldHoiVien = await HoiVien.findById(id);
-    console.log('🔧 SERVICE - Found oldHoiVien:', oldHoiVien ? 'Yes' : 'No');
     if (!oldHoiVien) {
-        console.log('❌ SERVICE - HoiVien not found with id:', id);
         return null;
     }
 
-    console.log('🔧 SERVICE - Old HoiVien data:', {
-        hoTen: oldHoiVien.hoTen,
-        email: oldHoiVien.email,
-        sdt: oldHoiVien.sdt,
-        gioiTinh: oldHoiVien.gioiTinh
-    });
-
     // ✅ SỬA: Kiểm tra email đã tồn tại - chỉ khi có thay đổi
     if (data.email !== undefined && data.email !== oldHoiVien.email) {
-        console.log('🔧 SERVICE - Checking email uniqueness for:', data.email);
         const existedHoiVien = await HoiVien.findOne({ email: data.email, _id: { $ne: id } });
         const existedPT = await PT.findOne({ email: data.email });
 
-        console.log('🔧 SERVICE - Email check results:', { existedHoiVien: !!existedHoiVien, existedPT: !!existedPT });
-
         if (existedHoiVien || existedPT) {
-            console.log('🔧 SERVICE - Email already exists, throwing error');
             const err = new Error('Email đã tồn tại, vui lòng chọn email khác.');
             err.code = 11000;
             err.keyPattern = { email: 1 };
@@ -140,22 +127,18 @@ const updateHoiVien = async (id, data) => {
 
     // ✅ SỬA: Kiểm tra số điện thoại - chỉ khi có thay đổi
     if (data.sdt !== undefined && data.sdt !== oldHoiVien.sdt) {
-        console.log('🔧 SERVICE - Checking phone uniqueness for:', data.sdt);
         const existedTK = await TaiKhoan.findOne({
             sdt: data.sdt,
             nguoiDung: { $ne: id }
         });
-        console.log('🔧 SERVICE - Phone check result:', !!existedTK);
 
         if (existedTK) {
-            console.log('🔧 SERVICE - Phone already exists, throwing error');
             const err = new Error('Số điện thoại đã tồn tại ở tài khoản khác');
             err.code = 11000;
             err.keyPattern = { sdt: 1 };
             throw err;
         }
         // ✅ THÊM: Cập nhật số điện thoại trong TaiKhoan
-        console.log('🔧 SERVICE - Updating phone in TaiKhoan');
         await TaiKhoan.updateOne({ nguoiDung: id }, { sdt: data.sdt });
     }
 
@@ -182,7 +165,6 @@ const updateHoiVien = async (id, data) => {
             updateData.sdt = data.sdt.trim();
         } else {
             // Nếu cố gắng xóa sdt, giữ nguyên giá trị cũ
-            console.log('🔧 SERVICE - Cannot delete sdt, keeping original value');
         }
     }
 
@@ -198,20 +180,24 @@ const updateHoiVien = async (id, data) => {
         updateData.avatar = data.avatar;
     }
 
+    // Xử lý trangThaiHoiVien
+    if (data.trangThaiHoiVien !== undefined && data.trangThaiHoiVien !== oldHoiVien.trangThaiHoiVien) {
+        updateData.trangThaiHoiVien = data.trangThaiHoiVien;
+        
+        // Đồng bộ trạng thái tài khoản với trạng thái hội viên
+        const trangThaiTK = data.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'DANG_HOAT_DONG' : 'DA_KHOA';
+        await TaiKhoan.updateOne({ nguoiDung: id }, { trangThaiTK: trangThaiTK });
+    }
+
     // Xử lý ngaySinh - chỉ update nếu có giá trị mới
     if (data.ngaySinh !== undefined && data.ngaySinh !== null) {
         updateData.ngaySinh = data.ngaySinh;
     }
 
-    console.log('🔧 SERVICE - Fields to update:', Object.keys(updateData));
-
     // Nếu không có trường nào cần cập nhật
     if (Object.keys(updateData).length === 0) {
-        console.log('🔧 SERVICE - No fields to update, returning current data');
         return oldHoiVien;
     }
-
-    console.log('🔧 SERVICE - About to update HoiVien with data:', updateData);
 
     try {
         const result = await HoiVien.findByIdAndUpdate(id, updateData, {
@@ -219,11 +205,8 @@ const updateHoiVien = async (id, data) => {
             runValidators: true,
             context: 'query'
         });
-        console.log('🔧 SERVICE - Update result:', result ? 'Success' : 'Failed');
         return result;
     } catch (updateError) {
-        console.log('❌ SERVICE - Update failed with error:', updateError.message);
-        console.log('❌ SERVICE - Update error details:', updateError);
         throw updateError;
     }
 };
@@ -234,7 +217,12 @@ const deleteHoiVien = async (id) => {
 };
 
 const createPT = async (data) => {
-    console.log('📝 CreatePT - Received data:', JSON.stringify(data, null, 2));
+    // Clean data - ensure email is either a valid string or undefined
+    if (data.email === undefined || data.email === null || (typeof data.email === 'string' && data.email.trim() === '')) {
+        data.email = undefined;
+    } else {
+        data.email = data.email.trim();
+    }
 
     if (data.ngaySinh) data.ngaySinh = toVNTime(data.ngaySinh);
 
@@ -264,8 +252,10 @@ const createPT = async (data) => {
         throw err;
     }
 
-    if (data.email) {
+    // Chỉ kiểm tra email trùng lặp nếu email là một string hợp lệ
+    if (typeof data.email === 'string' && data.email.length > 0) {
         const existed = await PT.findOne({ email: data.email }) || await HoiVien.findOne({ email: data.email });
+
         if (existed) {
             const err = new Error('Email đã tồn tại, vui lòng chọn email khác.');
             err.code = 11000;
@@ -282,7 +272,41 @@ const createPT = async (data) => {
         throw err;
     }
 
-    const pt = await PT.create(data);
+    // Tạo object PT chỉ với các field có giá trị
+    const ptData = {
+        hoTen: data.hoTen,
+        ngaySinh: data.ngaySinh,
+        gioiTinh: data.gioiTinh,
+        sdt: data.sdt,
+        chuyenMon: data.chuyenMon,
+        bangCapChungChi: data.bangCapChungChi,
+        kinhNghiem: data.kinhNghiem || 0,
+        trangThaiPT: data.trangThaiPT || 'DANG_HOAT_DONG'
+    };
+
+    // Chỉ thêm các field optional nếu có giá trị
+    if (typeof data.email === 'string' && data.email.trim() !== '') {
+        ptData.email = data.email.trim();
+    }
+    if (data.soCCCD) {
+        ptData.soCCCD = data.soCCCD;
+    }
+    if (data.diaChi) {
+        ptData.diaChi = data.diaChi;
+    }
+    if (data.anhDaiDien) {
+        ptData.anhDaiDien = data.anhDaiDien;
+    }
+    if (data.moTa) {
+        ptData.moTa = data.moTa;
+    }
+    // Chỉ thêm đánh giá nếu có giá trị hợp lệ (1-5)
+    if (data.danhGia && data.danhGia >= 1 && data.danhGia <= 5) {
+        ptData.danhGia = data.danhGia;
+    }
+
+    const pt = await PT.create(ptData);
+
     const sdt = data.sdt;
     const ngaySinh = new Date(data.ngaySinh);
     const dd = String(ngaySinh.getDate()).padStart(2, '0');
@@ -290,12 +314,25 @@ const createPT = async (data) => {
     const yyyy = ngaySinh.getFullYear();
     const plainPassword = `${dd}${mm}${yyyy}`;
     const hashedPassword = await hashPassword(plainPassword);
+
     await TaiKhoan.create({ sdt, matKhau: hashedPassword, nguoiDung: pt._id });
+
     return pt;
 };
 
 const getAllPT = async () => {
     return PT.find();
+};
+
+const searchPT = async (query) => {
+    const searchRegex = new RegExp(query, 'i');
+    return PT.find({
+        $or: [
+            { hoTen: searchRegex },
+            { sdt: searchRegex },
+            { email: searchRegex }
+        ]
+    });
 };
 
 const updatePT = async (id, data) => {
@@ -314,7 +351,21 @@ const updatePT = async (id, data) => {
         }
         await TaiKhoan.updateOne({ nguoiDung: id }, { sdt: data.sdt });
     }
-    return PT.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+
+    // Tạo object update chỉ với các field có giá trị hợp lệ
+    const updateData = { ...data };
+
+    // Xử lý đánh giá - chỉ update nếu có giá trị hợp lệ hoặc xóa nếu là 0
+    if ('danhGia' in updateData) {
+        if (!updateData.danhGia || updateData.danhGia < 1 || updateData.danhGia > 5) {
+            // Nếu đánh giá không hợp lệ, xóa field này khỏi update
+            delete updateData.danhGia;
+            // Và unset field trong database
+            await PT.findByIdAndUpdate(id, { $unset: { danhGia: "" } });
+        }
+    }
+
+    return PT.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
 };
 
 const deletePT = async (id) => {
@@ -422,6 +473,7 @@ module.exports = {
     deleteHoiVien,
     createPT,
     getAllPT,
+    searchPT,
     updatePT,
     deletePT,
     lockTaiKhoan,

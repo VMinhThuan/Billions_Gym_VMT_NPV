@@ -12,14 +12,11 @@ router.get('/hoivien', auth, authorize(['OngChu']), userController.getAllHoiVien
 router.put('/hoivien/:id', auth, authorize(['OngChu', 'HoiVien']), userController.updateHoiVien);
 router.delete('/hoivien/:id', auth, authorize(['OngChu']), userController.deleteHoiVien);
 
-// Check duplicate endpoints
+// Kiểm tra email và số điện thoại
 router.post('/check-email', auth, userController.checkEmailExists);
 router.post('/check-phone', auth, userController.checkPhoneExists);
 
-// ✅ THÊM: Test endpoint để debug
-router.put('/test-update/:id', auth, userController.testUpdate);
-router.put('/test-flexible-update/:id', auth, userController.testFlexibleUpdate);
-router.put('/restore-critical-data/:id', auth, userController.restoreCriticalData);
+// CRUD Tài Khoản
 router.put('/taikhoan/:id/lock', auth, authorize(['OngChu']), userController.lockTaiKhoan);
 router.put('/taikhoan/:id/unlock', auth, authorize(['OngChu']), userController.unlockTaiKhoan);
 router.get('/taikhoan/by-phone/:sdt', auth, authorize(['OngChu']), userController.getTaiKhoanByPhone);
@@ -45,10 +42,10 @@ router.delete('/chitietgoitap/:id', auth, authorize(['OngChu', 'HoiVien']), chiT
 router.get('/hoivien/:id', auth, authorize(['OngChu', 'HoiVien']), userController.getHoiVienById);
 router.get('/pt/:id', auth, authorize(['OngChu', 'PT']), userController.getPTById);
 
-// Admin specific endpoints for member management
+// Cập nhật trạng thái hội viên
 router.put('/hoivien/:id/status', auth, authorize(['OngChu']), userController.updateMemberStatus);
 
-// PT specific endpoints
+// Lấy danh sách học viên của PT
 router.get('/pt/students', auth, authorize(['PT', 'OngChu']), userController.getPTStudents);
 
 module.exports = router;

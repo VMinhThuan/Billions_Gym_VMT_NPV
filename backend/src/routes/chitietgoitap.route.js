@@ -13,7 +13,10 @@ const allUsers = ['HoiVien', 'PT', 'OngChu'];
 router.post('/dangky', auth, authorize(hoiVien), chiTietGoiTapController.dangkyGoiTap);
 
 // Lấy danh sách đăng ký gói tập 
-router.get('/', auth, authorize(ptAndAdmin), chiTietGoiTapController.getAllChiTietGoiTap);
+router.get('/', chiTietGoiTapController.getAllChiTietGoiTap);
+
+// Lấy thông tin chi tiết gói tập theo ID
+router.get('/:id', chiTietGoiTapController.getChiTietGoiTapById);
 
 // Lấy thống kê đăng ký gói tập
 router.get('/stats', auth, authorize(admin), chiTietGoiTapController.getStats);
