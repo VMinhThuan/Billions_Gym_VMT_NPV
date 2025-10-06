@@ -84,7 +84,7 @@ const getAvailableTrainers = async (req, res) => {
             data: {
                 availablePTs,
                 chiTietGoiTap,
-                recommendedPT: availablePTs[0] || null // PT được đề xuất
+                recommendedPT: availablePTs[0] || null
             }
         });
 
