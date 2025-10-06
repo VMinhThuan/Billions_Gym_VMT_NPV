@@ -8,7 +8,7 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
     return (
         <>
             <Layout onNavigateToLogin={onNavigateToLogin} onNavigateToRegister={onNavigateToRegister}>
-                <div className="container mx-auto py-16">
+                <div className="container mx-auto mt-40 py-16">
                     <div className="text-center">
                         <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
                             {content.welcomeMessage}
