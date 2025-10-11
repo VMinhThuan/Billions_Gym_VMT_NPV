@@ -7,6 +7,8 @@ import { authUtils } from './utils/auth'
 import { NotificationProvider, useNotification } from './contexts/NotificationContext'
 import { LanguageProvider } from './contexts/LanguageContext'
 import './styles/globals.css'
+import './styles/responsive.css'
+import './styles/header-responsive.css'
 
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

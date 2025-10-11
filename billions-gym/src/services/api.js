@@ -49,16 +49,17 @@ export const getAuthHeaders = (includeAuth = true) => {
 };
 export const apiRequest = async (endpoint, options = {}) => {
     const url = getApiUrl(endpoint);
+    const { requireAuth = true, ...restOptions } = options;
     const defaultOptions = {
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders(requireAuth),
         credentials: 'include',
     };
     const config = {
         ...defaultOptions,
-        ...options,
+        ...restOptions,
         headers: {
             ...defaultOptions.headers,
-            ...options.headers,
+            ...restOptions.headers,
         },
     };
     try {
@@ -283,6 +284,35 @@ export const paymentAPI = {
         });
     },
 };
+// API object for simple usage
+export const api = {
+    get: async (path, query = {}, requireAuth = true) => {
+        const queryString = new URLSearchParams(query).toString();
+        const url = queryString ? `${path}?${queryString}` : path;
+        return apiRequest(url, { requireAuth });
+    },
+    post: async (path, body = {}, requireAuth = true) => {
+        return apiRequest(path, {
+            method: 'POST',
+            body: JSON.stringify(body),
+            requireAuth
+        });
+    },
+    put: async (path, body = {}, requireAuth = true) => {
+        return apiRequest(path, {
+            method: 'PUT',
+            body: JSON.stringify(body),
+            requireAuth
+        });
+    },
+    delete: async (path, requireAuth = true) => {
+        return apiRequest(path, {
+            method: 'DELETE',
+            requireAuth
+        });
+    }
+};
+
 export default {
     API_ENDPOINTS,
     getApiUrl,
@@ -297,4 +327,5 @@ export default {
     workoutPredictionAPI,
     chatbotAPI,
     paymentAPI,
+    api,
 };

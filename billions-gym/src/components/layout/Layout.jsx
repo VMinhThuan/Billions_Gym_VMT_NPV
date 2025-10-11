@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import Header from './Header';
 import Footer from './Footer';
+import PricingPlans from '../PricingPlans';
 import content1 from "../../assets/images/content/ex1.jpg";
 import content2 from "../../assets/images/content/ex2.jpg";
 import content3 from "../../assets/images/content/ex3.jpg";
@@ -45,6 +46,42 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                         {children}
                     </div>
                 </main>
+
+                {/* Statistics Section */}
+                <section className="statistics-section">
+                    <div className="container">
+                        <div className="statistics-grid">
+                            {/* Stat 1 - Client Satisfaction */}
+                            <div className="stat-item">
+                                <div className="stat-number">96%</div>
+                                <div className="stat-title">Client Satisfaction</div>
+                                <div className="stat-description">Our Members Love Their Results And Experience</div>
+                            </div>
+
+                            {/* Stat 2 - Years of Experience */}
+                            <div className="stat-item">
+                                <div className="stat-number">+5</div>
+                                <div className="stat-title">Years Of Experience</div>
+                                <div className="stat-description">Trust In Our Proven Track Record Of Transforming</div>
+                            </div>
+
+                            {/* Stat 3 - Active Members */}
+                            <div className="stat-item">
+                                <div className="stat-number">+800</div>
+                                <div className="stat-title">Active Members</div>
+                                <div className="stat-description">Join Our Thriving Fitness Community</div>
+                            </div>
+
+                            {/* Stat 4 - Support Available */}
+                            <div className="stat-item">
+                                <div className="stat-number">24/7</div>
+                                <div className="stat-title">Support Available</div>
+                                <div className="stat-description">Expert Assistance Whenever You Need It</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <section className="top-section">
                     <div className="container">
                         <div className="content-layout max-w-[1200px] mx-auto px-5">
@@ -161,6 +198,9 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                         </div>
                     </div>
                 </section>
+
+                {/* Pricing Plans Section */}
+                <PricingPlans />
 
                 {/* Inspiration Section - Dream to Reality */}
                 <section className="bottom-section">
