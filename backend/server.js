@@ -11,6 +11,10 @@ app.use(cors({
     origin: [
         process.env.FRONTEND_URL,
         process.env.FRONTEND_URL_CLIENT,
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:3000',
+
     ],
     credentials: true,
 }));
@@ -71,6 +75,8 @@ const mlTrainingRouter = require('./src/routes/mlTraining.route');
 const workoutPredictionRouter = require('./src/routes/workoutPrediction.route');
 const packageWorkflowRouter = require('./src/routes/packageWorkflow.routes');
 const dangKyGoiTapRouter = require('./src/routes/dangKyGoiTap.routes');
+const reviewRouter = require('./src/routes/review.route');
+const paymentRouter = require('./src/routes/payment.route');
 
 app.use('/api/auth', authRouter);
 // Support both plural and singular base paths for backward compatibility
@@ -92,6 +98,8 @@ app.use('/api/ml-training', mlTrainingRouter);
 app.use('/api/workout-prediction', workoutPredictionRouter);
 app.use('/api/package-workflow', packageWorkflowRouter);
 app.use('/api/dang-ky-goi-tap', dangKyGoiTapRouter);
+app.use('/api', reviewRouter);
+app.use('/api/payment', paymentRouter);
 
 // Debug: list all mounted routes (paths) on the app
 try {

@@ -39,7 +39,7 @@ const deleteGoiTap = async (id) => {
 // Get monthly packages only
 const getMonthlyPackages = async () => {
     return await GoiTap.find({
-        donViThoiHan: 'Thang',
+        donViThoiHan: 'Tháng',
         kichHoat: true
     }).sort({ donGia: 1 });
 };

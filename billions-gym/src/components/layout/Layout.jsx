@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Header from './Header';
 import Footer from './Footer';
 import PricingPlans from '../PricingPlans';
+import CompareModal from '../CompareModal';
 import content1 from "../../assets/images/content/ex1.jpg";
 import content2 from "../../assets/images/content/ex2.jpg";
 import content3 from "../../assets/images/content/ex3.jpg";
@@ -13,6 +14,24 @@ import Card from '../ui/Card';
 import "../../pages/Home.css"
 
 const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
+    const [showCompareModal, setShowCompareModal] = useState(false);
+    const [selectedPackageForCompare, setSelectedPackageForCompare] = useState(null);
+    const [allPackages, setAllPackages] = useState([]);
+
+    const handleComparePackage = (packageData) => {
+        setSelectedPackageForCompare(packageData);
+        setShowCompareModal(true);
+    };
+
+    const handleCloseCompareModal = () => {
+        setShowCompareModal(false);
+        setSelectedPackageForCompare(null);
+    };
+
+    const handlePackagesLoaded = (packages) => {
+        setAllPackages(packages);
+    };
+
     useEffect(() => {
         const selector = '[data-reveal="slow-up"]';
         const nodes = document.querySelectorAll(selector);
@@ -200,7 +219,10 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                 </section>
 
                 {/* Pricing Plans Section */}
-                <PricingPlans />
+                <PricingPlans
+                    onComparePackage={handleComparePackage}
+                    onPackagesLoaded={handlePackagesLoaded}
+                />
 
                 {/* Inspiration Section - Dream to Reality */}
                 <section className="bottom-section">
@@ -413,6 +435,15 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                 </section>
                 <Footer />
             </div>
+
+            {/* Compare Modal */}
+            <CompareModal
+                isOpen={showCompareModal}
+                onClose={handleCloseCompareModal}
+                selectedPackage={selectedPackageForCompare}
+                allPackages={allPackages}
+                onNavigateToPackage={() => { }}
+            />
         </>
     );
 };

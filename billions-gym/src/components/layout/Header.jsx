@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authUtils } from '../../utils/auth';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
+    const navigate = useNavigate();
     const isAuthenticated = authUtils.isAuthenticated();
     const user = authUtils.getUser();
     const { showLogoutSuccess } = useNotification();
@@ -43,6 +45,11 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
             toggleLanguage();
         }
         setIsLanguageDropdownOpen(false);
+    };
+
+    const handleNavigateToHome = () => {
+        navigate('/');
+        setIsMobileMenuOpen(false); // Close mobile menu if open
     };
 
     // Danh sách ngôn ngữ có sẵn
@@ -107,20 +114,26 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     </button>
 
                     {/* Logo - Center on mobile, Left on desktop */}
-                    <div className="flex flex-col items-center text-center leading-tight flex-1 lg:flex-none lg:items-start lg:text-left">
+                    <button
+                        onClick={handleNavigateToHome}
+                        className="flex flex-col items-center text-center leading-tight flex-1 lg:flex-none lg:items-start lg:text-left cursor-pointer hover:opacity-80 transition-opacity"
+                    >
                         <h1 className="text-lg sm:text-xl md:text-2xl text-white font-[900] tracking-[2px] sm:tracking-[4px] md:tracking-[6px] whitespace-nowrap">
                             BILLIONS
                         </h1>
                         <p className="text-[8px] sm:text-[9px] md:text-[10px] text-[#da2128] font-[700] tracking-[4px] sm:tracking-[6px] md:tracking-[8px] whitespace-nowrap">
                             FITNESS & GYM
                         </p>
-                    </div>
+                    </button>
 
                     {/* Navigation */}
                     <nav className="hidden lg:flex space-x-4 xl:space-x-8">
-                        <a href="#" className="text-white hover:text-[#da2128] hover:no-underline decoration-2 px-2 xl:px-3 py-2 text-sm xl:text-lg font-[500] whitespace-nowrap">
+                        <button
+                            onClick={handleNavigateToHome}
+                            className="text-white hover:text-[#da2128] hover:no-underline decoration-2 px-2 xl:px-3 py-2 text-sm xl:text-lg font-[500] whitespace-nowrap cursor-pointer bg-transparent border-none"
+                        >
                             {content.home}
-                        </a>
+                        </button>
                         <a href="#" className="text-white hover:text-[#da2128] hover:no-underline decoration-2 px-2 xl:px-3 py-2 text-sm xl:text-lg font-[500] whitespace-nowrap">
                             {content.schedule}
                         </a>
@@ -319,9 +332,12 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     <div className="px-4 py-4 space-y-4">
                         {/* Navigation Links */}
                         <nav className="flex flex-col space-y-3">
-                            <a href="#" className="text-white hover:text-[#da2128] px-3 py-2 text-lg font-[500] transition-colors border-b border-gray-700">
+                            <button
+                                onClick={handleNavigateToHome}
+                                className="text-white hover:text-[#da2128] px-3 py-2 text-lg font-[500] transition-colors border-b border-gray-700 cursor-pointer bg-transparent border-none text-left"
+                            >
                                 {content.home}
-                            </a>
+                            </button>
                             <a href="#" className="text-white hover:text-[#da2128] px-3 py-2 text-lg font-[500] transition-colors border-b border-gray-700">
                                 {content.schedule}
                             </a>

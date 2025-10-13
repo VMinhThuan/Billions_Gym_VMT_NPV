@@ -34,6 +34,16 @@ const GoiTapSchema = new mongoose.Schema({
     hinhAnhDaiDien: { type: String },
     kichHoat: { type: Boolean, default: true },
     ghiChu: { type: String },
+    quyenLoi: [{
+        tenQuyenLoi: { type: String, required: true },
+        moTa: { type: String },
+        icon: { type: String, default: '💪' },
+        loai: {
+            type: String,
+            enum: ['co_ban', 'cao_cap', 'vip', 'premium'],
+            default: 'co_ban'
+        }
+    }],
 }, { collection: 'goiTaps', timestamps: true });
 
 module.exports = mongoose.model('GoiTap', GoiTapSchema);

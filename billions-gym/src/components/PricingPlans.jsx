@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 
-const PricingPlans = () => {
+const PricingPlans = ({ onComparePackage, onPackagesLoaded }) => {
+    const navigate = useNavigate();
     const [packages, setPackages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('CaNhan');
@@ -42,6 +44,11 @@ const PricingPlans = () => {
             const activePackages = Array.isArray(response) ? response.filter(pkg => pkg.kichHoat) : [];
             console.log('✅ Active packages:', activePackages);
             setPackages(activePackages);
+
+            // Notify parent component about loaded packages
+            if (onPackagesLoaded) {
+                onPackagesLoaded(activePackages);
+            }
         } catch (error) {
             console.error('❌ Error fetching packages:', error);
             setPackages([]);
@@ -71,6 +78,10 @@ const PricingPlans = () => {
         return periods;
     };
 
+    const handleViewDetail = (packageId) => {
+        navigate(`/goi-tap/${packageId}`);
+    };
+
     const getFilteredPackages = () => {
         return packages.filter(pkg => {
             if (pkg.loaiGoiTap !== activeTab) return false;
@@ -93,6 +104,20 @@ const PricingPlans = () => {
 
     const formatPrice = (price) => {
         return new Intl.NumberFormat('vi-VN').format(price);
+    };
+
+    const getPackageIcon = (pkg) => {
+        const name = pkg.tenGoiTap.toLowerCase();
+        if (name.includes('trải nghiệm') || name.includes('7 ngày')) return '🎯';
+        if (name.includes('cơ bản') || name.includes('basic')) return '💪';
+        if (name.includes('premium') || name.includes('cao cấp')) return '💎';
+        if (name.includes('vip')) return '👑';
+        if (name.includes('lifetime') || name.includes('trọn đời')) return '♾️';
+        if (name.includes('family') || name.includes('couple')) return '👨‍👩‍👧‍👦';
+        if (name.includes('student')) return '🎓';
+        if (name.includes('morning')) return '🌅';
+        if (name.includes('personal') || name.includes('pt')) return '🏋️‍♂️';
+        return '🏃‍♂️';
     };
 
     const getBorderColor = (index) => {
@@ -203,47 +228,66 @@ const PricingPlans = () => {
                             <div
                                 key={pkg._id}
                                 className="pricing-card"
-                                style={{ borderColor: getBorderColor(index) }}
                             >
-                                <div className="package-label" style={{ color: getBorderColor(index) }}>
-                                    Gói tập
+                                {/* Package Header with Icon and Price */}
+                                <div className="package-header">
+                                    <div className="package-icon">
+                                        {getPackageIcon(pkg)}
+                                    </div>
+                                    <div className="package-price-header">
+                                        <div className="price-amount">
+                                            {formatPrice(pkg.donGia)}₫
+                                        </div>
+                                        <div className="price-period">
+                                            {selectedPeriod === 'monthly' ? 'THÁNG' :
+                                                selectedPeriod === 'yearly' ? 'NĂM' :
+                                                    selectedPeriod === 'lifetime' ? 'LẦN' : pkg.donViThoiHan.toUpperCase()}
+                                        </div>
+                                    </div>
                                 </div>
+
+                                {/* Package Name */}
                                 <h3 className="package-name">{pkg.tenGoiTap}</h3>
+
+                                {/* Package Description */}
                                 <p className="package-description">{pkg.moTa}</p>
 
+                                {/* Package Features */}
                                 <ul className="package-features">
                                     {getPackageFeatures(pkg).map((feature, idx) => (
                                         <li key={idx}>{feature}</li>
                                     ))}
                                 </ul>
 
-                                <div className="package-price">
-                                    <span className="price-amount">
-                                        {formatPrice(pkg.donGia)}₫
-                                    </span>
-                                    <span className="price-period">
-                                        /{selectedPeriod === 'monthly' ? 'tháng' :
-                                            selectedPeriod === 'yearly' ? 'năm' :
-                                                selectedPeriod === 'lifetime' ? 'lần' : pkg.donViThoiHan.toLowerCase()}
-                                    </span>
-                                    {pkg.giaGoc && pkg.giaGoc > pkg.donGia && (
-                                        <div className="original-price">
-                                            <span className="original-price-text">
-                                                {formatPrice(pkg.giaGoc)}₫
-                                            </span>
-                                            <span className="discount-badge">
-                                                -{Math.round((1 - pkg.donGia / pkg.giaGoc) * 100)}%
-                                            </span>
-                                        </div>
+                                {/* Original Price and Discount */}
+                                {pkg.giaGoc && pkg.giaGoc > pkg.donGia && (
+                                    <div className="original-price">
+                                        <span className="original-price-text">
+                                            {formatPrice(pkg.giaGoc)}₫
+                                        </span>
+                                        <span className="discount-badge">
+                                            -{Math.round((1 - pkg.donGia / pkg.giaGoc) * 100)}%
+                                        </span>
+                                    </div>
+                                )}
+
+                                <div className="package-actions">
+                                    <button
+                                        className="choose-plan-btn"
+                                        style={{ backgroundColor: getButtonColor(index) }}
+                                        onClick={() => handleViewDetail(pkg._id)}
+                                    >
+                                        Xem chi tiết
+                                    </button>
+                                    {onComparePackage && (
+                                        <button
+                                            className="compare-plan-btn"
+                                            onClick={() => onComparePackage(pkg)}
+                                        >
+                                            So sánh
+                                        </button>
                                     )}
                                 </div>
-
-                                <button
-                                    className="choose-plan-btn"
-                                    style={{ backgroundColor: getButtonColor(index) }}
-                                >
-                                    Chọn gói này
-                                </button>
                             </div>
                         ))
                     ) : (

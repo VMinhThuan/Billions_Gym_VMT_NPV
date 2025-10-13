@@ -204,53 +204,113 @@
 
     .pricing-cards {
         @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto px-5 w-full;
+        align-items: stretch;
     }
 
     .pricing-card {
-        @apply bg-gray-900 rounded-lg p-8 relative transition-all duration-300 hover:transform hover:scale-105;
-        border: 2px solid #dc2626;
-        background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+        @apply bg-[#0e0f11] rounded-2xl p-8 relative transition-all duration-300;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }
 
     .pricing-card:hover {
-        box-shadow: 0 20px 40px rgba(220, 38, 38, 0.2);
+        transform: scale(1.05);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 20px rgba(220, 38, 38, 0.1);
     }
 
-    .package-label {
-        @apply text-sm font-medium uppercase tracking-wider mb-4;
+    .package-header {
+        @apply flex items-start justify-between mb-6;
+        flex-shrink: 0;
+        min-height: 80px;
+    }
+
+    .package-icon {
+        @apply w-12 h-12 rounded-xl flex items-center justify-center text-2xl;
+        background: rgba(220, 38, 38, 0.1);
+        border: 1px solid rgba(220, 38, 38, 0.2);
+    }
+
+    .package-price-header {
+        @apply text-right;
+    }
+
+    .price-amount {
+        @apply text-lg font-semibold text-white;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    .price-period {
+        @apply text-sm text-gray-400 uppercase tracking-wide;
     }
 
     .package-name {
-        @apply text-2xl lg:text-3xl font-black text-white mb-4 uppercase;
+        @apply text-base font-medium text-white mb-4;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-top: 10px;
+        flex-shrink: 0;
+        min-height: 45px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        line-height: 1.4;
+        word-break: break-word;
     }
 
     .package-description {
         @apply text-gray-300 mb-6 leading-relaxed;
+        flex-shrink: 0;
+        min-height: 80px;
+        display: flex;
+        align-items: center;
+        text-align: center;
+        line-height: 1.5;
     }
 
     .package-features {
-        @apply mb-8 space-y-3;
+        @apply mb-8 space-y-3 flex-1;
+        min-height: 200px;
+        max-height: 200px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #dc2626 rgba(255, 255, 255, 0.1);
+    }
+
+    .package-features::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .package-features::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+    }
+
+    .package-features::-webkit-scrollbar-thumb {
+        background: #dc2626;
+        border-radius: 3px;
+    }
+
+    .package-features::-webkit-scrollbar-thumb:hover {
+        background: #b91c1c;
     }
 
     .package-features li {
-        @apply text-gray-300 flex items-start;
+        @apply text-gray-300 flex items-start text-sm;
     }
 
     .package-features li::before {
-        content: '•';
-        @apply text-red-600 font-bold mr-3 mt-1;
-    }
-
-    .package-price {
-        @apply mb-8 text-center;
-    }
-
-    .price-amount {
-        @apply text-4xl lg:text-5xl font-black text-white;
-    }
-
-    .price-period {
-        @apply text-gray-400 text-lg ml-2;
+        content: '✓';
+        @apply text-red-500 font-bold mr-3 mt-0.5 flex-shrink-0;
+        font-size: 14px;
     }
 
     .original-price {
@@ -265,14 +325,35 @@
         @apply bg-red-600 text-white text-xs px-2 py-1 rounded-full font-bold;
     }
 
+    .package-actions {
+        @apply flex flex-col gap-3 mt-auto;
+    }
+
     .choose-plan-btn {
-        @apply w-full py-4 rounded-lg font-bold text-white transition-all duration-300 hover:transform hover:scale-105;
+        @apply w-full py-3 rounded-xl font-semibold text-white transition-all duration-300;
         background: #dc2626;
+        border: none;
+        box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
     }
 
     .choose-plan-btn:hover {
         background: #b91c1c;
-        box-shadow: 0 10px 20px rgba(220, 38, 38, 0.3);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(220, 38, 38, 0.4);
+    }
+
+    .compare-plan-btn {
+        @apply w-full py-3 rounded-xl font-medium text-white transition-all duration-300;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #d1d5db;
+    }
+
+    .compare-plan-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.3);
+        color: white;
+        transform: translateY(-1px);
     }
 
     .no-packages {
@@ -423,22 +504,48 @@
 
         .pricing-cards {
             @apply grid-cols-1 gap-6 px-4;
+            align-items: stretch;
         }
 
         .pricing-card {
             @apply p-6;
+            height: auto;
+            min-height: 400px;
         }
 
-        .package-name {
-            @apply text-xl lg:text-2xl;
+        .package-header {
+            @apply mb-4;
+            min-height: 60px;
+        }
+
+        .package-icon {
+            @apply w-10 h-10 text-lg;
         }
 
         .price-amount {
-            @apply text-3xl lg:text-4xl;
+            @apply text-base;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .package-name {
+            @apply text-sm;
+            padding: 6px 8px;
+            min-height: 40px;
+        }
+
+        .package-description {
+            min-height: 60px;
+        }
+
+        .package-features {
+            min-height: 150px;
+            max-height: 150px;
         }
 
         .choose-plan-btn {
-            @apply py-3;
+            @apply py-2.5;
         }
     }
 }

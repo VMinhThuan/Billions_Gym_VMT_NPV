@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Home from './pages/Home'
+import PackageDetail from './pages/PackageDetail'
+import Checkout from './pages/Checkout'
+import PaymentSuccess from './pages/PaymentSuccess'
 import { authUtils } from './utils/auth'
 import { NotificationProvider, useNotification } from './contexts/NotificationContext'
 import { LanguageProvider } from './contexts/LanguageContext'
@@ -91,6 +94,9 @@ const AppContent = () => {
           <Routes>
             <Route path="/" element={<Home onNavigateToLogin={() => navigateToPage('login')} onNavigateToRegister={() => navigateToPage('register')} />} />
             <Route path="/home" element={<Home onNavigateToLogin={() => navigateToPage('login')} onNavigateToRegister={() => navigateToPage('register')} />} />
+            <Route path="/goi-tap/:id" element={<PackageDetail onNavigateToLogin={() => navigateToPage('login')} onNavigateToRegister={() => navigateToPage('register')} />} />
+            <Route path="/checkout/:id" element={<Checkout onNavigateToLogin={() => navigateToPage('login')} onNavigateToRegister={() => navigateToPage('register')} />} />
+            <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
           </Routes>

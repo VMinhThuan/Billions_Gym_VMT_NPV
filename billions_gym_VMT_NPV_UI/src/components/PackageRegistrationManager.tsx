@@ -404,13 +404,13 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
         let endDate = new Date(start);
 
         switch (unit) {
-            case 'Ngay':
+            case 'Ngày':
                 endDate.setDate(start.getDate() + duration);
                 break;
-            case 'Thang':
+            case 'Tháng':
                 endDate.setMonth(start.getMonth() + duration);
                 break;
-            case 'Nam':
+            case 'Năm':
                 endDate.setFullYear(start.getFullYear() + duration);
                 break;
         }

@@ -315,7 +315,7 @@
 
 @layer utilities {
     .main-content-bg {
-        background-image: url('https://images.unsplash.com/photo-1750698544858-c139cc7a2885?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0');
+        background-image: url('../assets/images/banner.png');
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
