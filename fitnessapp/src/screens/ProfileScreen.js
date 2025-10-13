@@ -23,13 +23,13 @@ const ProfileScreen = () => {
     const navigation = useNavigation();
     const { logout, userInfo } = useAuth();
     const { colors, isDarkMode, toggleTheme } = useTheme();
-    
+
     const [refreshing, setRefreshing] = useState(false);
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
     // Lấy role từ userInfo
     const userRole = userInfo?.vaiTro || 'HoiVien';
-    
+
     console.log('ProfileScreen - userRole:', userRole);
     console.log('ProfileScreen - userInfo:', userInfo);
 
@@ -307,7 +307,7 @@ const ProfileScreen = () => {
                             {
                                 title: "Đặt lịch PT",
                                 icon: "calendar-outline",
-                                onPress: () => navigation.navigate('ClassBooking')
+                                onPress: () => navigation.navigate('Classes')
                             },
                             {
                                 title: "Thành viên",
@@ -588,26 +588,26 @@ const ProfileScreen = () => {
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Mục tiêu fitness</Text>
                 <View style={[styles.goalCard, { backgroundColor: colors.card }]}>
                     <View style={styles.goalItem}>
-                    <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Mục tiêu chính</Text>
-                    <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.primaryGoal}</Text>
+                        <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Mục tiêu chính</Text>
+                        <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.primaryGoal}</Text>
+                    </View>
+                    <View style={styles.goalItem}>
+                        <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Cân nặng hiện tại / Mục tiêu</Text>
+                        <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.currentWeight} / {fitnessGoals.targetWeight}</Text>
+                    </View>
+                    <View style={styles.goalItem}>
+                        <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Số buổi tập/tuần</Text>
+                        <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.weeklyWorkouts} buổi</Text>
+                    </View>
+                    <TouchableOpacity style={[
+                        styles.editGoalsButton,
+                        { borderTopColor: isDarkMode ? colors.border : 'transparent' }
+                    ]}>
+                        <Text style={[styles.editGoalsText, { color: colors.primary }]}>Chỉnh sửa mục tiêu</Text>
+                        <MaterialIcons name="arrow-forward-ios" size={16} color={colors.primary} />
+                    </TouchableOpacity>
                 </View>
-                <View style={styles.goalItem}>
-                    <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Cân nặng hiện tại / Mục tiêu</Text>
-                    <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.currentWeight} / {fitnessGoals.targetWeight}</Text>
-                </View>
-                <View style={styles.goalItem}>
-                    <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Số buổi tập/tuần</Text>
-                    <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.weeklyWorkouts} buổi</Text>
-                </View>
-                <TouchableOpacity style={[
-                    styles.editGoalsButton,
-                    { borderTopColor: isDarkMode ? colors.border : 'transparent' }
-                ]}>
-                    <Text style={[styles.editGoalsText, { color: colors.primary }]}>Chỉnh sửa mục tiêu</Text>
-                    <MaterialIcons name="arrow-forward-ios" size={16} color={colors.primary} />
-                </TouchableOpacity>
             </View>
-        </View>
         );
     };
 

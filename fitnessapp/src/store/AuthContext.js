@@ -109,7 +109,15 @@ export const AuthProvider = ({ children }) => {
 
                     // Kiểm tra token có hợp lệ không (không bắt lỗi để tránh block)
                     try {
-                        const apiService = require('../api/apiService');
+                        // Import apiService carefully — support both CommonJS require and ES module default
+                        let apiService = require('../api/apiService');
+                        if (apiService && apiService.default) apiService = apiService.default;
+                        // Fallback to dynamic import if require fails to provide the default
+                        if (!apiService || !apiService.isLoggedIn) {
+                            const imported = await import('../api/apiService');
+                            apiService = imported && imported.default ? imported.default : imported;
+                        }
+
                         const isValid = await Promise.race([
                             apiService.isLoggedIn(),
                             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000))

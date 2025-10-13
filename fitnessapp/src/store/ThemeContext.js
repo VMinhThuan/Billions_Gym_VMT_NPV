@@ -6,7 +6,6 @@ export const ThemeContext = createContext();
 export const ThemeProvider = ({ children }) => {
     const [isDarkMode, setIsDarkMode] = useState(false);
 
-    // Load theme preference from storage
     useEffect(() => {
         loadThemePreference();
     }, []);
@@ -32,7 +31,6 @@ export const ThemeProvider = ({ children }) => {
         }
     };
 
-    // Ensure we always provide a complete and safe theme object
     const theme = {
         isDarkMode: Boolean(isDarkMode),
         toggleTheme,
@@ -44,7 +42,7 @@ export const ThemeProvider = ({ children }) => {
 
             // Text colors
             text: isDarkMode ? '#ffffff' : '#000000',
-            textSecondary: isDarkMode ? '#cccccc' : '#666666',
+            textSecondary: isDarkMode ? '#ffffff' : '#000000',
             textMuted: isDarkMode ? '#999999' : '#999999',
 
             // Primary colors

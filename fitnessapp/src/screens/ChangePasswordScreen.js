@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import {View,Text,TextInput,StyleSheet,TouchableOpacity,ScrollView,Alert,ActivityIndicator,KeyboardAvoidingView,Platform} from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import apiService from '../api/apiService';
 
-// Component để hiển thị mật khẩu với dấu chấm tròn
 const PasswordDots = ({ value, isVisible, colors }) => {
     if (isVisible) {
         return (
@@ -58,7 +57,6 @@ const ChangePasswordScreen = () => {
             [field]: value
         }));
 
-        // Clear error when user starts typing
         if (errors[field]) {
             setErrors(prev => ({
                 ...prev,
@@ -116,7 +114,6 @@ const ChangePasswordScreen = () => {
                         {
                             text: 'OK',
                             onPress: () => {
-                                // Navigate to login screen
                                 navigation.reset({
                                     index: 0,
                                     routes: [{ name: 'Login' }],
@@ -133,7 +130,6 @@ const ChangePasswordScreen = () => {
             console.error('Error message:', error.message);
             console.error('Error type:', typeof error.message);
 
-            // Handle specific error messages from backend
             if (error.message && error.message.includes('Mật khẩu hiện tại không đúng')) {
                 Alert.alert('Lỗi', 'Mật khẩu hiện tại không đúng');
             } else if (error.message && error.message.includes('Mật khẩu mới phải có ít nhất 6 ký tự')) {
@@ -143,7 +139,6 @@ const ChangePasswordScreen = () => {
             } else if (error.message && error.message.includes('Không tìm thấy tài khoản')) {
                 Alert.alert('Lỗi', 'Không tìm thấy tài khoản');
             } else {
-                // Show the actual error message from backend
                 Alert.alert('Lỗi', error.message || 'Có lỗi xảy ra khi thay đổi mật khẩu');
             }
         } finally {

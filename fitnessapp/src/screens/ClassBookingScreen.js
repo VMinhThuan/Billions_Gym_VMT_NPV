@@ -35,7 +35,6 @@ const ClassBookingScreen = () => {
         try {
             setLoading(true);
 
-            // Fetch PT trainers and my bookings
             const [ptTrainersData, myBookingsData] = await Promise.allSettled([
                 apiService.getAllPT(),
                 apiService.getMyPTBookings()
@@ -44,9 +43,7 @@ const ClassBookingScreen = () => {
             if (ptTrainersData.status === 'fulfilled' && ptTrainersData.value) {
                 const trainers = ptTrainersData.value;
 
-                // Ensure trainers is an array before mapping
                 if (Array.isArray(trainers)) {
-                    // Transform trainer data to PT session format
                     const transformedSessions = trainers.map(trainer => ({
                         id: trainer._id,
                         trainer: trainer.hoTen || 'Personal Trainer',
@@ -73,7 +70,6 @@ const ClassBookingScreen = () => {
                 const bookings = Array.isArray(myBookingsData.value) ? myBookingsData.value : [];
                 setMyBookings(bookings);
 
-                // Update booked status for PT sessions
                 const bookedTrainerIds = bookings
                     .filter(booking =>
                         booking.trangThai === 'DaXacNhan' &&
@@ -139,7 +135,6 @@ const ClassBookingScreen = () => {
                 [{ text: "OK", onPress: () => setModalVisible(false) }]
             );
 
-            // Refresh data to show updated booking status
             await fetchBookingData();
 
         } catch (error) {
@@ -166,7 +161,6 @@ const ClassBookingScreen = () => {
         const today = new Date();
         const dates = [];
 
-        // Show 30 days from today
         for (let i = 0; i < 30; i++) {
             const date = new Date(today);
             date.setDate(today.getDate() + i);
@@ -179,7 +173,6 @@ const ClassBookingScreen = () => {
         const year = month.getFullYear();
         const monthIndex = month.getMonth();
 
-        // Get first day of month and number of days
         const firstDay = new Date(year, monthIndex, 1);
         const lastDay = new Date(year, monthIndex + 1, 0);
         const daysInMonth = lastDay.getDate();
@@ -187,7 +180,6 @@ const ClassBookingScreen = () => {
 
         const days = [];
 
-        // Add empty cells for days before the first day of month
         for (let i = 0; i < startingDayOfWeek; i++) {
             days.push(null);
         }

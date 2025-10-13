@@ -183,7 +183,7 @@ const updateHoiVien = async (id, data) => {
     // Xử lý trangThaiHoiVien
     if (data.trangThaiHoiVien !== undefined && data.trangThaiHoiVien !== oldHoiVien.trangThaiHoiVien) {
         updateData.trangThaiHoiVien = data.trangThaiHoiVien;
-        
+
         // Đồng bộ trạng thái tài khoản với trạng thái hội viên
         const trangThaiTK = data.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'DANG_HOAT_DONG' : 'DA_KHOA';
         await TaiKhoan.updateOne({ nguoiDung: id }, { trangThaiTK: trangThaiTK });
@@ -464,6 +464,19 @@ const getTaiKhoanByPhone = async (sdt) => {
     }
 };
 
+// Lấy hạng hội viên của người dùng
+const getUserWithRank = async (userId) => {
+    const user = await HoiVien.findById(userId).populate('hangHoiVien');
+    if (!user) {
+        throw new Error('Không tìm thấy người dùng');
+    }
+    return {
+        id: user._id,
+        hoTen: user.hoTen,
+        hangHoiVien: user.hangHoiVien ? user.hangHoiVien.tenHang : 'Chưa có hạng'
+    };
+};
+
 module.exports = {
     createHoiVien,
     getAllHoiVien,
@@ -481,5 +494,6 @@ module.exports = {
     checkEmailExists,
     checkPhoneExists,
     getTaiKhoanByPhone,
-    searchHoiVien
+    searchHoiVien,
+    getUserWithRank
 };

@@ -34,15 +34,22 @@ class ApiService {
                 'Content-Type': 'application/json',
             };
 
+            // Attach Authorization header only when we have a token
+            let token;
             if (requiresAuth) {
-                const token = await this.getAuthToken();
+                token = await this.getAuthToken();
                 if (!token) {
-                    //throw new Error('No authentication token found. Please login again.');
-                    console.log('⚠️ No authentication token found. Please login again.');
+                    // don't set Authorization header if token is missing
+                    console.log('⚠️ No authentication token found. Request will be sent without Authorization header.');
+                } else {
+                    headers.Authorization = `Bearer ${token}`;
+                    console.log(`Making authenticated request to: ${API_URL}${endpoint}`);
+                    try {
+                        console.log('🔑 Authorization header:', `Bearer ${token.substring(0, 20)}...`);
+                    } catch (e) {
+                        // harmless if token is shorter than expected
+                    }
                 }
-                headers.Authorization = `Bearer ${token}`;
-                console.log(`Making authenticated request to: ${API_URL}${endpoint}`);
-                console.log('🔑 Authorization header:', `Bearer ${token.substring(0, 20)}...`);
             }
 
             const config = {
@@ -122,7 +129,7 @@ class ApiService {
                 error.message.includes('ENOTFOUND') ||
                 error.message.includes('TypeError')
             )) {
-            console.log(`Retrying API call for ${endpoint} (attempt ${retryCount + 2}/${maxRetries + 1})`);
+                console.log(`Retrying API call for ${endpoint} (attempt ${retryCount + 2}/${maxRetries + 1})`);
                 // Đợi 1-2 giây trước khi retry
                 await new Promise(resolve => setTimeout(resolve, 1000 + (retryCount * 500)));
                 return this.apiCall(endpoint, method, data, requiresAuth, retryCount + 1);
@@ -169,7 +176,7 @@ class ApiService {
             console.log('🔍 DEBUG - User role:', payload.vaiTro);
             console.log('🔍 DEBUG - User ID:', payload.id);
             console.log('🔍 DEBUG - User SDT:', payload.sdt);
-            
+
             return payload;
         } catch (error) {
             console.log('🔍 DEBUG - Error decoding token:', error);
@@ -306,6 +313,17 @@ class ApiService {
         const userId = payload.id;
 
         return this.apiCall(`/lichtap/hoivien/${userId}`);
+    }
+
+    // Fetch all workout schedules (requires auth) - maps to backend GET /lichtap
+    async getAllWorkoutSchedules() {
+        try {
+            const result = await this.apiCall('/lichtap');
+            return Array.isArray(result) ? result : [];
+        } catch (error) {
+            console.error('Error fetching all workout schedules:', error.message || error);
+            return [];
+        }
     }
 
     // PT Booking (Lich Hen PT) APIs
@@ -539,8 +557,23 @@ class ApiService {
     // Bài tập (Exercises) APIs
     async getAllBaiTap() {
         try {
-            const result = await this.apiCall('/baitap');
-            return Array.isArray(result) ? result : [];
+            // Try authenticated request first (helps when server requires auth)
+            try {
+                const result = await this.apiCall('/baitap');
+                if (Array.isArray(result) && result.length) return result;
+            } catch (authErr) {
+                console.log('getAllBaiTap - authenticated fetch failed:', authErr && authErr.message ? authErr.message : authErr);
+                // fallthrough to unauthenticated attempt
+            }
+
+            // Fallback: try unauthenticated request (some dev servers expose this)
+            try {
+                const publicResult = await this.apiCall('/baitap', 'GET', null, false);
+                return Array.isArray(publicResult) ? publicResult : [];
+            } catch (publicErr) {
+                console.log('getAllBaiTap - unauthenticated fetch failed:', publicErr && publicErr.message ? publicErr.message : publicErr);
+                return [];
+            }
         } catch (error) {
             console.error('Error fetching exercises:', error);
             return [];
@@ -642,6 +675,16 @@ class ApiService {
 
     async deleteMember(memberId) {
         return this.apiCall(`/user/hoivien/${memberId}`, 'DELETE');
+    }
+
+    // Lấy thời gian còn lại của hạng hội viên
+    async getMembershipTimeRemaining(userId) {
+        return this.apiCall(`/hanghoivien/thoi-gian-con-lai/${userId}`, 'GET');
+    }
+
+    // Cập nhật thời gian còn lại của hạng hội viên
+    async updateMembershipTimeRemaining(userId, days) {
+        return this.apiCall(`/hanghoivien/cap-nhat-thoi-gian-con-lai/${userId}`, 'PUT', { days });
     }
 }
 

@@ -48,4 +48,8 @@ router.put('/hoivien/:id/status', auth, authorize(['OngChu']), userController.up
 // Lấy danh sách học viên của PT
 router.get('/pt/students', auth, authorize(['PT', 'OngChu']), userController.getPTStudents);
 
+// Lấy hạng hội viên của người dùng
+// NOTE: router is mounted at '/api/users' in server.js, so the route here should be '/:id/with-rank'
+router.get('/:id/with-rank', auth, authorize(['OngChu', 'HoiVien']), userController.getUserWithRank);
+
 module.exports = router;

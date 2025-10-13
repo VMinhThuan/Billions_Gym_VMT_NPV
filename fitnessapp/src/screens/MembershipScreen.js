@@ -9,7 +9,8 @@ import {
     RefreshControl,
     Alert,
     Animated,
-    StatusBar
+    StatusBar,
+    ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import apiService from '../api/apiService';
 import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
+import axios from 'axios';
 
 const { width } = Dimensions.get('window');
 
@@ -46,9 +48,13 @@ const MembershipScreen = () => {
         soThangLienTuc: 0,
         soBuoiTapDaTap: 0
     });
+    const [membershipInfo, setMembershipInfo] = useState(null);
+    const [timeRemaining, setTimeRemaining] = useState(null);
 
     useEffect(() => {
         fetchMembershipData();
+        fetchMembershipInfo();
+        fetchTimeRemaining();
     }, []);
 
     const fetchMembershipData = async () => {
@@ -141,6 +147,28 @@ const MembershipScreen = () => {
             Alert.alert('Lỗi', 'Không thể tải dữ liệu thành viên. Vui lòng thử lại.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchMembershipInfo = async () => {
+        try {
+            const userId = await apiService.getCurrentUserId();
+            const response = await axios.get(`/api/hanghoivien/tinh-hang-theo-thoi-han/${userId}`);
+            setMembershipInfo(response.data.data);
+        } catch (error) {
+            console.error('Lỗi khi tải thông tin hạng hội viên:', error);
+        }
+    };
+
+    const fetchTimeRemaining = async () => {
+        try {
+            const userId = await apiService.getCurrentUserId();
+            const response = await axios.get(`/api/hanghoivien/thoi-gian-con-lai/${userId}`);
+            // backend returns { success: true, data: { userId, timeRemaining } }
+            const timeData = response && response.data && response.data.data ? response.data.data : null;
+            setTimeRemaining(timeData ? timeData.timeRemaining : 0);
+        } catch (error) {
+            console.error('Lỗi khi tải thông tin thời gian còn lại:', error);
         }
     };
 
@@ -263,6 +291,14 @@ const MembershipScreen = () => {
                 </View>
             );
         }
+        // prefer backend-provided timeRemaining when available
+        const displayDays = (timeRemaining !== null && typeof timeRemaining !== 'undefined')
+            ? Math.max(0, Number(timeRemaining) || 0)
+            : membershipData.daysRemaining;
+
+        const totalDays = (membershipData.totalDays && membershipData.totalDays > 0)
+            ? membershipData.totalDays
+            : (displayDays > 0 ? displayDays : 1); // avoid division by zero
 
         return (
             <View style={styles.section}>
@@ -291,14 +327,14 @@ const MembershipScreen = () => {
 
                         <View style={styles.progressContainer}>
                             <View style={styles.progressInfo}>
-                                <Text style={styles.daysRemaining}>{membershipData.daysRemaining}</Text>
+                                <Text style={styles.daysRemaining}>{displayDays}</Text>
                                 <Text style={styles.daysLabel}>ngày còn lại</Text>
                             </View>
                             <View style={styles.progressBar}>
                                 <View style={[
                                     styles.progressFill,
                                     {
-                                        width: `${((membershipData.totalDays - membershipData.daysRemaining) / membershipData.totalDays) * 100}%`,
+                                        width: `${((totalDays - displayDays) / totalDays) * 100}%`,
                                     }
                                 ]} />
                             </View>
@@ -517,6 +553,10 @@ const MembershipScreen = () => {
             ))}
         </View>
     );
+
+    if (loading) {
+        return <ActivityIndicator size="large" color="#0000ff" />;
+    }
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>

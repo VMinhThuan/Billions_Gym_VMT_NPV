@@ -339,3 +339,18 @@ exports.getTaiKhoanByPhone = async (req, res) => {
         res.status(500).json({ message: 'Lỗi khi lấy thông tin tài khoản', error: err.message });
     }
 };
+
+// Lấy hạng hội viên của người dùng
+exports.getUserWithRank = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await userService.getUserWithRank(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+        }
+        res.status(200).json({ success: true, data: user });
+    } catch (error) {
+        console.error('Lỗi khi lấy hạng hội viên:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

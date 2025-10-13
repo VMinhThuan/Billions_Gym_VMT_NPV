@@ -1,4 +1,6 @@
 const hangHoiVienService = require('../services/hanghoivien.service');
+const { NguoiDung } = require('../models/NguoiDung');
+const mongoose = require('mongoose');
 
 // Tạo hạng hội viên mới
 const createHangHoiVien = async (req, res) => {
@@ -213,6 +215,66 @@ const getThongKeHangHoiVien = async (req, res) => {
     }
 };
 
+// Thêm endpoint tính hạng hội viên theo thời hạn
+exports.tinhHangHoiVienTheoThoiHan = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const result = await hangHoiVienService.tinhHangHoiVienTheoThoiHan(userId);
+        res.status(200).json({ success: true, data: result });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Thêm endpoint tính thời gian còn lại của hạng hội viên
+exports.tinhThoiGianConLai = async (req, res) => {
+    try {
+        let userId = req.params.userId;
+        // Validate userId as a valid ObjectId
+        if (!userId || !mongoose.isValidObjectId(userId)) {
+            return res.status(400).json({ success: false, message: 'userId không hợp lệ' });
+        }
+        const result = await hangHoiVienService.tinhThoiGianConLai(userId);
+
+        // Xử lý trường hợp có message (chưa có ngày hết hạn)
+        if (result.message) {
+            return res.status(200).json({
+                success: true,
+                data: result,
+                message: result.message
+            });
+        }
+
+        res.status(200).json({ success: true, data: result });
+    } catch (error) {
+        console.error('Lỗi tính thời gian còn lại:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Thêm API cập nhật thời gian còn lại của hạng hội viên
+exports.capNhatThoiGianConLai = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { days = 14 } = req.body; // Lấy số ngày từ request body, mặc định 14 ngày
+
+        const ngayHetHan = new Date();
+        ngayHetHan.setDate(ngayHetHan.getDate() + days); // Cập nhật theo số ngày được chỉ định
+
+        // Tìm HoiVien và cập nhật ngayHetHan
+        const { HoiVien } = require('../models/NguoiDung');
+        const user = await HoiVien.findByIdAndUpdate(userId, { ngayHetHan }, { new: true });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy hội viên' });
+        }
+
+        res.status(200).json({ success: true, data: user, message: `Đã cập nhật thời hạn thành viên thêm ${days} ngày` });
+    } catch (error) {
+        console.error('Lỗi cập nhật thời gian còn lại:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     createHangHoiVien,
     getAllHangHoiVien,
@@ -225,3 +287,8 @@ module.exports = {
     capNhatHangTatCaHoiVien,
     getThongKeHangHoiVien
 };
+
+// Add the exported functions to module.exports to make them available
+module.exports.tinhHangHoiVienTheoThoiHan = exports.tinhHangHoiVienTheoThoiHan;
+module.exports.tinhThoiGianConLai = exports.tinhThoiGianConLai;
+module.exports.capNhatThoiGianConLai = exports.capNhatThoiGianConLai;

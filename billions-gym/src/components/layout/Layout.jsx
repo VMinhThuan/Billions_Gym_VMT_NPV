@@ -94,7 +94,7 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                                 </div>
                                 <div className="mb-[50px]">
                                     <p data-reveal="slow-up" className="text-[1.25rem] leading-[1.8] m-0 opacity-95 text-[#e0e0e0] max-w-[90%]">
-                                        Billions Fitness & Yoga là thương hiệu sức khỏe lớn nhất Việt Nam,
+                                        Billions Fitness & Gym là thương hiệu sức khỏe lớn nhất Việt Nam,
                                         mang đến hạnh phúc và những khoảnh khắc đáng nhớ thông qua các dịch vụ
                                         toàn diện về sức khỏe thể chất, dinh dưỡng và tinh thần.
                                     </p>
