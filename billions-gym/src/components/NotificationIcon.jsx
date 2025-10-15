@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authUtils } from '../utils/auth';
 import { api } from '../services/api';
 
@@ -8,6 +9,7 @@ const NotificationIcon = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const dropdownRef = useRef(null);
+    const navigate = useNavigate();
 
     const user = authUtils.getUser();
 
@@ -108,6 +110,22 @@ const NotificationIcon = () => {
         }
     }, [user?._id]);
 
+    // Listen for notification refresh events
+    useEffect(() => {
+        const handleRefreshNotifications = () => {
+            if (user?._id) {
+                fetchNotifications();
+                fetchUnreadCount();
+            }
+        };
+
+        window.addEventListener('refreshNotifications', handleRefreshNotifications);
+
+        return () => {
+            window.removeEventListener('refreshNotifications', handleRefreshNotifications);
+        };
+    }, [user?._id]);
+
     // Auto refresh unread count every 30 seconds
     useEffect(() => {
         if (!user?._id) return;
@@ -188,6 +206,11 @@ const NotificationIcon = () => {
                                         onClick={() => {
                                             if (!notification.daDoc) {
                                                 markAsRead(notification._id);
+                                            }
+                                            // Nếu là thông báo workflow, navigate đến trang workflow
+                                            if (notification.loaiThongBao === 'WORKFLOW' && notification.duLieuLienQuan?.actionUrl) {
+                                                navigate(notification.duLieuLienQuan.actionUrl);
+                                                setIsOpen(false);
                                             }
                                         }}
                                     >

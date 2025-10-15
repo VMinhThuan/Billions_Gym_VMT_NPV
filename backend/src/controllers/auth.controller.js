@@ -2,6 +2,8 @@ const authService = require('../services/auth.service');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const TaiKhoan = require('../models/TaiKhoan');
+const { NguoiDung } = require('../models/NguoiDung');
 
 exports.login = async (req, res) => {
     if (!req.body || (!req.body.sdt && !req.body.matKhau)) {
@@ -199,5 +201,46 @@ exports.changePassword = async (req, res) => {
             message: 'Có lỗi xảy ra khi thay đổi mật khẩu',
             error: error.message
         });
+    }
+};
+
+// Đăng ký tài khoản hội viên
+exports.register = async (req, res) => {
+    try {
+        const { hoTen, sdt, email, matKhau, vaiTro = 'HoiVien' } = req.body || {};
+
+        if (!hoTen || !sdt || !matKhau) {
+            return res.status(400).json({ success: false, message: 'Vui lòng nhập họ tên, số điện thoại và mật khẩu.' });
+        }
+
+        // Kiểm tra trùng số điện thoại
+        const existingAccount = await TaiKhoan.findOne({ sdt });
+        if (existingAccount) {
+            return res.status(409).json({ success: false, message: 'Số điện thoại đã tồn tại trong hệ thống.' });
+        }
+
+        // Kiểm tra trùng người dùng theo số điện thoại
+        const existingUser = await NguoiDung.findOne({ sdt });
+        if (existingUser) {
+            return res.status(409).json({ success: false, message: 'Số điện thoại đã tồn tại trong hệ thống.' });
+        }
+
+        // Tạo người dùng
+        const nguoiDung = await NguoiDung.create({
+            hoTen,
+            sdt,
+            email: email || undefined,
+            gioiTinh: 'Khac',
+            vaiTro
+        });
+
+        // Băm mật khẩu và tạo tài khoản đăng nhập
+        const salt = await bcrypt.genSalt(12);
+        const hashed = await bcrypt.hash(matKhau, salt);
+        await TaiKhoan.create({ sdt, matKhau: hashed, nguoiDung: nguoiDung._id, trangThaiTK: 'DANG_HOAT_DONG' });
+
+        return res.status(201).json({ success: true, message: 'Đăng ký thành công', nguoiDung });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Lỗi server khi đăng ký', error: error.message });
     }
 };

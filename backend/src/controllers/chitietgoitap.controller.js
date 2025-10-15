@@ -1,4 +1,6 @@
 const chiTietGoiTapService = require('../services/chitietgoitap.service');
+const ChiTietGoiTap = require('../models/ChiTietGoiTap');
+const mongoose = require('mongoose');
 
 exports.dangkyGoiTap = async (req, res) => {
     try {
@@ -143,4 +145,19 @@ exports.getStats = async (req, res) => {
     } catch (err) {
         res.status(500).json({ message: 'Lỗi server', error: err.message });
     }
+};
+
+/**
+ * Cập nhật chi nhánh trực tiếp (cho phép Hội viên xác nhận/đổi)
+ */
+exports.updateBranchDirect = async (id, branchId, userId) => {
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(branchId)) return null;
+    const reg = await ChiTietGoiTap.findById(id);
+    if (!reg) return null;
+    // Chỉ owner gói hoặc admin mới được đổi
+    if (reg.nguoiDungId?.toString() !== userId) return null;
+    reg.branchId = branchId;
+    reg.thoiGianCapNhat = new Date();
+    await reg.save();
+    return await ChiTietGoiTap.findById(id).populate('branchId').populate('goiTapId');
 };

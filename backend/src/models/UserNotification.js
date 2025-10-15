@@ -16,13 +16,13 @@ const UserNotificationSchema = new mongoose.Schema({
     },
     loaiThongBao: {
         type: String,
-        enum: ['PAYMENT_SUCCESS', 'PACKAGE_ADDED', 'WORKOUT_REMINDER', 'GENERAL'],
+        enum: ['PAYMENT_SUCCESS', 'UPGRADE_SUCCESS', 'PACKAGE_ADDED', 'WORKOUT_REMINDER', 'WORKFLOW', 'GENERAL'],
         default: 'GENERAL'
     },
+    // Lưu dữ liệu linh hoạt cho từng loại thông báo (registrationId, actionUrl, v.v.)
     duLieuLienQuan: {
-        goiTapId: { type: mongoose.Schema.Types.ObjectId, ref: 'GoiTap' },
-        chiTietGoiTapId: { type: mongoose.Schema.Types.ObjectId, ref: 'ChiTietGoiTap' },
-        // Có thể thêm các trường khác tùy theo loại thông báo
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
     },
     daDoc: {
         type: Boolean,

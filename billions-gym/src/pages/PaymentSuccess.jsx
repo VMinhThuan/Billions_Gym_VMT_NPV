@@ -88,6 +88,8 @@ const PaymentSuccess = () => {
                 // Sau khi update thành công, check lại payment status
                 setTimeout(() => {
                     checkPaymentStatus();
+                    // Trigger notification refresh
+                    window.dispatchEvent(new CustomEvent('refreshNotifications'));
                 }, 1000);
 
                 // Tự động xóa sau 24 giờ

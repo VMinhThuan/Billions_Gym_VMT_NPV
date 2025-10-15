@@ -363,6 +363,122 @@ const testUnreadCount = async (req, res) => {
     }
 };
 
+// Test tạo workflow notification
+const testCreateWorkflowNotification = async (req, res) => {
+    try {
+        const { userId, registrationId, packageName } = req.body;
+
+        if (!userId || !registrationId || !packageName) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin bắt buộc: userId, registrationId, packageName'
+            });
+        }
+
+        console.log(`🔍 [TEST] Creating test workflow notification for userId: ${userId}, registrationId: ${registrationId}`);
+
+        const notification = await createWorkflowNotification(
+            userId,
+            registrationId,
+            packageName,
+            false
+        );
+
+        res.json({
+            success: true,
+            message: 'Tạo workflow notification test thành công',
+            data: notification
+        });
+    } catch (error) {
+        console.error('Error creating test workflow notification:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi tạo workflow notification test',
+            error: error.message
+        });
+    }
+};
+
+// Tạo thông báo workflow cho người thanh toán
+const createWorkflowNotification = async (userId, registrationId, packageName, isUpgrade = false) => {
+    try {
+        console.log(`🔍 [NOTIFICATION] Creating workflow notification for userId: ${userId}, registrationId: ${registrationId}`);
+
+        const notification = await UserNotification.findOneAndUpdate(
+            {
+                userId: userId,
+                loaiThongBao: 'WORKFLOW',
+                'duLieuLienQuan.registrationId': registrationId
+            },
+            {
+                userId: userId,
+                tieuDe: isUpgrade ? 'Hoàn tất nâng cấp gói tập' : 'Hoàn tất đăng ký gói tập',
+                noiDung: `Vui lòng hoàn thành các bước sau để hoàn tất việc ${isUpgrade ? 'nâng cấp' : 'đăng ký'} gói tập ${packageName}`,
+                loaiThongBao: 'WORKFLOW',
+                daDoc: false,
+                duLieuLienQuan: {
+                    registrationId: registrationId,
+                    workflowType: isUpgrade ? 'upgrade' : 'registration',
+                    packageName: packageName,
+                    actionUrl: `/package-workflow/${registrationId}`
+                }
+            },
+            {
+                upsert: true,
+                new: true,
+                setDefaultsOnInsert: true
+            }
+        );
+
+        console.log(`✅ [NOTIFICATION] Created workflow notification for userId: ${userId}, registrationId: ${registrationId}, id: ${notification._id}`);
+        return notification;
+    } catch (error) {
+        console.error('Error in createWorkflowNotification:', error);
+        throw error;
+    }
+};
+
+// Tạo thông báo workflow cho người được mời
+const createPartnerWorkflowNotification = async (partnerUserId, registrationId, packageName, ownerName) => {
+    try {
+        console.log(`🔍 [NOTIFICATION] Creating partner workflow notification for userId: ${partnerUserId}, registrationId: ${registrationId}`);
+
+        const notification = await UserNotification.findOneAndUpdate(
+            {
+                userId: partnerUserId,
+                loaiThongBao: 'WORKFLOW',
+                'duLieuLienQuan.registrationId': registrationId,
+                'duLieuLienQuan.workflowType': 'partner'
+            },
+            {
+                userId: partnerUserId,
+                tieuDe: 'Hoàn tất đăng ký gói tập',
+                noiDung: `${ownerName} đã mời bạn tham gia gói tập ${packageName}. Vui lòng hoàn thành các bước để bắt đầu tập luyện`,
+                loaiThongBao: 'WORKFLOW',
+                daDoc: false,
+                duLieuLienQuan: {
+                    registrationId: registrationId,
+                    workflowType: 'partner',
+                    packageName: packageName,
+                    ownerName: ownerName,
+                    actionUrl: `/package-workflow/${registrationId}`
+                }
+            },
+            {
+                upsert: true,
+                new: true,
+                setDefaultsOnInsert: true
+            }
+        );
+
+        console.log(`✅ [NOTIFICATION] Created partner workflow notification for userId: ${partnerUserId}, registrationId: ${registrationId}, id: ${notification._id}`);
+        return notification;
+    } catch (error) {
+        console.error('Error in createPartnerWorkflowNotification:', error);
+        throw error;
+    }
+};
+
 module.exports = {
     getUserNotifications,
     markAsRead,
@@ -372,6 +488,9 @@ module.exports = {
     createPaymentSuccessNotification,
     createUpgradeSuccessNotification,
     createPartnerAddedNotification,
+    createWorkflowNotification,
+    createPartnerWorkflowNotification,
     testCreateNotification,
-    testUnreadCount
+    testUnreadCount,
+    testCreateWorkflowNotification
 };

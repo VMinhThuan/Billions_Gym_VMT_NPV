@@ -241,7 +241,7 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                         <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
                                             <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
                                                 <div className="font-medium">{user?.hoTen || content.user}</div>
-                                                <div className="text-gray-500 text-xs">{user?.email || user?.sdt || ''}</div>
+                                                <div className="text-gray-500 text-xs break-words whitespace-normal max-w-[11rem] leading-5">{user?.email || user?.sdt || ''}</div>
                                             </div>
                                             <button
                                                 onClick={handleLogout}
@@ -409,7 +409,7 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                         </div>
                                         <div>
                                             <div className="text-white font-medium">{user?.hoTen || content.user}</div>
-                                            <div className="text-gray-400 text-sm">{user?.email || user?.sdt || ''}</div>
+                                            <div className="text-gray-400 text-sm break-words whitespace-normal max-w-[12rem] leading-5">{user?.email || user?.sdt || ''}</div>
                                         </div>
                                     </div>
                                     <button

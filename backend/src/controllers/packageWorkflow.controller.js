@@ -4,6 +4,7 @@ const { NguoiDung, PT } = require('../models/NguoiDung');
 const LichTap = require('../models/LichTap');
 const BuoiTap = require('../models/BuoiTap');
 const LichLamViecPT = require('../models/LichLamViecPT');
+const ChiNhanh = require('../models/ChiNhanh');
 const mongoose = require('mongoose');
 
 // Lấy danh sách PT phù hợp sau khi đăng ký gói tập thành công
@@ -36,8 +37,15 @@ const getAvailableTrainers = async (req, res) => {
 
         // Lấy tất cả PT đang hoạt động
         console.log('🔍 PT model:', typeof PT, PT);
-        const allPTs = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG' });
-        console.log('🔍 Found PTs:', allPTs.length, allPTs);
+        let allPTs = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG' });
+        console.log('🔍 Found PTs via discriminator:', allPTs.length);
+
+        // Fallback: nếu dữ liệu cũ không dùng discriminator, tìm theo vaiTro từ collection NguoiDung
+        if (!allPTs || allPTs.length === 0) {
+            console.log('🔍 No PT found via discriminator. Falling back to NguoiDung.find({ vaiTro: "PT" })');
+            allPTs = await NguoiDung.find({ vaiTro: 'PT' });
+            console.log('🔍 Found PTs via base model:', allPTs.length);
+        }
 
         // Nếu có giờ tập ưu tiên, lọc PT có thời gian rảnh phù hợp
         let availablePTs = allPTs;
@@ -167,11 +175,11 @@ const generateWorkoutSchedule = async (req, res) => {
         const ngayKetThuc = new Date(ngayBatDau);
 
         // Tính toán dựa trên đơn vị thời hạn
-        if (goiTap.donViThoiHan === 'Thang') {
+        if (goiTap.donViThoiHan === 'Tháng') {
             ngayKetThuc.setMonth(ngayKetThuc.getMonth() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Ngay') {
+        } else if (goiTap.donViThoiHan === 'Ngày') {
             ngayKetThuc.setDate(ngayKetThuc.getDate() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Nam') {
+        } else if (goiTap.donViThoiHan === 'Năm') {
             ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + goiTap.thoiHan);
         }
 
@@ -488,6 +496,114 @@ const completeWorkflow = async (req, res) => {
     }
 };
 
+// Lấy trạng thái workflow hiện tại
+const getWorkflowStatus = async (req, res) => {
+    try {
+        const { registrationId } = req.params;
+        const userId = req.user.id;
+
+        const registration = await ChiTietGoiTap.findById(registrationId)
+            .populate('goiTapId')
+            .populate('nguoiDungId')
+            .populate('branchId')
+            .populate('ptDuocChon')
+            .populate('lichTapDuocTao');
+
+        if (!registration) {
+            return res.status(404).json({ message: 'Không tìm thấy thông tin đăng ký' });
+        }
+
+        // Kiểm tra quyền truy cập
+        const isOwner = registration.nguoiDungId._id.toString() === userId;
+        const isPartner = registration.thongTinKhachHang?.partnerInfo?.userId === userId;
+
+        if (!isOwner && !isPartner) {
+            return res.status(403).json({ message: 'Không có quyền truy cập' });
+        }
+
+        // Xác định các bước đã hoàn thành
+        const workflowSteps = {
+            selectBranch: {
+                completed: !!registration.branchId,
+                required: isOwner, // Chỉ người thanh toán mới cần chọn chi nhánh
+                data: registration.branchId
+            },
+            selectTrainer: {
+                completed: !!registration.ptDuocChon,
+                required: true,
+                data: registration.ptDuocChon
+            },
+            createSchedule: {
+                completed: !!registration.lichTapDuocTao,
+                required: true,
+                data: registration.lichTapDuocTao
+            }
+        };
+
+        res.json({
+            success: true,
+            data: {
+                registration,
+                workflowSteps,
+                isOwner,
+                isPartner,
+                currentStep: getCurrentStep(workflowSteps, isOwner)
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting workflow status:', error);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+};
+
+// Xác định bước hiện tại
+const getCurrentStep = (steps, isOwner) => {
+    if (isOwner && !steps.selectBranch.completed) return 'selectBranch';
+    if (!steps.selectTrainer.completed) return 'selectTrainer';
+    if (!steps.createSchedule.completed) return 'createSchedule';
+    return 'completed';
+};
+
+// Cập nhật chi nhánh
+const updateBranch = async (req, res) => {
+    try {
+        const { registrationId } = req.params;
+        const { branchId } = req.body;
+        const userId = req.user.id;
+
+        const registration = await ChiTietGoiTap.findById(registrationId);
+
+        if (!registration) {
+            return res.status(404).json({ message: 'Không tìm thấy thông tin đăng ký' });
+        }
+
+        // Chỉ người thanh toán mới được chọn chi nhánh
+        if (registration.nguoiDungId.toString() !== userId) {
+            return res.status(403).json({ message: 'Chỉ người thanh toán mới được chọn chi nhánh' });
+        }
+
+        // Kiểm tra chi nhánh tồn tại
+        const branch = await ChiNhanh.findById(branchId);
+        if (!branch) {
+            return res.status(404).json({ message: 'Không tìm thấy chi nhánh' });
+        }
+
+        registration.branchId = branchId;
+        await registration.save();
+
+        res.json({
+            success: true,
+            message: 'Đã cập nhật chi nhánh thành công',
+            data: registration
+        });
+
+    } catch (error) {
+        console.error('Error updating branch:', error);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+};
+
 module.exports = {
     getAvailableTrainers,
     selectTrainer,
@@ -495,5 +611,7 @@ module.exports = {
     getMemberWorkoutSchedule,
     updateTrainerSchedule,
     getTrainerSchedule,
-    completeWorkflow
+    completeWorkflow,
+    getWorkflowStatus,
+    updateBranch
 };

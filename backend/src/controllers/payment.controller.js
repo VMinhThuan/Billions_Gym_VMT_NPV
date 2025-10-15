@@ -3,7 +3,7 @@ const zaloPaymentService = require('../services/zaloPayment.service');
 const GoiTap = require('../models/GoiTap');
 const ChiTietGoiTap = require('../models/ChiTietGoiTap');
 const { NguoiDung } = require('../models/NguoiDung');
-const { createPaymentSuccessNotification, createUpgradeSuccessNotification, createPartnerAddedNotification } = require('./notification.controller');
+const { createPaymentSuccessNotification, createUpgradeSuccessNotification, createPartnerAddedNotification, createWorkflowNotification, createPartnerWorkflowNotification } = require('./notification.controller');
 
 class PaymentController {
     /**
@@ -443,6 +443,20 @@ class PaymentController {
                         );
                     }
 
+                    // Tạo thông báo workflow cho người thanh toán
+                    try {
+                        console.log(`🔍 [CALLBACK] Creating workflow notification for user ${updatedRegistration.nguoiDungId}, registration ${updatedRegistration._id}`);
+                        await createWorkflowNotification(
+                            updatedRegistration.nguoiDungId,
+                            updatedRegistration._id,
+                            updatedRegistration.goiTapId.tenGoiTap,
+                            updatedRegistration.isUpgrade
+                        );
+                        console.log(`✅ [CALLBACK] Workflow notification created successfully for user ${updatedRegistration.nguoiDungId}`);
+                    } catch (workflowError) {
+                        console.error(`❌ [CALLBACK] Error creating workflow notification for user ${updatedRegistration.nguoiDungId}:`, workflowError);
+                    }
+
                     // Nếu là gói tập 2 người, tạo notification cho người thứ 2
                     if (updatedRegistration.goiTapId.soLuongNguoiThamGia === 2 &&
                         updatedRegistration.thongTinKhachHang.partnerPhone) {
@@ -458,6 +472,15 @@ class PaymentController {
                                 updatedRegistration.goiTapId,
                                 updatedRegistration.thongTinKhachHang.firstName + ' ' + updatedRegistration.thongTinKhachHang.lastName,
                                 updatedRegistration._id
+                            );
+
+                            // Tạo thông báo workflow cho partner
+                            const owner = await NguoiDung.findById(updatedRegistration.nguoiDungId);
+                            await createPartnerWorkflowNotification(
+                                partner._id,
+                                updatedRegistration._id,
+                                updatedRegistration.goiTapId.tenGoiTap,
+                                owner.hoTen
                             );
                         }
                     }
@@ -501,6 +524,20 @@ class PaymentController {
                         updatedRegistration._id
                     );
 
+                    // Tạo thông báo workflow cho người thanh toán
+                    try {
+                        console.log(`🔍 [CALLBACK] Creating workflow notification for user ${updatedRegistration.nguoiDungId}, registration ${updatedRegistration._id}`);
+                        await createWorkflowNotification(
+                            updatedRegistration.nguoiDungId,
+                            updatedRegistration._id,
+                            updatedRegistration.goiTapId.tenGoiTap,
+                            updatedRegistration.isUpgrade
+                        );
+                        console.log(`✅ [CALLBACK] Workflow notification created successfully for user ${updatedRegistration.nguoiDungId}`);
+                    } catch (workflowError) {
+                        console.error(`❌ [CALLBACK] Error creating workflow notification for user ${updatedRegistration.nguoiDungId}:`, workflowError);
+                    }
+
                     // Nếu là gói tập 2 người, tạo notification cho người thứ 2
                     if (updatedRegistration.goiTapId.soLuongNguoiThamGia === 2 &&
                         updatedRegistration.thongTinKhachHang.partnerPhone) {
@@ -516,6 +553,15 @@ class PaymentController {
                                 updatedRegistration.goiTapId,
                                 updatedRegistration.thongTinKhachHang.firstName + ' ' + updatedRegistration.thongTinKhachHang.lastName,
                                 updatedRegistration._id
+                            );
+
+                            // Tạo thông báo workflow cho partner
+                            const owner = await NguoiDung.findById(updatedRegistration.nguoiDungId);
+                            await createPartnerWorkflowNotification(
+                                partner._id,
+                                updatedRegistration._id,
+                                updatedRegistration.goiTapId.tenGoiTap,
+                                owner.hoTen
                             );
                         }
                     }
@@ -643,6 +689,20 @@ class PaymentController {
                         console.log(`✅ [MANUAL UPDATE] Payment success notification created for user ${updatedRegistration.nguoiDungId}`);
                     }
 
+                    // Tạo thông báo workflow cho người thanh toán
+                    try {
+                        console.log(`🔍 [CALLBACK] Creating workflow notification for user ${updatedRegistration.nguoiDungId}, registration ${updatedRegistration._id}`);
+                        await createWorkflowNotification(
+                            updatedRegistration.nguoiDungId,
+                            updatedRegistration._id,
+                            updatedRegistration.goiTapId.tenGoiTap,
+                            updatedRegistration.isUpgrade
+                        );
+                        console.log(`✅ [CALLBACK] Workflow notification created successfully for user ${updatedRegistration.nguoiDungId}`);
+                    } catch (workflowError) {
+                        console.error(`❌ [CALLBACK] Error creating workflow notification for user ${updatedRegistration.nguoiDungId}:`, workflowError);
+                    }
+
                     // Nếu là gói tập 2 người, tạo notification cho người thứ 2
                     if (updatedRegistration.goiTapId.soLuongNguoiThamGia === 2 &&
                         updatedRegistration.thongTinKhachHang.partnerPhone) {
@@ -660,6 +720,15 @@ class PaymentController {
                                 updatedRegistration._id
                             );
                             console.log(`✅ [MANUAL UPDATE] Partner notification created for user ${partner._id}`);
+
+                            // Tạo thông báo workflow cho partner
+                            const owner = await NguoiDung.findById(updatedRegistration.nguoiDungId);
+                            await createPartnerWorkflowNotification(
+                                partner._id,
+                                updatedRegistration._id,
+                                updatedRegistration.goiTapId.tenGoiTap,
+                                owner.hoTen
+                            );
                         } else {
                             console.log(`❌ [MANUAL UPDATE] Partner not found for phone ${updatedRegistration.thongTinKhachHang.partnerPhone}`);
                         }

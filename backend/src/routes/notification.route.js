@@ -21,6 +21,9 @@ router.post('/test', notificationController.testCreateNotification);
 // Test unread count
 router.get('/test-unread/:userId', notificationController.testUnreadCount);
 
+// Test create workflow notification
+router.post('/test-workflow', notificationController.testCreateWorkflowNotification);
+
 // Simple test route
 router.get('/simple-test', (req, res) => {
     res.json({ success: true, message: 'Simple test works' });
