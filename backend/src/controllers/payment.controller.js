@@ -1,8 +1,9 @@
 const momoPaymentService = require('../services/momoPayment.service');
 const zaloPaymentService = require('../services/zaloPayment.service');
 const GoiTap = require('../models/GoiTap');
-const PackageRegistration = require('../models/PackageRegistration');
+const ChiTietGoiTap = require('../models/ChiTietGoiTap');
 const { NguoiDung } = require('../models/NguoiDung');
+const { createPaymentSuccessNotification, createUpgradeSuccessNotification, createPartnerAddedNotification } = require('./notification.controller');
 
 class PaymentController {
     /**
@@ -51,7 +52,7 @@ class PaymentController {
                 amount: amount,
                 orderId: orderId,
                 orderInfo: `Thanh toán gói tập: ${packageInfo.tenGoiTap}`,
-                redirectUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment-success?orderId=${orderId}`,
+                redirectUrl: `${process.env.FRONTEND_URL_CLIENT || 'http://localhost:3000'}/payment-success?orderId=${orderId}`,
                 ipnUrl: `${process.env.BACKEND_URL || 'http://localhost:4000'}/api/payment/momo/callback`,
                 extraData: JSON.stringify({
                     packageId: packageId,
@@ -76,6 +77,7 @@ class PaymentController {
                 nguoiDungId: userId,
                 thoiGianDangKy: new Date(),
                 trangThai: 'CHO_THANH_TOAN',
+                soTienThanhToan: amount, // Thêm field bắt buộc
                 thongTinThanhToan: {
                     phuongThuc: 'momo',
                     orderId: orderId,
@@ -83,12 +85,37 @@ class PaymentController {
                     requestId: momoResult.requestId,
                     paymentUrl: momoResult.data.payUrl
                 },
-                thongTinKhachHang: paymentData
+                thongTinKhachHang: paymentData,
+                branchId: paymentData.branchId,
+                ngayBatDau: paymentData.startDate,
+                // Thêm thông tin upgrade
+                isUpgrade: paymentData.isUpgrade || false,
+                soTienBu: paymentData.soTienBu || 0,
+                giaGoiTapGoc: paymentData.giaGoiTapGoc || amount,
+                ghiChu: paymentData.isUpgrade && paymentData.existingPackageId
+                    ? `Nâng cấp từ gói cũ - Số tiền bù: ${(paymentData.soTienBu || 0).toLocaleString('vi-VN')}₫`
+                    : null
             };
 
             // Lưu vào database
-            const registration = new PackageRegistration(registrationData);
+            const registration = new ChiTietGoiTap(registrationData);
             await registration.save();
+
+            // Nếu là upgrade, cập nhật gói cũ
+            if (paymentData.isUpgrade && paymentData.existingPackageId) {
+                console.log(`🔄 [MOMO] Updating old package ${paymentData.existingPackageId} to DA_NANG_CAP status`);
+                try {
+                    await this.updateOldPackageOnUpgrade(paymentData.existingPackageId, {
+                        soTienBu: paymentData.soTienBu || 0,
+                        isUpgrade: true,
+                        ghiChu: `Nâng cấp lên gói ${packageInfo.tenGoiTap} - Số tiền bù: ${(paymentData.soTienBu || 0).toLocaleString('vi-VN')}₫`
+                    });
+                    console.log(`✅ [MOMO] Old package updated successfully`);
+                } catch (upgradeError) {
+                    console.error(`❌ [MOMO] Error updating old package:`, upgradeError);
+                    // Không throw error vì gói mới đã được tạo thành công
+                }
+            }
 
             return res.status(200).json({
                 success: true,
@@ -157,7 +184,7 @@ class PaymentController {
                 amount: amount,
                 orderId: orderId,
                 orderInfo: `Thanh toán gói tập: ${packageInfo.tenGoiTap}`,
-                redirectUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment-success?orderId=${orderId}`,
+                redirectUrl: `${process.env.FRONTEND_URL_CLIENT || 'http://localhost:3000'}/payment-success?orderId=${orderId}`,
                 callbackUrl: `${process.env.BACKEND_URL || 'http://localhost:4000'}/api/payment/zalo/callback`,
                 userId: userInfo._id.toString(),
                 extraData: {
@@ -183,6 +210,7 @@ class PaymentController {
                 nguoiDungId: userId,
                 thoiGianDangKy: new Date(),
                 trangThai: 'CHO_THANH_TOAN',
+                soTienThanhToan: amount, // Thêm field bắt buộc
                 thongTinThanhToan: {
                     phuongThuc: 'zalopay',
                     orderId: orderId,
@@ -190,12 +218,37 @@ class PaymentController {
                     app_trans_id: zaloResult.app_trans_id,
                     paymentUrl: zaloResult.data.order_url
                 },
-                thongTinKhachHang: paymentData
+                thongTinKhachHang: paymentData,
+                branchId: paymentData.branchId,
+                ngayBatDau: paymentData.startDate,
+                // Thêm thông tin upgrade
+                isUpgrade: paymentData.isUpgrade || false,
+                soTienBu: paymentData.soTienBu || 0,
+                giaGoiTapGoc: paymentData.giaGoiTapGoc || amount,
+                ghiChu: paymentData.isUpgrade && paymentData.existingPackageId
+                    ? `Nâng cấp từ gói cũ - Số tiền bù: ${(paymentData.soTienBu || 0).toLocaleString('vi-VN')}₫`
+                    : null
             };
 
             // Lưu vào database
-            const registration = new PackageRegistration(registrationData);
+            const registration = new ChiTietGoiTap(registrationData);
             await registration.save();
+
+            // Nếu là upgrade, cập nhật gói cũ
+            if (paymentData.isUpgrade && paymentData.existingPackageId) {
+                console.log(`🔄 [ZALOPAY] Updating old package ${paymentData.existingPackageId} to DA_NANG_CAP status`);
+                try {
+                    await this.updateOldPackageOnUpgrade(paymentData.existingPackageId, {
+                        soTienBu: paymentData.soTienBu || 0,
+                        isUpgrade: true,
+                        ghiChu: `Nâng cấp lên gói ${packageInfo.tenGoiTap} - Số tiền bù: ${(paymentData.soTienBu || 0).toLocaleString('vi-VN')}₫`
+                    });
+                    console.log(`✅ [ZALOPAY] Old package updated successfully`);
+                } catch (upgradeError) {
+                    console.error(`❌ [ZALOPAY] Error updating old package:`, upgradeError);
+                    // Không throw error vì gói mới đã được tạo thành công
+                }
+            }
 
             return res.status(200).json({
                 success: true,
@@ -267,12 +320,12 @@ class PaymentController {
 
             if (result.success) {
                 // Cập nhật trạng thái đăng ký gói tập
-                await this.updateRegistrationStatus(result.app_trans_id, 'DA_THANH_TOAN', result);
+                await this.updateZaloRegistrationStatus(result.app_trans_id, 'DA_THANH_TOAN', result);
 
                 console.log(`ZaloPay payment successful for app_trans_id: ${result.app_trans_id}`);
             } else {
                 // Cập nhật trạng thái thất bại
-                await this.updateRegistrationStatus(result.app_trans_id, 'THANH_TOAN_THAT_BAI', result);
+                await this.updateZaloRegistrationStatus(result.app_trans_id, 'THANH_TOAN_THAT_BAI', result);
 
                 console.log(`ZaloPay payment failed for app_trans_id: ${result.app_trans_id}`);
             }
@@ -300,7 +353,7 @@ class PaymentController {
             const { orderId } = req.params;
 
             // Tìm đăng ký gói tập
-            const registration = await PackageRegistration.findOne({
+            const registration = await ChiTietGoiTap.findOne({
                 'thongTinThanhToan.orderId': orderId
             });
 
@@ -315,7 +368,7 @@ class PaymentController {
                 success: true,
                 data: {
                     orderId: orderId,
-                    status: registration.trangThai,
+                    status: registration.trangThaiThanhToan,
                     paymentMethod: registration.thongTinThanhToan.phuongThuc,
                     amount: registration.thongTinThanhToan.amount,
                     registrationTime: registration.thoiGianDangKy
@@ -338,21 +391,301 @@ class PaymentController {
     async updateRegistrationStatus(orderId, status, paymentResult) {
         try {
             const updateData = {
-                trangThai: status,
+                trangThaiThanhToan: status,
                 thoiGianCapNhat: new Date(),
                 'thongTinThanhToan.ketQuaThanhToan': paymentResult
             };
 
-            await PackageRegistration.findOneAndUpdate(
+            const updatedRegistration = await ChiTietGoiTap.findOneAndUpdate(
                 { 'thongTinThanhToan.orderId': orderId },
                 updateData,
                 { new: true }
-            );
+            ).populate('goiTapId');
 
             console.log(`Updated registration status for order ${orderId} to ${status}`);
 
+            // Tạo notification khi thanh toán thành công
+            if (status === 'DA_THANH_TOAN' && updatedRegistration) {
+                try {
+                    // Kiểm tra xem có phải upgrade không
+                    if (updatedRegistration.isUpgrade && updatedRegistration.soTienBu > 0) {
+                        console.log(`🔄 [CALLBACK] This is an upgrade package - creating upgrade notification`);
+
+                        // Tìm gói cũ của user này (gói có trangThai = DA_NANG_CAP)
+                        const oldPackageData = await ChiTietGoiTap.findOne({
+                            nguoiDungId: updatedRegistration.nguoiDungId,
+                            trangThai: 'DA_NANG_CAP',
+                            trangThaiDangKy: 'DA_NANG_CAP'
+                        }).populate('goiTapId');
+
+                        console.log(`🔍 [CALLBACK] Found old package:`, oldPackageData ? oldPackageData._id : 'None');
+
+                        // Tạo thông báo upgrade
+                        await createUpgradeSuccessNotification(
+                            updatedRegistration.nguoiDungId,
+                            updatedRegistration.goiTapId,
+                            oldPackageData ? oldPackageData.goiTapId : updatedRegistration.goiTapId, // Fallback nếu không tìm thấy gói cũ
+                            {
+                                soTienBu: updatedRegistration.soTienBu || 0,
+                                isUpgrade: updatedRegistration.isUpgrade || true,
+                                ghiChu: updatedRegistration.ghiChu || 'Nâng cấp gói tập'
+                            },
+                            updatedRegistration._id
+                        );
+                        console.log(`✅ [CALLBACK] Upgrade success notification created for user ${updatedRegistration.nguoiDungId}`);
+
+                    } else {
+                        // Tạo notification cho người thanh toán bình thường
+                        await createPaymentSuccessNotification(
+                            updatedRegistration.nguoiDungId,
+                            updatedRegistration.goiTapId,
+                            updatedRegistration._id
+                        );
+                    }
+
+                    // Nếu là gói tập 2 người, tạo notification cho người thứ 2
+                    if (updatedRegistration.goiTapId.soLuongNguoiThamGia === 2 &&
+                        updatedRegistration.thongTinKhachHang.partnerPhone) {
+
+                        // Tìm người thứ 2 theo số điện thoại
+                        const partner = await NguoiDung.findOne({
+                            soDienThoai: updatedRegistration.thongTinKhachHang.partnerPhone
+                        });
+
+                        if (partner) {
+                            await createPartnerAddedNotification(
+                                partner._id,
+                                updatedRegistration.goiTapId,
+                                updatedRegistration.thongTinKhachHang.firstName + ' ' + updatedRegistration.thongTinKhachHang.lastName,
+                                updatedRegistration._id
+                            );
+                        }
+                    }
+                } catch (notificationError) {
+                    console.error('Error creating notifications:', notificationError);
+                    // Không throw error để không ảnh hưởng đến payment flow
+                }
+            }
+
         } catch (error) {
             console.error('Error updating registration status:', error);
+        }
+    }
+
+    /**
+     * Cập nhật trạng thái đăng ký gói tập cho ZaloPay (sử dụng app_trans_id)
+     */
+    async updateZaloRegistrationStatus(appTransId, status, paymentResult) {
+        try {
+            const updateData = {
+                trangThaiThanhToan: status,
+                thoiGianCapNhat: new Date(),
+                'thongTinThanhToan.ketQuaThanhToan': paymentResult
+            };
+
+            const updatedRegistration = await ChiTietGoiTap.findOneAndUpdate(
+                { 'thongTinThanhToan.app_trans_id': appTransId },
+                updateData,
+                { new: true }
+            ).populate('goiTapId');
+
+            console.log(`Updated ZaloPay registration status for app_trans_id ${appTransId} to ${status}`);
+
+            // Tạo notification khi thanh toán thành công
+            if (status === 'DA_THANH_TOAN' && updatedRegistration) {
+                try {
+                    // Tạo notification cho người thanh toán
+                    await createPaymentSuccessNotification(
+                        updatedRegistration.nguoiDungId,
+                        updatedRegistration.goiTapId,
+                        updatedRegistration._id
+                    );
+
+                    // Nếu là gói tập 2 người, tạo notification cho người thứ 2
+                    if (updatedRegistration.goiTapId.soLuongNguoiThamGia === 2 &&
+                        updatedRegistration.thongTinKhachHang.partnerPhone) {
+
+                        // Tìm người thứ 2 theo số điện thoại
+                        const partner = await NguoiDung.findOne({
+                            soDienThoai: updatedRegistration.thongTinKhachHang.partnerPhone
+                        });
+
+                        if (partner) {
+                            await createPartnerAddedNotification(
+                                partner._id,
+                                updatedRegistration.goiTapId,
+                                updatedRegistration.thongTinKhachHang.firstName + ' ' + updatedRegistration.thongTinKhachHang.lastName,
+                                updatedRegistration._id
+                            );
+                        }
+                    }
+                } catch (notificationError) {
+                    console.error('Error creating notifications:', notificationError);
+                    // Không throw error để không ảnh hưởng đến payment flow
+                }
+            }
+
+        } catch (error) {
+            console.error('Error updating ZaloPay registration status:', error);
+        }
+    }
+
+    /**
+     * Cập nhật gói cũ khi nâng cấp
+     */
+    async updateOldPackageOnUpgrade(oldPackageId, upgradeInfo) {
+        try {
+            console.log(`🔄 [UPGRADE] Updating old package ${oldPackageId} to DA_NANG_CAP status`);
+
+            const updatedOldPackage = await ChiTietGoiTap.findByIdAndUpdate(
+                oldPackageId,
+                {
+                    trangThaiDangKy: 'DA_NANG_CAP',
+                    trangThai: 'DA_NANG_CAP',
+                    lyDoTamDung: 'Nâng cấp gói tập',
+                    ngayTamDung: new Date(),
+                    soTienBu: upgradeInfo.soTienBu,
+                    isUpgrade: upgradeInfo.isUpgrade,
+                    ghiChu: upgradeInfo.ghiChu
+                },
+                { new: true }
+            );
+
+            if (updatedOldPackage) {
+                console.log(`✅ [UPGRADE] Successfully updated old package ${oldPackageId} to DA_NANG_CAP status`);
+                return updatedOldPackage;
+            } else {
+                console.error(`❌ [UPGRADE] Failed to find old package ${oldPackageId}`);
+                return null;
+            }
+        } catch (error) {
+            console.error(`❌ [UPGRADE] Error updating old package ${oldPackageId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Manually update payment status (for testing)
+     */
+    async manualUpdatePaymentStatus(req, res) {
+        try {
+            const { orderId, status } = req.body;
+
+            if (!orderId || !status) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Thiếu orderId hoặc status'
+                });
+            }
+
+            // Find registration
+            const registration = await ChiTietGoiTap.findOne({
+                'thongTinThanhToan.orderId': orderId
+            }).populate('goiTapId');
+
+            if (!registration) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy đơn hàng'
+                });
+            }
+
+            // Update status
+            const updateData = {
+                trangThaiThanhToan: status,
+                thoiGianCapNhat: new Date()
+            };
+
+            const updatedRegistration = await ChiTietGoiTap.findOneAndUpdate(
+                { 'thongTinThanhToan.orderId': orderId },
+                updateData,
+                { new: true }
+            ).populate('goiTapId');
+
+            // Create notification if payment successful
+            if (status === 'DA_THANH_TOAN' && updatedRegistration) {
+                console.log(`🔔 [MANUAL UPDATE] Creating notifications for registration ${updatedRegistration._id}, user ${updatedRegistration.nguoiDungId}`);
+                try {
+                    // Kiểm tra xem có phải upgrade không
+                    if (updatedRegistration.isUpgrade && updatedRegistration.soTienBu > 0) {
+                        console.log(`🔄 [MANUAL UPDATE] This is an upgrade package - creating upgrade notification`);
+
+                        // Tìm gói cũ của user này (gói có trangThai = DA_NANG_CAP)
+                        const oldPackageData = await ChiTietGoiTap.findOne({
+                            nguoiDungId: updatedRegistration.nguoiDungId,
+                            trangThai: 'DA_NANG_CAP',
+                            trangThaiDangKy: 'DA_NANG_CAP'
+                        }).populate('goiTapId');
+
+                        console.log(`🔍 [MANUAL UPDATE] Found old package:`, oldPackageData ? oldPackageData._id : 'None');
+
+                        // Tạo thông báo upgrade
+                        await createUpgradeSuccessNotification(
+                            updatedRegistration.nguoiDungId,
+                            updatedRegistration.goiTapId,
+                            oldPackageData ? oldPackageData.goiTapId : updatedRegistration.goiTapId, // Fallback nếu không tìm thấy gói cũ
+                            {
+                                soTienBu: updatedRegistration.soTienBu || 0,
+                                isUpgrade: updatedRegistration.isUpgrade || true,
+                                ghiChu: updatedRegistration.ghiChu || 'Nâng cấp gói tập'
+                            },
+                            updatedRegistration._id
+                        );
+                        console.log(`✅ [MANUAL UPDATE] Upgrade success notification created for user ${updatedRegistration.nguoiDungId}`);
+
+                    } else {
+                        // Thông báo thanh toán bình thường
+                        await createPaymentSuccessNotification(
+                            updatedRegistration.nguoiDungId,
+                            updatedRegistration.goiTapId,
+                            updatedRegistration._id
+                        );
+                        console.log(`✅ [MANUAL UPDATE] Payment success notification created for user ${updatedRegistration.nguoiDungId}`);
+                    }
+
+                    // Nếu là gói tập 2 người, tạo notification cho người thứ 2
+                    if (updatedRegistration.goiTapId.soLuongNguoiThamGia === 2 &&
+                        updatedRegistration.thongTinKhachHang.partnerPhone) {
+
+                        console.log(`🔔 [MANUAL UPDATE] Creating partner notification for phone ${updatedRegistration.thongTinKhachHang.partnerPhone}`);
+                        const partner = await NguoiDung.findOne({
+                            soDienThoai: updatedRegistration.thongTinKhachHang.partnerPhone
+                        });
+
+                        if (partner) {
+                            await createPartnerAddedNotification(
+                                partner._id,
+                                updatedRegistration.goiTapId,
+                                updatedRegistration.thongTinKhachHang.firstName + ' ' + updatedRegistration.thongTinKhachHang.lastName,
+                                updatedRegistration._id
+                            );
+                            console.log(`✅ [MANUAL UPDATE] Partner notification created for user ${partner._id}`);
+                        } else {
+                            console.log(`❌ [MANUAL UPDATE] Partner not found for phone ${updatedRegistration.thongTinKhachHang.partnerPhone}`);
+                        }
+                    }
+                } catch (notificationError) {
+                    console.error('❌ [MANUAL UPDATE] Error creating notifications:', notificationError);
+                }
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Cập nhật trạng thái thanh toán thành công',
+                data: {
+                    orderId: orderId,
+                    status: status,
+                    updatedAt: new Date()
+                }
+            });
+
+        } catch (error) {
+            console.error('PaymentController.manualUpdatePaymentStatus error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Lỗi cập nhật trạng thái thanh toán',
+                error: error.message
+            });
         }
     }
 }

@@ -1,22 +1,64 @@
 /* Payment Success Page Styles */
 .payment-success-page {
     min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 2rem 1rem;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 25%, #1e1e1e 50%, #0f0f0f 75%, #000000 100%);
+    background-attachment: fixed;
+    padding: 6rem 1rem 2rem 1rem;
+    /* Thêm padding-top để tránh bị che bởi header */
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    /* Thay đổi từ center thành flex-start */
     justify-content: center;
+    position: relative;
+}
+
+.payment-success-page::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(circle at 20% 80%, rgba(229, 57, 53, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 87, 34, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(229, 57, 53, 0.05) 0%, transparent 50%);
+    pointer-events: none;
 }
 
 .success-container {
-    background: white;
-    border-radius: 20px;
-    padding: 3rem 2rem;
-    max-width: 600px;
+    background: rgba(255, 255, 255, 0.98);
+    border-radius: 24px;
+    padding: 2rem;
+    max-width: 1000px;
     width: 100%;
-    text-align: center;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    text-align: left;
+    /* Thay đổi từ center thành left cho layout 2 cột */
+    box-shadow:
+        0 25px 50px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
     animation: fadeInUp 0.6s ease-out;
+    position: relative;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    margin-top: 2rem;
+    /* Thêm margin-top để tạo khoảng cách với header */
+}
+
+.success-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 24px;
+    padding: 2px;
+    background: linear-gradient(135deg, rgba(229, 57, 53, 0.3), rgba(255, 87, 34, 0.3), rgba(229, 57, 53, 0.1));
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: subtract;
+    pointer-events: none;
 }
 
 /* Loading Container */
@@ -87,25 +129,30 @@
     font-size: 2.5rem;
     font-weight: 700;
     color: #333;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.2;
 }
 
 /* Status Description */
 .status-description {
     font-size: 1.1rem;
     color: #666;
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
     line-height: 1.6;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* Payment Details */
 .payment-details {
-    background: #f8f9fa;
-    border-radius: 12px;
+    background: rgba(248, 249, 250, 0.9);
+    border-radius: 16px;
     padding: 1.5rem;
     margin-bottom: 2rem;
     text-align: left;
+    border: 1px solid rgba(229, 57, 53, 0.1);
+    backdrop-filter: blur(5px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .detail-item {
@@ -122,12 +169,14 @@
 
 .detail-item .label {
     font-weight: 600;
-    color: #555;
+    color: #6b7280;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .detail-item .value {
-    color: #333;
+    color: #1f2937;
     font-weight: 500;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* Action Buttons */
@@ -135,21 +184,23 @@
     display: flex;
     gap: 1rem;
     justify-content: center;
+    margin-top: 2rem;
     margin-bottom: 2rem;
     flex-wrap: wrap;
 }
 
 .btn-primary,
 .btn-secondary {
-    padding: 12px 24px;
-    border-radius: 8px;
+    padding: 14px 28px;
+    border-radius: 10px;
     font-size: 1rem;
     font-weight: 600;
     text-decoration: none;
     border: none;
     cursor: pointer;
     transition: all 0.3s ease;
-    min-width: 150px;
+    min-width: 180px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .btn-primary {
@@ -178,10 +229,13 @@
 
 /* Success Info */
 .success-info {
-    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-    border-radius: 12px;
+    background: rgba(248, 249, 250, 0.9);
+    border-radius: 16px;
     padding: 2rem;
     margin-bottom: 2rem;
+    border: 1px solid rgba(229, 57, 53, 0.1);
+    backdrop-filter: blur(5px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .success-info h3 {
@@ -224,9 +278,13 @@
 
 /* Contact Support */
 .contact-support {
-    border-top: 1px solid #e9ecef;
+    border-top: 1px solid rgba(229, 57, 53, 0.2);
     padding-top: 1.5rem;
     margin-top: 1.5rem;
+    background: rgba(248, 249, 250, 0.6);
+    border-radius: 12px;
+    padding: 1.5rem;
+    backdrop-filter: blur(5px);
 }
 
 .contact-support p {
@@ -294,14 +352,82 @@
     }
 }
 
+/* Two Column Layout */
+.success-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: start;
+}
+
+.success-header {
+    grid-column: 1 / -1;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.success-left-column {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.success-right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+/* Status Icon - Center in header */
+.status-icon {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+/* Status Title - Center in header */
+.status-title {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+/* Status Description - Center in header */
+.status-description {
+    text-align: center;
+    margin-bottom: 0;
+}
+
+/* Additional Dark Theme Enhancements */
+.payment-success-page {
+    overflow-x: hidden;
+}
+
+.success-container {
+    z-index: 10;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .payment-success-page {
-        padding: 1rem;
+        padding: 5rem 1rem 2rem 1rem;
+        /* Giữ padding-top để tránh header */
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #000000 100%);
     }
 
     .success-container {
         padding: 2rem 1.5rem;
+        max-width: 95%;
+        margin: 1rem auto;
+    }
+
+    /* Mobile: Chuyển về 1 cột */
+    .success-content {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+
+    .success-header {
+        grid-column: 1;
+        margin-bottom: 1.5rem;
     }
 
     .status-title {
@@ -323,11 +449,31 @@
         flex-direction: column;
         gap: 0.5rem;
     }
+
+    .payment-details,
+    .success-info,
+    .contact-support {
+        backdrop-filter: blur(8px);
+        border-radius: 12px;
+    }
 }
 
 @media (max-width: 480px) {
+    .payment-success-page {
+        padding: 4.5rem 0.5rem 1rem 0.5rem;
+        /* Giữ padding-top để tránh header */
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 30%, #000000 100%);
+    }
+
     .success-container {
         padding: 1.5rem 1rem;
+        margin: 0.5rem auto;
+        max-width: 98%;
+        border-radius: 20px;
+    }
+
+    .success-content {
+        gap: 1.5rem;
     }
 
     .status-icon {
@@ -340,6 +486,7 @@
 
     .payment-details {
         padding: 1rem;
+        backdrop-filter: blur(10px);
     }
 
     .detail-item {
@@ -355,5 +502,11 @@
     .info-item {
         flex-direction: column;
         text-align: center;
+    }
+
+    .success-info,
+    .contact-support {
+        backdrop-filter: blur(10px);
+        padding: 1.5rem 1rem;
     }
 }

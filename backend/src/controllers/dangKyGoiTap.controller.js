@@ -60,11 +60,11 @@ const dangKyGoiTap = async (req, res) => {
 
         // Tính ngày kết thúc dựa trên thời hạn gói tập
         const ngayKetThuc = new Date(ngayBatDau);
-        if (goiTap.donViThoiHan === 'Ngay') {
+        if (goiTap.donViThoiHan === 'Ngày') {
             ngayKetThuc.setDate(ngayKetThuc.getDate() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Thang') {
+        } else if (goiTap.donViThoiHan === 'Tháng') {
             ngayKetThuc.setMonth(ngayKetThuc.getMonth() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Nam') {
+        } else if (goiTap.donViThoiHan === 'Năm') {
             ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + goiTap.thoiHan);
         }
 
@@ -240,16 +240,44 @@ const getActivePackage = async (req, res) => {
     try {
         const { maHoiVien } = req.params;
 
-        const activePackage = await ChiTietGoiTap.getActivePackage(maHoiVien);
+        console.log('🔍 getActivePackage - Looking for active package for member:', maHoiVien);
+
+        // Tìm gói tập đang hoạt động
+        const activePackage = await ChiTietGoiTap.findOne({
+            $or: [
+                { maHoiVien: maHoiVien },
+                { nguoiDungId: maHoiVien }
+            ],
+            $and: [
+                {
+                    $or: [
+                        { trangThaiSuDung: { $in: ['DANG_HOAT_DONG', 'DANG_SU_DUNG', 'CHO_CHON_PT', 'DANG_KICH_HOAT'] } },
+                        { trangThaiDangKy: { $in: ['CHO_CHON_PT', 'DA_CHON_PT', 'DA_TAO_LICH', 'HOAN_THANH'] } }
+                    ]
+                },
+                {
+                    $or: [
+                        { ngayKetThuc: { $gte: new Date() } },
+                        { ngayKetThuc: { $exists: false } }
+                    ]
+                },
+                {
+                    trangThaiSuDung: { $ne: 'DA_NANG_CAP' },
+                    trangThaiDangKy: { $ne: 'DA_NANG_CAP' }
+                }
+            ]
+        })
+            .populate('maGoiTap', 'tenGoiTap donGia thoiHan donViThoiHan')
+            .populate('goiTapId', 'tenGoiTap donGia thoiHan donViThoiHan')
+            .sort({ ngayDangKy: -1, thoiGianDangKy: -1 }); // Lấy gói mới nhất
+
+        console.log('🔍 getActivePackage - Found package:', activePackage ? 'Yes' : 'No');
 
         if (!activePackage) {
             return res.status(404).json({ message: 'Không có gói tập đang hoạt động' });
         }
 
-        res.json({
-            message: 'Lấy gói tập đang hoạt động thành công',
-            data: activePackage
-        });
+        res.json(activePackage);
     } catch (error) {
         console.error('Error in getActivePackage:', error);
         res.status(500).json({ message: 'Lỗi server', error: error.message });

@@ -49,7 +49,7 @@ export const getAuthHeaders = (includeAuth = true) => {
 };
 export const apiRequest = async (endpoint, options = {}) => {
     const url = getApiUrl(endpoint);
-    const { requireAuth = true, ...restOptions } = options;
+    const { requireAuth = true, allow404 = false, ...restOptions } = options;
     const defaultOptions = {
         headers: getAuthHeaders(requireAuth),
         credentials: 'include',
@@ -67,7 +67,13 @@ export const apiRequest = async (endpoint, options = {}) => {
         if (response.type === 'opaque' || response.status === 0) {
             throw new Error('CORS error: Unable to connect to server. Please check your network connection and server status.');
         }
-        const data = await response.json();
+        // Try parse JSON safely; on 204 or empty body, return null
+        let data = null;
+        try {
+            data = await response.json();
+        } catch (_) {
+            data = null;
+        }
         if (!response.ok) {
             if (response.status === 401) {
                 localStorage.removeItem('token');
@@ -76,6 +82,9 @@ export const apiRequest = async (endpoint, options = {}) => {
             }
             if (response.status === 403) {
                 throw new Error('Access denied. You do not have permission to perform this action.');
+            }
+            if (response.status === 404 && allow404) {
+                return null;
             }
             if (response.status === 404) {
                 throw new Error('Resource not found.');
@@ -286,29 +295,34 @@ export const paymentAPI = {
 };
 // API object for simple usage
 export const api = {
-    get: async (path, query = {}, requireAuth = true) => {
+    get: async (path, query = {}, options = {}) => {
         const queryString = new URLSearchParams(query).toString();
         const url = queryString ? `${path}?${queryString}` : path;
-        return apiRequest(url, { requireAuth });
+        // Backward compatibility: allow boolean as third arg for requireAuth
+        const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
+        return apiRequest(url, normalizedOptions);
     },
-    post: async (path, body = {}, requireAuth = true) => {
+    post: async (path, body = {}, options = {}) => {
+        const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
         return apiRequest(path, {
             method: 'POST',
             body: JSON.stringify(body),
-            requireAuth
+            ...normalizedOptions
         });
     },
-    put: async (path, body = {}, requireAuth = true) => {
+    put: async (path, body = {}, options = {}) => {
+        const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
         return apiRequest(path, {
             method: 'PUT',
             body: JSON.stringify(body),
-            requireAuth
+            ...normalizedOptions
         });
     },
-    delete: async (path, requireAuth = true) => {
+    delete: async (path, options = {}) => {
+        const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
         return apiRequest(path, {
             method: 'DELETE',
-            requireAuth
+            ...normalizedOptions
         });
     }
 };

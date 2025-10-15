@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { authUtils } from '../../utils/auth';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useLanguage } from '../../contexts/LanguageContext';
+import NotificationIcon from '../NotificationIcon';
 
 const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const navigate = useNavigate();
@@ -157,6 +158,9 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     <div className="flex items-center space-x-2 sm:space-x-4">
                         {isAuthenticated ? (
                             <div className="flex items-center space-x-2 sm:space-x-3">
+                                {/* Notification Icon */}
+                                <NotificationIcon />
+
                                 {/* Language Dropdown */}
                                 <div className="relative" ref={languageDropdownRef}>
                                     <button

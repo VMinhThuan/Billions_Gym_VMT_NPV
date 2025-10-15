@@ -14,4 +14,7 @@ router.post('/zalo/callback', paymentController.handleZaloCallback);
 // Route chung để kiểm tra trạng thái thanh toán
 router.get('/status/:orderId', paymentController.checkPaymentStatus);
 
+// Route để manually update payment status (for testing)
+router.post('/manual-update', paymentController.manualUpdatePaymentStatus);
+
 module.exports = router;

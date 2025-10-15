@@ -1,12 +1,45 @@
 const mongoose = require('mongoose');
 
 const ChiTietGoiTapSchema = new mongoose.Schema({
-    maHoiVien: { type: mongoose.Schema.Types.ObjectId, ref: 'HoiVien', required: true },
-    maGoiTap: { type: mongoose.Schema.Types.ObjectId, ref: 'GoiTap', required: true },
-    ngayDangKy: { type: Date, required: true, default: Date.now },
-    ngayBatDau: { type: Date, required: true }, // Ngày bắt đầu sử dụng gói tập
-    ngayKetThuc: { type: Date, required: true },
-    trangThaiThanhToan: { type: String, enum: ['DA_THANH_TOAN', 'CHUA_THANH_TOAN'], default: 'CHUA_THANH_TOAN' },
+    // Legacy fields (giữ để tương thích)
+    maHoiVien: { type: mongoose.Schema.Types.ObjectId, ref: 'HoiVien' },
+    maGoiTap: { type: mongoose.Schema.Types.ObjectId, ref: 'GoiTap' },
+
+    // New fields for payment system
+    goiTapId: { type: mongoose.Schema.Types.ObjectId, ref: 'GoiTap', required: true },
+    nguoiDungId: { type: mongoose.Schema.Types.ObjectId, ref: 'NguoiDung', required: true },
+    thoiGianDangKy: { type: Date, default: Date.now },
+    ngayBatDau: { type: Date }, // Ngày bắt đầu sử dụng gói tập
+    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'ChiNhanh' }, // Chi nhánh được chọn
+
+    // Payment information
+    trangThaiThanhToan: {
+        type: String,
+        enum: ['CHO_THANH_TOAN', 'DA_THANH_TOAN', 'THANH_TOAN_THAT_BAI'],
+        default: 'CHO_THANH_TOAN'
+    },
+    thongTinThanhToan: {
+        phuongThuc: { type: String, enum: ['momo', 'zalopay'] },
+        orderId: { type: String },
+        app_trans_id: { type: String }, // For ZaloPay
+        amount: { type: Number },
+        requestId: { type: String }, // For MoMo
+        paymentUrl: { type: String },
+        ketQuaThanhToan: { type: mongoose.Schema.Types.Mixed }
+    },
+    thongTinKhachHang: {
+        firstName: { type: String },
+        lastName: { type: String },
+        phone: { type: String },
+        email: { type: String },
+        partnerPhone: { type: String }, // For 2-person packages
+        partnerInfo: { type: mongoose.Schema.Types.Mixed }
+    },
+    thoiGianCapNhat: { type: Date, default: Date.now },
+
+    // Legacy fields (giữ để tương thích)
+    ngayDangKy: { type: Date, default: Date.now },
+    ngayKetThuc: { type: Date },
     isLocked: { type: Boolean, default: false }, // Khóa chỉnh sửa sau khi thanh toán
     maThanhToan: { type: mongoose.Schema.Types.ObjectId, ref: 'ThanhToan' }, // Liên kết với thanh toán
 
@@ -28,7 +61,7 @@ const ChiTietGoiTapSchema = new mongoose.Schema({
     soTienBu: { type: Number, default: 0 }, // Số tiền bù cho trường hợp nâng cấp
     isUpgrade: { type: Boolean, default: false }, // Đánh dấu có phải gói nâng cấp không
     ghiChu: { type: String }, // Ghi chú chung
-    trangThai: {
+    trangThaiSuDung: {
         type: String,
         enum: ['DANG_HOAT_DONG', 'TAM_DUNG', 'HET_HAN', 'DA_HUY', 'DANG_SU_DUNG', 'CHO_CHON_PT', 'DANG_KICH_HOAT', 'DA_NANG_CAP'],
         default: 'CHO_CHON_PT'

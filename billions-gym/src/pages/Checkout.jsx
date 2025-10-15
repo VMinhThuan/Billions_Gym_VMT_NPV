@@ -57,6 +57,14 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [formLocked, setFormLocked] = useState(false);
+    const [branches, setBranches] = useState([]);
+    const [selectedBranchId, setSelectedBranchId] = useState('');
+
+    // Upgrade logic states
+    const [existingPackage, setExistingPackage] = useState(null);
+    const [isUpgrade, setIsUpgrade] = useState(false);
+    const [upgradeAmount, setUpgradeAmount] = useState(0);
+    const [isCheckingUpgrade, setIsCheckingUpgrade] = useState(false);
 
     // Fetch package data and user info
     useEffect(() => {
@@ -79,6 +87,191 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
             fetchPackageData();
         }
     }, [id]);
+
+    // Check for existing active package and calculate upgrade amount
+    useEffect(() => {
+        const checkExistingPackage = async () => {
+            if (!packageData || !isLoggedIn) return;
+
+            try {
+                setIsCheckingUpgrade(true);
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                const userId = user._id || user.id;
+
+                if (!userId) return;
+
+                // Check for existing active package
+                try {
+                    const activeResponse = await api.get(`/dang-ky-goi-tap/hoi-vien/${userId}/active`, {}, { requireAuth: false, allow404: true });
+
+                    if (activeResponse && activeResponse._id) {
+                        setExistingPackage(activeResponse);
+
+                        // Calculate upgrade amount
+                        const currentPackage = activeResponse.maGoiTap || activeResponse.goiTapId;
+                        const currentPackagePrice = currentPackage?.donGia || activeResponse.soTienThanhToan || 0;
+                        const newPackagePrice = packageData.donGia || 0;
+
+                        if (newPackagePrice > currentPackagePrice) {
+                            setIsUpgrade(true);
+                            // Calculate upgrade amount using backend logic
+                            const upgradeAmount = calculateUpgradeAmount(newPackagePrice, activeResponse);
+                            setUpgradeAmount(upgradeAmount);
+                            console.log('Upgrade calculation:', {
+                                currentPrice: currentPackagePrice,
+                                newPrice: newPackagePrice,
+                                upgradeAmount: upgradeAmount
+                            });
+                        } else {
+                            setIsUpgrade(false);
+                            setUpgradeAmount(0);
+                        }
+                    } else {
+                        // No active package found - this is first time registration
+                        setExistingPackage(null);
+                        setIsUpgrade(false);
+                        setUpgradeAmount(0);
+                        console.log('No active package found - first time registration');
+                    }
+                } catch (apiError) {
+                    // If 404 or no active package, this is normal for first-time users
+                    if (apiError.response?.status === 404) {
+                        console.log('No active package found (404) - first time registration');
+                        setExistingPackage(null);
+                        setIsUpgrade(false);
+                        setUpgradeAmount(0);
+                    } else if (apiError.response?.status === 500) {
+                        console.log('Server error checking active package - treating as no active package');
+                        setExistingPackage(null);
+                        setIsUpgrade(false);
+                        setUpgradeAmount(0);
+                    } else {
+                        throw apiError; // Re-throw if it's a different error
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking existing package:', error);
+                // For first-time users, this is normal - no existing package
+                setExistingPackage(null);
+                setIsUpgrade(false);
+                setUpgradeAmount(0);
+            } finally {
+                setIsCheckingUpgrade(false);
+            }
+        };
+
+        checkExistingPackage();
+    }, [packageData, isLoggedIn]);
+
+    // Function to calculate upgrade amount (matching backend logic)
+    const calculateUpgradeAmount = (newPackagePrice, currentPackage) => {
+        console.log('🔍 calculateUpgradeAmount - Input data:', {
+            newPackagePrice,
+            currentPackage: {
+                soTienThanhToan: currentPackage.soTienThanhToan,
+                maGoiTap: currentPackage.maGoiTap,
+                goiTapId: currentPackage.goiTapId,
+                ngayBatDau: currentPackage.ngayBatDau,
+                ngayDangKy: currentPackage.ngayDangKy,
+                thoiGianDangKy: currentPackage.thoiGianDangKy,
+                ngayKetThuc: currentPackage.ngayKetThuc
+            }
+        });
+
+        const currentPrice = currentPackage.soTienThanhToan || (currentPackage.maGoiTap?.donGia || currentPackage.goiTapId?.donGia);
+        console.log('🔍 currentPrice:', currentPrice);
+
+        if (!currentPrice || isNaN(currentPrice)) {
+            console.error('❌ Invalid currentPrice:', currentPrice);
+            return 0;
+        }
+
+        const startDate = new Date(currentPackage.ngayBatDau || currentPackage.ngayDangKy || currentPackage.thoiGianDangKy);
+        console.log('🔍 startDate:', startDate, 'isValid:', !isNaN(startDate.getTime()));
+
+        if (isNaN(startDate.getTime())) {
+            console.error('❌ Invalid startDate');
+            return newPackagePrice; // Nếu không có ngày bắt đầu, tính toàn bộ giá gói mới
+        }
+
+        // Kiểm tra ngayKetThuc
+        let endDate;
+        if (currentPackage.ngayKetThuc) {
+            endDate = new Date(currentPackage.ngayKetThuc);
+        } else {
+            // Nếu không có ngayKetThuc, tính từ thời hạn gói tập
+            const packageDuration = currentPackage.maGoiTap?.thoiHan || currentPackage.goiTapId?.thoiHan || 30; // Default 30 ngày
+            endDate = new Date(startDate.getTime() + (packageDuration * 24 * 60 * 60 * 1000));
+        }
+
+        console.log('🔍 endDate:', endDate, 'isValid:', !isNaN(endDate.getTime()));
+
+        if (isNaN(endDate.getTime())) {
+            console.error('❌ Invalid endDate');
+            return newPackagePrice; // Fallback
+        }
+
+        // Calculate total days of current package
+        const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        console.log('🔍 totalDays:', totalDays);
+
+        if (totalDays <= 0 || isNaN(totalDays)) {
+            console.error('❌ Invalid totalDays:', totalDays);
+            return newPackagePrice; // Fallback
+        }
+
+        const usedDays = calculateUsedDays(startDate);
+        console.log('🔍 usedDays:', usedDays);
+
+        // Calculate daily rate
+        const dailyRate = currentPrice / totalDays;
+        console.log('🔍 dailyRate:', dailyRate);
+
+        const usedAmount = dailyRate * usedDays;
+        console.log('🔍 usedAmount:', usedAmount);
+
+        const remainingValue = currentPrice - usedAmount;
+        console.log('🔍 remainingValue:', remainingValue);
+
+        // Upgrade amount = New package price - Remaining value of old package
+        const upgradeAmount = newPackagePrice - remainingValue;
+        console.log('🔍 upgradeAmount before Math.max:', upgradeAmount);
+
+        const finalAmount = Math.max(0, upgradeAmount);
+        console.log('✅ Final upgrade amount:', finalAmount);
+
+        return finalAmount;
+    };
+
+    // Calculate used days
+    const calculateUsedDays = (startDate, currentDate = new Date()) => {
+        const diffTime = currentDate.getTime() - startDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        return Math.max(0, diffDays);
+    };
+
+    // Load branches nearest first
+    useEffect(() => {
+        const loadBranches = async (lat, lng) => {
+            try {
+                const qs = lat && lng ? `?lat=${lat}&lng=${lng}` : '';
+                const data = await api.get(`/chinhanh${qs}`, {}, false);
+                if (data.success) {
+                    setBranches(data.data);
+                    if (data.data?.length) setSelectedBranchId(data.data[0]._id);
+                }
+            } catch (e) { console.error('Load branches error', e); }
+        };
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => loadBranches(pos.coords.latitude, pos.coords.longitude),
+                () => loadBranches(),
+                { timeout: 4000 }
+            );
+        } else {
+            loadBranches();
+        }
+    }, []);
 
     // Check login status on component mount and localStorage changes
     useEffect(() => {
@@ -289,6 +482,12 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
             }
         }
 
+        // Check if upgrade is blocked
+        if (existingPackage && !isUpgrade) {
+            alert('Bạn đã có gói tập đang hoạt động và không thể đăng ký gói mới có giá thấp hơn hoặc bằng. Vui lòng chọn gói có giá cao hơn để nâng cấp.');
+            return;
+        }
+
         setIsProcessing(true);
         try {
             // Get user ID from localStorage
@@ -312,7 +511,13 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     email: formData.email,
                     partnerPhone: formData.partnerPhone,
                     partnerInfo: packageData.soLuongNguoiThamGia === 2 ? partnerInfo : null,
-                    startDate: startDate
+                    branchId: selectedBranchId,
+                    startDate: startDate,
+                    isUpgrade: isUpgrade,
+                    upgradeAmount: upgradeAmount,
+                    existingPackageId: existingPackage?._id,
+                    giaGoiTapGoc: packageData.donGia,
+                    soTienBu: isUpgrade ? upgradeAmount : 0
                 }
             };
 
@@ -497,6 +702,61 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                         placeholder="Nhập địa chỉ email"
                                     />
                                 </div>
+
+                                {/* Upgrade Information */}
+
+                                {isUpgrade && existingPackage && (
+                                    <div className="upgrade-info-card">
+                                        <div className="upgrade-header">
+                                            <h4>🔄 Nâng cấp gói tập</h4>
+                                            <span className="upgrade-badge">Nâng cấp</span>
+                                        </div>
+                                        <div className="upgrade-details">
+                                            <div className="current-package">
+                                                <label>Gói hiện tại:</label>
+                                                <span>{(existingPackage.maGoiTap?.tenGoiTap || existingPackage.goiTapId?.tenGoiTap) || 'N/A'}</span>
+                                                <span className="price">{formatPrice((existingPackage.maGoiTap?.donGia || existingPackage.goiTapId?.donGia) || 0)}₫</span>
+                                            </div>
+                                            <div className="new-package">
+                                                <label>Gói mới:</label>
+                                                <span>{packageData.tenGoiTap}</span>
+                                                <span className="price">{formatPrice(packageData.donGia)}₫</span>
+                                            </div>
+                                            <div className="upgrade-amount">
+                                                <label>Số tiền bù:</label>
+                                                <span className="amount">{formatPrice(upgradeAmount)}₫</span>
+                                            </div>
+                                        </div>
+                                        <div className="upgrade-note">
+                                            <span>ℹ️</span>
+                                            <span>Gói cũ sẽ được kết thúc và thay thế bằng gói mới. Bạn chỉ cần thanh toán số tiền bù.</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {!isUpgrade && existingPackage && (
+                                    <div className="upgrade-info-card">
+                                        <div className="upgrade-header">
+                                            <h4>⚠️ Không thể nâng cấp</h4>
+                                        </div>
+                                        <div className="upgrade-details">
+                                            <div className="current-package">
+                                                <label>Gói hiện tại:</label>
+                                                <span>{(existingPackage.maGoiTap?.tenGoiTap || existingPackage.goiTapId?.tenGoiTap) || 'N/A'}</span>
+                                                <span className="price">{formatPrice((existingPackage.maGoiTap?.donGia || existingPackage.goiTapId?.donGia) || 0)}₫</span>
+                                            </div>
+                                            <div className="new-package">
+                                                <label>Gói muốn đăng ký:</label>
+                                                <span>{packageData.tenGoiTap}</span>
+                                                <span className="price">{formatPrice(packageData.donGia)}₫</span>
+                                            </div>
+                                        </div>
+                                        <div className="upgrade-note">
+                                            <span>⚠️</span>
+                                            <span>Gói mới có giá thấp hơn hoặc bằng gói hiện tại. Bạn không thể nâng cấp xuống.</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* 2. Package Summary */}
@@ -576,6 +836,14 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                 <h3 className="section-title">4. Thông tin giao dịch</h3>
                                 <div className="transaction-details">
                                     <div className="detail-item">
+                                        <label>Chi nhánh tập:</label>
+                                        <select value={selectedBranchId} onChange={(e) => setSelectedBranchId(e.target.value)} className="modern-input">
+                                            {branches.map(b => (
+                                                <option key={b._id} value={b._id}>{b.tenChiNhanh} {b.distance ? `- ${(b.distance / 1000).toFixed(1)} km` : ''}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="detail-item">
                                         <label>Ngày đăng ký:</label>
                                         <input type="date" value={todayString} readOnly disabled />
                                     </div>
@@ -622,17 +890,31 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                             <span>-{formatPrice(packageData.giaGoc - packageData.donGia)}₫</span>
                                         </div>
                                     )}
+                                    {isUpgrade && existingPackage && (
+                                        <>
+                                            <div className="breakdown-item">
+                                                <span>Gói hiện tại:</span>
+                                                <span>{formatPrice((existingPackage.maGoiTap?.donGia || existingPackage.goiTapId?.donGia) || 0)}₫</span>
+                                            </div>
+                                            <div className="breakdown-item upgrade-discount">
+                                                <span>Đã thanh toán:</span>
+                                                <span>-{formatPrice((existingPackage.maGoiTap?.donGia || existingPackage.goiTapId?.donGia) || 0)}₫</span>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
                                 <div className="order-total">
-                                    <span>TỔNG CỘNG:</span>
-                                    <span className="total-amount">{formatPrice(packageData.donGia)}₫</span>
+                                    <span>{isUpgrade ? 'SỐ TIỀN BÙ:' : 'TỔNG CỘNG:'}</span>
+                                    <span className="total-amount">
+                                        {isUpgrade ? formatPrice(upgradeAmount) : formatPrice(packageData.donGia)}₫
+                                    </span>
                                 </div>
 
                                 <button
-                                    className={`premium-checkout-button ${paymentMethod ? 'active' : ''}`}
+                                    className={`premium-checkout-button ${paymentMethod ? 'active' : ''} ${existingPackage && !isUpgrade ? 'disabled' : ''}`}
                                     onClick={handlePayment}
-                                    disabled={isProcessing}
+                                    disabled={isProcessing || (existingPackage && !isUpgrade)}
                                 >
                                     {isProcessing ? (
                                         <div className="processing" aria-label="Đang xử lý">
@@ -640,7 +922,14 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                         </div>
                                     ) : (
                                         <>
-                                            <span>Xác nhận & Thanh toán</span>
+                                            <span>
+                                                {existingPackage && !isUpgrade
+                                                    ? 'Không thể đăng ký'
+                                                    : isUpgrade
+                                                        ? `Thanh toán số tiền bù`
+                                                        : 'Xác nhận & Thanh toán'
+                                                }
+                                            </span>
                                             <span>→</span>
                                         </>
                                     )}

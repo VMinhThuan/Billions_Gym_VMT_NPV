@@ -77,6 +77,8 @@ const packageWorkflowRouter = require('./src/routes/packageWorkflow.routes');
 const dangKyGoiTapRouter = require('./src/routes/dangKyGoiTap.routes');
 const reviewRouter = require('./src/routes/review.route');
 const paymentRouter = require('./src/routes/payment.route');
+const chiNhanhRouter = require('./src/routes/chinhanh.route');
+const notificationRouter = require('./src/routes/notification.route');
 
 app.use('/api/auth', authRouter);
 // Support both plural and singular base paths for backward compatibility
@@ -100,6 +102,8 @@ app.use('/api/package-workflow', packageWorkflowRouter);
 app.use('/api/dang-ky-goi-tap', dangKyGoiTapRouter);
 app.use('/api', reviewRouter);
 app.use('/api/payment', paymentRouter);
+app.use('/api/chinhanh', chiNhanhRouter);
+app.use('/api/notifications', notificationRouter);
 
 // Debug: list all mounted routes (paths) on the app
 try {
