@@ -122,13 +122,11 @@ const Login = () => {
 
     return (
         <div className="h-screen relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-red-600 z-10"></div>
-
             <div
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                 style={{
                     backgroundImage: `url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`,
-                    filter: 'brightness(0.4)',
+                    filter: 'brightness (0.4)',
                     height: '100vh',
                     width: '100%'
                 }}

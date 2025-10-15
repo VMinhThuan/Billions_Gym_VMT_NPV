@@ -4,8 +4,9 @@ import { authUtils } from '../../utils/auth';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import NotificationIcon from '../NotificationIcon';
+import { getRankLabelVi } from '../../utils/rankMap';
 
-const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
+const Header = ({ onNavigateToLogin, onNavigateToRegister, fullScreen = false }) => {
     const navigate = useNavigate();
     const isAuthenticated = authUtils.isAuthenticated();
     const user = authUtils.getUser();
@@ -33,12 +34,12 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
 
     const toggleMobileMenu = () => {
         setIsMobileMenuOpen(!isMobileMenuOpen);
-        setIsDropdownOpen(false); // Close dropdown when opening mobile menu
+        setIsDropdownOpen(false);
     };
 
     const toggleLanguageDropdown = () => {
         setIsLanguageDropdownOpen(!isLanguageDropdownOpen);
-        setIsDropdownOpen(false); // Close user dropdown when opening language dropdown
+        setIsDropdownOpen(false);
     };
 
     const handleLanguageSelect = (selectedLanguage) => {
@@ -75,14 +76,13 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
         };
     }, []);
 
-    // Close mobile menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             const mobileMenuButton = document.querySelector('.mobile-menu-button');
             const mobileMenu = document.querySelector('.mobile-menu');
 
             if (mobileMenuButton && mobileMenuButton.contains(event.target)) {
-                return; // Don't close if clicking the button
+                return;
             }
 
             if (mobileMenu && !mobileMenu.contains(event.target)) {
@@ -100,9 +100,14 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
     }, [isMobileMenuOpen]);
 
     return (
-        <header className="fixed top-0 left-0 right-0 z-[9999] w-full bg-[#141414]">
-            <div className="px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center h-16 sm:h-20">
+        <header
+            className={
+                `fixed top-0 left-0 right-0 z-[9999] bg-[#141414] ${fullScreen ? 'w-screen h-screen flex items-center justify-center' : 'w-full'}`
+            }
+            style={fullScreen ? { inset: 0 } : undefined}
+        >
+            <div className={`px-4 sm:px-6 lg:px-8 ${fullScreen ? 'w-full max-w-none' : ''}`}>
+                <div className={`flex justify-between items-center ${fullScreen ? 'h-full' : 'h-16 sm:h-20'}`}>
                     {/* Mobile Menu Button - Only visible on small screens */}
                     <button
                         className="mobile-menu-button lg:hidden flex flex-col justify-center items-center w-8 h-8 space-y-1 text-white hover:text-[#da2128] transition-colors mr-4"
@@ -242,6 +247,9 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                             <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
                                                 <div className="font-medium">{user?.hoTen || content.user}</div>
                                                 <div className="text-gray-500 text-xs break-words whitespace-normal max-w-[11rem] leading-5">{user?.email || user?.sdt || ''}</div>
+                                                {user?.hangHoiVien && (
+                                                    <div className="text-xs mt-1 text-yellow-500">{getRankLabelVi(user.hangHoiVien)}</div>
+                                                )}
                                             </div>
                                             <button
                                                 onClick={handleLogout}
@@ -289,7 +297,7 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                                 <button
                                                     key={lang.code}
                                                     onClick={() => handleLanguageSelect(lang.code)}
-                                                    className={`w-full text-left px-4 py-3 text-sm transition-colors hover:bg-gray-50 flex items-center space-x-3 ${language === lang.code ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                                                    className={`w-full text-left px-4 py-3 text-sm transition-colors hover:bg-gray-200 hover:cursor-pointer flex items-center space-x-3 ${language === lang.code ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
                                                         }`}
                                                 >
                                                     <img
@@ -313,13 +321,13 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                 <div className="flex items-center space-x-1 sm:space-x-2">
                                     <button
                                         onClick={onNavigateToLogin}
-                                        className="text-white hover:text-[#da2128] px-2 sm:px-4 py-1 sm:py-2 rounded-md font-medium transition-colors text-xs sm:text-sm whitespace-nowrap"
+                                        className="text-white hover:text-[#da2128] hover:cursor-pointer px-2 sm:px-4 py-1 sm:py-2 rounded-md font-medium transition-colors text-xs sm:text-sm whitespace-nowrap"
                                     >
                                         {content.login}
                                     </button>
                                     <button
                                         onClick={onNavigateToRegister}
-                                        className="bg-[#da2128] hover:bg-[#b91c1c] text-white px-2 sm:px-4 py-1 sm:py-2 rounded-md font-medium transition-colors text-xs sm:text-sm whitespace-nowrap"
+                                        className="bg-[#da2128] hover:bg-[#b91c1c] hover:cursor-pointer text-white px-2 sm:px-4 py-1 sm:py-2 rounded-md font-medium transition-colors text-xs sm:text-sm whitespace-nowrap"
                                     >
                                         {content.signUp}
                                     </button>
@@ -410,6 +418,7 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                         <div>
                                             <div className="text-white font-medium">{user?.hoTen || content.user}</div>
                                             <div className="text-gray-400 text-sm break-words whitespace-normal max-w-[12rem] leading-5">{user?.email || user?.sdt || ''}</div>
+                                            {user?.hangHoiVien && <div className="text-sm text-yellow-400">{getRankLabelVi(user.hangHoiVien)}</div>}
                                         </div>
                                     </div>
                                     <button

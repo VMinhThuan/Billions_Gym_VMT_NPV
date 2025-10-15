@@ -15,7 +15,6 @@ const BaiTapSchema = new mongoose.Schema({
     videoHuongDan: { type: String },
 }, { collection: 'BaiTap', timestamps: true });
 
-// Compute default kcal for an exercise based on available fields
 function computeDefaultKcal(doc) {
     try {
         const thoiGian = doc.thoiGian || 0;
@@ -32,7 +31,6 @@ function computeDefaultKcal(doc) {
     }
 }
 
-// Pre-save hook: populate kcal if missing
 BaiTapSchema.pre('save', function (next) {
     if (this.kcal == null) {
         this.kcal = computeDefaultKcal(this);

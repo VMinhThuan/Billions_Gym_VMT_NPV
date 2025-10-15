@@ -12,6 +12,7 @@ import gymlux from "../../assets/images/content/gymluxury.jpg";
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import "../../pages/Home.css"
+import { authUtils } from '../../utils/auth';
 
 const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
     const [showCompareModal, setShowCompareModal] = useState(false);
@@ -54,6 +55,23 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
 
         return () => io.disconnect();
     }, []);
+
+    // If authenticated, render minimal layout without marketing sections
+    if (authUtils.isAuthenticated()) {
+        return (
+            <>
+                <div className="min-h-screen flex flex-col">
+                    <Header onNavigateToLogin={onNavigateToLogin} onNavigateToRegister={onNavigateToRegister} />
+                    <main className="flex-1 pt-20 relative bg-[#141414]">
+                        <div className="relative z-10">
+                            {children}
+                        </div>
+                    </main>
+                    <Footer />
+                </div>
+            </>
+        );
+    }
 
     return (
         <>
@@ -101,88 +119,7 @@ const Layout = ({ children, onNavigateToLogin, onNavigateToRegister }) => {
                     </div>
                 </section>
 
-                <section className="top-section">
-                    <div className="container">
-                        <div className="content-layout max-w-[1200px] mx-auto px-5">
-                            {/* Left Side - Main Introduction */}
-                            <div className="py-[60px] relative">
-                                <div className="mb-10">
-                                    <h1 data-reveal="slow-up" className="text-[4rem] font-[900] leading-[1.05] m-0 font-[Roboto,sans-serif] uppercase tracking-[-0.02em] bg-gradient-to-br from-[#ffffff] to-[#f0f0f0] bg-clip-text text-transparent [text-shadow:0_4px_8px_rgba(0,0,0,0.3)]">
-                                        CHÚNG TÔI LÀ BILLIONS
-                                    </h1>
-                                </div>
-                                <div className="mb-[50px]">
-                                    <p data-reveal="slow-up" className="text-[1.25rem] leading-[1.8] m-0 opacity-95 text-[#e0e0e0] max-w-[90%]">
-                                        Billions Fitness & Gym là thương hiệu sức khỏe lớn nhất Việt Nam,
-                                        mang đến hạnh phúc và những khoảnh khắc đáng nhớ thông qua các dịch vụ
-                                        toàn diện về sức khỏe thể chất, dinh dưỡng và tinh thần.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Right Side - Content Images */}
-                            <div className="right-content">
-                                <div className="content-images-grid">
-                                    <div className="content-image-item">
-                                        <img src={content1} alt="Dance Program" className="content-image" />
-                                        <div className="content-overlay">
-                                            <h3 className="text-[1.1rem] leading-[1.3] text-white font-bold mb-2">Chương Trình Nhảy Độc Đáo</h3>
-                                            <p className="text-[0.9rem] leading-[1.4] mb-3 opacity-90 text-white">
-                                                Các lớp nhảy năng động như Pop dance, Sexy Dance, Pole dance
-                                                hoặc Zumba được dẫn dắt bởi các huấn luyện viên Billions quốc tế.
-                                            </p>
-                                            <a href="#" data-reveal="slow-up" className="content-link">Tìm hiểu thêm →</a>
-                                        </div>
-                                    </div>
-                                    <div className="content-image-item">
-                                        <img src={content2} alt="Health Trainer" className="content-image" />
-                                        <div className="content-overlay">
-                                            <h3 className="text-[1.1rem] leading-[1.3] text-white font-bold mb-2">Huấn Luyện Viên Sức Khỏe Luôn Đồng Hành Cùng Bạn</h3>
-                                            <p className="text-[0.9rem] leading-[1.4] mb-3 opacity-90 text-white">
-                                                Các huấn luyện viên được chứng nhận NASM giúp tạo ra kế hoạch
-                                                tập luyện và dinh dưỡng cá nhân hóa, hướng dẫn thành viên đạt được mục tiêu.
-                                            </p>
-                                            <a href="#" data-reveal="slow-up" className="content-link">Tìm hiểu thêm →</a>
-                                        </div>
-                                    </div>
-                                    <div className="content-image-item">
-                                        <img src={content3} alt="Community" className="content-image" />
-                                        <div className="content-overlay">
-                                            <h3 className="text-[1.1rem] leading-[1.3] text-white font-bold mb-2">Cộng Đồng Truyền Cảm Hứng Cho Bạn Trở Nên Tốt Hơn Nữa</h3>
-                                            <p className="text-[0.9rem] leading-[1.4] mb-3 opacity-90 text-white">
-                                                Khuyến khích thành viên áp dụng lối sống lành mạnh, thử những điều mới
-                                                và sống cuộc sống nhiệt huyết, tự tin.
-                                            </p>
-                                            <a href="#" data-reveal="slow-up" className="content-link">Tìm hiểu thêm →</a>
-                                        </div>
-                                    </div>
-                                    <div className="content-image-item">
-                                        <img src={content4} alt="Group Classes" className="content-image" />
-                                        <div className="content-overlay">
-                                            <h3 className="text-[1.1rem] leading-[1.3] text-white font-bold mb-2">Không Giới Hạn Lớp Tập Nhóm</h3>
-                                            <p className="text-[0.9rem] leading-[1.4] mb-3 opacity-90 text-white">
-                                                Hơn 50 lớp tập nhóm có bản quyền Lesmills (Body Combat, Body Jam, RPM, SH'Bam)
-                                                và các chương trình độc quyền Billions như BillionsDrumfit, BillionsStep, cập nhật hàng tháng.
-                                            </p>
-                                            <a href="#" data-reveal="slow-up" className="content-link">Tìm hiểu thêm →</a>
-                                        </div>
-                                    </div>
-                                    <div className="content-image-item">
-                                        <img src={content5} alt="Yoga" className="content-image" />
-                                        <div className="content-overlay">
-                                            <h3 className="text-[1.1rem] leading-[1.3] text-white font-bold mb-2">Tinh Hoa Yoga Ấn Độ Nguyên Bản</h3>
-                                            <p className="text-[0.9rem] leading-[1.4] mb-3 opacity-90 text-white">
-                                                Thực hành Yoga chân chính dưới sự hướng dẫn của các bậc thầy Yoga Ấn Độ
-                                                để đạt được sự cân bằng, sức mạnh, linh hoạt và thư giãn tinh thần.
-                                            </p>
-                                            <a href="#" className="content-link">Tìm hiểu thêm →</a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
+                {/* Banner removed as requested */}
 
                 {/* Bottom Section - Standards of Luxury */}
                 <section className="bottom-section">

@@ -481,9 +481,9 @@
     transition: all 0.3s ease;
 }
 
-.mobile-menu-button:hover {
+/* .mobile-menu-button:hover {
     color: #da2128;
-}
+} */
 
 .mobile-menu-button span {
     width: 1.5rem;

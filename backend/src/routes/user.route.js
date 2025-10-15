@@ -9,7 +9,7 @@ const chiTietGoiTapController = require('../controllers/chitietgoitap.controller
 // CRUD Hội Viên (chỉ Ông Chủ)
 router.post('/hoivien', auth, authorize(['OngChu']), userController.createHoiVien);
 router.get('/hoivien', auth, authorize(['OngChu']), userController.getAllHoiVien);
-router.put('/hoivien/:id', auth, authorize(['OngChu', 'HoiVien']), userController.updateHoiVien);
+router.put('/hoivien/:id', auth, authorize(['OngChu',]), userController.updateHoiVien);
 router.delete('/hoivien/:id', auth, authorize(['OngChu']), userController.deleteHoiVien);
 
 // Kiểm tra email và số điện thoại
@@ -49,7 +49,9 @@ router.put('/hoivien/:id/status', auth, authorize(['OngChu']), userController.up
 router.get('/pt/students', auth, authorize(['PT', 'OngChu']), userController.getPTStudents);
 
 // Lấy hạng hội viên của người dùng
-// NOTE: router is mounted at '/api/users' in server.js, so the route here should be '/:id/with-rank'
 router.get('/:id/with-rank', auth, authorize(['OngChu', 'HoiVien']), userController.getUserWithRank);
+
+router.get('/profile', auth, userController.getUserProfile);
+router.put('/profile/edit', auth, userController.updateUserProfile);
 
 module.exports = router;

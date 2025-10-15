@@ -477,6 +477,43 @@ const getUserWithRank = async (userId) => {
     };
 };
 
+const getUserProfile = async (userId) => {
+    const user = await TaiKhoan.findOne({ nguoiDung: userId }).populate('nguoiDung');
+    if (!user) {
+        throw new Error('Không tìm thấy người dùng');
+    }
+    return user.nguoiDung;
+};
+
+const updateUserProfile = async (userId, data) => {
+    const taiKhoan = await TaiKhoan.findOne({ nguoiDung: userId });
+    if (!taiKhoan) {
+        throw new Error('Không tìm thấy tài khoản');
+    }
+    if (data.sdt && data.sdt !== taiKhoan.sdt) {
+        const existedTK = await TaiKhoan.findOne({ sdt: data.sdt, nguoiDung: { $ne: userId } });
+        if (existedTK) {
+            const err = new Error('Số điện thoại đã tồn tại ở tài khoản khác');
+            err.code = 11000;
+            err.keyPattern = { sdt: 1 };
+            throw err;
+        }
+        taiKhoan.sdt = data.sdt;
+        await taiKhoan.save();
+    }
+
+    const user = await HoiVien.findById(userId) || await PT.findById(userId);
+    if (!user) {
+        throw new Error('Không tìm thấy người dùng');
+    }
+    const updateData = { ...data };
+    return user.constructor.findByIdAndUpdate(
+        userId,
+        updateData,
+        { new: true, runValidators: true }
+    );
+};
+
 module.exports = {
     createHoiVien,
     getAllHoiVien,
@@ -495,5 +532,7 @@ module.exports = {
     checkPhoneExists,
     getTaiKhoanByPhone,
     searchHoiVien,
-    getUserWithRank
+    getUserWithRank,
+    getUserProfile,
+    updateUserProfile
 };

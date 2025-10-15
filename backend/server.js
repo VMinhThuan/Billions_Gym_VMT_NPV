@@ -11,10 +11,6 @@ app.use(cors({
     origin: [
         process.env.FRONTEND_URL,
         process.env.FRONTEND_URL_CLIENT,
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://localhost:3000',
-
     ],
     credentials: true,
 }));
@@ -24,41 +20,13 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 mongoose.connect(process.env.MONGODB_URI)
     .then(async () => {
         console.log('Đã kết nối MongoDB');
-
-        // Auto seed BaiTap if empty
-        try {
-            const BaiTap = require('./src/models/BaiTap');
-            const count = await BaiTap.countDocuments();
-            if (count === 0) {
-                console.log('Không tìm thấy bài tập nào, đang seed dữ liệu mẫu...');
-                const { seedBaiTap } = require('./src/utils/seedBaiTap');
-                const exercises = await seedBaiTap();
-                console.log(`Đã seed ${exercises.length} bài tập mẫu`);
-            } else {
-                console.log(`Đã có ${count} bài tập trong database`);
-            }
-        } catch (error) {
-            console.error('Lỗi khi auto-seed bài tập:', error.message);
-        }
     })
     .catch(err => {
         console.error('Lỗi kết nối MongoDB:', err);
     });
 
-
 const authRouter = require('./src/routes/auth.route');
 const userRouter = require('./src/routes/user.route');
-// Debug: list routes registered on userRouter
-try {
-    if (userRouter && userRouter.stack) {
-        const userRoutes = userRouter.stack
-            .filter(layer => layer.route)
-            .map(layer => Object.keys(layer.route.methods).join(',').toUpperCase() + ' ' + layer.route.path);
-        console.log('Registered user routes:', userRoutes);
-    }
-} catch (e) {
-    console.error('Error listing userRouter routes:', e);
-}
 const baiTapRouter = require('./src/routes/baitap.route');
 const lichTapRouter = require('./src/routes/lichtap.route');
 const goiTapRouter = require('./src/routes/goitap.route');
@@ -81,8 +49,7 @@ const chiNhanhRouter = require('./src/routes/chinhanh.route');
 const notificationRouter = require('./src/routes/notification.route');
 
 app.use('/api/auth', authRouter);
-// Support both plural and singular base paths for backward compatibility
-app.use('/api/users', userRouter);
+// app.use('/api/users', userRouter);
 app.use('/api/user', userRouter);
 app.use('/api/baitap', baiTapRouter);
 app.use('/api/lichtap', lichTapRouter);
@@ -104,28 +71,6 @@ app.use('/api', reviewRouter);
 app.use('/api/payment', paymentRouter);
 app.use('/api/chinhanh', chiNhanhRouter);
 app.use('/api/notifications', notificationRouter);
-
-// Debug: list all mounted routes (paths) on the app
-try {
-    const routes = [];
-    app._router.stack.forEach(mw => {
-        if (mw.route) {
-            const methods = Object.keys(mw.route.methods).join(',').toUpperCase();
-            routes.push(methods + ' ' + mw.route.path);
-        } else if (mw.name === 'router' && mw.handle && mw.handle.stack) {
-            mw.handle.stack.forEach(r => {
-                if (r.route) {
-                    const methods = Object.keys(r.route.methods).join(',').toUpperCase();
-                    // derive full path if possible
-                    routes.push(methods + ' ' + (mw.regexp && mw.regexp.source ? mw.regexp.source : '') + r.route.path);
-                }
-            });
-        }
-    });
-    console.log('Mounted app routes count:', routes.length);
-} catch (e) {
-    console.error('Error listing app routes:', e);
-}
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

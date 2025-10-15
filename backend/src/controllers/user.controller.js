@@ -354,3 +354,33 @@ exports.getUserWithRank = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+exports.getUserProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const profile = await userService.getUserProfile(userId);
+        res.status(200).json({ success: true, data: profile });
+    } catch (error) {
+        console.error('Lỗi khi lấy thông tin người dùng:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.updateUserProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const updatedProfile = await userService.updateUserProfile(userId, req.body);
+        res.status(200).json({ success: true, message: 'Cập nhật thông tin thành công', data: updatedProfile });
+    } catch (error) {
+        console.error('Lỗi khi cập nhật thông tin người dùng:', error);
+        if (error && error.code === 11000 && typeof error.keyPattern === 'object' && error.keyPattern !== null) {
+            if ('email' in error.keyPattern) {
+                return res.status(400).json({ success: false, message: 'Email đã tồn tại, vui lòng chọn email khác.' });
+            }
+            if ('sdt' in error.keyPattern) {
+                return res.status(400).json({ success: false, message: 'Số điện thoại đã tồn tại, vui lòng chọn số khác.' });
+            }
+        }
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

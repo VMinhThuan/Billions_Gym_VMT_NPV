@@ -28,7 +28,6 @@ const WorkoutPlansScreen = () => {
     const [workoutPlans, setWorkoutPlans] = useState([]);
     const [myWorkouts, setMyWorkouts] = useState([]);
     const [allExercises, setAllExercises] = useState([]);
-    // userRank removed — membership rank UI no longer shown on this screen
 
     useEffect(() => {
         fetchWorkoutData();
@@ -38,7 +37,6 @@ const WorkoutPlansScreen = () => {
         try {
             setLoading(true);
 
-            // Fetch both my assigned workouts and all available workout plans
             const [myWorkoutsData, allWorkoutsData, allExercisesData] = await Promise.allSettled([
                 apiService.getMyWorkoutPlans(),
                 apiService.getAllWorkoutPlans(),
@@ -52,7 +50,6 @@ const WorkoutPlansScreen = () => {
             if (allWorkoutsData.status === 'fulfilled') {
                 const workouts = allWorkoutsData.value || [];
 
-                // Transform backend data to frontend format
                 const transformedWorkouts = workouts.map(workout => ({
                     id: workout._id,
                     title: workout.tenBuoiTap || 'Buổi tập',
@@ -79,15 +76,12 @@ const WorkoutPlansScreen = () => {
                 console.log('allExercisesData from API:', allExercisesData.value);
                 setAllExercises(allExercisesData.value || []);
             } else {
-                console.log('allExercisesData failed, trying fallback...');
-                // Try unauthenticated fallback if available (some dev setups expose /baitap publicly)
                 try {
                     const fallback = await apiService.apiCall('/baitap', 'GET', null, false);
                     console.log('Fallback exercises data:', fallback);
                     setAllExercises(Array.isArray(fallback) ? fallback : []);
                 } catch (fallbackErr) {
                     console.warn('Failed to fetch exercises (unauthenticated fallback):', fallbackErr.message || fallbackErr);
-                    // Create mock data if API fails
                     const mockExercises = [
                         {
                             _id: 'mock1',
@@ -123,8 +117,6 @@ const WorkoutPlansScreen = () => {
         }
     };
 
-    // fetchUserRank removed — not used on this screen
-
     const mapDifficulty = (mucDo) => {
         switch (mucDo) {
             case 'De': return 'Dễ';
@@ -155,10 +147,9 @@ const WorkoutPlansScreen = () => {
         return `${Math.round(totalCalories * 0.8)}-${Math.round(totalCalories * 1.2)}`;
     };
 
-    // Estimate kcal for a single exercise. Prefer explicit thoiGian, otherwise fallback to difficulty.
     const computeExerciseKcal = (ex = {}) => {
         try {
-            const thoiGian = ex?.thoiGian || ex?.thoiGianTap || 0; // some shapes
+            const thoiGian = ex?.thoiGian || ex?.thoiGianTap || 0;
             if (thoiGian && Number(thoiGian) > 0) {
                 return Math.round(Number(thoiGian) * 8);
             }
@@ -166,7 +157,6 @@ const WorkoutPlansScreen = () => {
             const diff = (ex?.mucDoKho || ex?.mucDo || '').toLowerCase();
             if (diff.includes('de') || diff.includes('dễ')) return 50;
             if (diff.includes('khó') || diff.includes('kho')) return 150;
-            // trung bình
             return 100;
         } catch (e) {
             return 100;
@@ -186,7 +176,6 @@ const WorkoutPlansScreen = () => {
     const renderSegmentTabs = () => (
         <View style={styles.segmentContainer}>
             {(() => {
-                // determine if the current theme is light by measuring background brightness (works for hex colors)
                 const isLightTheme = (() => {
                     try {
                         const bg = (colors.background || '').replace('#', '').trim();
@@ -195,7 +184,6 @@ const WorkoutPlansScreen = () => {
                         const r = parseInt(hex.slice(0, 2), 16) / 255;
                         const g = parseInt(hex.slice(2, 4), 16) / 255;
                         const b = parseInt(hex.slice(4, 6), 16) / 255;
-                        // luminance
                         const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
                         return lum > 0.7;
                     } catch (e) {
@@ -457,9 +445,6 @@ const styles = StyleSheet.create({
         marginRight: 12,
         borderRadius: 20,
         borderWidth: 1,
-    },
-    categoryTabActive: {
-        // Active background color
     },
     categoryText: {
         marginLeft: 8,

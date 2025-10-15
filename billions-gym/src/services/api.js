@@ -145,6 +145,9 @@ export const userAPI = {
     getProfile: async () => {
         return apiRequest(API_ENDPOINTS.GET_PROFILE);
     },
+    getUserWithRank: async (userId) => {
+        return apiRequest(`/user/${userId}/with-rank`);
+    },
     updateProfile: async (userData) => {
         return apiRequest(API_ENDPOINTS.UPDATE_PROFILE, {
             method: 'PUT',
@@ -293,7 +296,7 @@ export const paymentAPI = {
         });
     },
 };
-// API object for simple usage
+
 export const api = {
     get: async (path, query = {}, options = {}) => {
         const queryString = new URLSearchParams(query).toString();

@@ -13,6 +13,8 @@ import { LanguageProvider } from './contexts/LanguageContext'
 import './styles/globals.css'
 import './styles/responsive.css'
 import './styles/header-responsive.css'
+// import ProfileScreen from './pages/Profile'
+// import ProfileEdit from './pages/ProfileEdit'
 
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -101,6 +103,8 @@ const AppContent = () => {
             <Route path="/package-workflow/:registrationId" element={<PackageWorkflow />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            {/* <Route path='/profile' element={<ProfileScreen />} /> */}
+            {/* <Route path='/profile/edit' element={<ProfileEdit />} /> */}
           </Routes>
         </div>
       )}

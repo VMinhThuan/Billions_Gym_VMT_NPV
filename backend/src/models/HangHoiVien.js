@@ -16,14 +16,12 @@ const HangHoiVienSchema = new mongoose.Schema({
         required: true
     },
     dieuKienDatHang: {
-        soTienTichLuy: { type: Number, required: true }, // Tổng số tiền đã chi
-        soThangLienTuc: { type: Number, required: true }, // Số tháng liên tục là hội viên
-        soBuoiTapToiThieu: { type: Number, required: true } // Số buổi tập tối thiểu
+        soTienTichLuy: { type: Number, required: true },
     },
     quyenLoi: [{
         tenQuyenLoi: { type: String, required: true },
         moTa: { type: String },
-        giaTri: { type: Number }, // Giá trị ưu đãi (phần trăm hoặc số tiền)
+        giaTri: { type: Number },
         loaiQuyenLoi: {
             type: String,
             enum: ['GIAM_GIA', 'TANG_DICH_VU', 'UU_DAI_DAC_BIET', 'QUA_TANG'],
@@ -33,7 +31,7 @@ const HangHoiVienSchema = new mongoose.Schema({
     mauSac: {
         type: String,
         required: true,
-        default: '#FFD700' // Màu vàng mặc định
+        default: '#FFD700'
     },
     icon: {
         type: String,
@@ -47,13 +45,12 @@ const HangHoiVienSchema = new mongoose.Schema({
         type: Number,
         required: true,
         unique: true
-    } // Thứ tự hiển thị (1 = thấp nhất, 5 = cao nhất)
+    }
 }, {
     collection: 'hangHoiViens',
     timestamps: true
 });
 
-// Index để tìm kiếm nhanh
 HangHoiVienSchema.index({ tenHang: 1 });
 HangHoiVienSchema.index({ thuTu: 1 });
 

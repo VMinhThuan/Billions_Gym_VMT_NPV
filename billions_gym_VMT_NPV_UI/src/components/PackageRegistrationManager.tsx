@@ -801,8 +801,8 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
 
         // Lấy gói hiện tại (chỉ lấy 1 gói)
         const currentPackage = activePackages[0];
-        const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap?.donGia || 0;
-        const currentPackageId = currentPackage.maGoiTap?._id;
+    const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap?.donGia || 0;
+    const currentPackageId = currentPackage.maGoiTap?._id || '';
 
         return packages.map(pkg => {
             if (pkg._id === currentPackageId) {
@@ -911,13 +911,13 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                         )}
                                                         {reg.giaGoiTapGoc && reg.soTienBu && (
                                                             <div className="price-details">
-                                                                <small>Giá gốc: {reg.giaGoiTapGoc.toLocaleString('vi-VN')}₫</small>
-                                                                <small>Số tiền bù: {reg.soTienBu.toLocaleString('vi-VN')}₫</small>
+                                                                <small>Giá gốc: {Number(reg.giaGoiTapGoc || 0).toLocaleString('vi-VN')}₫</small>
+                                                                <small>Số tiền bù: {Number(reg.soTienBu || 0).toLocaleString('vi-VN')}₫</small>
                                                             </div>
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td>{new Date(reg.ngayDangKy).toLocaleDateString('vi-VN')}</td>
+                                                <td>{reg.ngayDangKy ? new Date(reg.ngayDangKy).toLocaleDateString('vi-VN') : 'N/A'}</td>
                                                 <td>
                                                     {(() => {
                                                         try {
@@ -930,7 +930,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                             return 'Chưa có thông tin';
                                                         }
                                                     })()}
-                                                    - {new Date(reg.ngayKetThuc).toLocaleDateString('vi-VN')}
+                                                    - {reg.ngayKetThuc ? new Date(reg.ngayKetThuc).toLocaleDateString('vi-VN') : 'N/A'}
                                                 </td>
                                                 <td>{getStatusBadge(reg.trangThai, reg.trangThaiDangKy, reg.trangThaiGoiTap)}</td>
                                                 <td>{getPaymentStatusBadge(reg.trangThaiThanhToan)}</td>
@@ -988,7 +988,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                         <option value="">Chọn hội viên</option>
                                         {members.map(member => (
                                             <option key={member._id} value={member._id}>
-                                                {member.hoTen} - {member.sdt}
+                                                {member.hoTen || 'N/A'} - {member.sdt || 'N/A'}
                                             </option>
                                         ))}
                                     </select>
@@ -996,7 +996,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
 
                                 {selectedMember && (
                                     <div className="member-packages-list">
-                                        <h3>Lịch sử gói tập của {members.find(m => m._id === selectedMember)?.hoTen}</h3>
+                                        <h3>Lịch sử gói tập của {members.find(m => m._id === selectedMember)?.hoTen || 'Hội viên'}</h3>
                                         <div className="packages-timeline">
                                             {memberPackages.map((pkg, index) => (
                                                 <div key={pkg._id} className={`package-timeline-item ${pkg.isUpgrade ? 'upgrade' :
