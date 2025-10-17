@@ -801,8 +801,8 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
 
         // Lấy gói hiện tại (chỉ lấy 1 gói)
         const currentPackage = activePackages[0];
-    const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap?.donGia || 0;
-    const currentPackageId = currentPackage.maGoiTap?._id || '';
+        const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap?.donGia || 0;
+        const currentPackageId = currentPackage.maGoiTap?._id || '';
 
         return packages.map(pkg => {
             if (pkg._id === currentPackageId) {

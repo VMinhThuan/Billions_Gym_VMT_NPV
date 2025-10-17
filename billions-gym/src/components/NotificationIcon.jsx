@@ -141,21 +141,36 @@ const NotificationIcon = () => {
             {/* Notification Icon */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="relative p-2 text-white hover:text-[#da2128] transition-colors"
+                className="relative cursor-pointer p-2 text-white hover:text-gray-300 active:text-gray-300 focus:outline-none transition-colors"
                 aria-label="Notifications"
             >
                 <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                    version="1.1"
+                    id="_x32_"
+                    xmlns="http://www.w3.org/2000/svg"
+                    xmlnsXlink="http://www.w3.org/1999/xlink"
+                    viewBox="0 0 512 512"
+                    xmlSpace="preserve"
+                    fill="currentColor"
+                    className='w-5 h-5'
                 >
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 17h5l-5 5v-5zM4.828 7l2.586 2.586a2 2 0 001.414.586H20a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2h.828z"
-                    />
+                    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
+                    <g id="SVGRepo_iconCarrier">
+                        <style type="text/css">
+                            {`.st0{fill:currentColor;}`}
+                        </style>
+                        <g>
+                            <path
+                                className="st0"
+                                d="M193.499,459.298c5.237,30.54,31.518,52.702,62.49,52.702c30.98,0,57.269-22.162,62.506-52.702l0.32-1.86 H193.179L193.499,459.298z"
+                            />
+                            <path
+                                className="st0"
+                                d="M469.782,371.98c-5.126-5.128-10.349-9.464-15.402-13.661c-21.252-17.648-39.608-32.888-39.608-96.168v-50.194 c0-73.808-51.858-138.572-123.61-154.81c2.876-5.64,4.334-11.568,4.334-17.655C295.496,17.718,277.777,0,255.995,0 c-21.776,0-39.492,17.718-39.492,39.492c0,6.091,1.456,12.018,4.334,17.655c-71.755,16.238-123.61,81.002-123.61,154.81v50.194 c0,63.28-18.356,78.521-39.608,96.168c-5.052,4.196-10.276,8.533-15.402,13.661l-0.466,0.466v49.798h428.496v-49.798 L469.782,371.98z"
+                            />
+                        </g>
+                    </g>
                 </svg>
 
                 {/* Badge */}
@@ -191,8 +206,33 @@ const NotificationIcon = () => {
                             </div>
                         ) : notifications.length === 0 ? (
                             <div className="p-4 text-center text-gray-500">
-                                <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4.828 7l2.586 2.586a2 2 0 001.414.586H20a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2h.828z" />
+                                <svg
+                                    version="1.1"
+                                    id="_x32_"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    xmlnsXlink="http://www.w3.org/1999/xlink"
+                                    viewBox="0 0 512 512"
+                                    xmlSpace="preserve"
+                                    fill="currentColor"
+                                    className='w-5 h-5 mb-2 mx-auto opacity-50 text-gray-400'
+                                >
+                                    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                                    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
+                                    <g id="SVGRepo_iconCarrier">
+                                        <style type="text/css">
+                                            {`.st0{fill:currentColor;}`}
+                                        </style>
+                                        <g>
+                                            <path
+                                                className="st0"
+                                                d="M193.499,459.298c5.237,30.54,31.518,52.702,62.49,52.702c30.98,0,57.269-22.162,62.506-52.702l0.32-1.86 H193.179L193.499,459.298z"
+                                            />
+                                            <path
+                                                className="st0"
+                                                d="M469.782,371.98c-5.126-5.128-10.349-9.464-15.402-13.661c-21.252-17.648-39.608-32.888-39.608-96.168v-50.194 c0-73.808-51.858-138.572-123.61-154.81c2.876-5.64,4.334-11.568,4.334-17.655C295.496,17.718,277.777,0,255.995,0 c-21.776,0-39.492,17.718-39.492,39.492c0,6.091,1.456,12.018,4.334,17.655c-71.755,16.238-123.61,81.002-123.61,154.81v50.194 c0,63.28-18.356,78.521-39.608,96.168c-5.052,4.196-10.276,8.533-15.402,13.661l-0.466,0.466v49.798h428.496v-49.798 L469.782,371.98z"
+                                            />
+                                        </g>
+                                    </g>
                                 </svg>
                                 <p>Chưa có thông báo nào</p>
                             </div>

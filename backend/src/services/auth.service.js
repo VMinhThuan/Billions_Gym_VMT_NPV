@@ -15,7 +15,7 @@ const findNguoiDungById = async (id) => {
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
         throw new Error('ID người dùng không hợp lệ');
     }
-    return NguoiDung.findById(id);
+    return NguoiDung.findById(id).populate('hangHoiVien');
 };
 
 const guiOTPQuenMatKhau = async (sdt) => {

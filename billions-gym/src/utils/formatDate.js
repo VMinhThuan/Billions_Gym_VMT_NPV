@@ -23,6 +23,20 @@ export const formatDateShort = (date) => {
     });
 };
 
+export const formatDateToDDMMYYYY = (date) => {
+    if (!date) return 'Chưa cập nhật';
+    try {
+        const dateObj = new Date(date);
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const year = dateObj.getFullYear();
+        return `${day}/${month}/${year}`;
+    } catch (error) {
+        console.error('Error formatting date:', error);
+        return 'Chưa cập nhật';
+    }
+};
+
 export const getRelativeTime = (date) => {
     try {
         const dateObj = new Date(date);

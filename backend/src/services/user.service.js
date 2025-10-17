@@ -478,7 +478,12 @@ const getUserWithRank = async (userId) => {
 };
 
 const getUserProfile = async (userId) => {
-    const user = await TaiKhoan.findOne({ nguoiDung: userId }).populate('nguoiDung');
+    const user = await TaiKhoan.findOne({ nguoiDung: userId }).populate({
+        path: 'nguoiDung',
+        populate: {
+            path: 'hangHoiVien'
+        }
+    });
     if (!user) {
         throw new Error('Không tìm thấy người dùng');
     }

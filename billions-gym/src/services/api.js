@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
     GET_PACKAGE_BY_ID: '/goitap',
     REGISTER_PACKAGE: '/chitietgoitap/dangky',
     GET_MY_PACKAGES: '/chitietgoitap/hoivien',
+    GET_ACTIVE_PACKAGE: '/chitietgoitap/hoi-vien',
     GET_WORKOUTS: '/baitap',
     GET_WORKOUT_BY_ID: '/baitap',
     GET_WORKOUT_SESSIONS: '/buoitap/hoivien',
@@ -170,6 +171,9 @@ export const packageAPI = {
     },
     getMyPackages: async (memberId) => {
         return apiRequest(`${API_ENDPOINTS.GET_MY_PACKAGES}/${memberId}`);
+    },
+    getActivePackage: async (memberId) => {
+        return apiRequest(`${API_ENDPOINTS.GET_ACTIVE_PACKAGE}/${memberId}/active`);
     },
 };
 export const workoutAPI = {
