@@ -102,26 +102,6 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister, fullScreen = false })
                             </p>
                         </button>
                     </div>
-
-                    {/* Greeting - visible on md+ screens, aligned with main content (flush with sidebar) */}
-                    {isAuthenticated && (
-                        <div className="hidden xl:flex flex-col items-start gap-0 ml-4 lg:ml-8">
-                            <span className="text-white text-2xl font-extrabold">{`Xin chào${user?.hoTen ? `, ${user.hoTen.split(' ')[0]}` : ''}`}</span>
-                            <span className="text-gray-400 text-sm">{(() => {
-                                try {
-                                    const today = new Date();
-                                    const weekday = today.toLocaleDateString('vi-VN', { weekday: 'long' });
-                                    const day = String(today.getDate()).padStart(2, '0');
-                                    const month = today.toLocaleDateString('vi-VN', { month: 'long' });
-                                    const year = today.getFullYear();
-                                    return `Hôm nay là ${weekday}, ${day} ${month} ${year}`;
-                                } catch (e) {
-                                    return '';
-                                }
-                            })()}</span>
-                        </div>
-                    )}
-
                     {/* Conditional Content Based on Authentication */}
                     {isAuthenticated ? (
                         /* Search bar when logged in - Hidden on mobile, visible on tablet+ */

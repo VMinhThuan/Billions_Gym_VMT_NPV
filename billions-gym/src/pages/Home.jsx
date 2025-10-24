@@ -8,6 +8,7 @@ import { getRankLabelVi } from '../utils/rankMap';
 import RankBadge from '../components/ui/RankBadge';
 import { packageAPI } from '../services/api';
 import { formatDateToDDMMYYYY } from '../utils/formatDate';
+import UserActions from '../components/UserActions';
 
 const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const isAuthenticated = authUtils.isAuthenticated();
@@ -117,12 +118,12 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
     return (
         <Layout onNavigateToLogin={onNavigateToLogin} onNavigateToRegister={onNavigateToRegister}>
             {isAuthenticated && (
-                <div className="flex h-screen bg-[#070606] overflow-hidden">
+                <div className="flex min-h-screen bg-[#070606]">
                     {/* Sidebar */}
                     <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-                    {/* Main Content */}
-                    <div className="flex-1 pl-0 lg:pl-80 overflow-y-auto">
+                    {/* Main Content - Only this area should scroll */}
+                    <div className="flex-1 pl-0 lg:pl-80">
                         {/* Mobile Sidebar Toggle */}
                         <div className="lg:hidden p-4 bg-[#1a1a1a] border-b border-[#2a2a2a]">
                             <button
@@ -138,135 +139,14 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
 
                         {/* Content */}
                         <div className="px-4 sm:px-6 py-4 sm:py-6 lg:py-8 max-w-full mx-auto">
-                            {/* <div className="mb-6">
-                                <h2 className="text-2xl font-bold text-white">Xin chào, {user?.hoTen || 'Hội viên'} 👋</h2>
-                                <p className="text-gray-300 mt-1">Chúc bạn có một ngày tràn đầy năng lượng!</p>
-                            </div> */}
-                            {/* <div className="mb-6">
-                        <h2 className="text-2xl font-bold text-white">Xin chào, {user?.hoTen || 'Hội viên'} 👋</h2>
-                        <p className="text-gray-300 mt-1">Chúc bạn có một ngày tràn đầy năng lượng!</p>
-                    </div> */}
-
-                            <div className="flex flex-col md:flex-row md:justify-between gap-5">
-                                <div className="flex-1 rounded-xl bg-[#1d1d1d] border border-[#2a2a2a] p-5 flex-shrink-0 min-w-[220px] flex flex-col justify-between">
-                                    {(() => {
-                                        function formatDateToDDMMYYYY(isoDate) {
-                                            if (!isoDate) return '';
-                                            const date = new Date(isoDate);
-                                            if (isNaN(date.getTime())) return '';
-                                            const day = ('0' + date.getDate()).slice(-2);
-                                            const month = ('0' + (date.getMonth() + 1)).slice(-2);
-                                            const year = date.getFullYear();
-                                            return `${day}/${month}/${year}`;
-                                        }
-                                        window._formatDateToDDMMYYYY = formatDateToDDMMYYYY;
-                                    })()}
-
-                                    <div className='mb-6'>
-                                        <span className='text-white font-bold text-[18px]' lang="db-thongtinhoivien">Thông tin hội viên</span>
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center mb-4 gap-3">
-                                            <div className="w-30 h-30 rounded-full overflow-hidden bg-[#da2128] flex items-center justify-center">
-                                                {user?.anhDaiDien ? (
-                                                    <img
-                                                        src={user.anhDaiDien}
-                                                        alt="avatar"
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <span className="text-white text-5xl font-medium">
-                                                        {(user?.hoTen?.[0] || user?.email?.[0] || user?.sdt?.[0] || 'U').toUpperCase()}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <div className="text-white text-xl font-bold mb-3">
-                                                    {user?.hoTen || 'Hội viên'}
-                                                </div>
-                                                <div className="flex items-center space-x-2 mb-4">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user h-4 w-4 text-gray-400"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                                                    <span className="text-gray-300 text-sm">Hội viên Billions Gym</span>
-                                                </div>
-                                                <div className="flex items-center space-x-2">
-                                                    <div className="inline-flex items-center rounded-full border px-2.5 py-1.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-primary/80 bg-green-500 text-white">{user.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'Đang hoạt động' : 'N/A'}</div>
-                                                    <div>
-                                                        <RankBadge rank={user.hangHoiVien || (user.hangHoiVien && user.hangHoiVien.tenHang) || user.hangHoiVien} />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center text-white text-sm">
-                                        <svg width="16" height="16" className='mr-2' version="1.0" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" viewBox="0 0 64 64" enableBackground="new 0 0 64 64" xmlSpace="preserve" fill="#000000"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <g> <g> <path fill="#506C7F" d="M50,2c-0.553,0-1,0.447-1,1v1v2v4c0,0.553,0.447,1,1,1s1-0.447,1-1V6V4V3C51,2.447,50.553,2,50,2z"></path> <path fill="#506C7F" d="M14,2c-0.553,0-1,0.447-1,1v1v2v4c0,0.553,0.447,1,1,1s1-0.447,1-1V6V4V3C15,2.447,14.553,2,14,2z"></path> </g> <path fill="#F9EBB2" d="M62,60c0,1.104-0.896,2-2,2H4c-1.104,0-2-0.896-2-2V17h60V60z"></path> <path fill="#F76D57" d="M62,15H2V8c0-1.104,0.896-2,2-2h7v4c0,1.657,1.343,3,3,3s3-1.343,3-3V6h30v4c0,1.657,1.343,3,3,3 s3-1.343,3-3V6h7c1.104,0,2,0.896,2,2V15z"></path> <g> <path fill="#394240" d="M11,54h6c0.553,0,1-0.447,1-1v-5c0-0.553-0.447-1-1-1h-6c-0.553,0-1,0.447-1,1v5 C10,53.553,10.447,54,11,54z M12,49h4v3h-4V49z"></path> <path fill="#394240" d="M23,54h6c0.553,0,1-0.447,1-1v-5c0-0.553-0.447-1-1-1h-6c-0.553,0-1,0.447-1,1v5 C22,53.553,22.447,54,23,54z M24,49h4v3h-4V49z"></path> <path fill="#394240" d="M35,54h6c0.553,0,1-0.447,1-1v-5c0-0.553-0.447-1-1-1h-6c-0.553,0-1,0.447-1,1v5 C34,53.553,34.447,54,35,54z M36,49h4v3h-4V49z"></path> <path fill="#394240" d="M11,43h6c0.553,0,1-0.447,1-1v-5c0-0.553-0.447-1-1-1h-6c-0.553,0-1,0.447-1,1v5 C10,42.553,10.447,43,11,43z M12,38h4v3h-4V38z"></path> <path fill="#394240" d="M23,43h6c0.553,0,1-0.447,1-1v-5c0-0.553-0.447-1-1-1h-6c-0.553,0-1,0.447-1,1v5 C22,42.553,22.447,43,23,43z M24,38h4v3h-4V38z"></path> <path fill="#394240" d="M35,43h6c0.553,0,1-0.447,1-1v-5c0-0.553-0.447-1-1-1h-6c-0.553,0-1,0.447-1,1v5 C34,42.553,34.447,43,35,43z M36,38h4v3h-4V38z"></path> <path fill="#394240" d="M47,43h6c0.553,0,1-0.447,1-1v-5c0-0.553-0.447-1-1-1h-6c-0.553,0-1,0.447-1,1v5 C46,42.553,46.447,43,47,43z M48,38h4v3h-4V38z"></path> <path fill="#394240" d="M11,32h6c0.553,0,1-0.447,1-1v-5c0-0.553-0.447-1-1-1h-6c-0.553,0-1,0.447-1,1v5 C10,31.553,10.447,32,11,32z M12,27h4v3h-4V27z"></path> <path fill="#394240" d="M23,32h6c0.553,0,1-0.447,1-1v-5c0-0.553-0.447-1-1-1h-6c-0.553,0-1,0.447-1,1v5 C22,31.553,22.447,32,23,32z M24,27h4v3h-4V27z"></path> <path fill="#394240" d="M35,32h6c0.553,0,1-0.447,1-1v-5c0-0.553-0.447-1-1-1h-6c-0.553,0-1,0.447-1,1v5 C34,31.553,34.447,32,35,32z M36,27h4v3h-4V27z"></path> <path fill="#394240" d="M47,32h6c0.553,0,1-0.447,1-1v-5c0-0.553-0.447-1-1-1h-6c-0.553,0-1,0.447-1,1v5 C46,31.553,46.447,32,47,32z M48,27h4v3h-4V27z"></path> <path fill="#394240" d="M60,4h-7V3c0-1.657-1.343-3-3-3s-3,1.343-3,3v1H17V3c0-1.657-1.343-3-3-3s-3,1.343-3,3v1H4 C1.789,4,0,5.789,0,8v52c0,2.211,1.789,4,4,4h56c2.211,0,4-1.789,4-4V8C64,5.789,62.211,4,60,4z M49,3c0-0.553,0.447-1,1-1 s1,0.447,1,1v7c0,0.553-0.447,1-1,1s-1-0.447-1-1V3z M13,3c0-0.553,0.447-1,1-1s1,0.447,1,1v7c0,0.553-0.447,1-1,1s-1-0.447-1-1 V3z M62,60c0,1.104-0.896,2-2,2H4c-1.104,0-2-0.896-2-2V17h60V60z M62,15H2V8c0-1.104,0.896-2,2-2h7v4c0,1.657,1.343,3,3,3 s3-1.343,3-3V6h30v4c0,1.657,1.343,3,3,3s3-1.343,3-3V6h7c1.104,0,2,0.896,2,2V15z"></path> </g> </g> <g> <rect x="12" y="27" fill="#B4CCB9" width="4" height="3"></rect> <rect x="24" y="27" fill="#B4CCB9" width="4" height="3"></rect> <rect x="36" y="27" fill="#B4CCB9" width="4" height="3"></rect> <rect x="48" y="27" fill="#B4CCB9" width="4" height="3"></rect> <rect x="12" y="38" fill="#B4CCB9" width="4" height="3"></rect> <rect x="24" y="38" fill="#B4CCB9" width="4" height="3"></rect> <rect x="36" y="38" fill="#B4CCB9" width="4" height="3"></rect> <rect x="48" y="38" fill="#B4CCB9" width="4" height="3"></rect> <rect x="12" y="49" fill="#B4CCB9" width="4" height="3"></rect> <rect x="24" y="49" fill="#B4CCB9" width="4" height="3"></rect> <rect x="36" y="49" fill="#B4CCB9" width="4" height="3"></rect> </g> </g> </g></svg>
-                                        <span>
-                                            Tham gia từ: {user.ngayThamGia ? formatDateToDDMMYYYY(user.ngayThamGia) : 'Chưa cập nhật'}
-                                        </span>
-                                    </div>
-                                    <div className="mt-4">
-                                        <a href="/profile" className="text-[#da2128] hover:underline">Xem hồ sơ →</a>
-                                    </div>
-                                </div>
-
-                                <div className="flex-1 rounded-xl bg-[linear-gradient(to_right,_#000000,_#434343)] border border-[#2a2a2a] p-5 flex-shrink-0 min-w-[220px] flex flex-col justify-between">
-                                    <div className="items-center justify-between h-full w-full">
-                                        <div>
-                                            <div className="text-white text-lg font-bold">Gói tập hiện tại</div>
-                                            {loadingPackage ? (
-                                                <div className="text-gray-200 text-sm mt-2">Đang tải...</div>
-                                            ) : activePackage ? (
-                                                <div className="mt-3 text-white">
-                                                    <div className="text-white text-xl font-semibold">{activePackage.tenGoiTap}</div>
-                                                    <div className="text-gray-200 text-sm mt-2 flex items-center gap-3">
-                                                        <span className="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-credit-card h-4 w-4 text-gray-200"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>Đã thanh toán: <strong>{activePackage.formattedAmount}</strong></span>
-                                                    </div>
-                                                    <div className="text-gray-200 text-sm mt-2 flex items-center gap-2">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-calendar h-4 w-4 text-gray-200"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
-                                                        Hết hạn: <strong>{activePackage.formattedExpiry}</strong>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="text-gray-300 text-sm mt-2">Bạn chưa có gói tập đang hoạt động.</div>
-                                            )}
-                                        </div>
-                                        <div className="inline-block bg-[#da2128] hover:bg-[#c52828] hover:cursor-pointer rounded-full shadow-lg px-5 py-2 mt-6">
-                                            <a
-                                                href={activePackage ? "/checkout" : "/packages"}
-                                                className="font-semibold text-white inline-flex items-center"
-                                            >
-                                                {activePackage ? (
-                                                    'Gia hạn ngay'
-                                                ) : (
-                                                    <>
-                                                        <span>Đăng ký ngay</span>
-                                                        <svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" className="iconify iconify--fxemoji inline-block ml-2" preserveAspectRatio="xMidYMid meet" fill="#000000" width="20" height="20">
-                                                            <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
-                                                            <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
-                                                            <g id="SVGRepo_iconCarrier">
-                                                                <path fill="#FFB636" d="M68.4 10.8c-.6 1.4-1 3.3-1.1 4.5c-1.6 0-2.9 1.3-2.9 2.9c0 1.6 1.3 2.9 2.9 2.9c.2 0 .4 0 .6-.1c-.2 4.3-3.7 7.7-8.1 7.7c-4.4 0-7.9-3.4-8.1-7.7c1.3-.2 2.4-1.4 2.4-2.8c0-1.6-1.3-2.9-2.9-2.9h-.3c-.4-2-1.5-5.2-2.8-5.2c-1.3 0-2.4 3.1-2.8 5.2c-.2 0-.4-.1-.6-.1c-1.6 0-2.9 1.3-2.9 2.9c0 1.4 1 2.6 2.4 2.9c-.2 4.3-3.7 7.7-8.1 7.7c-4.4 0-7.9-3.5-8.1-7.8c1.3-.3 2.2-1.4 2.2-2.8c0-1.6-1.3-2.9-2.9-2.9H27c-.4-2-1.5-5.2-2.8-5.2c-1.3 0-2.4 3.1-2.8 5.2c-.2 0-.4-.1-.6-.1c-1.6 0-2.9 1.3-2.9 2.9c0 1.5 1.1 2.7 2.6 2.9c-.2 4.3-3.8 7.7-8.1 7.7c-4.4 0-7.9-3.4-8.1-7.7c.2 0 .4.1.6.1c1.6 0 2.9-1.3 2.9-2.9c0-1.6-1.3-2.9-2.9-2.9h-.2c-.2-1.3-.5-3-.9-4.4c-.3-1.1-1.8-.9-1.8.3v46.8h68.4V11.3c-.2-1.2-1.5-1.5-2-.5z"></path>
-                                                                <path fill="#FFD469" d="M70.8 43.6H1.2c-.7 0-1.2-.5-1.2-1.2V39c0-.7.5-1.2 1.2-1.2h69.5c.7 0 1.2.5 1.2 1.2v3.4c.1.7-.4 1.2-1.1 1.2zm1.2 17v-3.4c0-.7-.5-1.2-1.2-1.2H1.2c-.7 0-1.2.5-1.2 1.2v3.4c0 .7.5 1.2 1.2 1.2h69.5c.8 0 1.3-.5 1.3-1.2z"></path>
-                                                                <path fill="#FFC7EF" d="M64.4 50c0 1.8-1.4 3.2-3.2 3.2S58 51.8 58 50s1.4-3.2 3.2-3.2s3.2 1.4 3.2 3.2zM36 46.8c-1.8 0-3.2 1.4-3.2 3.2s1.4 3.2 3.2 3.2s3.2-1.4 3.2-3.2s-1.4-3.2-3.2-3.2zm-25.2 0c-1.8 0-3.2 1.4-3.2 3.2s1.4 3.2 3.2 3.2S14 51.7 14 50s-1.4-3.2-3.2-3.2z"></path>
-                                                            </g>
-                                                        </svg>
-                                                    </>
-                                                )}
-                                            </a>
-                                        </div>
-
-                                    </div>
-                                </div>
-
-                                <div className="flex-1 rounded-xl bg-[#1d1d1d] border border-[#2a2a2a] p-5 flex-shrink-0 min-w-[220px] flex flex-col">
-                                    <div>
-                                        <div className="text-gray-400 text-sm mb-2">Lịch tập</div>
-                                        <div className="text-white text-lg font-semibold">Theo dõi kế hoạch</div>
-                                    </div>
-                                    <div className="mt-4 flex gap-3">
-                                        <a href="/schedule" className="px-4 py-2 rounded-md border border-[#3a3a3a] text-white hover:border-[#555]">Lịch của tôi</a>
-                                        <a href="/classes" className="px-4 py-2 rounded-md border border-[#3a3a3a] text-white hover:border-[#555]">Đặt lịch PT</a>
-                                    </div>
-                                </div>
-                            </div>
+                            {/* User Actions Dashboard */}
+                            <UserActions
+                                user={user}
+                                activePackage={activePackage}
+                                nextSessions={[]}
+                                notifications={[]}
+                                loadingPackage={loadingPackage}
+                            />
                         </div>
                     </div>
                 </div>

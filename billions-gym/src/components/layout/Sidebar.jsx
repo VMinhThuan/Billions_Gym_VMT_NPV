@@ -8,11 +8,10 @@ const Sidebar = ({ isOpen, onClose }) => {
     const location = useLocation();
     const localUser = authUtils.getUser();
 
-    // State to store user data from API
     const [apiUser, setApiUser] = useState(null);
     const [isLoadingUser, setIsLoadingUser] = useState(false);
 
-    // Fetch user profile from API on component mount
+    // Fetch user profile 
     useEffect(() => {
         const fetchUserProfile = async () => {
             if (!localUser?._id) return;
@@ -29,14 +28,15 @@ const Sidebar = ({ isOpen, onClose }) => {
                 }
 
                 const result = await response.json();
-                console.log('✅ API User Profile Response:', result);
+                console.log('API User Profile Response:', result);
 
                 if (result.success && result.data) {
                     setApiUser(result.data);
                 }
             } catch (error) {
-                console.error('❌ Error fetching user profile:', error);
-                // Fallback to local user if API fails
+                console.error('Error fetching user profile:', error);
+                setApiUser(null);
+                setApiUser(localUser);
             } finally {
                 setIsLoadingUser(false);
             }
@@ -45,7 +45,6 @@ const Sidebar = ({ isOpen, onClose }) => {
         fetchUserProfile();
     }, [localUser?._id]);
 
-    // Use API user if available, otherwise fallback to local user
     const user = apiUser || localUser;
 
     const menuItems = [
@@ -174,41 +173,24 @@ const Sidebar = ({ isOpen, onClose }) => {
         return icons[iconName] || icons.user;
     };
 
-    // Map membership rank to border color
-    // Default color (#da2128) is used when member doesn't have an active package/rank
     const rankColors = {
         diamond: '#b9f2ff',
         platinum: '#D9D9D9',
         gold: '#EFBF04',
         silver: '#C4C4C4',
         bronze: '#CE8946',
-        default: '#da2128'  // Red color for members without package/rank
+        default: '#da2128'
     };
 
-    // Get rank from hangHoiVien - handle both object and string cases
     const hangHoiVien = user?.hangHoiVien;
     let rawRank = '';
 
     if (typeof hangHoiVien === 'string' && hangHoiVien.length > 0) {
-        // If hangHoiVien is stored as a string (e.g., "BRONZE")
         rawRank = hangHoiVien;
     } else if (typeof hangHoiVien === 'object' && hangHoiVien !== null) {
-        // If hangHoiVien is populated as an object
         rawRank = hangHoiVien.tenHang || '';
     }
 
-    // Debug logging
-    console.log('🔍 Rank Debug Info:', {
-        'hangHoiVien': hangHoiVien,
-        'hangHoiVien type': typeof hangHoiVien,
-        'hangHoiVien.tenHang': hangHoiVien?.tenHang,
-        'hangHoiVien.tenHienThi': hangHoiVien?.tenHienThi,
-        'rawRank': rawRank,
-        'hasRank': rawRank.length > 0,
-        'fullUser': user
-    });
-
-    // Map HangHoiVien.tenHang (BRONZE, SILVER, GOLD, PLATINUM, DIAMOND) to color keys
     const rankMapping = {
         'BRONZE': 'bronze',
         'SILVER': 'silver',
@@ -217,12 +199,8 @@ const Sidebar = ({ isOpen, onClose }) => {
         'DIAMOND': 'diamond'
     };
 
-    // Get member rank - defaults to 'default' if no rank or invalid rank
     const memberRank = rawRank && rankMapping[rawRank] ? rankMapping[rawRank] : 'default';
     const avatarBorderColor = rankColors[memberRank];
-
-    console.log('🎨 Final rank:', memberRank, 'Color:', avatarBorderColor,
-        memberRank === 'default' ? '(No package/rank - using default red)' : '');
 
     const handleNavigate = (path) => {
         navigate(path);
@@ -234,7 +212,6 @@ const Sidebar = ({ isOpen, onClose }) => {
     const isActive = (path) => {
         const loc = normalizePath(location.pathname);
         const target = normalizePath(path);
-        // Treat root '/' as active for '/home' target
         if (target === '/home' && (loc === '' || loc === '/')) return true;
         return loc === target;
     };
@@ -269,16 +246,16 @@ const Sidebar = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* User Info */}
-                <div className="p-6 border-b border-[#2a2a2a]">
-                    <div className="flex flex-col items-center justify-center space-y-3">
-                        <div className="relative flex items-center justify-center">
-                            {/* Avatar ring */}
-                            <div
+                {/* <div className="p-6 border-b border-[#484747]"> */}
+                {/* <div className="flex flex-col items-center justify-center space-y-3"> */}
+                {/* <div className="relative flex items-center justify-center"> */}
+                {/* Avatar ring */}
+                {/* <div
                                 className="w-26 h-26 rounded-full flex items-center justify-center overflow-hidden"
                                 style={{ padding: '3px', background: avatarBorderColor }}
                                 title={user?.loaiThanhVien || user?.rank || ''}
                             >
-                                <div className="w-full h-full rounded-full bg-[#1a1a1a] flex items-center justify-center text-white font-bold overflow-hidden">
+                                <div className="w-full h-full rounded-full bg-[#da2128] flex items-center justify-center text-white font-bold overflow-hidden">
                                     {user && user.anhDaiDien ? (
                                         <img
                                             src={user.anhDaiDien}
@@ -290,31 +267,30 @@ const Sidebar = ({ isOpen, onClose }) => {
                                         <span className='text-5xl font-medium'>{(user && user.hoTen && user.hoTen[0]) ? user.hoTen[0].toUpperCase() : 'U'}</span>
                                     )}
                                 </div>
-                            </div>
+                            </div> */}
 
-                            {/* Centered badge under the ring */}
-                            <div className="absolute bottom-0 transform translate-y-1/2 flex items-center justify-center w-full pointer-events-none">
+                {/* Centered badge under the ring */}
+                {/* <div className="absolute bottom-0 transform translate-y-1/2 flex items-center justify-center w-full pointer-events-none">
                                 <div
                                     className="pointer-events-auto px-2 py-0.5 rounded-full text-xs font-semibold text-white shadow-md"
                                     style={{ background: avatarBorderColor, minWidth: 56, textAlign: 'center' }}
                                     title={user?.hangHoiVien?.tenHienThi || user?.hangHoiVien || ''}
                                 >
                                     {(() => {
-                                        // derive short label for badge
                                         const hv = user?.hangHoiVien;
                                         if (!hv) return 'KHÔNG';
-                                        if (typeof hv === 'string') return hv; // e.g. BRONZE
+                                        if (typeof hv === 'string') return hv;
                                         return hv.tenHienThi || hv.tenHang || 'KHÔNG';
                                     })()}
                                 </div>
-                            </div>
-                        </div>
-                        <div className="text-center mt-3">
+                            </div> */}
+                {/* </div> */}
+                {/* <div className="text-center mt-3">
                             <div className="text-white font-medium text-xl">{user?.hoTen || 'Hội viên'}</div>
-                            <div className="text-gray-300 text-[16px]">{user?.sdt || user?.email || ''}</div>
-                        </div>
-                    </div>
-                </div>
+                            <div className="text-gray-400 text-[16px]">{user?.sdt || user?.email || ''}</div>
+                        </div> */}
+                {/* </div> */}
+                {/* </div> */}
 
                 {/* Menu Items */}
                 <nav className="flex-1">
@@ -324,7 +300,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                                 key={item.id}
                                 onClick={() => handleNavigate(item.path)}
                                 className={`w-full flex items-center space-x-3 px-4 py-3 text-left text-gray-300 hover:text-white hover:bg-[#2a2a2a] rounded-lg transition-all duration-200 group mb-2 ${isActive(item.path)
-                                    ? 'bg-[#2a2a2a]/60 border-l-4 border-[#da2128] text-white cursor-pointer'
+                                    ? 'bg-[#303030] border-l-4 border-[#da2128] text-white cursor-pointer'
                                     : 'bg-transparent border-l-4 border-transparent cursor-pointer'
                                     }`}
                             >

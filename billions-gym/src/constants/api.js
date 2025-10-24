@@ -38,7 +38,6 @@ export const USER_ROLES = {
     HOI_VIEN: 'HoiVien',
     PT: 'PT',
     ONG_CHU: 'OngChu',
-    ADMIN: 'Admin',
 };
 
 // Package Status
