@@ -8,9 +8,11 @@ const Button = ({
     disabled = false,
     onClick,
     type = 'button',
-    ...props
+    fullWidth = false,
+    ...rest
 }) => {
-    const baseClasses = 'inline-flex items-center justify-center font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseClasses =
+        'inline-flex items-center justify-center font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
     const variants = {
         primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
@@ -25,7 +27,13 @@ const Button = ({
         lg: 'px-6 py-3 text-base',
     };
 
-    const classes = `${baseClasses} ${variants[variant]} ${sizes[size]} ${className}`;
+    const classes = `
+        ${baseClasses}
+        ${variants[variant] || variants.primary}
+        ${sizes[size] || sizes.md}
+        ${fullWidth ? 'w-full' : ''}
+        ${className}
+    `.trim();
 
     return (
         <button
@@ -33,7 +41,7 @@ const Button = ({
             className={classes}
             disabled={disabled}
             onClick={onClick}
-            {...props}
+            {...rest}
         >
             {children}
         </button>

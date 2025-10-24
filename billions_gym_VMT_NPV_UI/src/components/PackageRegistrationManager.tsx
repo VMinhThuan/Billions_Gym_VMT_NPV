@@ -298,7 +298,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
             // Kiểm tra xem hội viên có gói đang hoạt động không
             const sourcePackages = memberPackages.length > 0
                 ? memberPackages
-                : registrations.filter(r => r.maHoiVien._id === formData.maHoiVien);
+                : registrations.filter(r => r.maHoiVien?._id === formData.maHoiVien);
 
             const activePackages = sourcePackages.filter(pkg => {
                 const status = pkg.trangThai || pkg.trangThaiDangKy || pkg.trangThaiGoiTap;
@@ -318,7 +318,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
             // Nếu hội viên có gói đang hoạt động và đang nâng cấp
             if (activePackages.length > 0) {
                 const currentPackage = activePackages[0];
-                const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap.donGia;
+                const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap?.donGia || 0;
 
                 // Nếu gói mới đắt hơn gói hiện tại -> nâng cấp
                 if (selectedPackage.donGia > currentPackagePrice) {
@@ -339,7 +339,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                     // Không cho phép đăng ký gói rẻ hơn
                     notifications.generic.error('Không thể đăng ký gói rẻ hơn gói hiện tại!');
                     return;
-                } else if (selectedPackage._id === currentPackage.maGoiTap._id) {
+                } else if (selectedPackage._id === currentPackage.maGoiTap?._id) {
                     // Đăng ký lại gói hiện tại
                     notifications.generic.error('Hội viên đã đăng ký gói này!');
                     return;
@@ -404,13 +404,13 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
         let endDate = new Date(start);
 
         switch (unit) {
-            case 'Ngay':
+            case 'Ngày':
                 endDate.setDate(start.getDate() + duration);
                 break;
-            case 'Thang':
+            case 'Tháng':
                 endDate.setMonth(start.getMonth() + duration);
                 break;
-            case 'Nam':
+            case 'Năm':
                 endDate.setFullYear(start.getFullYear() + duration);
                 break;
         }
@@ -748,7 +748,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
 
     // Hàm tính số tiền cần bù khi nâng cấp
     const calculateUpgradeAmount = (newPackagePrice: number, currentPackage: DangKyGoiTap) => {
-        const currentPrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap.donGia;
+        const currentPrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap?.donGia || 0;
         const startDate = new Date(currentPackage.ngayBatDau || currentPackage.ngayDangKy);
         const endDate = new Date(currentPackage.ngayKetThuc);
 
@@ -776,7 +776,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
 
         const sourcePackages = memberPackages.length > 0
             ? memberPackages
-            : registrations.filter(r => r.maHoiVien._id === memberId);
+            : registrations.filter(r => r.maHoiVien?._id === memberId);
 
         // Lọc gói đang hoạt động (chỉ lấy 1 gói hiện tại, loại trừ gói đã nâng cấp)
         const activePackages = sourcePackages.filter(pkg => {
@@ -801,8 +801,8 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
 
         // Lấy gói hiện tại (chỉ lấy 1 gói)
         const currentPackage = activePackages[0];
-        const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap.donGia;
-        const currentPackageId = currentPackage.maGoiTap._id;
+        const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap?.donGia || 0;
+        const currentPackageId = currentPackage.maGoiTap?._id || '';
 
         return packages.map(pkg => {
             if (pkg._id === currentPackageId) {
@@ -899,25 +899,25 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                             <tr key={reg._id}>
                                                 <td>
                                                     <div className="member-info">
-                                                        <strong>{reg.maHoiVien.hoTen}</strong>
-                                                        <small>{reg.maHoiVien.sdt}</small>
+                                                        <strong>{reg.maHoiVien?.hoTen || 'N/A'}</strong>
+                                                        <small>{reg.maHoiVien?.sdt || 'N/A'}</small>
                                                     </div>
                                                 </td>
                                                 <td>
                                                     <div className="package-info">
-                                                        <strong>{reg.maGoiTap.tenGoiTap}</strong>
+                                                        <strong>{reg.maGoiTap?.tenGoiTap || 'N/A'}</strong>
                                                         {reg.isUpgrade && (
                                                             <small className="upgrade-badge">Nâng cấp</small>
                                                         )}
                                                         {reg.giaGoiTapGoc && reg.soTienBu && (
                                                             <div className="price-details">
-                                                                <small>Giá gốc: {reg.giaGoiTapGoc.toLocaleString('vi-VN')}₫</small>
-                                                                <small>Số tiền bù: {reg.soTienBu.toLocaleString('vi-VN')}₫</small>
+                                                                <small>Giá gốc: {Number(reg.giaGoiTapGoc || 0).toLocaleString('vi-VN')}₫</small>
+                                                                <small>Số tiền bù: {Number(reg.soTienBu || 0).toLocaleString('vi-VN')}₫</small>
                                                             </div>
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td>{new Date(reg.ngayDangKy).toLocaleDateString('vi-VN')}</td>
+                                                <td>{reg.ngayDangKy ? new Date(reg.ngayDangKy).toLocaleDateString('vi-VN') : 'N/A'}</td>
                                                 <td>
                                                     {(() => {
                                                         try {
@@ -930,7 +930,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                             return 'Chưa có thông tin';
                                                         }
                                                     })()}
-                                                    - {new Date(reg.ngayKetThuc).toLocaleDateString('vi-VN')}
+                                                    - {reg.ngayKetThuc ? new Date(reg.ngayKetThuc).toLocaleDateString('vi-VN') : 'N/A'}
                                                 </td>
                                                 <td>{getStatusBadge(reg.trangThai, reg.trangThaiDangKy, reg.trangThaiGoiTap)}</td>
                                                 <td>{getPaymentStatusBadge(reg.trangThaiThanhToan)}</td>
@@ -988,7 +988,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                         <option value="">Chọn hội viên</option>
                                         {members.map(member => (
                                             <option key={member._id} value={member._id}>
-                                                {member.hoTen} - {member.sdt}
+                                                {member.hoTen || 'N/A'} - {member.sdt || 'N/A'}
                                             </option>
                                         ))}
                                     </select>
@@ -996,7 +996,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
 
                                 {selectedMember && (
                                     <div className="member-packages-list">
-                                        <h3>Lịch sử gói tập của {members.find(m => m._id === selectedMember)?.hoTen}</h3>
+                                        <h3>Lịch sử gói tập của {members.find(m => m._id === selectedMember)?.hoTen || 'Hội viên'}</h3>
                                         <div className="packages-timeline">
                                             {memberPackages.map((pkg, index) => (
                                                 <div key={pkg._id} className={`package-timeline-item ${pkg.isUpgrade ? 'upgrade' :
@@ -1786,7 +1786,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                 // Kiểm tra xem có phải nâng cấp không
                                                 const sourcePackages = memberPackages.length > 0
                                                     ? memberPackages
-                                                    : registrations.filter(r => r.maHoiVien._id === newRegistration.maHoiVien);
+                                                    : registrations.filter(r => r.maHoiVien?._id === newRegistration.maHoiVien);
 
                                                 const activePackages = sourcePackages.filter(pkg => {
                                                     const status = pkg.trangThai || pkg.trangThaiDangKy || pkg.trangThaiGoiTap;
@@ -1806,7 +1806,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
                                                 // Nếu hội viên có gói đang hoạt động và đang nâng cấp
                                                 if (activePackages.length > 0) {
                                                     const currentPackage = activePackages[0];
-                                                    const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap.donGia;
+                                                    const currentPackagePrice = currentPackage.soTienThanhToan || currentPackage.maGoiTap?.donGia || 0;
 
                                                     // Nếu gói mới đắt hơn gói hiện tại -> nâng cấp
                                                     if (selectedPackage.donGia > currentPackagePrice) {

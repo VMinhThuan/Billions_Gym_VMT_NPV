@@ -1,0 +1,14 @@
+import { getRankLabelVi } from "../../utils/rankMap";
+import React from "react";
+
+const RankBadge = ({ rank, color }) => {
+    const label = getRankLabelVi(rank);
+    const bg = color || "#111827";
+    return (
+        <div className="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold" style={{ border: "1px solid #eab308", color: "#f59e0b" }}>
+            <span style={{ color: color || "#f59e0b" }}>{label}</span>
+        </div>
+    );
+};
+
+export default RankBadge;

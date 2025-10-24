@@ -183,7 +183,7 @@ const updateHoiVien = async (id, data) => {
     // Xử lý trangThaiHoiVien
     if (data.trangThaiHoiVien !== undefined && data.trangThaiHoiVien !== oldHoiVien.trangThaiHoiVien) {
         updateData.trangThaiHoiVien = data.trangThaiHoiVien;
-        
+
         // Đồng bộ trạng thái tài khoản với trạng thái hội viên
         const trangThaiTK = data.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'DANG_HOAT_DONG' : 'DA_KHOA';
         await TaiKhoan.updateOne({ nguoiDung: id }, { trangThaiTK: trangThaiTK });
@@ -464,6 +464,61 @@ const getTaiKhoanByPhone = async (sdt) => {
     }
 };
 
+// Lấy hạng hội viên của người dùng
+const getUserWithRank = async (userId) => {
+    const user = await HoiVien.findById(userId).populate('hangHoiVien');
+    if (!user) {
+        throw new Error('Không tìm thấy người dùng');
+    }
+    return {
+        id: user._id,
+        hoTen: user.hoTen,
+        hangHoiVien: user.hangHoiVien ? user.hangHoiVien.tenHang : 'Chưa có hạng'
+    };
+};
+
+const getUserProfile = async (userId) => {
+    const user = await TaiKhoan.findOne({ nguoiDung: userId }).populate({
+        path: 'nguoiDung',
+        populate: {
+            path: 'hangHoiVien'
+        }
+    });
+    if (!user) {
+        throw new Error('Không tìm thấy người dùng');
+    }
+    return user.nguoiDung;
+};
+
+const updateUserProfile = async (userId, data) => {
+    const taiKhoan = await TaiKhoan.findOne({ nguoiDung: userId });
+    if (!taiKhoan) {
+        throw new Error('Không tìm thấy tài khoản');
+    }
+    if (data.sdt && data.sdt !== taiKhoan.sdt) {
+        const existedTK = await TaiKhoan.findOne({ sdt: data.sdt, nguoiDung: { $ne: userId } });
+        if (existedTK) {
+            const err = new Error('Số điện thoại đã tồn tại ở tài khoản khác');
+            err.code = 11000;
+            err.keyPattern = { sdt: 1 };
+            throw err;
+        }
+        taiKhoan.sdt = data.sdt;
+        await taiKhoan.save();
+    }
+
+    const user = await HoiVien.findById(userId) || await PT.findById(userId);
+    if (!user) {
+        throw new Error('Không tìm thấy người dùng');
+    }
+    const updateData = { ...data };
+    return user.constructor.findByIdAndUpdate(
+        userId,
+        updateData,
+        { new: true, runValidators: true }
+    );
+};
+
 module.exports = {
     createHoiVien,
     getAllHoiVien,
@@ -481,5 +536,8 @@ module.exports = {
     checkEmailExists,
     checkPhoneExists,
     getTaiKhoanByPhone,
-    searchHoiVien
+    searchHoiVien,
+    getUserWithRank,
+    getUserProfile,
+    updateUserProfile
 };

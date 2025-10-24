@@ -3,6 +3,7 @@ const HoiVien = require('../models/NguoiDung').HoiVien;
 const ChiTietGoiTap = require('../models/ChiTietGoiTap');
 const LichSuTap = require('../models/LichSuTap');
 const dayjs = require('dayjs');
+const mongoose = require('mongoose');
 
 // Tạo hạng hội viên mới
 const createHangHoiVien = async (data) => {
@@ -192,6 +193,76 @@ const getThongKeHangHoiVien = async () => {
     }
 };
 
+// Thêm logic tính hạng hội viên dựa trên thời hạn đăng ký
+const tinhHangHoiVienTheoThoiHan = async (userId) => {
+    try {
+        const user = await HoiVien.findById(userId);
+        if (!user) {
+            throw new Error('Không tìm thấy người dùng');
+        }
+
+        const { ngayBatDau, ngayKetThuc } = user;
+        if (!ngayBatDau || !ngayKetThuc) {
+            throw new Error('Người dùng chưa có thông tin thời hạn đăng ký');
+        }
+
+        const now = new Date();
+        const startDate = new Date(ngayBatDau);
+        const endDate = new Date(ngayKetThuc);
+
+        let hangHoiVien;
+        if (now < startDate) {
+            hangHoiVien = 'Chưa kích hoạt';
+        } else if (now >= startDate && now <= endDate) {
+            hangHoiVien = 'Đang hoạt động';
+        } else {
+            hangHoiVien = 'Hết hạn';
+        }
+
+        user.hangHoiVien = hangHoiVien;
+        user.ngayDatHang = new Date();
+        await user.save();
+
+        return { userId, hangHoiVien, ngayDatHang: user.ngayDatHang };
+    } catch (error) {
+        console.error('Lỗi tính hạng hội viên:', error);
+        throw error;
+    }
+};
+
+// Thêm logic tính thời gian còn lại của hạng hội viên
+const tinhThoiGianConLai = async (userId) => {
+    try {
+        // Validate userId as a valid ObjectId
+        if (!mongoose.isValidObjectId(userId)) {
+            throw new Error('userId không hợp lệ');
+        }
+
+        const user = await HoiVien.findById(userId);
+        if (!user) {
+            throw new Error('Không tìm thấy người dùng');
+        }
+
+        const { ngayHetHan } = user;
+        if (!ngayHetHan) {
+            return {
+                userId,
+                timeRemaining: 0,
+                message: 'Chưa có thông tin thời hạn thành viên'
+            };
+        }
+
+        const now = new Date();
+        const endDate = new Date(ngayHetHan);
+        const timeRemaining = Math.max(0, Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)));
+
+        return { userId, timeRemaining };
+    } catch (error) {
+        console.error('Lỗi tính thời gian còn lại:', error);
+        throw error;
+    }
+};
+
 module.exports = {
     createHangHoiVien,
     getAllHangHoiVien,
@@ -202,5 +273,7 @@ module.exports = {
     getHangHoiVienCuaHoiVien,
     getHoiVienTheoHang,
     capNhatHangTatCaHoiVien,
-    getThongKeHangHoiVien
+    getThongKeHangHoiVien,
+    tinhHangHoiVienTheoThoiHan,
+    tinhThoiGianConLai
 };

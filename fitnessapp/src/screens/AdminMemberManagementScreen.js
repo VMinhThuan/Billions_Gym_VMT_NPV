@@ -38,12 +38,11 @@ const AdminMemberManagementScreen = ({ navigation }) => {
         try {
             setLoading(true);
             const data = await apiService.getAllMembers();
-            // Ensure we have an array to work with
             setMembers(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Error loading members:', error);
             Alert.alert('Lỗi', 'Không thể tải danh sách thành viên');
-            setMembers([]); // Set empty array on error
+            setMembers([]);
         } finally {
             setLoading(false);
         }
@@ -56,10 +55,8 @@ const AdminMemberManagementScreen = ({ navigation }) => {
     };
 
     const filterMembers = () => {
-        // Ensure we have an array to work with
         let filtered = Array.isArray(members) ? members : [];
 
-        // Filter by search query
         if (searchQuery) {
             filtered = filtered.filter(member =>
                 member.hoTen.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -68,7 +65,6 @@ const AdminMemberManagementScreen = ({ navigation }) => {
             );
         }
 
-        // Filter by status
         if (selectedStatus !== 'all') {
             filtered = filtered.filter(member => member.trangThaiHoiVien === selectedStatus);
         }

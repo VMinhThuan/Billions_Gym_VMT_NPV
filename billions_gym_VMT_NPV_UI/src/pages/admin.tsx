@@ -70,7 +70,7 @@ interface GoiTap {
     moTa: string;
     donGia: number;
     thoiHan: number;
-    donViThoiHan: 'Ngay' | 'Thang' | 'Nam';
+    donViThoiHan: 'Ngày' | 'Tháng' | 'Năm';
     loaiThoiHan: 'VinhVien' | 'TinhTheoNgay';
     soLuongNguoiThamGia: number;
     loaiGoiTap: 'CaNhan' | 'Nhom' | 'CongTy';
@@ -2134,11 +2134,11 @@ const PackagesPage = () => {
                 break;
             case 'duration':
                 // Convert duration to days for comparison
-                const aDays = a.donViThoiHan === 'Ngay' ? a.thoiHan :
-                    a.donViThoiHan === 'Thang' ? a.thoiHan * 30 :
+                const aDays = a.donViThoiHan === 'Ngày' ? a.thoiHan :
+                    a.donViThoiHan === 'Tháng' ? a.thoiHan * 30 :
                         a.thoiHan * 365;
-                const bDays = b.donViThoiHan === 'Ngay' ? b.thoiHan :
-                    b.donViThoiHan === 'Thang' ? b.thoiHan * 30 :
+                const bDays = b.donViThoiHan === 'Ngày' ? b.thoiHan :
+                    b.donViThoiHan === 'Tháng' ? b.thoiHan * 30 :
                         b.thoiHan * 365;
                 comparison = aDays - bDays;
                 break;

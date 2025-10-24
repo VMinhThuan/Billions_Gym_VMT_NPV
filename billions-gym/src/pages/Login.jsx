@@ -122,22 +122,20 @@ const Login = () => {
 
     return (
         <div className="h-screen relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-red-600 z-10"></div>
-
             <div
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                 style={{
                     backgroundImage: `url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`,
-                    filter: 'brightness(0.4)',
+                    filter: 'brightness (0.4)',
                     height: '100vh',
                     width: '100%'
                 }}
             ></div>
 
             <div className="relative z-10 h-screen flex justify-end md:justify-end">
-                <div className="w-full md:w-1/2 h-full glass-card rounded-l-[60px] p-8 flex flex-col justify-start">
+                <div className="w-full md:w-1/2 h-full glass-form-container p-8 flex flex-col justify-start">
                     <div className="flex justify-end mb-14">
-                        <div className="flex items-center space-x-2 cursor-pointer bg-none bg-opacity-20 border border-[#817e7f] rounded-[40px] px-3 py-2" onClick={toggleLanguage}>
+                        <div className="flex items-center space-x-2 cursor-pointer glass-language-selector rounded-[40px] px-3 py-2" onClick={toggleLanguage}>
                             <img
                                 src={language === 'vn' ? "https://flagcdn.com/w20/vn.png" : "https://flagcdn.com/w20/gb.png"}
                                 alt={language === 'vn' ? "Vietnam Flag" : "UK Flag"}
@@ -174,7 +172,7 @@ const Login = () => {
                                 value={formData.email}
                                 onChange={handleChange}
                                 placeholder={content.emailOrPhone}
-                                className="w-3/5 mx-auto block px-3 py-3 bg-white bg-opacity-80 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 text-sm"
+                                className="w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm"
                             />
                         </div>
 
@@ -187,7 +185,7 @@ const Login = () => {
                                 value={formData.password}
                                 onChange={handleChange}
                                 placeholder={content.password}
-                                className="w-3/5 mx-auto block px-3 py-3 bg-white bg-opacity-80 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 text-sm"
+                                className="w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm"
                             />
                             <div className="flex justify-end w-3/5 mx-auto mt-6 mb-10">
                                 <a href="#" className="text-sm text-gray-600 hover:text-blue-600">
@@ -199,10 +197,7 @@ const Login = () => {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className={`w-3/5 mx-auto block py-3 rounded-[24px] font-medium transition-colors text-sm ${isLoading
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-gray-900 hover:bg-gray-800'
-                                } text-white`}
+                            className={`w-3/5 mx-auto block py-3 rounded-[24px] font-medium text-sm glass-button text-white ${isLoading ? 'cursor-not-allowed' : ''}`}
                         >
                             {isLoading ? (
                                 <div className="flex items-center justify-center">

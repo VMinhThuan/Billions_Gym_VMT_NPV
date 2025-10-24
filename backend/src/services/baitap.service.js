@@ -19,10 +19,14 @@ const getBaiTapById = async (id) => {
 };
 
 const updateBaiTap = async (id, data) => {
-    const baiTap = await BaiTap.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+    // Load document and assign then save so pre-save hooks (which compute kcal) run
+    const baiTap = await BaiTap.findById(id);
     if (!baiTap) {
         throw new Error('Không tìm thấy bài tập');
     }
+
+    Object.assign(baiTap, data);
+    await baiTap.save();
     return baiTap;
 };
 

@@ -52,4 +52,6 @@ const PTSchema = new mongoose.Schema({
 
 const PT = NguoiDung.discriminator('PT', PTSchema);
 
+const HangHoiVien = require('./HangHoiVien');
+
 module.exports = { NguoiDung, HoiVien, OngChu, PT };

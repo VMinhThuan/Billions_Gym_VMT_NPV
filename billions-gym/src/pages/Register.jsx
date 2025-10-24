@@ -118,9 +118,9 @@ const Register = () => {
             ></div>
 
             <div className="relative z-10 h-screen flex justify-end md:justify-end">
-                <div className="w-full md:w-1/2 h-full glass-card rounded-l-[60px] p-8 flex flex-col justify-start">
+                <div className="w-full md:w-1/2 h-full glass-form-container p-8 flex flex-col justify-start">
                     <div className="flex justify-end">
-                        <div className="flex items-center space-x-2 cursor-pointer bg-none bg-opacity-20 border border-[#817e7f] rounded-[40px] px-3 py-2" onClick={toggleLanguage}>
+                        <div className="flex items-center space-x-2 cursor-pointer glass-language-selector rounded-[40px] px-3 py-2" onClick={toggleLanguage}>
                             <img
                                 src={language === 'vn' ? "https://flagcdn.com/w20/vn.png" : "https://flagcdn.com/w20/gb.png"}
                                 alt={language === 'vn' ? "Vietnam Flag" : "UK Flag"}
@@ -157,7 +157,7 @@ const Register = () => {
                                 value={formData.hoTen}
                                 onChange={handleChange}
                                 placeholder={content.fullName}
-                                className="w-3/5 mx-auto block px-3 py-3 bg-white bg-opacity-80 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 text-sm"
+                                className="w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm"
                             />
                         </div>
 
@@ -169,8 +169,8 @@ const Register = () => {
                                 name="email"
                                 value={formData.email}
                                 onChange={handleChange}
-                                placeholder="Email (không bắt buộc)"
-                                className="w-3/5 mx-auto block px-3 py-3 bg-white bg-opacity-80 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 text-sm"
+                                placeholder={content.email}
+                                className="w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm"
                             />
                         </div>
 
@@ -183,7 +183,7 @@ const Register = () => {
                                 value={formData.sdt}
                                 onChange={handleChange}
                                 placeholder={content.phoneNumber}
-                                className="w-3/5 mx-auto block px-3 py-3 bg-white bg-opacity-80 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 text-sm"
+                                className="w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm"
                             />
                         </div>
 
@@ -195,8 +195,8 @@ const Register = () => {
                                 name="matKhau"
                                 value={formData.matKhau}
                                 onChange={handleChange}
-                                placeholder="Mật khẩu"
-                                className="w-3/5 mx-auto block px-3 py-3 bg-white bg-opacity-80 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 text-sm"
+                                placeholder={content.password}
+                                className="w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm"
                             />
                         </div>
 
@@ -209,7 +209,7 @@ const Register = () => {
                                 value={formData.xacNhanMatKhau}
                                 onChange={handleChange}
                                 placeholder={content.confirmPassword}
-                                className="w-3/5 mx-auto block px-3 py-3 bg-white bg-opacity-80 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 text-sm"
+                                className="w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm"
                             />
                         </div>
 
@@ -218,10 +218,7 @@ const Register = () => {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className={`w-3/5 mx-auto block py-3 rounded-[24px] font-medium transition-colors text-sm ${isLoading
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-gray-900 hover:bg-gray-800'
-                                } text-white`}
+                            className={`w-3/5 mx-auto block py-3 rounded-[24px] font-medium text-sm glass-button text-white ${isLoading ? 'cursor-not-allowed' : ''}`}
                         >
                             {isLoading ? (
                                 <div className="flex items-center justify-center">

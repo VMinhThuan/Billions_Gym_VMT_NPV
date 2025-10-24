@@ -20,7 +20,7 @@ const { width } = Dimensions.get('window');
 const ExerciseDetailScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
-    const { exercise } = route.params;
+    const { exercise } = route.params || {};
     const { colors } = useTheme();
     const [isLoading, setIsLoading] = useState(false);
 
@@ -123,32 +123,32 @@ const ExerciseDetailScreen = () => {
             <View style={styles.exerciseHeader}>
                 <View style={styles.exerciseIconContainer}>
                     <Ionicons
-                        name={getMuscleGroupIcon(exercise.nhomCo)}
+                        name={getMuscleGroupIcon(exercise?.nhomCo)}
                         size={32}
-                        color={getMuscleGroupColor(exercise.nhomCo)}
+                        color={getMuscleGroupColor(exercise?.nhomCo)}
                     />
                 </View>
                 <View style={styles.exerciseTitleContainer}>
                     <Text style={[styles.exerciseTitle, { color: colors.text }]}>
-                        {exercise.tenBaiTap}
+                        {exercise?.tenBaiTap}
                     </Text>
                     <Text style={[styles.exerciseCategory, { color: colors.textSecondary }]}>
-                        {exercise.nhomCo}
+                        {exercise?.nhomCo}
                     </Text>
                 </View>
             </View>
 
             <View style={styles.exerciseBadges}>
-                <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(exercise.mucDo) }]}>
+                <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(exercise?.mucDo) }]}>
                     <Ionicons
-                        name={getDifficultyIcon(exercise.mucDo)}
+                        name={getDifficultyIcon(exercise?.mucDo)}
                         size={16}
                         color="#fff"
                     />
-                    <Text style={styles.difficultyText}>{exercise.mucDo}</Text>
+                    <Text style={styles.difficultyText}>{exercise?.mucDo}</Text>
                 </View>
-                <View style={[styles.muscleGroupBadge, { backgroundColor: getMuscleGroupColor(exercise.nhomCo) }]}>
-                    <Text style={styles.muscleGroupText}>{exercise.nhomCo}</Text>
+                <View style={[styles.muscleGroupBadge, { backgroundColor: getMuscleGroupColor(exercise?.nhomCo) }]}>
+                    <Text style={styles.muscleGroupText}>{exercise?.nhomCo}</Text>
                 </View>
             </View>
         </View>
@@ -160,22 +160,22 @@ const ExerciseDetailScreen = () => {
             <View style={styles.statsGrid}>
                 <View style={[styles.statCard, { backgroundColor: colors.background }]}>
                     <Ionicons name="time-outline" size={24} color={colors.primary} />
-                    <Text style={[styles.statValue, { color: colors.text }]}>{exercise.thoiGian}</Text>
+                    <Text style={[styles.statValue, { color: colors.text }]}>{exercise?.thoiGian || 0}</Text>
                     <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Thời gian (phút)</Text>
                 </View>
                 <View style={[styles.statCard, { backgroundColor: colors.background }]}>
                     <Ionicons name="repeat-outline" size={24} color={colors.primary} />
-                    <Text style={[styles.statValue, { color: colors.text }]}>{exercise.soLanLap}</Text>
+                    <Text style={[styles.statValue, { color: colors.text }]}>{exercise?.soLanLap || 0}</Text>
                     <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Số lần lặp</Text>
                 </View>
                 <View style={[styles.statCard, { backgroundColor: colors.background }]}>
                     <Ionicons name="layers-outline" size={24} color={colors.primary} />
-                    <Text style={[styles.statValue, { color: colors.text }]}>{exercise.soSet}</Text>
+                    <Text style={[styles.statValue, { color: colors.text }]}>{exercise?.soSet || 0}</Text>
                     <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Số set</Text>
                 </View>
                 <View style={[styles.statCard, { backgroundColor: colors.background }]}>
                     <Ionicons name="flame-outline" size={24} color={colors.primary} />
-                    <Text style={[styles.statValue, { color: colors.text }]}>~{Math.round(exercise.thoiGian * 8)}</Text>
+                    <Text style={[styles.statValue, { color: colors.text }]}>~{Math.round((exercise?.thoiGian || 0) * 8)}</Text>
                     <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Calories</Text>
                 </View>
             </View>
@@ -186,7 +186,7 @@ const ExerciseDetailScreen = () => {
         <View style={[styles.descriptionContainer, { backgroundColor: colors.surface }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Mô tả</Text>
             <Text style={[styles.description, { color: colors.textSecondary }]}>
-                {exercise.moTa}
+                {exercise?.moTa}
             </Text>
         </View>
     );
@@ -195,7 +195,7 @@ const ExerciseDetailScreen = () => {
         <View style={[styles.instructionsContainer, { backgroundColor: colors.surface }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Hướng dẫn thực hiện</Text>
             <Text style={[styles.instructions, { color: colors.textSecondary }]}>
-                {exercise.huongDan}
+                {exercise?.huongDan}
             </Text>
         </View>
     );

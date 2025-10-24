@@ -1,0 +1,90 @@
+import React, { useEffect, useState } from 'react';
+import { authUtils } from '../utils/auth';
+import { userAPI } from '../services/api';
+
+const ProfileEdit = () => {
+    const stored = authUtils.getUser();
+    const [form, setForm] = useState({ hoTen: '', email: '', sdt: '' });
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState('');
+
+    useEffect(() => {
+        if (stored) {
+            setForm({
+                hoTen: stored.hoTen || '',
+                email: stored.email || '',
+                sdt: stored.sdt || ''
+            });
+        }
+    }, []);
+
+    const handleChange = (e) => {
+        setForm({ ...form, [e.target.name]: e.target.value });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            setLoading(true);
+            const res = await userAPI.updateProfile(form);
+            setMessage('Cập nhật thành công');
+            const payload = res && res.data ? res.data : res;
+            if (payload) {
+                localStorage.setItem('user', JSON.stringify(payload));
+            }
+        } catch (err) {
+            setMessage(err?.message || 'Cập nhật thất bại');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="max-w-2xl mx-auto p-6">
+            <h2 className="text-white text-xl mb-4">Chỉnh sửa hồ sơ</h2>
+            {message && <div className="mb-4 text-sm text-yellow-300">{message}</div>}
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="text-gray-400 text-sm">Họ tên</label>
+                    <input
+                        name="hoTen"
+                        value={form.hoTen}
+                        onChange={handleChange}
+                        className="w-full p-2 rounded bg-[#0f1724] text-white border border-[#2a2a2a]"
+                    />
+                </div>
+                <div>
+                    <label className="text-gray-400 text-sm">Số điện thoại</label>
+                    <input
+                        name="sdt"
+                        value={form.sdt}
+                        onChange={handleChange}
+                        className="w-full p-2 rounded bg-[#0f1724] text-white border border-[#2a2a2a]"
+                    />
+                </div>
+                <div>
+                    <label className="text-gray-400 text-sm">Email</label>
+                    <input
+                        name="email"
+                        value={form.email}
+                        onChange={handleChange}
+                        className="w-full p-2 rounded bg-[#0f1724] text-white border border-[#2a2a2a]"
+                    />
+                </div>
+                <div>
+                    <button
+                        type="submit"
+                        className="px-4 py-2 bg-[#da2128] rounded text-white"
+                        disabled={loading}
+                    >
+                        {loading ? 'Đang lưu...' : 'Lưu'}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+};
+
+export default ProfileEdit;
+
+

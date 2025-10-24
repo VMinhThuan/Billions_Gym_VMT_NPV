@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
+import CustomText from './CustomText';
 import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
@@ -9,7 +10,7 @@ const ChartContainer = ({ title, children, style }) => {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.surface }, style]}>
-            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+            <CustomText style={[styles.title, { color: colors.text }]}>{title}</CustomText>
             <View style={[styles.chartContent, { backgroundColor: colors.card }]}>
                 {children}
             </View>
@@ -31,7 +32,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 20,
-        fontWeight: 'bold',
+        fontWeight: 'normal',
         marginBottom: 15,
     },
     chartContent: {

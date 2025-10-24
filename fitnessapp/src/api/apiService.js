@@ -3,46 +3,39 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_URL = require('./ApiManagerPublic');
 
 class ApiService {
-    // Get auth token from storage
     async getAuthToken() {
         try {
             const token = await AsyncStorage.getItem('userToken');
-            console.log('🔑 getAuthToken - token:', token ? 'present' : 'missing');
             if (token) {
-                console.log('🔑 getAuthToken - token length:', token.length);
-                // Decode token to check structure
                 try {
                     const payload = JSON.parse(atob(token.split('.')[1]));
-                    console.log('🔑 getAuthToken - decoded payload:', payload);
                 } catch (decodeError) {
-                    console.error('🔑 getAuthToken - failed to decode token:', decodeError);
+                    console.error('GetAuthToken - Failed to decode token:', decodeError);
                 }
             }
             return token;
         } catch (error) {
-            console.error('Error getting auth token:', error);
+            console.error('GetAuthToken - Error getting auth token:', error);
             return null;
         }
     }
 
-    // Generic API call method with retry mechanism
     async apiCall(endpoint, method = 'GET', data = null, requiresAuth = true, retryCount = 0) {
-        const maxRetries = 2; // Số lần retry tối đa
+        const maxRetries = 2;
 
         try {
             const headers = {
                 'Content-Type': 'application/json',
             };
 
+            let token;
             if (requiresAuth) {
-                const token = await this.getAuthToken();
+                token = await this.getAuthToken();
                 if (!token) {
-                    //throw new Error('No authentication token found. Please login again.');
-                    console.log('⚠️ No authentication token found. Please login again.');
+                    throw new Error('Not logged in or your session has expired. Please log in again.');
+                } else {
+                    headers.Authorization = `Bearer ${token}`;
                 }
-                headers.Authorization = `Bearer ${token}`;
-                console.log(`Making authenticated request to: ${API_URL}${endpoint}`);
-                console.log('🔑 Authorization header:', `Bearer ${token.substring(0, 20)}...`);
             }
 
             const config = {
@@ -54,11 +47,8 @@ class ApiService {
                 config.body = JSON.stringify(data);
             }
 
-            console.log(`API Call: ${method} ${API_URL}${endpoint}`);
-
-            // Thêm timeout cho fetch request - tăng lên 30 giây
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
 
             const response = await fetch(`${API_URL}${endpoint}`, {
                 ...config,
@@ -66,22 +56,16 @@ class ApiService {
             });
 
             clearTimeout(timeoutId);
-            console.log(`Response status: ${response.status}, Content-Type: ${response.headers.get('content-type')}`);
-            console.log(`Response URL: ${response.url}`);
 
-            // Check if response is JSON before trying to parse
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 const text = await response.text();
-                console.error(`Non-JSON response from ${endpoint}:`, text);
 
-                // If it's an unauthorized response, clear auth token
                 if (response.status === 401) {
                     await this.clearAuthToken();
                     throw new Error('Authentication failed. Please login again.');
                 }
 
-                // Truncate response text to avoid very long error messages
                 const truncatedText = text.length > 500 ? text.substring(0, 500) + '...' : text;
                 throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}\nResponse: ${truncatedText}`);
             }
@@ -89,22 +73,19 @@ class ApiService {
             const result = await response.json();
 
             if (!response.ok) {
-                // If it's an unauthorized response, clear auth token
                 if (response.status === 401) {
                     await this.clearAuthToken();
-                    // Trả về message từ server thay vì message mặc định
-                    throw new Error(result.message || 'Đăng nhập thất bại');
+                    throw new Error(result.message || 'Failed to authenticate. Please login again.');
                 }
 
-                // Xử lý các lỗi khác
                 if (response.status === 400) {
-                    throw new Error(result.message || 'Dữ liệu không hợp lệ');
+                    throw new Error(result.message || 'Invalid data provided');
                 } else if (response.status === 403) {
-                    throw new Error(result.message || 'Không có quyền truy cập');
+                    throw new Error(result.message || 'Access denied. You do not have permission to perform this action');
                 } else if (response.status === 404) {
-                    throw new Error(result.message || 'Không tìm thấy dữ liệu');
+                    throw new Error(result.message || 'Data not found');
                 } else if (response.status >= 500) {
-                    throw new Error(result.message || 'Lỗi server. Vui lòng thử lại sau');
+                    throw new Error(result.message || 'Server error. Please try again later');
                 }
 
                 throw new Error(result.message || `API call failed: ${response.status}`);
@@ -112,7 +93,6 @@ class ApiService {
 
             return result;
         } catch (error) {
-            // Retry logic cho các lỗi network
             if (retryCount < maxRetries && (
                 error.name === 'AbortError' ||
                 error.message.includes('Network') ||
@@ -122,58 +102,32 @@ class ApiService {
                 error.message.includes('ENOTFOUND') ||
                 error.message.includes('TypeError')
             )) {
-            console.log(`Retrying API call for ${endpoint} (attempt ${retryCount + 2}/${maxRetries + 1})`);
-                // Đợi 1-2 giây trước khi retry
                 await new Promise(resolve => setTimeout(resolve, 1000 + (retryCount * 500)));
                 return this.apiCall(endpoint, method, data, requiresAuth, retryCount + 1);
             }
 
-            // Xử lý các loại lỗi khác nhau
             if (error.name === 'AbortError') {
-                throw new Error('Kết nối quá chậm. Vui lòng kiểm tra kết nối mạng và thử lại.');
+                throw new Error('Connection timed out. Please try again.');
             } else if (error.message.includes('Network') || error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
-                throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng và đảm bảo server đang chạy.');
+                throw new Error('Unable to connect to the server. Please check your network connection and ensure the server is running.');
             } else if (error.message.includes('timeout')) {
-                throw new Error('Kết nối quá chậm. Vui lòng thử lại sau.');
+                throw new Error('Connection timed out. Please try again later.');
             } else if (error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
-                throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra địa chỉ server và kết nối mạng.');
+                throw new Error('Unable to connect to the server. Please check the server address and your network connection.');
             } else if (error.message.includes('TypeError')) {
-                throw new Error('Lỗi kết nối. Vui lòng kiểm tra kết nối mạng và thử lại.');
+                throw new Error('Connection error. Please check your network connection and try again.');
             }
 
             throw error;
         }
     }
 
-    // Clear auth token from storage
     async clearAuthToken() {
         try {
             await AsyncStorage.removeItem('userToken');
             await AsyncStorage.removeItem('userInfo');
         } catch (error) {
-            // Silent error handling
-        }
-    }
-
-    // ✅ THÊM: Debug method để check user info
-    async debugUserInfo() {
-        try {
-            const token = await this.getAuthToken();
-            if (!token) {
-                console.log('🔍 DEBUG - No token found');
-                return null;
-            }
-
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            console.log('🔍 DEBUG - Full token payload:', JSON.stringify(payload, null, 2));
-            console.log('🔍 DEBUG - User role:', payload.vaiTro);
-            console.log('🔍 DEBUG - User ID:', payload.id);
-            console.log('🔍 DEBUG - User SDT:', payload.sdt);
-            
-            return payload;
-        } catch (error) {
-            console.log('🔍 DEBUG - Error decoding token:', error);
-            return null;
+            throw new Error('Failed to clear authentication data. Please try again.');
         }
     }
 
@@ -196,43 +150,20 @@ class ApiService {
 
     // User APIs
     async getMyProfile() {
-        const token = await this.getAuthToken();
-        if (!token) throw new Error('No auth token');
-
         try {
-            // ✅ SỬA: Decode token an toàn hơn
+            const token = await this.getAuthToken();
+            if (!token) return null;
+
             const payload = JSON.parse(atob(token.split('.')[1]));
-            const userId = payload.id;
-            console.log('🔑 DEBUG - Decoded user ID from token:', userId);
-
-            if (!userId) {
-                throw new Error('No user ID in token');
-            }
-
-            return this.apiCall(`/user/hoivien/${userId}`);
+            return payload.id;
         } catch (error) {
-            console.log('🔑 ERROR - Failed to decode token:', error);
-            throw new Error('Invalid token or unable to get user ID');
+            console.error('Error getting current user ID:', error);
+            return null;
         }
     }
 
     async updateProfile(userId, data) {
         return this.apiCall(`/user/hoivien/${userId}`, 'PUT', data);
-    }
-
-    // ✅ THÊM: Test method để debug
-    async testUpdate(userId, data) {
-        return this.apiCall(`/user/test-update/${userId}`, 'PUT', data);
-    }
-
-    // ✅ THÊM: Test flexible update
-    async testFlexibleUpdate(userId, data) {
-        return this.apiCall(`/user/test-flexible-update/${userId}`, 'PUT', data);
-    }
-
-    // ✅ THÊM: Restore critical data
-    async restoreCriticalData(userId, data) {
-        return this.apiCall(`/user/restore-critical-data/${userId}`, 'PUT', data);
     }
 
     async getAllPT() {
@@ -274,7 +205,7 @@ class ApiService {
         }
     }
 
-    // Workout Plans (Buoi Tap) APIs
+    // Workout Plans APIs
     async getMyWorkoutPlans() {
         const token = await this.getAuthToken();
         if (!token) throw new Error('No auth token');
@@ -297,7 +228,7 @@ class ApiService {
         return this.apiCall(`/buoitap/${workoutId}/hoanthanh`, 'PUT');
     }
 
-    // Workout Schedule (Lich Tap) APIs
+    // Workout Schedule APIs
     async getMyWorkoutSchedule() {
         const token = await this.getAuthToken();
         if (!token) throw new Error('No auth token');
@@ -308,37 +239,40 @@ class ApiService {
         return this.apiCall(`/lichtap/hoivien/${userId}`);
     }
 
-    // PT Booking (Lich Hen PT) APIs
+    async getAllWorkoutSchedules() {
+        try {
+            const result = await this.apiCall('/lichtap');
+            return Array.isArray(result) ? result : [];
+        } catch (error) {
+            console.error('Error fetching all workout schedules:', error.message || error);
+            return [];
+        }
+    }
+
+    // PT Booking APIs
     async getMyPTBookings() {
         try {
-            // Get current user info for debugging
             const token = await this.getAuthToken();
 
             const result = await this.apiCall('/lichhenpt/pt/my');
             return Array.isArray(result) ? result : [];
         } catch (error) {
-            // Nếu chưa có booking, trả về array rỗng
             if (error.message && (error.message.includes('404') || error.message.includes('chưa có'))) {
                 return [];
             }
 
-            // Nếu lỗi authentication, throw error để UI xử lý
             if (error.message && (error.message.includes('401') || error.message.includes('Chưa đăng nhập'))) {
                 throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
             }
 
-            // Nếu lỗi quyền truy cập - đã sửa backend để hỗ trợ HoiVien
             if (error.message && (error.message.includes('403') || error.message.includes('Không có quyền'))) {
-                // Trả về array rỗng thay vì throw error để tránh crash app
                 return [];
             }
 
-            // Nếu lỗi ID không hợp lệ
             if (error.message && (error.message.includes('ID PT không hợp lệ') || error.message.includes('Token không hợp lệ'))) {
                 throw new Error('Thông tin xác thực không hợp lệ. Vui lòng đăng nhập lại.');
             }
 
-            // Các lỗi khác, trả về array rỗng
             return [];
         }
     }
@@ -355,7 +289,7 @@ class ApiService {
         return this.apiCall('/lichhenpt');
     }
 
-    // Body Stats (Chi So Co The) APIs
+    // Body Stats APIs
     async getMyBodyStats() {
         return this.apiCall('/chisocothe/my');
     }
@@ -364,7 +298,6 @@ class ApiService {
         try {
             return await this.apiCall('/chisocothe/my/latest');
         } catch (error) {
-            // Nếu chưa có chỉ số cơ thể, trả về null thay vì throw error
             if (error.message.includes('chưa có chỉ số cơ thể') || error.message.includes('404')) {
                 return null;
             }
@@ -449,7 +382,7 @@ class ApiService {
         return this.apiCall(`/dinhduong/goi-y/${suggestionId}/phan-hoi`, 'PUT', data);
     }
 
-    // Membership (Chi Tiet Goi Tap) APIs
+    // Membership APIs
     async getMyMembership() {
         const token = await this.getAuthToken();
         if (!token) throw new Error('No auth token');
@@ -468,7 +401,7 @@ class ApiService {
         return this.apiCall('/user/chitietgoitap', 'POST', data);
     }
 
-    // Payment (Thanh Toan) APIs
+    // Payment APIs
     async getMyPayments() {
         return this.apiCall('/thanhtoan/my');
     }
@@ -477,7 +410,6 @@ class ApiService {
         return this.apiCall('/thanhtoan', 'POST', data);
     }
 
-    // Utility method to get current user ID from token
     async getCurrentUserId() {
         try {
             const token = await this.getAuthToken();
@@ -505,21 +437,7 @@ class ApiService {
             return false;
         }
     }
-
-    // Test API connectivity (no authentication required)
-    async testConnection() {
-        try {
-            console.log('Testing API connectivity...');
-            const response = await this.apiCall('/test', 'GET', null, false);
-            console.log('API connection test successful:', response);
-            return response;
-        } catch (error) {
-            console.error('API connection test failed:', error);
-            throw error;
-        }
-    }
-
-    // Hạng hội viên APIs
+    // Ranking User APIs
     async getAllHangHoiVien() {
         return this.apiCall('/hanghoivien');
     }
@@ -536,11 +454,23 @@ class ApiService {
         return this.apiCall('/hanghoivien/thong-ke/overview');
     }
 
-    // Bài tập (Exercises) APIs
+    // Exercises APIs
     async getAllBaiTap() {
         try {
-            const result = await this.apiCall('/baitap');
-            return Array.isArray(result) ? result : [];
+            try {
+                const result = await this.apiCall('/baitap');
+                if (Array.isArray(result) && result.length) return result;
+            } catch (authErr) {
+                console.error('getAllBaiTap - authenticated fetch failed:', authErr && authErr.message ? authErr.message : authErr);
+            }
+
+            try {
+                const publicResult = await this.apiCall('/baitap', 'GET', null, false);
+                return Array.isArray(publicResult) ? publicResult : [];
+            } catch (publicErr) {
+                console.error('getAllBaiTap - unauthenticated fetch failed:', publicErr && publicErr.message ? publicErr.message : publicErr);
+                return [];
+            }
         } catch (error) {
             console.error('Error fetching exercises:', error);
             return [];
@@ -642,6 +572,16 @@ class ApiService {
 
     async deleteMember(memberId) {
         return this.apiCall(`/user/hoivien/${memberId}`, 'DELETE');
+    }
+
+    // Lấy thời gian còn lại của hạng hội viên
+    async getMembershipTimeRemaining(userId) {
+        return this.apiCall(`/hanghoivien/thoi-gian-con-lai/${userId}`, 'GET');
+    }
+
+    // Cập nhật thời gian còn lại của hạng hội viên
+    async updateMembershipTimeRemaining(userId, days) {
+        return this.apiCall(`/hanghoivien/cap-nhat-thoi-gian-con-lai/${userId}`, 'PUT', { days });
     }
 }
 

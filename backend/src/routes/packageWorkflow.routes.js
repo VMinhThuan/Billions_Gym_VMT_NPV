@@ -4,6 +4,8 @@ const packageWorkflowController = require('../controllers/packageWorkflow.contro
 const authenticateToken = require('../middlewares/auth.middleware');
 
 // Routes cho workflow đăng ký gói tập
+router.get('/workflow-status/:registrationId', authenticateToken, packageWorkflowController.getWorkflowStatus);
+router.put('/update-branch/:registrationId', authenticateToken, packageWorkflowController.updateBranch);
 router.post('/available-trainers/:chiTietGoiTapId', authenticateToken, packageWorkflowController.getAvailableTrainers);
 router.post('/select-trainer/:chiTietGoiTapId', authenticateToken, packageWorkflowController.selectTrainer);
 router.post('/generate-schedule/:chiTietGoiTapId', authenticateToken, packageWorkflowController.generateWorkoutSchedule);

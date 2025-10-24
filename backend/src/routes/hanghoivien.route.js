@@ -38,6 +38,15 @@ router.post('/tinh-hang/:hoiVienId',
     hangHoiVienController.tinhHangHoiVien
 );
 
+// Thêm route tính hạng hội viên theo thời hạn
+router.get('/tinh-hang-theo-thoi-han/:userId', hangHoiVienController.tinhHangHoiVienTheoThoiHan);
+
+// Thêm route tính thời gian còn lại của hạng hội viên
+router.get('/thoi-gian-con-lai/:userId', hangHoiVienController.tinhThoiGianConLai);
+
+// Thêm route cập nhật thời gian còn lại của hạng hội viên
+router.put('/cap-nhat-thoi-gian-con-lai/:userId', hangHoiVienController.capNhatThoiGianConLai);
+
 // Lấy thông tin hạng hội viên của một hội viên
 router.get('/hoi-vien/:hoiVienId',
     authMiddleware,

@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
     GET_PACKAGE_BY_ID: '/goitap',
     REGISTER_PACKAGE: '/chitietgoitap/dangky',
     GET_MY_PACKAGES: '/chitietgoitap/hoivien',
+    GET_ACTIVE_PACKAGE: '/chitietgoitap/hoi-vien',
     GET_WORKOUTS: '/baitap',
     GET_WORKOUT_BY_ID: '/baitap',
     GET_WORKOUT_SESSIONS: '/buoitap/hoivien',
@@ -49,16 +50,17 @@ export const getAuthHeaders = (includeAuth = true) => {
 };
 export const apiRequest = async (endpoint, options = {}) => {
     const url = getApiUrl(endpoint);
+    const { requireAuth = true, allow404 = false, ...restOptions } = options;
     const defaultOptions = {
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders(requireAuth),
         credentials: 'include',
     };
     const config = {
         ...defaultOptions,
-        ...options,
+        ...restOptions,
         headers: {
             ...defaultOptions.headers,
-            ...options.headers,
+            ...restOptions.headers,
         },
     };
     try {
@@ -66,7 +68,13 @@ export const apiRequest = async (endpoint, options = {}) => {
         if (response.type === 'opaque' || response.status === 0) {
             throw new Error('CORS error: Unable to connect to server. Please check your network connection and server status.');
         }
-        const data = await response.json();
+        // Try parse JSON safely; on 204 or empty body, return null
+        let data = null;
+        try {
+            data = await response.json();
+        } catch (_) {
+            data = null;
+        }
         if (!response.ok) {
             if (response.status === 401) {
                 localStorage.removeItem('token');
@@ -75,6 +83,9 @@ export const apiRequest = async (endpoint, options = {}) => {
             }
             if (response.status === 403) {
                 throw new Error('Access denied. You do not have permission to perform this action.');
+            }
+            if (response.status === 404 && allow404) {
+                return null;
             }
             if (response.status === 404) {
                 throw new Error('Resource not found.');
@@ -135,6 +146,9 @@ export const userAPI = {
     getProfile: async () => {
         return apiRequest(API_ENDPOINTS.GET_PROFILE);
     },
+    getUserWithRank: async (userId) => {
+        return apiRequest(`/user/${userId}/with-rank`);
+    },
     updateProfile: async (userData) => {
         return apiRequest(API_ENDPOINTS.UPDATE_PROFILE, {
             method: 'PUT',
@@ -157,6 +171,9 @@ export const packageAPI = {
     },
     getMyPackages: async (memberId) => {
         return apiRequest(`${API_ENDPOINTS.GET_MY_PACKAGES}/${memberId}`);
+    },
+    getActivePackage: async (memberId) => {
+        return apiRequest(`${API_ENDPOINTS.GET_ACTIVE_PACKAGE}/${memberId}/active`);
     },
 };
 export const workoutAPI = {
@@ -283,6 +300,40 @@ export const paymentAPI = {
         });
     },
 };
+
+export const api = {
+    get: async (path, query = {}, options = {}) => {
+        const queryString = new URLSearchParams(query).toString();
+        const url = queryString ? `${path}?${queryString}` : path;
+        // Backward compatibility: allow boolean as third arg for requireAuth
+        const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
+        return apiRequest(url, normalizedOptions);
+    },
+    post: async (path, body = {}, options = {}) => {
+        const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
+        return apiRequest(path, {
+            method: 'POST',
+            body: JSON.stringify(body),
+            ...normalizedOptions
+        });
+    },
+    put: async (path, body = {}, options = {}) => {
+        const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
+        return apiRequest(path, {
+            method: 'PUT',
+            body: JSON.stringify(body),
+            ...normalizedOptions
+        });
+    },
+    delete: async (path, options = {}) => {
+        const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
+        return apiRequest(path, {
+            method: 'DELETE',
+            ...normalizedOptions
+        });
+    }
+};
+
 export default {
     API_ENDPOINTS,
     getApiUrl,
@@ -297,4 +348,5 @@ export default {
     workoutPredictionAPI,
     chatbotAPI,
     paymentAPI,
+    api,
 };

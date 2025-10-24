@@ -1,0 +1,22 @@
+export const RANK_LABELS_VI = {
+    BRONZE: 'Đồng',
+    SILVER: 'Bạc',
+    GOLD: 'Vàng',
+    PLATINUM: 'Bạch kim',
+    DIAMOND: 'Kim cương'
+};
+
+export function getRankLabelVi(codeOrDisplay) {
+    if (!codeOrDisplay) return 'Chưa có hạng';
+    if (typeof codeOrDisplay === 'string') {
+        const normalized = codeOrDisplay.trim().toUpperCase();
+        if (RANK_LABELS_VI[normalized]) return RANK_LABELS_VI[normalized];
+    }
+    if (typeof codeOrDisplay === 'object') {
+        if (codeOrDisplay.tenHang && RANK_LABELS_VI[codeOrDisplay.tenHang]) return RANK_LABELS_VI[codeOrDisplay.tenHang];
+        if (codeOrDisplay.tenHienThi) return codeOrDisplay.tenHienThi;
+    }
+    return (typeof codeOrDisplay === 'string' && codeOrDisplay) || 'Chưa có hạng';
+}
+
+export default getRankLabelVi;

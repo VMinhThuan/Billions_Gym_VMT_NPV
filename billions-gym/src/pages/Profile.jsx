@@ -1,0 +1,82 @@
+import React, { useState, useEffect } from 'react';
+import { authUtils } from '../utils/auth';
+import { userAPI } from '../services/api';
+import { formatDateShort } from '../utils/formatDate';
+import { getRankLabelVi } from '../utils/rankMap';
+
+const ProfileScreen = () => {
+    const stored = authUtils.getUser();
+    const [user, setUser] = useState(stored || null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        let mounted = true;
+        const fetchProfile = async () => {
+            try {
+                setLoading(true);
+                const res = await userAPI.getProfile();
+                const payload = res && res.data ? res.data : res;
+                if (mounted && payload) {
+                    setUser(payload);
+                }
+            } catch (err) {
+                console.error('Could not fetch profile', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        if (!user) fetchProfile();
+        return () => { mounted = false; };
+    }, []);
+
+    if (loading) return <div className="p-6">Đang tải...</div>;
+    if (!user) return <div className="p-6">Không có thông tin người dùng. Vui lòng đăng nhập.</div>;
+
+    return (
+        <div className="max-w-full mx-auto">
+            <div className="bg-[#1d1d1d] p-6 border border-[#2a2a2a]">
+                <div className="flex items-center gap-6">
+                    <div className="w-28 h-28 rounded-full overflow-hidden bg-[#da2128] flex items-center justify-center border border-[#3a3a3a]">
+                        {user.anhDaiDien ? (
+                            <img src={user.anhDaiDien} alt="avatar" className="w-full h-full object-cover" />
+                        ) : (
+                            <span className="text-white text-4xl font-semibold">{(user.hoTen?.[0] || user.email?.[0] || user.sdt?.[0] || 'U').toUpperCase()}</span>
+                        )}
+                    </div>
+                    <div className="flex-1">
+                        <h2 className="text-white text-2xl font-bold">{user.hoTen || user.tenHoiVien || 'Hội viên'}</h2>
+                        <div className="text-gray-400 mt-1">{user?.vaiTro === 'HoiVien' ? 'Hội viên' : (user?.vaiTro === 'PT' ? 'Huấn luyện viên' : 'Quản trị viên')}</div>
+                        <div className="mt-3 flex items-center gap-3">
+                            <div className="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold bg-green-500 text-white">{user.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'Đang hoạt động' : 'Không hoạt động'}</div>
+                            <div className="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold border border-yellow-500 text-yellow-500">{getRankLabelVi(user.hangHoiVien || (user.hangHoiVien && user.hangHoiVien.tenHang) || user.hangHoiVien)}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <a href="/profile/edit" className="px-4 py-2 bg-[#da2128] rounded text-white">Chỉnh sửa</a>
+                    </div>
+                </div>
+
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-300">
+                    <div>
+                        <div className="text-gray-400">Số điện thoại</div>
+                        <div className="text-white">{user.sdt || 'Chưa cập nhật'}</div>
+                    </div>
+                    <div>
+                        <div className="text-gray-400">Email</div>
+                        <div className="text-white">{user.email || 'Chưa cập nhật'}</div>
+                    </div>
+                    <div>
+                        <div className="text-gray-400">Giới tính</div>
+                        <div className="text-white">{user.gioiTinh || 'Chưa cập nhật'}</div>
+                    </div>
+                    <div>
+                        <div className="text-gray-400">Ngày tham gia</div>
+                        <div className="text-white">{user.ngayThamGia ? formatDateShort(user.ngayThamGia) : 'Chưa cập nhật'}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default ProfileScreen;

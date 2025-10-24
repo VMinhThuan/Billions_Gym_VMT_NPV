@@ -62,28 +62,28 @@ const HoiVienTabNavigator = () => {
                 },
             })}
         >
-            <Tab.Screen 
-                name="Home" 
-                component={HomeScreen} 
+            <Tab.Screen
+                name="Home"
+                component={HomeScreen}
                 options={{ tabBarLabel: 'Trang chủ' }}
             />
-            <Tab.Screen 
-                name="WorkoutPlans" 
+            <Tab.Screen
+                name="WorkoutPlans"
                 component={WorkoutPlansScreen}
                 options={{ tabBarLabel: 'Lịch tập' }}
             />
-            <Tab.Screen 
-                name="Nutrition" 
+            <Tab.Screen
+                name="Nutrition"
                 component={NutritionScreen}
                 options={{ tabBarLabel: 'Dinh dưỡng' }}
             />
-            <Tab.Screen 
-                name="Booking" 
+            <Tab.Screen
+                name="Booking"
                 component={ClassBookingScreen}
                 options={{ tabBarLabel: 'Đặt lịch' }}
             />
-            <Tab.Screen 
-                name="Profile" 
+            <Tab.Screen
+                name="Profile"
                 component={ProfileScreen}
                 options={{ tabBarLabel: 'Cá nhân' }}
             />
@@ -124,28 +124,28 @@ const PTTabNavigator = () => {
                 },
             })}
         >
-            <Tab.Screen 
-                name="PTDashboard" 
+            <Tab.Screen
+                name="PTDashboard"
                 component={PTDashboardScreen}
                 options={{ tabBarLabel: 'Tổng quan' }}
             />
-            <Tab.Screen 
-                name="PTSchedule" 
+            <Tab.Screen
+                name="PTSchedule"
                 component={PTScheduleScreen}
                 options={{ tabBarLabel: 'Lịch làm việc' }}
             />
-            <Tab.Screen 
-                name="PTRevenue" 
+            <Tab.Screen
+                name="PTRevenue"
                 component={PTRevenueScreen}
                 options={{ tabBarLabel: 'Doanh thu' }}
             />
-            <Tab.Screen 
-                name="PTStudents" 
+            <Tab.Screen
+                name="PTStudents"
                 component={PTStudentsScreen}
                 options={{ tabBarLabel: 'Học viên' }}
             />
-            <Tab.Screen 
-                name="PTProfile" 
+            <Tab.Screen
+                name="PTProfile"
                 component={ProfileScreen}
                 options={{ tabBarLabel: 'Cá nhân' }}
             />
@@ -184,23 +184,23 @@ const AdminTabNavigator = () => {
                 },
             })}
         >
-            <Tab.Screen 
-                name="AdminDashboard" 
+            <Tab.Screen
+                name="AdminDashboard"
                 component={AdminDashboardScreen}
                 options={{ tabBarLabel: 'Bảng điều khiển' }}
             />
-            <Tab.Screen 
-                name="MemberManagement" 
+            <Tab.Screen
+                name="MemberManagement"
                 component={AdminMemberManagementScreen}
                 options={{ tabBarLabel: 'Quản lý thành viên' }}
             />
-            <Tab.Screen 
-                name="Reports" 
+            <Tab.Screen
+                name="Reports"
                 component={ReportsScreen}
                 options={{ tabBarLabel: 'Báo cáo' }}
             />
-            <Tab.Screen 
-                name="AdminProfile" 
+            <Tab.Screen
+                name="AdminProfile"
                 component={ProfileScreen}
                 options={{ tabBarLabel: 'Cá nhân' }}
             />
@@ -230,12 +230,12 @@ const RoleBasedNavigator = () => {
 
     // Lấy role từ userInfo nếu userRole chưa được set, hoặc từ userInfo
     let role = userRole || userInfo?.vaiTro;
-    
+
     // Nếu vẫn không có role, thử lấy từ token (decode nếu cần)
     if (!role && userInfo) {
         role = userInfo.vaiTro || 'HoiVien';
     }
-    
+
     // Default role nếu không xác định được
     if (!role) {
         console.log("🎭 No role found, defaulting to HoiVien");

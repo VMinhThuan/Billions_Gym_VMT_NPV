@@ -245,10 +245,25 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave, onFieldChange
                 canvas.width = width;
                 canvas.height = height;
 
-                // Draw and compress
+                // Draw image
                 ctx?.drawImage(img, 0, 0, width, height);
-                const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-                resolve(compressedDataUrl);
+
+                // Preserve original file type for formats that support transparency (PNG/WebP)
+                const originalType = file.type || '';
+                let outputType = 'image/jpeg';
+                if (originalType === 'image/png' || originalType === 'image/webp') {
+                    outputType = originalType;
+                }
+
+                try {
+                    // toDataURL second param (quality) is ignored for PNG; browsers may not support webp in some cases
+                    const compressedDataUrl = canvas.toDataURL(outputType, quality as any);
+                    resolve(compressedDataUrl);
+                } catch (err) {
+                    // Fallback to jpeg if the chosen output type is not supported by the browser
+                    const fallbackDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(fallbackDataUrl);
+                }
             };
 
             img.src = URL.createObjectURL(file);

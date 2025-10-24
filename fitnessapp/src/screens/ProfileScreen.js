@@ -23,15 +23,11 @@ const ProfileScreen = () => {
     const navigation = useNavigation();
     const { logout, userInfo } = useAuth();
     const { colors, isDarkMode, toggleTheme } = useTheme();
-    
+
     const [refreshing, setRefreshing] = useState(false);
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-    // Lấy role từ userInfo
     const userRole = userInfo?.vaiTro || 'HoiVien';
-    
-    console.log('ProfileScreen - userRole:', userRole);
-    console.log('ProfileScreen - userInfo:', userInfo);
 
     const [loading, setLoading] = useState(true);
     const [userProfile, setUserProfile] = useState({
@@ -68,10 +64,8 @@ const ProfileScreen = () => {
         fetchProfileData();
     }, []);
 
-    // ✅ THÊM: Reload data khi focus vào screen
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
-            console.log('📱 DEBUG - ProfileScreen focused, reloading data...');
             fetchProfileData();
         });
 
@@ -82,14 +76,11 @@ const ProfileScreen = () => {
         try {
             setLoading(true);
 
-            // Get current user ID first
-            const currentUserId = await apiService.getCurrentUserId();
+            const currentUserId = await apiService.getMyProfile();
             if (!currentUserId) {
-                console.log('No user ID found');
                 return;
             }
 
-            // Fetch user profile and related data
             const [profile, workouts, bodyStats, membership, hangHoiVienData] = await Promise.allSettled([
                 apiService.getMyProfile(),
                 apiService.getMyWorkoutPlans(),
@@ -119,7 +110,7 @@ const ProfileScreen = () => {
                     ...prev,
                     totalWorkouts: completedWorkouts.length,
                     currentStreak: streak,
-                    achievements: Math.floor(completedWorkouts.length / 5) // 1 achievement per 5 workouts
+                    achievements: Math.floor(completedWorkouts.length / 5)
                 }));
             }
 
@@ -148,24 +139,38 @@ const ProfileScreen = () => {
 
             if (hangHoiVienData.status === 'fulfilled' && hangHoiVienData.value) {
                 const hangData = hangHoiVienData.value;
-                console.log('Hang hoi vien data:', hangData);
-                if (hangData.hangHoiVien) {
+
+                if (hangData && hangData.data && hangData.data.hangHoiVien) {
+                    const hangInfo = hangData.data.hangHoiVien;
                     setHangHoiVien({
-                        tenHang: hangData.hangHoiVien.tenHang,
-                        tenHienThi: hangData.hangHoiVien.tenHienThi,
-                        mauSac: hangData.hangHoiVien.mauSac,
-                        icon: hangData.hangHoiVien.icon,
-                        quyenLoi: hangData.hangHoiVien.quyenLoi || [],
+                        tenHang: hangInfo.tenHang,
+                        tenHienThi: hangInfo.tenHienThi,
+                        mauSac: hangInfo.mauSac,
+                        icon: hangInfo.icon,
+                        quyenLoi: hangInfo.quyenLoi || [],
+                        soTienTichLuy: hangData.data.soTienTichLuy || 0,
+                        soThangLienTuc: hangData.data.soThangLienTuc || 0,
+                        soBuoiTapDaTap: hangData.data.soBuoiTapDaTap || 0
+                    });
+                } else if (hangData && hangData.hangHoiVien) {
+                    const hangInfo = hangData.hangHoiVien;
+                    setHangHoiVien({
+                        tenHang: hangInfo.tenHang,
+                        tenHienThi: hangInfo.tenHienThi,
+                        mauSac: hangInfo.mauSac,
+                        icon: hangInfo.icon,
+                        quyenLoi: hangInfo.quyenLoi || [],
                         soTienTichLuy: hangData.soTienTichLuy || 0,
                         soThangLienTuc: hangData.soThangLienTuc || 0,
                         soBuoiTapDaTap: hangData.soBuoiTapDaTap || 0
                     });
-                    console.log('Set hang hoi vien:', hangData.hangHoiVien.tenHienThi);
+                    console.log('✅ Set hang hoi vien (direct):', hangInfo.tenHienThi);
                 } else {
-                    console.log('No hang hoi vien data found');
+                    console.log('❌ No hang hoi vien data found in response');
+                    console.log('Available keys:', Object.keys(hangData));
                 }
             } else {
-                console.log('Hang hoi vien API failed:', hangHoiVienData);
+                console.log('❌ Hang hoi vien API failed:', hangHoiVienData);
             }
 
         } catch (error) {
@@ -208,6 +213,7 @@ const ProfileScreen = () => {
         await fetchProfileData();
         setRefreshing(false);
     };
+
 
     const handleLogout = () => {
         Alert.alert(
@@ -307,7 +313,7 @@ const ProfileScreen = () => {
                             {
                                 title: "Đặt lịch PT",
                                 icon: "calendar-outline",
-                                onPress: () => navigation.navigate('ClassBooking')
+                                onPress: () => navigation.navigate('Classes')
                             },
                             {
                                 title: "Thành viên",
@@ -475,38 +481,61 @@ const ProfileScreen = () => {
 
     const menuItems = getMenuItemsByRole();
 
-    const renderProfileHeader = () => (
-        <View style={[styles.profileHeader, { backgroundColor: colors.surface }]}>
-            <View style={styles.avatarContainer}>
-                <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                    <Text style={styles.avatarText}>
-                        {userProfile.name ? userProfile.name.split(' ').map(n => n[0]).join('').slice(0, 2) : 'U'}
-                    </Text>
-                </View>
-                <TouchableOpacity
-                    style={[styles.editAvatarButton, { backgroundColor: colors.primary }]}
-                    onPress={() => navigation.navigate('EditProfile')}
-                >
-                    <MaterialIcons name="camera-alt" size={16} color="#fff" />
-                </TouchableOpacity>
-            </View>
+    const renderProfileHeader = () => {
+        const getGradientColors = () => {
+            const rankColor = hangHoiVien.mauSac || '#FFD700';
+            switch (hangHoiVien.tenHang) {
+                case 'BRONZE':
+                    return ['#CD7F32', '#B8860B'];
+                case 'SILVER':
+                    return ['#C0C0C0', '#A8A8A8'];
+                case 'GOLD':
+                    return ['#FFD700', '#FFA500'];
+                case 'PLATINUM':
+                    return ['#E5E4E2', '#B8B8B8'];
+                case 'DIAMOND':
+                    return ['#B9F2FF', '#87CEEB'];
+                default:
+                    return [rankColor, rankColor + '80'];
+            }
+        };
 
-            <View style={styles.profileInfo}>
-                <Text style={[styles.profileName, { color: colors.text }]}>{userProfile.name}</Text>
-                <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{userProfile.email}</Text>
-                {hangHoiVien.tenHienThi && (
-                    <View style={[styles.membershipRankBadge, { backgroundColor: hangHoiVien.mauSac + '20', borderColor: hangHoiVien.mauSac }]}>
-                        <Text style={styles.membershipRankIcon}>{hangHoiVien.icon}</Text>
-                        <Text style={[styles.membershipRankText, { color: hangHoiVien.mauSac }]}>{hangHoiVien.tenHienThi}</Text>
+        const gradientColors = getGradientColors();
+
+        return (
+            <View style={styles.profileCardContainer}>
+                <View style={[styles.profileCard, {
+                    backgroundColor: gradientColors[0],
+                    shadowColor: hangHoiVien.mauSac || '#FFD700',
+                }]}>
+                    {/* Gradient overlay */}
+                    <View style={[styles.gradientOverlay, {
+                        backgroundColor: gradientColors[1] + '40'
+                    }]} />
+
+                    {/* Card content */}
+                    <View style={styles.cardContent}>
+                        <View style={styles.cardLeft}>
+                            <Text style={styles.cardName}>{userProfile.name}</Text>
+                            <View style={styles.rankContainer}>
+                                <Text style={styles.rankIcon}>{hangHoiVien.icon || '🥉'}</Text>
+                                <Text style={styles.rankText}>
+                                    {hangHoiVien.tenHienThi || 'Thành viên mới'}
+                                </Text>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.editButton}
+                            onPress={() => navigation.navigate('EditProfile')}
+                        >
+                            <MaterialIcons name="edit" size={20} color="#fff" />
+                        </TouchableOpacity>
                     </View>
-                )}
-                <View style={[styles.membershipBadge, { backgroundColor: colors.card }]}>
-                    <MaterialIcons name="stars" size={16} color={colors.primary} />
-                    <Text style={[styles.membershipText, { color: colors.primary }]}>{userProfile.membershipType}</Text>
                 </View>
             </View>
-        </View>
-    );
+        );
+    };
 
     const renderStatsCards = () => {
         switch (userRole) {
@@ -578,7 +607,6 @@ const ProfileScreen = () => {
 
 
     const renderFitnessGoals = () => {
-        // Chỉ hiển thị fitness goals cho HoiVien
         if (userRole !== 'HoiVien') {
             return null;
         }
@@ -588,26 +616,26 @@ const ProfileScreen = () => {
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Mục tiêu fitness</Text>
                 <View style={[styles.goalCard, { backgroundColor: colors.card }]}>
                     <View style={styles.goalItem}>
-                    <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Mục tiêu chính</Text>
-                    <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.primaryGoal}</Text>
+                        <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Mục tiêu chính</Text>
+                        <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.primaryGoal}</Text>
+                    </View>
+                    <View style={styles.goalItem}>
+                        <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Cân nặng hiện tại / Mục tiêu</Text>
+                        <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.currentWeight} / {fitnessGoals.targetWeight}</Text>
+                    </View>
+                    <View style={styles.goalItem}>
+                        <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Số buổi tập/tuần</Text>
+                        <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.weeklyWorkouts} buổi</Text>
+                    </View>
+                    <TouchableOpacity style={[
+                        styles.editGoalsButton,
+                        { borderTopColor: isDarkMode ? colors.border : 'transparent' }
+                    ]}>
+                        <Text style={[styles.editGoalsText, { color: colors.primary }]}>Chỉnh sửa mục tiêu</Text>
+                        <MaterialIcons name="arrow-forward-ios" size={16} color={colors.primary} />
+                    </TouchableOpacity>
                 </View>
-                <View style={styles.goalItem}>
-                    <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Cân nặng hiện tại / Mục tiêu</Text>
-                    <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.currentWeight} / {fitnessGoals.targetWeight}</Text>
-                </View>
-                <View style={styles.goalItem}>
-                    <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Số buổi tập/tuần</Text>
-                    <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.weeklyWorkouts} buổi</Text>
-                </View>
-                <TouchableOpacity style={[
-                    styles.editGoalsButton,
-                    { borderTopColor: isDarkMode ? colors.border : 'transparent' }
-                ]}>
-                    <Text style={[styles.editGoalsText, { color: colors.primary }]}>Chỉnh sửa mục tiêu</Text>
-                    <MaterialIcons name="arrow-forward-ios" size={16} color={colors.primary} />
-                </TouchableOpacity>
             </View>
-        </View>
         );
     };
 
@@ -723,82 +751,97 @@ const styles = StyleSheet.create({
     scrollView: {
         flex: 1,
     },
-    profileHeader: {
+    profileCardContainer: {
+        marginHorizontal: 20,
+        marginBottom: 20,
+    },
+    profileCard: {
+        borderRadius: 16,
+        padding: 20,
+        minHeight: 190,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    gradientOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 16,
+    },
+    cardContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 20,
-        marginBottom: 10,
+        justifyContent: 'space-between',
+        zIndex: 1,
     },
-    avatarContainer: {
-        position: 'relative',
-        marginRight: 16,
-    },
-    avatar: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    avatarText: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#fff',
-    },
-    editAvatarButton: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: '#fff',
-    },
-    profileInfo: {
+    cardLeft: {
         flex: 1,
     },
-    profileName: {
-        fontSize: 20,
+    cardName: {
+        fontSize: 24,
         fontWeight: 'bold',
-        marginBottom: 4,
-    },
-    profileEmail: {
-        fontSize: 14,
+        color: '#fff',
         marginBottom: 8,
+        textShadowColor: 'rgba(0,0,0,0.3)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
     },
-    membershipBadge: {
+    rankContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-        alignSelf: 'flex-start',
     },
-    membershipText: {
-        marginLeft: 4,
-        fontSize: 12,
+    rankIcon: {
+        fontSize: 20,
+        marginRight: 8,
+    },
+    rankText: {
+        fontSize: 16,
         fontWeight: '600',
+        color: '#fff',
+        textShadowColor: 'rgba(0,0,0,0.3)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+    },
+    editButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
     },
     membershipRankBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        borderWidth: 1,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 2,
         alignSelf: 'flex-start',
-        marginBottom: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     membershipRankIcon: {
-        fontSize: 16,
+        fontSize: 21,
         marginRight: 6,
     },
     membershipRankText: {
-        fontSize: 12,
-        fontWeight: '600',
+        fontSize: 14,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     statsContainer: {
         flexDirection: 'row',
