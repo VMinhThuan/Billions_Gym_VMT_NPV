@@ -351,6 +351,54 @@ exports.getMemberSchedule = async (req, res) => {
     }
 };
 
+/**
+ * Lấy tất cả lịch tập (cho dashboard)
+ */
+exports.getAllSchedules = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const userRole = req.user.role;
+
+        let query = {};
+        
+        // Nếu là hội viên, chỉ lấy lịch tập của họ
+        if (userRole === 'HoiVien') {
+            query.hoiVien = userId;
+        }
+
+        const lichTaps = await LichTap.find(query)
+            .populate('hoiVien', 'hoTen sdt')
+            .populate('goiTap', 'tenGoiTap donGia')
+            .populate('chiNhanh', 'tenChiNhanh diaChi')
+            .populate('pt', 'hoTen chuyenMon')
+            .sort({ ngayBatDau: -1 })
+            .limit(10);
+
+        // Chuyển đổi dữ liệu để phù hợp với frontend
+        const formattedData = lichTaps.map(lichTap => ({
+            _id: lichTap._id,
+            tenBuoiTap: lichTap.goiTap?.tenGoiTap || 'Buổi tập',
+            thoiGian: lichTap.ngayBatDau ? new Date(lichTap.ngayBatDau).toLocaleString('vi-VN') : '',
+            ptName: lichTap.pt?.hoTen || 'Chưa có PT',
+            ptAvatar: lichTap.pt?.anhDaiDien || 'https://i.pravatar.cc/150?img=12',
+            trangThai: lichTap.trangThaiLich || 'DANG_HOAT_DONG'
+        }));
+
+        res.json({
+            success: true,
+            data: formattedData
+        });
+
+    } catch (error) {
+        console.error('Error getting all schedules:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Có lỗi xảy ra khi lấy danh sách lịch tập',
+            error: error.message
+        });
+    }
+};
+
 // Helper functions
 
 /**
