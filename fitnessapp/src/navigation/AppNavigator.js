@@ -37,8 +37,13 @@ const Tab = createBottomTabNavigator();
 
 const MainTabNavigator = () => {
     const { colors } = useTheme();
+    const tabLabels = {
+        Home: 'Trang chủ',
+        Workout: 'Tập luyện',
+        Classes: 'Lớp',
+        Profile: 'Hồ sơ',
+    };
 
-    // Custom animated sliding tab bar
     const AnimatedTabBar = ({ state, descriptors, navigation }) => {
         const tabWidthRefs = React.useRef([]);
         const tabRefs = React.useRef([]);
@@ -48,10 +53,10 @@ const MainTabNavigator = () => {
         const translateX = React.useRef(new Animated.Value(0)).current;
         const indicatorWidth = React.useRef(new Animated.Value(0)).current;
 
-        const tabBarHeight = 60; // must match tabBarStyle height
+        const tabBarHeight = 60;
 
         const prevIndexRef = React.useRef(state.index);
-        const EXTRA_PADDING = 40; // horizontal padding added to pill width
+        const EXTRA_PADDING = 40;
         const MIN_INDICATOR_WIDTH = 100;
 
         const measureTabs = () => {
@@ -74,12 +79,10 @@ const MainTabNavigator = () => {
                 const next = results.map(r => r || { x: 0, width: 0 });
                 setLayouts(next);
 
-                // If this is the first time we measured and there is a focused tab, set indicator immediately
                 const layout = next[prevIndexRef.current];
                 if (layout) {
                     const targetWidth = Math.max(layout.width + EXTRA_PADDING, MIN_INDICATOR_WIDTH);
                     const targetX = layout.x + (layout.width - targetWidth) / 2;
-                    // set initial values
                     translateX.setValue(targetX);
                     indicatorWidth.setValue(targetWidth);
                 }
@@ -87,18 +90,14 @@ const MainTabNavigator = () => {
         };
 
         React.useEffect(() => {
-            // when state.index changes, animate to the measured layout
             const layout = layouts[state.index];
-            // if layout is missing or not yet measured, compute a fallback target from containerWidth
             if (!layout || !layout.width) {
                 if (containerWidth && state.routes.length) {
-                    // compute approximate target centered slot
-                    const inner = containerWidth - 24; // account for paddingHorizontal:12*2
+                    const inner = containerWidth - 24;
                     const targetWidth = Math.max(inner / state.routes.length + EXTRA_PADDING, MIN_INDICATOR_WIDTH);
                     const slotCenter = (inner * (state.index + 0.5)) / state.routes.length;
                     const targetX = 12 + slotCenter - targetWidth / 2;
 
-                    // animate or set depending on prevLayout
                     const prevLayout = layouts[prevIndexRef.current];
                     const distance = prevLayout ? Math.abs(prevLayout.x - targetX) : 0;
                     const baseDuration = 220;
@@ -118,11 +117,9 @@ const MainTabNavigator = () => {
                 return;
             }
 
-            // target indicator width slightly larger so the pill has horizontal padding
             const targetWidth = Math.max(layout.width + EXTRA_PADDING, MIN_INDICATOR_WIDTH);
             const targetX = layout.x + (layout.width - targetWidth) / 2;
 
-            // compute a duration proportional to distance so long jumps look natural
             let distance = 0;
             const prevLayout = layouts[prevIndexRef.current];
             if (prevLayout) {
@@ -133,7 +130,6 @@ const MainTabNavigator = () => {
             const baseDuration = 220;
             const duration = Math.min(420, Math.max(160, Math.round(baseDuration * (1 + distance / 120))));
 
-            // If this is the first measured layout (no prevLayout), set values immediately to avoid jumping
             if (!prevLayout) {
                 translateX.setValue(targetX);
                 indicatorWidth.setValue(targetWidth);
@@ -157,7 +153,6 @@ const MainTabNavigator = () => {
 
 
 
-        // measure tabs after mount and when routes change
         React.useEffect(() => {
             const t = setTimeout(() => measureTabs(), 50);
             return () => clearTimeout(t);
@@ -190,10 +185,9 @@ const MainTabNavigator = () => {
                         transform: [{ translateX }],
                     }} />
                 ) : (
-                    // fallback: when layouts haven't been measured yet, show a static pill behind Home
                     <View style={{
                         position: 'absolute',
-                        left: 12, // match paddingHorizontal
+                        left: 12,
                         top: (tabBarHeight - 44) / 2,
                         height: 44,
                         borderRadius: 22,
@@ -228,7 +222,7 @@ const MainTabNavigator = () => {
                             <Animated.View key={route.key} style={{ paddingHorizontal: 6 }}>
                                 <TouchableOpacity ref={el => tabRefs.current[index] = el} onPress={onPress} activeOpacity={0.8} style={{ alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', position: 'relative' }}>
                                     <Ionicons name={iconName} size={focused ? 20 : 22} color={focused ? '#FFFFFF' : '#9CA3AF'} />
-                                    <Text style={{ color: focused ? '#FFFFFF' : '#9CA3AF', fontSize: 12, marginTop: 4 }} numberOfLines={1} ellipsizeMode='tail'>{route.name}</Text>
+                                    <Text style={{ color: focused ? '#FFFFFF' : '#9CA3AF', fontSize: 12, marginTop: 4 }} numberOfLines={1} ellipsizeMode='tail'>{tabLabels[route.name] || route.name}</Text>
                                 </TouchableOpacity>
                             </Animated.View>
                         );

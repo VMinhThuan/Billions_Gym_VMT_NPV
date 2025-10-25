@@ -38,7 +38,7 @@ export const ThemeProvider = ({ children }) => {
             // Background colors
             background: isDarkMode ? '#141414' : '#ffffff',
             surface: isDarkMode ? '#1f1f1f' : '#ffffff',
-            card: isDarkMode ? '#2a2a2a' : '#f8f9fa',
+            card: isDarkMode ? '#141414' : '#ffffff',
 
             // Text colors
             text: isDarkMode ? '#ffffff' : '#000000',
