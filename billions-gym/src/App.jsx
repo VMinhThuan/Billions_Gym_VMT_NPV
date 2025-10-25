@@ -7,6 +7,7 @@ import PackageDetail from './pages/PackageDetail'
 import Checkout from './pages/Checkout'
 import PaymentSuccess from './pages/PaymentSuccess'
 import PackageWorkflow from './pages/PackageWorkflow'
+import TestAPI from './components/TestAPI'
 import { authUtils } from './utils/auth'
 import { NotificationProvider, useNotification } from './contexts/NotificationContext'
 import { LanguageProvider } from './contexts/LanguageContext'
@@ -101,6 +102,7 @@ const AppContent = () => {
             <Route path="/checkout/:id" element={<Checkout onNavigateToLogin={() => navigateToPage('login')} onNavigateToRegister={() => navigateToPage('register')} />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/package-workflow/:registrationId" element={<PackageWorkflow />} />
+            <Route path="/test-api" element={<TestAPI />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path='/profile' element={<ProfileScreen />} />

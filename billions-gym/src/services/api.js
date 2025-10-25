@@ -325,6 +325,14 @@ export const api = {
             ...normalizedOptions
         });
     },
+    patch: async (path, body = {}, options = {}) => {
+        const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
+        return apiRequest(path, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+            ...normalizedOptions
+        });
+    },
     delete: async (path, options = {}) => {
         const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
         return apiRequest(path, {

@@ -116,9 +116,6 @@
     }
 }
 
-@theme {
-    --animate-fade-in-up: fadeInUp 0.8s ease forwards;
-}
 
 
 @layer components {
@@ -401,10 +398,10 @@
         background: rgba(17, 24, 39, 0.9);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
-        /* border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         box-shadow:
             0 6px 20px 0 rgba(31, 38, 135, 0.3),
-            inset 0 1px 0 0 rgba(255, 255, 255, 0.1); */
+            inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
         transition: all 0.3s ease;
     }
 
@@ -433,10 +430,10 @@
 
     .glass-button:hover {
         background: rgba(17, 24, 39, 0.95);
-        /* box-shadow:
+        box-shadow:
             0 8px 25px 0 rgba(31, 38, 135, 0.4),
             inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
-        transform: translateY(-1px); */
+        transform: translateY(-1px);
         cursor: pointer;
     }
 

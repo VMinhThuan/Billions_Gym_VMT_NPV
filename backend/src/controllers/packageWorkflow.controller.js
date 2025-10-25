@@ -23,7 +23,8 @@ const getAvailableTrainers = async (req, res) => {
         console.log('🔍 Finding ChiTietGoiTap with ID:', chiTietGoiTapId);
         const chiTietGoiTap = await ChiTietGoiTap.findById(chiTietGoiTapId)
             .populate('maGoiTap')
-            .populate('maHoiVien');
+            .populate('maHoiVien')
+            .populate('branchId');
 
         console.log('🔍 ChiTietGoiTap found:', chiTietGoiTap);
 
@@ -35,15 +36,15 @@ const getAvailableTrainers = async (req, res) => {
             return res.status(400).json({ message: 'Gói tập chưa được thanh toán' });
         }
 
-        // Lấy tất cả PT đang hoạt động
+        // Lấy tất cả PT đang hoạt động theo chi nhánh đã chọn
         console.log('🔍 PT model:', typeof PT, PT);
-        let allPTs = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG' });
+        let allPTs = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG', chinhanh: chiTietGoiTap.branchId });
         console.log('🔍 Found PTs via discriminator:', allPTs.length);
 
         // Fallback: nếu dữ liệu cũ không dùng discriminator, tìm theo vaiTro từ collection NguoiDung
         if (!allPTs || allPTs.length === 0) {
             console.log('🔍 No PT found via discriminator. Falling back to NguoiDung.find({ vaiTro: "PT" })');
-            allPTs = await NguoiDung.find({ vaiTro: 'PT' });
+            allPTs = await NguoiDung.find({ vaiTro: 'PT', chinhanh: chiTietGoiTap.branchId });
             console.log('🔍 Found PTs via base model:', allPTs.length);
         }
 
@@ -468,6 +469,11 @@ const completeWorkflow = async (req, res) => {
             return res.status(404).json({ message: 'Không tìm thấy thông tin đăng ký gói tập' });
         }
 
+        // Không cho hoàn tất nếu gói đã bị nâng cấp/tạm dừng
+        if (chiTietGoiTap.trangThaiDangKy === 'DA_NANG_CAP' || chiTietGoiTap.trangThaiSuDung === 'DA_NANG_CAP') {
+            return res.status(400).json({ message: 'Gói tập này đã được nâng cấp sang gói mới. Không thể hoàn tất workflow.' });
+        }
+
         // Kiểm tra xem đã hoàn thành đủ các bước chưa
         if (chiTietGoiTap.trangThaiDangKy !== 'DA_TAO_LICH') {
             return res.status(400).json({
@@ -511,6 +517,11 @@ const getWorkflowStatus = async (req, res) => {
 
         if (!registration) {
             return res.status(404).json({ message: 'Không tìm thấy thông tin đăng ký' });
+        }
+
+        // Chặn truy cập nếu gói đã bị nâng cấp/tạm dừng
+        if (registration.trangThaiDangKy === 'DA_NANG_CAP' || registration.trangThaiSuDung === 'DA_NANG_CAP') {
+            return res.status(403).json({ message: 'Gói này đã được nâng cấp sang gói mới và không thể tiếp tục workflow.' });
         }
 
         // Kiểm tra quyền truy cập

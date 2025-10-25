@@ -27,7 +27,37 @@ const createChiTietGoiTap = async (data) => {
     } else {
         data.ngayKetThuc = toVNTime(data.ngayKetThuc);
     }
-    return await ChiTietGoiTap.create(data);
+
+    // Tạo gói mới
+    const created = await ChiTietGoiTap.create(data);
+
+    // Nếu là nâng cấp, đánh dấu tất cả gói cũ của cùng hội viên đã được nâng cấp/tạm dừng
+    if (data.isUpgrade) {
+        const memberId = data.maHoiVien || data.nguoiDungId; // hỗ trợ cả legacy và schema mới
+        if (memberId) {
+            await ChiTietGoiTap.updateMany(
+                {
+                    $or: [
+                        { maHoiVien: memberId },
+                        { nguoiDungId: memberId }
+                    ],
+                    _id: { $ne: created._id },
+                    trangThaiDangKy: { $ne: 'DA_NANG_CAP' }
+                },
+                {
+                    $set: {
+                        trangThaiSuDung: 'DA_NANG_CAP',
+                        trangThaiDangKy: 'DA_NANG_CAP',
+                        ngayTamDung: new Date(),
+                        lyDoTamDung: 'Nâng cấp gói tập',
+                        thoiGianCapNhat: new Date()
+                    }
+                }
+            );
+        }
+    }
+
+    return created;
 };
 
 const getAllChiTietGoiTap = async (filter = {}) => {
@@ -43,6 +73,8 @@ const getChiTietGoiTapById = async (id) => {
         const result = await ChiTietGoiTap.findById(id)
             .populate('maHoiVien')
             .populate('maGoiTap')
+            .populate('goiTapId')
+            .populate('branchId')
             .populate('ptDuocChon')
             .populate({
                 path: 'lichTapDuocTao',

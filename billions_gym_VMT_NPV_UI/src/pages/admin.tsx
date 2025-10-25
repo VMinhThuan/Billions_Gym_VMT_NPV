@@ -41,6 +41,23 @@ interface HoiVien {
     };
 }
 
+interface ChiNhanh {
+    _id: string;
+    tenChiNhanh: string;
+    diaChi: string;
+    soDienThoai?: string;
+    moTa?: string;
+    dichVu?: string[];
+    hinhAnh?: string;
+    location?: {
+        type: string;
+        coordinates: number[];
+    };
+    thuTu: number;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
 interface PT {
     _id: string;
     soCCCD: string;
@@ -58,6 +75,7 @@ interface PT {
     moTa: string;
     ngayVaoLam: Date;
     trangThaiPT: 'DANG_HOAT_DONG' | 'NGUNG_LAM_VIEC';
+    chinhanh: string; // ObjectId của chi nhánh
     taiKhoan?: {
         _id?: string | null;
         trangThaiTK: 'DANG_HOAT_DONG' | 'DA_KHOA';
@@ -895,10 +913,11 @@ const TrainerAvailabilityPage = () => {
 // PT Detail Modal Component
 interface PTDetailModalProps {
     pt: PT;
+    chiNhanhs: ChiNhanh[];
     onClose: () => void;
 }
 
-const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, onClose }) => {
+const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, chiNhanhs, onClose }) => {
     // Create modal root if not exists
     let modalRoot = document.getElementById('modal-root');
     if (!modalRoot) {
@@ -1245,10 +1264,29 @@ const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, onClose }) => {
                                     />
                                 </div>
                                 <div className="form-group">
+                                    <label>Chi Nhánh</label>
+                                    <input
+                                        type="text"
+                                        value={chiNhanhs.find(cn => cn._id === pt.chinhanh)?.tenChiNhanh || 'Chưa xác định'}
+                                        readOnly
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
                                     <label>Kinh Nghiệm</label>
                                     <input
                                         type="text"
                                         value={`${pt.kinhNghiem} năm`}
+                                        readOnly
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Bằng Cấp/Chứng Chỉ</label>
+                                    <input
+                                        type="text"
+                                        value={pt.bangCapChungChi}
                                         readOnly
                                     />
                                 </div>
@@ -2216,8 +2254,8 @@ const PackagesPage = () => {
                                         </span>
                                         <span className="package-duration">
                                             {pkg.loaiThoiHan === 'VinhVien' ? 'Vĩnh viễn' :
-                                                `${pkg.thoiHan} ${pkg.donViThoiHan === 'Ngay' ? 'ngày' :
-                                                    pkg.donViThoiHan === 'Thang' ? 'tháng' : 'năm'}`}
+                                                `${pkg.thoiHan} ${pkg.donViThoiHan === 'Ngày' ? 'ngày' :
+                                                    pkg.donViThoiHan === 'Tháng' ? 'tháng' : 'năm'}`}
                                         </span>
                                     </div>
                                 </div>
@@ -2457,8 +2495,8 @@ const PackagesPage = () => {
                                                 <label>Đơn vị</label>
                                                 <input type="text" value={
                                                     viewingItem.loaiThoiHan === 'VinhVien' ? '' :
-                                                        viewingItem.donViThoiHan === 'Ngay' ? 'Ngày' :
-                                                            viewingItem.donViThoiHan === 'Thang' ? 'Tháng' : 'Năm'
+                                                        viewingItem.donViThoiHan === 'Ngày' ? 'Ngày' :
+                                                            viewingItem.donViThoiHan === 'Tháng' ? 'Tháng' : 'Năm'
                                                 } readOnly />
                                             </div>
                                         </div>
@@ -2810,6 +2848,7 @@ const PTPage = () => {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+    const [chiNhanhs, setChiNhanhs] = useState<ChiNhanh[]>([]);
 
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -2890,6 +2929,18 @@ const PTPage = () => {
             setRows([]);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Load Chi nhánh
+    const fetchChiNhanhs = async () => {
+        try {
+            const response = await api.get<{ success: boolean; data: ChiNhanh[] }>('/api/chinhanh');
+            if (response.success && Array.isArray(response.data)) {
+                setChiNhanhs(response.data);
+            }
+        } catch (e) {
+            console.error('Error fetching chi nhánh:', e);
         }
     };
 
@@ -2990,7 +3041,7 @@ const PTPage = () => {
     useEffect(() => {
         let mounted = true;
         (async () => {
-            await fetchPTs();
+            await Promise.all([fetchPTs(), fetchChiNhanhs()]);
         })();
         return () => { mounted = false; };
     }, [refreshTrigger]);
@@ -3115,6 +3166,12 @@ const PTPage = () => {
                                     <span className="pt-detail-value">{r.chuyenMon}</span>
                                 </div>
                                 <div className="pt-detail-item">
+                                    <span className="pt-detail-label">Chi nhánh:</span>
+                                    <span className="pt-detail-value">
+                                        {chiNhanhs.find(cn => cn._id === r.chinhanh)?.tenChiNhanh || 'Chưa xác định'}
+                                    </span>
+                                </div>
+                                <div className="pt-detail-item">
                                     <span className="pt-detail-label">Kinh nghiệm:</span>
                                     <span className="pt-detail-value">{r.kinhNghiem} năm</span>
                                 </div>
@@ -3167,6 +3224,13 @@ const PTPage = () => {
                     { name: 'ngaySinh', label: 'Ngày sinh', type: 'date', validation: { required: true } },
                     { name: 'gioiTinh', label: 'Giới tính', type: 'radio', options: ['Nam', 'Nữ'], validation: { required: true } },
                     { name: 'diaChi', label: 'Địa chỉ', type: 'textarea', validation: { required: true } },
+                    {
+                        name: 'chinhanh',
+                        label: 'Chi nhánh',
+                        type: 'select',
+                        options: chiNhanhs.map(cn => ({ value: cn._id, label: cn.tenChiNhanh })),
+                        validation: { required: true }
+                    },
                     { name: 'chuyenMon', label: 'Chuyên môn', validation: { required: true } },
                     { name: 'kinhNghiem', label: 'Kinh nghiệm (năm)', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Kinh nghiệm phải là số nguyên dương' } },
                     { name: 'bangCapChungChi', label: 'Bằng cấp/Chứng chỉ', validation: { required: true } },
@@ -3191,6 +3255,7 @@ const PTPage = () => {
                             ...(val.soCCCD && { soCCCD: val.soCCCD }),
                             ...(val.diaChi && { diaChi: val.diaChi }),
                             ...(val.anhDaiDien && { anhDaiDien: val.anhDaiDien }),
+                            chinhanh: val.chinhanh,
                             chuyenMon: val.chuyenMon,
                             bangCapChungChi: val.bangCapChungChi,
                             kinhNghiem: parseInt(val.kinhNghiem) || 0,
@@ -3253,6 +3318,7 @@ const PTPage = () => {
             {viewingDetail && (
                 <PTDetailModal
                     pt={viewingDetail}
+                    chiNhanhs={chiNhanhs}
                     onClose={() => setViewingDetail(null)}
                 />
             )}

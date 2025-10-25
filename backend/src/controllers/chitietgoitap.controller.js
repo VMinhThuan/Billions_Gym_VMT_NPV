@@ -50,12 +50,12 @@ exports.getChiTietGoiTapById = async (req, res) => {
         const chiTiet = await chiTietGoiTapService.getChiTietGoiTapById(req.params.id);
         console.log('🔍 getChiTietGoiTapById result:', chiTiet ? 'Found' : 'Not found');
         if (!chiTiet) {
-            return res.status(404).json({ message: 'Không tìm thấy đăng ký gói tập' });
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đăng ký gói tập' });
         }
-        res.json(chiTiet);
+        res.json({ success: true, data: chiTiet });
     } catch (err) {
         console.error('🔍 getChiTietGoiTapById error:', err);
-        res.status(500).json({ message: 'Lỗi server', error: err.message });
+        res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
     }
 };
 

@@ -454,13 +454,12 @@ const checkPhoneExists = async (sdt, excludeId = null) => {
 const getTaiKhoanByPhone = async (sdt) => {
     try {
         const taiKhoan = await TaiKhoan.findOne({ sdt }).populate('nguoiDung');
-        if (!taiKhoan) {
-            throw new Error('Không tìm thấy tài khoản');
-        }
-        return taiKhoan;
+        // Trả về null nếu không có – tránh ném lỗi để controller có thể trả 200 rỗng
+        return taiKhoan || null;
     } catch (error) {
         console.error('Error getting account by phone:', error);
-        throw error;
+        // An toàn: không ném lỗi 500 cho trường hợp này, trả null
+        return null;
     }
 };
 
