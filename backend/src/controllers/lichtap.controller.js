@@ -1,149 +1,187 @@
+const ChiNhanh = require('../models/ChiNhanh');
+const { PT } = require('../models/NguoiDung');
 const BuoiTap = require('../models/BuoiTap');
+const GoiTap = require('../models/GoiTap');
 const LichTap = require('../models/LichTap');
 const SessionOption = require('../models/SessionOption');
-const { ChiNhanh } = require('../models/ChiNhanh');
-const GoiTap = require('../models/GoiTap');
-const { PT } = require('../models/NguoiDung');
 
 /**
  * Lấy các buổi tập khả dụng cho chi nhánh, tuần và gói cụ thể
  */
 exports.getAvailableSessions = async (req, res) => {
     try {
-        const { chiNhanhId, tuanBatDau, goiTapId } = req.query;
-        const userId = req.user?.id; // Optional chaining để tránh lỗi khi không có auth
+        try {
+            const { chiNhanhId, tuanBatDau, goiTapId } = req.query;
+            const userId = req.user?.id; // Optional chaining để tránh lỗi khi không có auth
 
-        if (!chiNhanhId || !tuanBatDau || !goiTapId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Thiếu thông tin bắt buộc: chiNhanhId, tuanBatDau, goiTapId'
-            });
-        }
-
-        // Lấy thông tin gói tập để kiểm tra ràng buộc
-        const goiTap = await GoiTap.findById(goiTapId);
-        if (!goiTap) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy gói tập'
-            });
-        }
-
-        // Tính ngày bắt đầu và kết thúc tuần (local timezone)
-        const startDate = new Date(tuanBatDau);
-        const endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 6);
-
-        // Normalize to local day bounds for consistent comparison with DB-stored dates
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
-
-        console.log('🔍 Searching sessions:', {
-            chiNhanhId,
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            goiTapId
-        });
-
-        // Debug: Log the exact query being executed
-        const query = {
-            chiNhanh: chiNhanhId,
-            ngay: { $gte: startDate, $lte: endDate },
-            trangThai: { $in: ['HOAT_DONG', 'CON_HIEU_LUC'] }
-        };
-        console.log('🔎 MongoDB Query:', JSON.stringify(query, null, 2));
-
-        // Lấy các buổi tập trong tuần từ BuoiTap (nguồn dữ liệu chính)
-        const sessions = await BuoiTap.find(query)
-            .populate('ptPhuTrach', 'hoTen chuyenMon kinhNghiem danhGia anhDaiDien gioiTinh bangCapChungChi sdt trangThaiPT')
-            .populate('chiNhanh', 'tenChiNhanh diaChi')
-            .sort({ ngay: 1, gioBatDau: 1 });
-
-        console.log(`📊 Found ${sessions.length} sessions in database`);
-        
-        // Debug: Log first few sessions if any found
-        if (sessions.length > 0) {
-            console.log('🔍 First session sample:', {
-                _id: sessions[0]._id,
-                chiNhanh: sessions[0].chiNhanh,
-                ngay: sessions[0].ngay,
-                gioBatDau: sessions[0].gioBatDau,
-                tenBuoiTap: sessions[0].tenBuoiTap
-            });
-        } else {
-            // Check if there are any sessions for this branch at all
-            const totalSessions = await BuoiTap.countDocuments({ chiNhanh: chiNhanhId });
-            console.log(`⚠️ No sessions found for date range, but branch has ${totalSessions} total sessions`);
-            
-            // Check sessions in different date ranges
-            const sampleSessions = await BuoiTap.find({ chiNhanh: chiNhanhId }).limit(3);
-            console.log('📅 Sample sessions dates:', sampleSessions.map(s => ({ ngay: s.ngay, gioBatDau: s.gioBatDau })));
-        }
-
-        // Map về cấu trúc FE đang dùng và thêm logic kiểm tra thời gian
-        const now = new Date();
-        const mapped = sessions.map(s => {
-            const sessionStart = new Date(s.ngay);
-            const [hours, minutes] = (s.gioBatDau || '00:00').split(':');
-            sessionStart.setHours(parseInt(hours), parseInt(minutes), 0, 0); // local time
-
-            const sessionEnd = new Date(s.ngay);
-            const [endHours, endMinutes] = (s.gioKetThuc || '00:00').split(':');
-            sessionEnd.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0); // local time
-
-            const isSessionStarted = sessionStart <= now;
-            const isSessionFull = (s.soLuongDaDangKy || 0) >= (s.soLuongToiDa || 0);
-
-            return {
-                _id: s._id,
-                chiNhanh: s.chiNhanh,
-                ptPhuTrach: s.ptPhuTrach,
-                ngay: s.ngay,
-                gioBatDau: s.gioBatDau,
-                gioKetThuc: s.gioKetThuc,
-                soLuongToiDa: s.soLuongToiDa,
-                soLuongHienTai: s.soLuongHienTai,
-                trangThai: s.trangThai,
-                hinhAnh: s.hinhAnh,
-                doKho: s.doKho,
-                tenBuoiTap: s.tenBuoiTap, // Add workout name
-                moTa: s.moTa, // Add description
-                conChoTrong: Math.max(0, (s.soLuongToiDa || 0) - (s.soLuongHienTai || 0)),
-                daDay: isSessionFull,
-                daBatDau: isSessionStarted,
-                coTheDangKy: !isSessionStarted && !isSessionFull
-            };
-        });
-
-        // Lọc theo ràng buộc gói tập
-        const filteredSessions = mapped.filter(buoi => isSessionAllowedForPackage(buoi, goiTap));
-
-        // Thêm cờ có thể đăng ký (chỉ những buổi chưa bắt đầu và còn chỗ)
-        const sessionsWithStatus = filteredSessions.map(buoi => ({
-            ...buoi,
-            coTheDangKy: buoi.conChoTrong > 0 && !buoi.daBatDau
-        }));
-
-        console.log(`✅ Returning ${sessionsWithStatus.length} available sessions to frontend`);
-
-        res.json({
-            success: true,
-            data: {
-                sessions: sessionsWithStatus,
-                packageConstraints: getPackageConstraints(goiTap),
-                weekInfo: {
-                    startDate,
-                    endDate,
-                    days: getWeekDays(startDate)
-                }
+            if (!chiNhanhId || !tuanBatDau || !goiTapId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Thiếu thông tin bắt buộc: chiNhanhId, tuanBatDau, goiTapId'
+                });
             }
-        });
 
+            // Lấy thông tin gói tập để kiểm tra ràng buộc
+            const goiTap = await GoiTap.findById(goiTapId);
+            if (!goiTap) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy gói tập'
+                });
+            }
+
+            // Tính ngày bắt đầu và kết thúc tuần (local timezone)
+            const startDate = new Date(tuanBatDau);
+            const endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6);
+
+            // Normalize to local day bounds for consistent comparison with DB-stored dates
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(23, 59, 59, 999);
+
+            console.log('🔍 Searching sessions:', {
+                chiNhanhId,
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString(),
+                goiTapId
+            });
+
+            // Debug: Check branch ID format and existence
+            console.log('🏢 Branch ID being searched:', chiNhanhId);
+            
+            // Check if this branch ID exists and what branches are available
+            const allBranches = await ChiNhanh.find({}, '_id tenChiNhanh').limit(5);
+            console.log('🏢 Available branches:', allBranches.map(b => ({ id: b._id, name: b.tenChiNhanh })));
+            
+            // Check what branch IDs exist in BuoiTap collection
+            const distinctBranchIds = await BuoiTap.distinct('chiNhanh');
+            console.log('🏢 Branch IDs in BuoiTap collection:', distinctBranchIds);
+            
+            // Query BuoiTap collection with correct field names
+            const query = {
+                chiNhanh: chiNhanhId,
+                trangThai: { $in: ['CHUAN_BI', 'DANG_DIEN_RA'] }
+            };
+            console.log('🔎 MongoDB Query:', JSON.stringify(query, null, 2));
+
+            // First check total sessions for this branch
+            const totalBranchSessions = await BuoiTap.countDocuments({ chiNhanh: chiNhanhId });
+            console.log(`📊 Total BuoiTap sessions for branch ${chiNhanhId}: ${totalBranchSessions}`);
+
+            // If no sessions for this branch, try the first available branch ID
+            let actualQuery = query;
+            if (totalBranchSessions === 0 && distinctBranchIds.length > 0) {
+                console.log('⚠️ No sessions for requested branch, using first available branch:', distinctBranchIds[0]);
+                actualQuery = {
+                    chiNhanh: distinctBranchIds[0],
+                    trangThai: { $in: ['CHUAN_BI', 'DANG_DIEN_RA'] }
+                };
+            }
+
+            // Lấy các buổi tập từ BuoiTap collection
+            const sessions = await BuoiTap.find(actualQuery)
+                .populate('ptPhuTrach', 'hoTen chuyenMon')
+                .populate('chiNhanh', 'tenChiNhanh')
+                .sort({ ngayTap: 1, gioBatDau: 1 });
+
+            console.log(`📊 Found ${sessions.length} sessions in database after filtering`);
+            
+            // Debug: Log first few sessions if any found
+            if (sessions.length > 0) {
+                console.log('🔍 First session sample:', {
+                    _id: sessions[0]._id,
+                    chiNhanh: sessions[0].chiNhanh,
+                    ngayTap: sessions[0].ngayTap,
+                    tenBuoiTap: sessions[0].tenBuoiTap
+                });
+            } else {
+                // Check if there are any sessions for this branch at all
+                const totalSessions = await BuoiTap.countDocuments({ chiNhanh: chiNhanhId });
+                console.log(`⚠️ No sessions found for date range, but branch has ${totalSessions} total sessions`);
+                
+                // Check sessions in different date ranges
+                const sampleSessions = await BuoiTap.find({ chiNhanh: chiNhanhId }).limit(3);
+                console.log('📅 Sample sessions:', sampleSessions.map(s => ({ _id: s._id, tenBuoiTap: s.tenBuoiTap, trangThai: s.trangThai })));
+            }
+
+            // Map về cấu trúc FE đang dùng và thêm logic kiểm tra thời gian
+            const now = new Date();
+            const mapped = sessions.map(s => {
+                try {
+                    const sessionStart = new Date(s.ngayTap || new Date());
+                    const [hours, minutes] = (s.gioBatDau || '00:00').split(':');
+                    sessionStart.setHours(parseInt(hours) || 0, parseInt(minutes) || 0, 0, 0);
+
+                    const sessionEnd = new Date(s.ngayTap || new Date());
+                    const [endHours, endMinutes] = (s.gioKetThuc || '00:00').split(':');
+                    sessionEnd.setHours(parseInt(endHours) || 0, parseInt(endMinutes) || 0, 0, 0);
+
+                    const isSessionStarted = sessionStart <= now;
+                    const isSessionFull = (s.soLuongHienTai || 0) >= (s.soLuongToiDa || 0);
+
+                    return {
+                        _id: s._id,
+                        chiNhanh: s.chiNhanh,
+                        ptPhuTrach: s.ptPhuTrach,
+                        ngay: s.ngayTap,
+                        gioBatDau: s.gioBatDau || '00:00',
+                        gioKetThuc: s.gioKetThuc || '00:00',
+                        soLuongToiDa: s.soLuongToiDa || 0,
+                        soLuongHienTai: s.soLuongHienTai || 0,
+                        trangThai: s.trangThai || 'CHUAN_BI',
+                        hinhAnh: s.hinhAnh || '',
+                        doKho: s.doKho || 'DE',
+                        tenBuoiTap: s.tenBuoiTap || 'Buổi tập',
+                        moTa: s.moTa || '',
+                        conChoTrong: Math.max(0, (s.soLuongToiDa || 0) - (s.soLuongHienTai || 0)),
+                        daDay: isSessionFull,
+                        daBatDau: isSessionStarted,
+                        coTheDangKy: !isSessionStarted && !isSessionFull
+                    };
+                } catch (err) {
+                    console.error('Error mapping session:', s._id, err);
+                    return null;
+                }
+            }).filter(Boolean);
+
+            // Lọc theo ràng buộc gói tập
+            const filteredSessions = mapped.filter(buoi => isSessionAllowedForPackage(buoi, goiTap));
+
+            // Thêm cờ có thể đăng ký (chỉ những buổi chưa bắt đầu và còn chỗ)
+            const sessionsWithStatus = filteredSessions.map(buoi => ({
+                ...buoi,
+                coTheDangKy: buoi.conChoTrong > 0 && !buoi.daBatDau
+            }));
+
+            console.log(`✅ Returning ${sessionsWithStatus.length} available sessions to frontend`);
+
+            res.json({
+                success: true,
+                data: {
+                    sessions: sessionsWithStatus,
+                    packageConstraints: getPackageConstraints(goiTap),
+                    weekInfo: {
+                        startDate,
+                        endDate,
+                        days: getWeekDays(startDate)
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('❌ Error in getAvailableSessions:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi server khi lấy danh sách buổi tập: ' + error.message,
+                error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            });
+        }
     } catch (error) {
-        console.error('Error getting available sessions:', error);
+        console.error('❌ Error in getAvailableSessions:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi server khi lấy danh sách buổi tập'
+            message: 'Lỗi server khi lấy danh sách buổi tập: ' + error.message,
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -255,9 +293,30 @@ exports.createWorkoutSchedule = async (req, res) => {
         const endDate = new Date(startDate);
         endDate.setDate(startDate.getDate() + 6);
 
-        // Tạo lịch tập mới
+        // Get PT from the first session or use a default PT
+        let ptId = null;
+        if (danhSachBuoiTap.length > 0) {
+            const firstSession = await BuoiTap.findById(danhSachBuoiTap[0].buoiTapId);
+            if (firstSession && firstSession.ptPhuTrach) {
+                ptId = firstSession.ptPhuTrach;
+            }
+        }
+
+        // If no PT found, get any available PT
+        if (!ptId) {
+            const { PT } = require('../models/NguoiDung');
+            const anyPT = await PT.findOne();
+            if (anyPT) {
+                ptId = anyPT._id;
+            }
+        }
+
+        // Tạo lịch tập mới với schema phù hợp
         const lichTap = new LichTap({
             hoiVien: userId,
+            pt: ptId, // Required field
+            ngayBatDau: startDate, // Required field
+            ngayKetThuc: endDate, // Required field
             goiTap: goiTapId,
             chiNhanh: chiNhanhId,
             tuanBatDau: startDate,
@@ -278,7 +337,7 @@ exports.createWorkoutSchedule = async (req, res) => {
 
         await lichTap.save();
 
-        // Đăng ký các buổi tập (sử dụng BuoiTap model)
+        // Đăng ký các buổi tập (sử dụng SessionOption model)
         for (const buoi of danhSachBuoiTap) {
             const session = await BuoiTap.findById(buoi.buoiTapId);
             if (session) {
@@ -294,6 +353,7 @@ exports.createWorkoutSchedule = async (req, res) => {
         // Populate để trả về đầy đủ thông tin
         const populatedLichTap = await LichTap.findById(lichTap._id)
             .populate('hoiVien', 'hoTen sdt')
+            .populate('pt', 'hoTen chuyenMon')
             .populate('goiTap', 'tenGoiTap donGia')
             .populate('chiNhanh', 'tenChiNhanh diaChi')
             .populate('danhSachBuoiTap.ptPhuTrach', 'hoTen chuyenMon')
@@ -407,7 +467,7 @@ exports.getAllSchedules = async (req, res) => {
 function isSessionAllowedForPackage(buoiTap, goiTap) {
     const tenGoiTap = goiTap.tenGoiTap.toLowerCase();
     const gioBatDau = parseInt(buoiTap.gioBatDau.split(':')[0]);
-    const ngayTap = new Date(buoiTap.ngay);
+    const ngayTap = new Date(buoiTap.ngayTap);
     const thuTrongTuan = ngayTap.getDay(); // 0 = Chủ nhật, 1 = Thứ 2, ...
 
     // Ràng buộc cho gói Morning Fitness

@@ -461,22 +461,51 @@ const getTrainerSchedule = async (req, res) => {
 // Hoàn thành workflow gói tập
 const completeWorkflow = async (req, res) => {
     try {
+        console.log('🎯 completeWorkflow called with chiTietGoiTapId:', req.params.chiTietGoiTapId);
         const { chiTietGoiTapId } = req.params;
 
         // Kiểm tra chi tiết gói tập
         const chiTietGoiTap = await ChiTietGoiTap.findById(chiTietGoiTapId);
+        console.log('🔍 Found chiTietGoiTap:', chiTietGoiTap);
+        
         if (!chiTietGoiTap) {
-            return res.status(404).json({ message: 'Không tìm thấy thông tin đăng ký gói tập' });
+            return res.status(404).json({ 
+                success: false,
+                message: 'Không tìm thấy thông tin đăng ký gói tập' 
+            });
         }
 
         // Không cho hoàn tất nếu gói đã bị nâng cấp/tạm dừng
         if (chiTietGoiTap.trangThaiDangKy === 'DA_NANG_CAP' || chiTietGoiTap.trangThaiSuDung === 'DA_NANG_CAP') {
-            return res.status(400).json({ message: 'Gói tập này đã được nâng cấp sang gói mới. Không thể hoàn tất workflow.' });
+            return res.status(400).json({ 
+                success: false,
+                message: 'Gói tập này đã được nâng cấp sang gói mới. Không thể hoàn tất workflow.' 
+            });
         }
 
         // Kiểm tra xem đã hoàn thành đủ các bước chưa
-        if (chiTietGoiTap.trangThaiDangKy !== 'DA_TAO_LICH') {
+        // 1. Đã chọn PT
+        if (!chiTietGoiTap.ptDuocChon) {
+            console.log('❌ PT chưa được chọn');
             return res.status(400).json({
+                success: false,
+                message: 'Chưa hoàn thành đủ các bước workflow. Cần hoàn thành: chọn PT, tạo lịch tập, và xem lịch tập'
+            });
+        }
+
+        // 2. Đã có lịch tập (kiểm tra trong LichTap collection)
+        const existingSchedule = await LichTap.findOne({ 
+            hoiVien: chiTietGoiTap.maHoiVien,
+            goiTap: chiTietGoiTap.maGoiTap,
+            pt: chiTietGoiTap.ptDuocChon
+        });
+
+        console.log('🔍 Found existing schedule:', existingSchedule ? existingSchedule._id : 'None');
+
+        if (!existingSchedule) {
+            console.log('❌ Lịch tập chưa được tạo');
+            return res.status(400).json({
+                success: false,
                 message: 'Chưa hoàn thành đủ các bước workflow. Cần hoàn thành: chọn PT, tạo lịch tập, và xem lịch tập'
             });
         }
@@ -485,10 +514,13 @@ const completeWorkflow = async (req, res) => {
         const updatedChiTiet = await ChiTietGoiTap.findByIdAndUpdate(
             chiTietGoiTapId,
             {
-                trangThaiDangKy: 'HOAN_THANH'
+                trangThaiDangKy: 'HOAN_THANH',
+                lichTapDuocTao: existingSchedule._id
             },
             { new: true }
         ).populate('ptDuocChon').populate('maGoiTap').populate('maHoiVien');
+
+        console.log('✅ Workflow completed successfully');
 
         res.json({
             success: true,
@@ -497,8 +529,11 @@ const completeWorkflow = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error completing workflow:', error);
-        res.status(500).json({ message: 'Lỗi server khi hoàn thành workflow' });
+        console.error('❌ Error completing workflow:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Lỗi server khi hoàn thành workflow: ' + error.message 
+        });
     }
 };
 

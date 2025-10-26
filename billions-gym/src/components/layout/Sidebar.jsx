@@ -66,7 +66,7 @@ const Sidebar = ({ isOpen, onClose }) => {
             id: 'packages',
             label: 'Đăng ký gói tập',
             icon: 'plus-circle',
-            path: '/packages',
+            path: '/',
             description: 'Đăng ký hoặc gia hạn gói tập'
         },
         {

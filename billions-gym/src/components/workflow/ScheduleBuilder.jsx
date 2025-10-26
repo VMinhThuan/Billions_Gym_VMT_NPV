@@ -13,19 +13,192 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
     const [registration, setRegistration] = useState(null);
     const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
     const [showSessionModal, setShowSessionModal] = useState(false);
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    // Update current time every second for real-time countdown
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000); // Update every second for real-time countdown
+
+        return () => clearInterval(timer);
+    }, []);
 
     // Fixed time slots (8 slots per day, excluding lunch break 12-13h)
     const TIME_SLOTS = [
-        { id: 1, start: '06:00', end: '08:00', label: '06:00 - 08:00' },
-        { id: 2, start: '08:00', end: '10:00', label: '08:00 - 10:00' },
-        { id: 3, start: '10:00', end: '12:00', label: '10:00 - 12:00' },
+        { id: 1, start: '06:00', end: '08:00', label: '06:00 - 08:00', icon: '🌅', type: 'Morning' },
+        { id: 2, start: '08:00', end: '10:00', label: '08:00 - 10:00', icon: '☀️', type: 'Morning' },
+        { id: 3, start: '10:00', end: '12:00', label: '10:00 - 12:00', icon: '🌤️', type: 'Morning' },
         // Lunch break 12:00 - 13:00
-        { id: 4, start: '13:00', end: '15:00', label: '13:00 - 15:00' },
-        { id: 5, start: '15:00', end: '17:00', label: '15:00 - 17:00' },
-        { id: 6, start: '17:00', end: '19:00', label: '17:00 - 19:00' },
-        { id: 7, start: '19:00', end: '21:00', label: '19:00 - 21:00' },
-        { id: 8, start: '21:00', end: '23:00', label: '21:00 - 23:00' }
+        { id: 4, start: '13:00', end: '15:00', label: '13:00 - 15:00', icon: '🌞', type: 'Afternoon' },
+        { id: 5, start: '15:00', end: '17:00', label: '15:00 - 17:00', icon: '🌇', type: 'Afternoon' },
+        { id: 6, start: '17:00', end: '19:00', label: '17:00 - 19:00', icon: '🌆', type: 'Evening' },
+        { id: 7, start: '19:00', end: '21:00', label: '19:00 - 21:00', icon: '🌃', type: 'Evening' },
+        { id: 8, start: '21:00', end: '23:00', label: '21:00 - 23:00', icon: '🌙', type: 'Night' }
     ];
+
+    // Workout type icons
+    const getWorkoutIcon = (sessionName) => {
+        const name = sessionName?.toLowerCase() || '';
+        if (name.includes('push')) return '💪';
+        if (name.includes('pull')) return '🏋️';
+        if (name.includes('leg')) return '🦵';
+        if (name.includes('cardio')) return '❤️';
+        if (name.includes('core')) return '🎯';
+        if (name.includes('strength')) return '⚡';
+        if (name.includes('mobility')) return '🤸';
+        return '🔥';
+    };
+
+    // Enhanced countdown function with detailed time breakdown
+    const getDetailedCountdown = (ngay, gioBatDau, gioKetThuc) => {
+        const now = new Date();
+        const sessionDate = new Date(ngay);
+        const [hours, minutes] = gioBatDau.split(':').map(Number);
+        const [endHours, endMinutes] = gioKetThuc.split(':').map(Number);
+        
+        const startTime = new Date(sessionDate);
+        startTime.setHours(hours, minutes, 0, 0);
+        
+        const endTime = new Date(sessionDate);
+        endTime.setHours(endHours, endMinutes, 0, 0);
+        
+        const timeDiff = startTime.getTime() - now.getTime();
+        const endTimeDiff = endTime.getTime() - now.getTime();
+        
+        // Session has ended
+        if (endTimeDiff <= 0) {
+            return {
+                status: 'finished',
+                text: 'ĐÃ KẾT THÚC',
+                color: '#6B7280',
+                icon: '✅',
+                isFinished: true
+            };
+        }
+        
+        // Session is ongoing
+        if (timeDiff <= 0 && endTimeDiff > 0) {
+            return {
+                status: 'ongoing',
+                text: 'ĐANG DIỄN RA',
+                color: '#FF914D',
+                icon: '🔥',
+                isOngoing: true
+            };
+        }
+        
+        // Session hasn't started yet
+        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        const hours24 = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const mins = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        const secs = Math.floor((timeDiff % (1000 * 60)) / 1000);
+        
+        let status = 'upcoming';
+        let color = '#00FFC6';
+        let icon = '⏳';
+        
+        // Critical timing - less than 10 minutes
+        if (timeDiff <= 10 * 60 * 1000) {
+            status = 'critical';
+            color = '#FF6B6B';
+            icon = '🚨';
+        }
+        // Urgent - less than 1 hour
+        else if (timeDiff <= 60 * 60 * 1000) {
+            status = 'urgent';
+            color = '#FF914D';
+            icon = '⚡';
+        }
+        
+        // Format countdown text
+        let countdownText = '';
+        if (days > 0) {
+            countdownText = `${days} ngày ${hours24} giờ ${mins} phút ${secs} giây`;
+        } else if (hours24 > 0) {
+            countdownText = `${hours24} giờ ${mins} phút ${secs} giây`;
+        } else if (mins > 0) {
+            countdownText = `${mins} phút ${secs} giây`;
+        } else {
+            countdownText = `${secs} giây`;
+        }
+        
+        return {
+            status,
+            text: countdownText,
+            color,
+            icon,
+            days,
+            hours: hours24,
+            minutes: mins,
+            seconds: secs,
+            isCritical: status === 'critical',
+            isUrgent: status === 'urgent'
+        };
+    };
+
+    // Get workout difficulty and type styling
+    const getWorkoutTypeInfo = (sessionName, description, template) => {
+        const name = sessionName?.toLowerCase() || '';
+        const desc = description?.toLowerCase() || '';
+        
+        let type = 'Workout';
+        let difficulty = 'Trung bình';
+        let icon = '🔥';
+        let bgColor = 'rgba(162, 89, 255, 0.1)';
+        let borderColor = '#A259FF';
+        let backgroundImage = '';
+        
+        if (name.includes('push')) {
+            type = 'Strength';
+            icon = '💪';
+            bgColor = 'rgba(239, 68, 68, 0.1)';
+            borderColor = '#EF4444';
+        } else if (name.includes('pull')) {
+            type = 'Strength';
+            icon = '🏋️';
+            bgColor = 'rgba(59, 130, 246, 0.1)';
+            borderColor = '#3B82F6';
+        } else if (name.includes('leg')) {
+            type = 'Strength';
+            icon = '🦵';
+            bgColor = 'rgba(34, 197, 94, 0.1)';
+            borderColor = '#22C55E';
+        } else if (name.includes('cardio')) {
+            type = 'Cardio';
+            icon = '❤️';
+            bgColor = 'rgba(255, 145, 77, 0.1)';
+            borderColor = '#FF914D';
+        } else if (name.includes('mobility') || name.includes('flexibility')) {
+            type = 'Mobility';
+            icon = '🤸';
+            bgColor = 'rgba(0, 255, 198, 0.1)';
+            borderColor = '#00FFC6';
+        } else if (name.includes('core')) {
+            type = 'Core';
+            icon = '🎯';
+            bgColor = 'rgba(245, 158, 11, 0.1)';
+            borderColor = '#F59E0B';
+        }
+        
+        // Determine difficulty from description
+        if (desc.includes('de') || desc.includes('easy')) {
+            difficulty = 'Dễ';
+        } else if (desc.includes('kho') || desc.includes('hard')) {
+            difficulty = 'Khó';
+        } else if (desc.includes('trung_binh') || desc.includes('medium')) {
+            difficulty = 'Trung bình';
+        }
+        
+        // Determine background image from template
+        if (template === 'template-1') {
+            backgroundImage = 'https://example.com/template-1-background.jpg';
+        } else if (template === 'template-2') {
+            backgroundImage = 'https://example.com/template-2-background.jpg';
+        }
+        
+        return { type, difficulty, icon, bgColor, borderColor, backgroundImage };
+    };
 
     useEffect(() => {
         if (registrationId && selectedTrainer) {
@@ -59,17 +232,33 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                 throw new Error('Không tìm thấy thông tin gói tập');
             }
 
+            console.log('🔍 API Request Parameters:', {
+                chiNhanhId: registration.branchId._id,
+                tuanBatDau: tuanBatDau.toISOString(),
+                goiTapId: goiTapId,
+                branchName: registration.branchId.tenChiNhanh
+            });
+
             const response = await api.get('/lich-tap/available-sessions', {
                 chiNhanhId: registration.branchId._id,
                 tuanBatDau: tuanBatDau.toISOString(),
                 goiTapId: goiTapId
             });
 
+            console.log('📡 API Response:', response);
+
             if (response.success) {
+                console.log('✅ Sessions received:', response.data.sessions.length);
                 setAvailableSessions(response.data.sessions);
                 setWeekInfo(response.data.weekInfo);
                 setPackageConstraints(response.data.packageConstraints);
+                
+                // Debug: Log first few sessions
+                if (response.data.sessions.length > 0) {
+                    console.log('🔍 First session sample:', response.data.sessions[0]);
+                }
             } else {
+                console.error('❌ API Error:', response.message);
                 setError(response.message || 'Không thể lấy danh sách buổi tập');
             }
         } catch (err) {
@@ -399,117 +588,195 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                         <div className="modal-content">
                             {selectedTimeSlot.sessions.length > 0 ? (
                                 <div className="sessions-grid">
+                                    {/* Info message about single selection per time slot */}
+                                    <div className="selection-info">
+                                        <span className="info-icon">ℹ️</span>
+                                        <span>Bạn chỉ có thể chọn 1 buổi tập trong mỗi ca</span>
+                                    </div>
+                                    
                                     {selectedTimeSlot.sessions.map(session => {
                                         const isSelected = selectedSessions.find(s => s._id === session._id);
                                         const status = getSessionStatus(session);
+                                        
+                                        // Check if there's another session selected in this time slot
+                                        const hasSelectedInTimeSlot = selectedTimeSlot.sessions.some(s => 
+                                            selectedSessions.find(sel => sel._id === s._id) && s._id !== session._id
+                                        );
+                                        
+                                        const isDisabledDueToSelection = hasSelectedInTimeSlot && !isSelected;
 
-                                        // Debug each session
-                                        console.log('Rendering session:', {
-                                            id: session._id,
-                                            ptName: session.ptPhuTrach?.hoTen,
-                                            ptImage: session.ptPhuTrach?.anhDaiDien,
-                                            ptImageType: session.ptPhuTrach?.anhDaiDien?.startsWith('data:') ? 'base64' : 'url'
-                                        });
+                                        const sessionStatusInfo = getDetailedCountdown(session.ngay, session.gioBatDau, session.gioKetThuc);
+                                        const workoutTypeInfo = getWorkoutTypeInfo(session.tenBuoiTap, session.moTa, session.templateBuoiTap);
 
                                         return (
                                             <div
                                                 key={session._id}
-                                                className={`session-modal-card ${status} ${isSelected ? 'selected' : ''}`}
-                                                onClick={() => handleSessionSelect(session)}
+                                                className={`villa-workout-card ${isSelected ? 'selected' : ''} ${sessionStatusInfo.status}`}
+                                                onClick={() => !isDisabledDueToSelection && handleSessionSelect(session)}
+                                                style={{
+                                                    '--countdown-color': sessionStatusInfo.color,
+                                                    '--workout-bg': workoutTypeInfo.bgColor,
+                                                    '--workout-border': workoutTypeInfo.borderColor,
+                                                    backgroundImage: `url(${workoutTypeInfo.backgroundImage || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80'})`
+                                                }}
                                             >
-                                                {session.ptPhuTrach.trangThaiPT === "DANG_HOAT_DONG" && (
-                                                    <div className="trainer-status">Hoạt động</div>
+                                                {/* Background Image Overlay */}
+                                                <div className="villa-card-overlay"></div>
+                                                
+                                                {/* Disabled State Overlay */}
+                                                {isDisabledDueToSelection && (
+                                                    <div className="villa-disabled-overlay">
+                                                        <span className="disabled-message">Đã chọn buổi khác trong ca này</span>
+                                                    </div>
                                                 )}
 
-                                                <div className="trainer-info">
-                                                    <div className="trainer-avatar">
-                                                        {/* Render image if anhDaiDien contains valid base64 image data */}
-                                                        {session.ptPhuTrach.anhDaiDien &&
-                                                         session.ptPhuTrach.anhDaiDien.startsWith('data:image') ? (
-                                                            <img
-                                                                src={session.ptPhuTrach.anhDaiDien}
-                                                                alt={`Ảnh đại diện ${session.ptPhuTrach.hoTen}`}
-                                                                className="trainer-avatar-img"
-                                                                onLoad={(e) => {
-                                                                    // Hide placeholder when image loads successfully
-                                                                    const placeholder = e.target.parentNode.querySelector('.avatar-placeholder');
-                                                                    if (placeholder) {
-                                                                        placeholder.style.display = 'none';
-                                                                    }
-                                                                }}
-                                                                onError={(e) => {
-                                                                    // Show placeholder if image fails to load
-                                                                    e.target.style.display = 'none';
-                                                                    const placeholder = e.target.parentNode.querySelector('.avatar-placeholder');
-                                                                    if (placeholder) {
-                                                                        placeholder.style.display = 'flex';
-                                                                    }
-                                                                }}
-                                                                style={{ display: 'block' }} // Ensure image is visible when loaded
-                                                            />
-                                                        ) : null}
+                                                {/* Status Badge */}
+                                                <div className={`villa-status-badge ${sessionStatusInfo.status}`}>
+                                                    <span className="status-icon">{sessionStatusInfo.icon}</span>
+                                                    <span className="status-text">
+                                                        {sessionStatusInfo.isOngoing ? 'ĐANG DIỄN RA' : 
+                                                         sessionStatusInfo.isFinished ? 'ĐÃ KẾT THÚC' : 
+                                                         sessionStatusInfo.isCritical ? 'SẮP BẮT ĐẦU' : 'SẮP DIỄN RA'}
+                                                    </span>
+                                                </div>
 
-                                                        {/* Always render placeholder, control visibility with CSS */}
-                                                        <div className="avatar-placeholder" style={{ display: session.ptPhuTrach.anhDaiDien ? 'none' : 'flex' }}>
-                                                            {session.ptPhuTrach.hoTen.charAt(0).toUpperCase()}
+                                                {/* Main Content Area */}
+                                                <div className="villa-content">
+                                                    {/* Workout Type & Difficulty */}
+                                                    <div className="villa-workout-header">
+                                                        <div className="workout-type-pill">
+                                                            <span className="workout-icon">{workoutTypeInfo.icon}</span>
+                                                            <span className="workout-name">{session.tenBuoiTap || 'Buổi tập'}</span>
+                                                        </div>
+                                                        <div className="difficulty-badge" style={{ backgroundColor: workoutTypeInfo.bgColor }}>
+                                                            {workoutTypeInfo.difficulty}
                                                         </div>
                                                     </div>
 
-                                                    <div className="trainer-details">
-                                                        <h4 className="trainer-name">{session.ptPhuTrach.hoTen}</h4>
-                                                        <p className="trainer-specialty">{session.ptPhuTrach.chuyenMon}</p>
-
-                                                        <div className="trainer-info-grid">
-                                                            <div className="info-section">
-                                                                <div className="info-item">
-                                                                    <span className="info-label">Giới tính:</span>
-                                                                    <span className="info-value">{session.ptPhuTrach.gioiTinh}</span>
+                                                    {/* Session Details */}
+                                                    <div className="villa-session-info">
+                                                        <div className="session-meta">
+                                                            <span className="session-type">Loại: {workoutTypeInfo.type}</span>
+                                                            <span className="session-separator">|</span>
+                                                            <span className="session-trainer">
+                                                                PT: {session.ptPhuTrach.hoTen}
+                                                                <div className="trainer-rating">
+                                                                    {[...Array(5)].map((_, i) => (
+                                                                        <span
+                                                                            key={i}
+                                                                            className={`star ${i < session.ptPhuTrach.danhGia ? 'filled' : ''}`}
+                                                                        >
+                                                                            ⭐
+                                                                        </span>
+                                                                    ))}
                                                                 </div>
-
-                                                                <div className="info-item">
-                                                                    <span className="info-label">Bằng cấp:</span>
-                                                                    <span className="info-value">{session.ptPhuTrach.bangCapChungChi || 'N/A'}</span>
-                                                                </div>
-
-                                                                <div className="info-item experience-badge">
-                                                                    💪 {session.ptPhuTrach.kinhNghiem} năm kinh nghiệm
-                                                                </div>
+                                                            </span>
+                                                        </div>
+                                                        
+                                                        {/* Capacity Info */}
+                                                        <div className="capacity-info">
+                                                            <span className="capacity-text">
+                                                                Slot: {session.soLuongHienTai || 0} / {session.soLuongToiDa || 0}
+                                                            </span>
+                                                            <div className="remaining-slots">
+                                                                <span className="slots-icon">🟢</span>
+                                                                <span className="slots-count">
+                                                                    Còn {(session.soLuongToiDa || 0) - (session.soLuongHienTai || 0)} slot
+                                                                </span>
                                                             </div>
+                                                        </div>
+                                                    </div>
 
-                                                            <div className="info-section">
-                                                                <div className="info-item">
-                                                                    <span className="info-label">Đánh giá:</span>
-                                                                    <div className="rating-stars">
-                                                                        {[1, 2, 3, 4, 5].map((star) => (
-                                                                            <span
-                                                                                key={star}
-                                                                                className={`star ${star <= session.ptPhuTrach.danhGia ? 'filled' : ''}`}
-                                                                            >
-                                                                                ⭐
+                                                    {/* Real-time Countdown */}
+                                                    <div className={`villa-countdown ${sessionStatusInfo.status}`}>
+                                                        <div className="countdown-icon">⏳</div>
+                                                        <div className="countdown-content">
+                                                            {sessionStatusInfo.isOngoing ? (
+                                                                <div className="ongoing-status">
+                                                                    <span className="ongoing-text">🔥 ĐANG DIỄN RA</span>
+                                                                </div>
+                                                            ) : sessionStatusInfo.isFinished ? (
+                                                                <div className="finished-status">
+                                                                    <span className="finished-text">✅ ĐÃ KẾT THÚC</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="countdown-display">
+                                                                    <span className="countdown-label">
+                                                                        {sessionStatusInfo.isCritical ? 'Sắp bắt đầu trong:' : 'Bắt đầu sau:'}
+                                                                    </span>
+                                                                    <div className="countdown-time">
+                                                                        {sessionStatusInfo.days > 0 && (
+                                                                            <span className="time-unit">
+                                                                                <span className="time-number">{sessionStatusInfo.days.toString().padStart(2, '0')}</span>
+                                                                                <span className="time-label">ngày</span>
                                                                             </span>
-                                                                        ))}
-                                                                        <span className="info-value">({session.ptPhuTrach.danhGia}/5)</span>
+                                                                        )}
+                                                                        {(sessionStatusInfo.days > 0 || sessionStatusInfo.hours > 0) && (
+                                                                            <span className="time-unit">
+                                                                                <span className="time-number">{sessionStatusInfo.hours.toString().padStart(2, '0')}</span>
+                                                                                <span className="time-label">giờ</span>
+                                                                            </span>
+                                                                        )}
+                                                                        <span className="time-unit">
+                                                                            <span className="time-number">{sessionStatusInfo.minutes.toString().padStart(2, '0')}</span>
+                                                                            <span className="time-label">phút</span>
+                                                                        </span>
+                                                                        <span className="time-unit seconds">
+                                                                            <span className="time-number">{sessionStatusInfo.seconds.toString().padStart(2, '0')}</span>
+                                                                            <span className="time-label">giây</span>
+                                                                        </span>
                                                                     </div>
                                                                 </div>
-
-                                                                <div className="info-item phone-item">
-                                                                    📞 {session.ptPhuTrach.sdt}
-                                                                </div>
-
-                                                                <div className="info-item">
-                                                                    <span className="info-label">Trạng thái:</span>
-                                                                    <span className="info-value">
-                                                                        {session.ptPhuTrach.trangThaiPT === 'DANG_HOAT_DONG' ? 'Đang hoạt động' : 'Không hoạt động'}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
+                                                            )}
                                                         </div>
                                                     </div>
 
-                                                    {isSelected && (
-                                                        <div className="selection-check">✓</div>
-                                                    )}
+                                                    {/* Action Button */}
+                                                    <button 
+                                                        className={`villa-register-btn ${
+                                                            isSelected ? 'selected' : 
+                                                            (session.soLuongToiDa || 0) - (session.soLuongHienTai || 0) <= 0 ? 'full' : 
+                                                            sessionStatusInfo.isFinished ? 'finished' : ''
+                                                        }`}
+                                                        disabled={
+                                                            isDisabledDueToSelection ||
+                                                            (session.soLuongToiDa || 0) - (session.soLuongHienTai || 0) <= 0 || 
+                                                            sessionStatusInfo.isFinished
+                                                        }
+                                                    >
+                                                        {isSelected ? (
+                                                            <>
+                                                                <span className="btn-icon">✓</span>
+                                                                <span>Đã chọn</span>
+                                                            </>
+                                                        ) : (session.soLuongToiDa || 0) - (session.soLuongHienTai || 0) <= 0 ? (
+                                                            <>
+                                                                <span className="btn-icon">❌</span>
+                                                                <span>Đã đầy</span>
+                                                            </>
+                                                        ) : sessionStatusInfo.isFinished ? (
+                                                            <>
+                                                                <span className="btn-icon">⏹️</span>
+                                                                <span>Đã kết thúc</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <span className="btn-icon">🚀</span>
+                                                                <span>Đăng ký buổi tập</span>
+                                                            </>
+                                                        )}
+                                                    </button>
                                                 </div>
+
+                                                {/* Selection Glow Effect */}
+                                                {isSelected && (
+                                                    <div className="villa-selection-glow"></div>
+                                                )}
+
+                                                {/* Critical Session Pulse Effect */}
+                                                {sessionStatusInfo.isCritical && (
+                                                    <div className="villa-critical-pulse"></div>
+                                                )}
                                             </div>
                                         );
                                     })}

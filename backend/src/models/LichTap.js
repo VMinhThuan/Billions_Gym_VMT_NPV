@@ -7,7 +7,7 @@ const LichTapSchema = new mongoose.Schema({
     ngayKetThuc: { type: Date, required: true },
     cacBuoiTap: [{ type: mongoose.Schema.Types.ObjectId, ref: 'BuoiTap' }],
 
-    chiTietGoiTap: { type: mongoose.Schema.Types.ObjectId, ref: 'ChiTietGoiTap', required: true },
+    chiTietGoiTap: { type: mongoose.Schema.Types.ObjectId, ref: 'ChiTietGoiTap' },
     soNgayTapTrongTuan: { type: Number, default: 3 },
     cacNgayTap: [{
         type: String,
