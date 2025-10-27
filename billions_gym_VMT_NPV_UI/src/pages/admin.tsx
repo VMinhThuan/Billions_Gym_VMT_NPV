@@ -505,13 +505,6 @@ const AdminDashboard = () => {
                         <span className="title">BILLIONS</span>
                         <span className="subTitle">FITNESS & GYM</span>
                     </div>
-                    <button
-                        className="sidebar-toggle-btn"
-                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                        title={isSidebarCollapsed ? 'Mở rộng sidebar' : 'Thu nhỏ sidebar'}
-                    >
-                        <MenuIcon className="menu-icon" />
-                    </button>
                 </div>
                 <nav className="sidebar-nav">
                     <a className={`nav-item ${section === 'overview' ? 'active' : ''}`} href="#/admin" aria-label="Tổng quan">
