@@ -4,10 +4,7 @@ import Sidebar from '../components/layout/Sidebar';
 import { authUtils } from '../utils/auth';
 import { userAPI } from '../services/api';
 import { useEffect, useState } from 'react';
-import { getRankLabelVi } from '../utils/rankMap';
-import RankBadge from '../components/ui/RankBadge';
 import { packageAPI } from '../services/api';
-import { formatDateToDDMMYYYY } from '../utils/formatDate';
 import UserActions from '../components/UserActions';
 
 const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
@@ -18,6 +15,7 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const [activePackage, setActivePackage] = useState(null);
     const [loadingPackage, setLoadingPackage] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     useEffect(() => {
         let mounted = true;
@@ -115,6 +113,20 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
         return () => { mounted = false };
     }, [isAuthenticated]);
 
+    // Listen for sidebar collapse events and update local state so main content can expand
+    useEffect(() => {
+        const handler = (e) => {
+            try {
+                const collapsed = e && e.detail && typeof e.detail.collapsed === 'boolean' ? e.detail.collapsed : false;
+                setSidebarCollapsed(collapsed);
+            } catch (err) {
+                // ignore
+            }
+        };
+        window.addEventListener('sidebar:toggle', handler);
+        return () => window.removeEventListener('sidebar:toggle', handler);
+    }, []);
+
     return (
         <Layout onNavigateToLogin={onNavigateToLogin} onNavigateToRegister={onNavigateToRegister}>
             {isAuthenticated && (
@@ -123,7 +135,7 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
                     {/* Main Content - Only this area should scroll */}
-                    <div className="flex-1 pl-0 lg:pl-80">
+                    <div className={`flex-1 pl-0 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-80'}`}>
                         {/* Mobile Sidebar Toggle */}
                         <div className="lg:hidden p-4 bg-[#1a1a1a] border-b border-[#2a2a2a]">
                             <button

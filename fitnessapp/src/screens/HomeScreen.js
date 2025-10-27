@@ -14,6 +14,7 @@ const HomeScreen = () => {
     const navigation = useNavigation();
     const { logout, userInfo, userToken } = useAuth();
     const { colors } = useTheme();
+    const isLightMode = colors?.background === DEFAULT_THEME.background;
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [memberData, setMemberData] = useState({
@@ -32,10 +33,18 @@ const HomeScreen = () => {
     const [upcomingClasses, setUpcomingClasses] = useState([]);
     const [loadingUpcoming, setLoadingUpcoming] = useState(false);
 
+    //Workout 
+    const [workoutData, setWorkoutData] = useState([]);
+    const [loadingWorkouts, setLoadingWorkouts] = useState(false);
+
     // Healthy meals
     const [healthyMeals, setHealthyMeals] = useState([]);
     const [loadingMeals, setLoadingMeals] = useState(false);
     const [currentMealType, setCurrentMealType] = useState('');
+
+    // Exercises
+    const [exercises, setExercises] = useState([]);
+    const [loadingExercises, setLoadingExercises] = useState(false);
 
     const getMealTypeName = (type) => {
         const mealNames = {
@@ -51,6 +60,7 @@ const HomeScreen = () => {
         fetchDashboardData();
         fetchPTData();
         fetchHealthyMeals();
+        fetchExercises();
     }, []);
 
     const Avatar = ({ userProfile, size = 50 }) => {
@@ -280,7 +290,11 @@ const HomeScreen = () => {
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await fetchDashboardData();
+        await Promise.all([
+            fetchDashboardData(),
+            fetchHealthyMeals(),
+            fetchExercises()
+        ]);
         setRefreshing(false);
     };
 
@@ -479,9 +493,9 @@ const HomeScreen = () => {
     const renderUpcomingClasses = () => (
         <View style={[styles.upcomingClassesContainer, { backgroundColor: colors.surface }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1 }]}>Lịch tập sắp tới</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>Lịch tập sắp tới</Text>
                 <TouchableOpacity>
-                    <Text style={{ color: colors.primary, fontSize: 18, textAlign: 'right' }}>Xem tất cả</Text>
+                    <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
                 </TouchableOpacity>
             </View>
             {upcomingClasses.map(cls => (
@@ -552,11 +566,34 @@ const HomeScreen = () => {
         } finally {
             setLoadingMeals(false);
         }
-    }; const renderHealthyMeals = () => (
+    };
+
+    const fetchExercises = async () => {
+        try {
+            setLoadingExercises(true);
+            const response = await apiService.getAllBaiTap();
+
+            console.log('💪 Exercises Response:', {
+                total: response?.length,
+                first3: response?.slice(0, 3).map(ex => ex.tenBaiTap)
+            });
+
+            if (response && Array.isArray(response)) {
+                // Lấy 3 bài tập đầu tiên
+                setExercises(response.slice(0, 3));
+            }
+        } catch (error) {
+            console.error('Error fetching exercises:', error);
+        } finally {
+            setLoadingExercises(false);
+        }
+    };
+
+    const renderHealthyMeals = () => (
         <View style={[styles.healthyMealsContainer, { backgroundColor: colors.surface }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 15 }}>
                 <View style={{ flex: 1 }}>
-                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24 }]}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, marginBottom: 0 }]}>
                         {currentMealType ? getMealTypeName(currentMealType) : 'Bữa ăn lành mạnh'}
                     </Text>
                     {currentMealType && (
@@ -565,8 +602,8 @@ const HomeScreen = () => {
                         </Text>
                     )}
                 </View>
-                <TouchableOpacity>
-                    <Text style={{ color: colors.primary, fontSize: 18, textAlign: 'right' }}>Xem tất cả</Text>
+                <TouchableOpacity style={{ paddingTop: 2 }}>
+                    <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
                 </TouchableOpacity>
             </View>
             {loadingMeals ? (
@@ -610,20 +647,100 @@ const HomeScreen = () => {
         </View>
     );
 
-    // const coaches = [
-    //     {
-    //         id: '1',
-    //         name: 'Ahmed Ehab',
-    //         specialty: 'Strength Training',
-    //         image: { uri: 'https://i.etsystatic.com/11657093/r/il/8cfe1b/5925373976/il_340x270.5925373976_74qf.jpg' },
-    //     },
-    //     {
-    //         id: '2',
-    //         name: 'Haneen Mohamed',
-    //         specialty: 'Strength Training',
-    //         image: { uri: 'https://www.dignitii.com/cdn/shop/articles/Screen_Shot_2022-02-24_at_10.26.16_PM_400x.png?v=1680271614' },
-    //     },
-    // ];
+    const renderExercises = () => (
+        <View style={[styles.exercisesContainer, { backgroundColor: colors.surface }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 15 }}>
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, marginBottom: 0 }]}>
+                        Bài tập phổ biến
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 4 }}>
+                        Khám phá các bài tập hiệu quả
+                    </Text>
+                </View>
+                <TouchableOpacity onPress={() => navigation.navigate('Workout')} style={{ paddingTop: 2 }}>
+                    <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
+                </TouchableOpacity>
+            </View>
+            {loadingExercises ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: colors.textSecondary }}>Đang tải...</Text>
+                </View>
+            ) : exercises.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: colors.textSecondary }}>Chưa có bài tập nào</Text>
+                </View>
+            ) : (
+                <View style={{ gap: 28 }}>
+                    {exercises.map((exercise, index) => (
+                        <TouchableOpacity
+                            key={exercise._id || index}
+                            style={[
+                                styles.exerciseCard,
+                                {
+                                    backgroundColor: colors.card,
+                                    borderWidth: isLightMode ? 1 : 0,
+                                    borderColor: isLightMode ? '#E5EFF9' : 'transparent'
+                                }
+                            ]}
+                            onPress={() => {
+                                console.log('Exercise clicked:', exercise.tenBaiTap);
+                            }}
+                        >
+                            {/* Image Container with Overlay Badge */}
+                            <View style={styles.exerciseImageContainer}>
+                                <Image
+                                    source={{ uri: exercise.hinhAnh || 'https://via.placeholder.com/319x200' }}
+                                    style={styles.exerciseImage}
+                                />
+                            </View>
+
+                            {/* Exercise Info Container */}
+                            <View style={styles.exerciseInfo}>
+                                <Text style={[styles.exerciseName, { color: colors.text }]} numberOfLines={2}>
+                                    {exercise.tenBaiTap}
+                                </Text>
+
+                                {/* Meta Information Row */}
+                                <View style={styles.exerciseMeta}>
+                                    {/* Level */}
+                                    {exercise.mucDoKho && (
+                                        <>
+                                            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                                {exercise.mucDoKho}
+                                            </Text>
+                                            <Text style={[styles.metaDot, { color: colors.textSecondary }]}>•</Text>
+                                        </>
+                                    )}
+
+                                    {/* Time */}
+                                    {exercise.thoiGian && (
+                                        <>
+                                            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                                {exercise.thoiGian}
+                                            </Text>
+                                            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                                {' phút'}
+                                            </Text>
+                                            <Text style={[styles.metaDot, { color: colors.textSecondary }]}>•</Text>
+                                        </>
+                                    )}
+
+                                    {/* Calories */}
+                                    <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                        {exercise.kcal || 0}
+                                    </Text>
+                                    <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                        {' kcal'}
+                                    </Text>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            )}
+        </View>
+    );
 
     const renderCoaches = () => {
         const getCoachInitial = (name) => {
@@ -634,9 +751,9 @@ const HomeScreen = () => {
         return (
             <View style={styles.coachesContainer}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1 }]}>Huấn luyện viên</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>Huấn luyện viên</Text>
                     <TouchableOpacity>
-                        <Text style={{ color: colors.primary, fontSize: 18, textAlign: 'right' }}>Xem tất cả</Text>
+                        <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
                     </TouchableOpacity>
                 </View>
                 <FlatList
@@ -768,6 +885,8 @@ const HomeScreen = () => {
                     {renderCoachingBanner()}
 
                     {renderMembershipStatus()}
+
+                    {renderExercises()}
 
                     {renderUpcomingClasses()}
 
@@ -973,6 +1092,106 @@ const styles = StyleSheet.create({
         backgroundColor: '#f2f2f2',
         padding: 4,
         marginLeft: 8,
+    },
+    exercisesContainer: {
+        padding: 20,
+        margin: 15,
+        marginTop: 0,
+        marginBottom: 20,
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    exerciseCard: {
+        width: '100%',
+        borderRadius: 10,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+        elevation: 3,
+    },
+    exerciseImageContainer: {
+        width: '100%',
+        height: 200,
+        position: 'relative',
+    },
+    exerciseImage: {
+        width: '100%',
+        height: 200,
+        resizeMode: 'cover',
+    },
+    workoutBadge: {
+        position: 'absolute',
+        left: 20,
+        bottom: 20,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        paddingHorizontal: 7.5,
+        paddingVertical: 5,
+        borderRadius: 4,
+    },
+    workoutBadgeText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: '700',
+        fontFamily: 'Manrope',
+        letterSpacing: 0.5,
+    },
+    exerciseInfo: {
+        width: '100%',
+        paddingTop: 16,
+        paddingLeft: 20,
+        paddingBottom: 16,
+        paddingRight: 20,
+    },
+    exerciseName: {
+        fontSize: 16,
+        fontWeight: '700',
+        fontFamily: 'Manrope',
+        marginBottom: 6,
+    },
+    exerciseMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+    },
+    metaText: {
+        fontSize: 14,
+        fontWeight: '400',
+        fontFamily: 'Manrope',
+    },
+    metaDot: {
+        fontSize: 14,
+        fontWeight: '400',
+        fontFamily: 'Manrope',
+        marginHorizontal: 4,
+    },
+    workoutsContainer: {
+        padding: 20,
+        margin: 15,
+        marginTop: 0,
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    workoutCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 14,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+        elevation: 2,
     },
     upcomingClassesContainer: {
         padding: 20,

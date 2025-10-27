@@ -22,6 +22,8 @@ const PackageDetail = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const [selectedPackageForCompare, setSelectedPackageForCompare] = useState(null);
 
     useEffect(() => {
+        window.scrollTo(0, 0);
+
         fetchPackageDetail();
         fetchAllPackages();
 
@@ -37,7 +39,6 @@ const PackageDetail = ({ onNavigateToLogin, onNavigateToRegister }) => {
 
     const handleRatingClick = () => {
         setShowReviews(true);
-        // Scroll to reviews section after a short delay
         setTimeout(() => {
             const reviewsSection = document.querySelector('.reviews-section');
             if (reviewsSection) {
@@ -210,6 +211,14 @@ const PackageDetail = ({ onNavigateToLogin, onNavigateToRegister }) => {
             <div className="package-detail-page">
                 {/* Package Detail Content */}
                 <div className="package-detail-container">
+                    {/* Back Button */}
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="mb-5 bg-[#da2128] text-white px-4 py-1 rounded-lg hover:opacity-90 transition-opacity shadow-lg inline-flex items-center justify-center gap-2 hover:underline cursor-pointer w-fit"
+                    >
+                        ← Quay lại
+                    </button>
+
                     <div className="package-detail-grid">
                         {/* Left Column - Image */}
                         <div className="package-image-section">

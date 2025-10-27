@@ -16,6 +16,7 @@ import './styles/responsive.css'
 import './styles/header-responsive.css'
 import ProfileScreen from './pages/Profile'
 import ProfileEdit from './pages/ProfileEdit'
+import ActivePackage from './pages/ActivePackage'
 
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -107,6 +108,7 @@ const AppContent = () => {
             <Route path="/register" element={<Register />} />
             <Route path='/profile' element={<ProfileScreen />} />
             <Route path='/profile/edit' element={<ProfileEdit />} />
+            <Route path='/active-package' element={<ActivePackage />} />
           </Routes>
         </div>
       )}

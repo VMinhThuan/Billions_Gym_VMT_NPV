@@ -18,13 +18,13 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister, fullScreen = false })
     const languageDropdownRef = useRef(null);
 
     const handleLogout = () => {
-        showLogoutSuccess();
         setIsDropdownOpen(false);
 
-        setTimeout(() => {
-            authUtils.logout();
-            window.location.reload();
-        }, 1000);
+        authUtils.clearAuthData();
+
+        showLogoutSuccess();
+
+        navigate('/login');
     };
 
     const toggleDropdown = () => {
@@ -57,7 +57,6 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister, fullScreen = false })
 
     const handleSearchChange = (e) => setSearchQuery(e.target.value);
 
-    // Danh sách ngôn ngữ có sẵn    
     const availableLanguages = [
         { code: 'vn', name: 'Tiếng Việt', flag: 'https://flagcdn.com/w20/vn.png' },
         { code: 'en', name: 'English', flag: 'https://flagcdn.com/w20/gb.png' }
@@ -219,4 +218,5 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister, fullScreen = false })
         </header>
     );
 };
+
 export default Header;

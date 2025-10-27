@@ -267,11 +267,14 @@ const getActivePackage = async (req, res) => {
                 }
             ]
         })
-            .populate('maGoiTap', 'tenGoiTap donGia thoiHan donViThoiHan')
-            .populate('goiTapId', 'tenGoiTap donGia thoiHan donViThoiHan')
+            .populate('maGoiTap')
+            .populate('goiTapId')
             .sort({ ngayDangKy: -1, thoiGianDangKy: -1 }); // Lấy gói mới nhất
 
         console.log('🔍 getActivePackage - Found package:', activePackage ? 'Yes' : 'No');
+        if (activePackage) {
+            console.log('GetActivePackage - Package details:', activePackage);
+        }
 
         if (!activePackage) {
             return res.status(404).json({ message: 'Không có gói tập đang hoạt động' });

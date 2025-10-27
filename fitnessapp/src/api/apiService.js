@@ -503,7 +503,7 @@ class ApiService {
     }
 
     async getBaiTapById(id) {
-        return this.apiCall(`/baitap/${id}`);
+        return this.apiCall(`/baitap/${id}`, 'GET', null, false);
     }
 
     // Lịch sử tập luyện APIs
