@@ -270,7 +270,6 @@ const Reviews = ({ packageId, user, onNavigateToLogin }) => {
             <div className="reviews-section">
                 <div className="loading-reviews">
                     <div className="spinner"></div>
-                    <p>Đang tải đánh giá...</p>
                 </div>
             </div>
         );
