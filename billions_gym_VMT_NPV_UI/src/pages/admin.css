@@ -1,35 +1,39 @@
 :root {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8fafc;
-    --bg-card: #ffffff;
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
-    --border-color: #e5e7eb;
-    --accent-color: #3b82f6;
-    --accent-hover: #2563eb;
+    --bg-primary: #0F172A;
+    --bg-secondary: #1E293B;
+    --bg-card: rgba(255, 255, 255, 0.08);
+    --text-primary: #F1F5F9;
+    --text-secondary: #CBD5E1;
+    --border-color: rgba(255, 255, 255, 0.2);
+    --accent-color: #EF4444;
+    --accent-hover: #DC2626;
     --success-color: #10b981;
-    --success-light: #d1fae5;
+    --success-light: rgba(16, 185, 129, 0.2);
     --danger-color: #ef4444;
     --warning-color: #f59e0b;
-    --shadow-color: rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --hover-bg: #f1f5f9;
-    --active-bg: #eff6ff;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    --shadow-lg: 0 12px 40px 0 rgba(31, 38, 135, 0.5);
+    --hover-bg: rgba(255, 255, 255, 0.12);
+    --active-bg: rgba(239, 68, 68, 0.15);
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.18);
+    --glass-glow: rgba(99, 102, 241, 0.3);
+    --neon-pink: #F472B6;
+    --neon-purple: #6366F1;
 }
 
 [data-theme="dark"] {
-    --bg-primary: #1e293b;
-    --bg-secondary: #0f172a;
-    --bg-card: #1e293b;
-    --text-primary: #f8fafc;
-    --text-secondary: #cbd5e1;
-    --border-color: #334155;
-    --hover-bg: #334155;
-    --active-bg: #1e3a8a;
-    --shadow-color: rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+    --bg-primary: #0F172A;
+    --bg-secondary: #1E293B;
+    --bg-card: rgba(255, 255, 255, 0.08);
+    --text-primary: #F1F5F9;
+    --text-secondary: #CBD5E1;
+    --border-color: rgba(255, 255, 255, 0.2);
+    --hover-bg: rgba(255, 255, 255, 0.12);
+    --active-bg: rgba(239, 68, 68, 0.15);
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.18);
 }
 
 /* TailAdmin-style Shell Layout */
@@ -197,7 +201,7 @@
 }
 
 .title {
-    color: #EF4444;
+    color: #FFFFFF;
     font-size: 22px;
     font-weight: 800;
     letter-spacing: 0;
@@ -207,12 +211,12 @@
 }
 
 .brand:hover .title {
-    color: #F87171;
+    color: #F3F4F6;
 }
 
 .subTitle {
     font-size: 9px;
-    color: #FFFFFF;
+    color: #EF4444;
     font-weight: 500;
     display: block;
     margin: 0;
@@ -220,14 +224,18 @@
     text-transform: uppercase;
     line-height: 1;
     margin-top: 2px;
+    transition: color 0.2s ease;
 }
 
-/* Add subtle background for better contrast in light mode */
+.brand:hover .subTitle {
+    color: #F87171;
+}
+
+/* Light mode - no background */
 [data-theme="light"] .brand {
-    background: #DC2626;
-    padding: 8px 12px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.1);
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
 }
 
 [data-theme="light"] .title {
@@ -235,12 +243,11 @@
 }
 
 [data-theme="light"] .subTitle {
-    color: #FFFFFF;
+    color: #6B7280;
 }
 
-[data-theme="light"] .brand:hover {
-    background: #EF4444;
-    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+[data-theme="light"] .brand:hover .title {
+    color: #DC2626;
 }
 
 /* Dark mode - keep logo visible without background */
@@ -251,11 +258,11 @@
 }
 
 [data-theme="dark"] .title {
-    color: #EF4444;
+    color: #FFFFFF;
 }
 
 [data-theme="dark"] .subTitle {
-    color: #FFFFFF;
+    color: #EF4444;
 }
 
 .admin-shell.sidebar-collapsed .sidebar-header .title,
@@ -464,27 +471,31 @@
     flex: 1;
     display: flex;
     justify-content: center;
+    align-items: center;
+    gap: 12px;
     padding: 0 32px;
 }
 
 .search-container {
     position: relative;
     width: 100%;
-    max-width: 600px;
+    max-width: 500px;
     display: flex;
     align-items: center;
+    gap: 12px;
 }
 
 .search-icon {
-    position: absolute;
-    left: 16px;
     color: var(--text-secondary);
     pointer-events: none;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
 }
 
 .search-input {
     width: 100%;
-    padding: 12px 80px 12px 48px;
+    padding: 12px 80px 12px 20px;
     background: #F1F5F9;
     border: 1px solid transparent;
     border-radius: 30px;
@@ -505,8 +516,6 @@
 }
 
 .search-shortcut {
-    position: absolute;
-    right: 8px;
     padding: 4px 8px;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -514,6 +523,7 @@
     font-size: 12px;
     font-weight: 500;
     color: var(--text-secondary);
+    flex-shrink: 0;
 }
 
 [data-theme="dark"] .search-input {
@@ -554,13 +564,22 @@
 
 .notification-btn .notification-badge {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 8px;
-    height: 8px;
+    top: -4px;
+    right: -4px;
+    min-width: 20px;
+    height: 20px;
+    padding: 2px 6px;
     background: #EF4444;
-    border-radius: 50%;
+    color: white;
+    border-radius: 10px;
     border: 2px solid var(--bg-card);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
 }
 
 .user-profile {
@@ -4162,8 +4181,17 @@ Chi ng-lam-viec,
     }
 
     .search-input {
-        padding: 10px 60px 10px 40px;
+        padding: 10px 16px;
         font-size: 13px;
+    }
+
+    .search-icon {
+        width: 20px;
+        height: 20px;
+    }
+
+    .header-center {
+        gap: 8px;
     }
 
     .search-shortcut {
