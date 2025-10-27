@@ -280,7 +280,35 @@ const ActivePackage = () => {
                                                 </div>
                                                 <p className="text-xs text-gray-500 mt-2">
                                                     <br />
-                                                    Hết hạn: {currentPackage.ngayHetHan ? new Date(currentPackage.ngayHetHan).toLocaleDateString('vi-VN') : 'N/A'}
+                                                    Hết hạn: {(() => {
+                                                        // Nếu có ngày kết thúc trực tiếp thì dùng
+                                                        if (currentPackage.ngayKetThuc) {
+                                                            return new Date(currentPackage.ngayKetThuc).toLocaleDateString('vi-VN');
+                                                        }
+
+                                                        // Nếu không có, tính từ ngày bắt đầu + thời hạn gói
+                                                        if (currentPackage.ngayBatDau && currentPkg.thoiHan) {
+                                                            const ngayBatDau = new Date(currentPackage.ngayBatDau);
+                                                            const thoiHan = currentPkg.thoiHan;
+                                                            const ngayKetThuc = new Date(ngayBatDau);
+
+                                                            // Tính ngày kết thúc dựa trên đơn vị thời gian
+                                                            if (currentPkg.donViThoiHan === 'Ngày') {
+                                                                ngayKetThuc.setDate(ngayKetThuc.getDate() + thoiHan);
+                                                            } else if (currentPkg.donViThoiHan === 'Tháng') {
+                                                                ngayKetThuc.setMonth(ngayKetThuc.getMonth() + thoiHan);
+                                                            } else if (currentPkg.donViThoiHan === 'Năm') {
+                                                                ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + thoiHan);
+                                                            } else {
+                                                                // Mặc định tính theo ngày nếu không rõ đơn vị
+                                                                ngayKetThuc.setDate(ngayKetThuc.getDate() + thoiHan);
+                                                            }
+
+                                                            return ngayKetThuc.toLocaleDateString('vi-VN');
+                                                        }
+
+                                                        return 'N/A';
+                                                    })()}
                                                 </p>
                                             </div>
                                         </header>
