@@ -46,19 +46,12 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
         const fetchActivePackage = async () => {
             if (!isAuthenticated) return;
             const id = authUtils.getUserId();
-            console.log('🔍 User ID from authUtils:', id);
-            console.log('🔍 isAuthenticated:', isAuthenticated);
             if (!id) return;
             try {
                 setLoadingPackage(true);
                 const res = await packageAPI.getActivePackage(id);
                 const data = res && res.data ? res.data : res;
-                console.log('🔍 Active package raw response:', res);
-                console.log('🔍 Active package data:', data);
-                console.log('🔍 ngayKetThuc value:', data?.ngayKetThuc);
-                console.log('🔍 ngayKetThuc type:', typeof data?.ngayKetThuc);
                 if (mounted && data) {
-                    // Calculate ngayKetThuc if not available
                     let calculatedNgayKetThuc = data.ngayKetThuc;
                     if (!calculatedNgayKetThuc && data.ngayBatDau && data.goiTapId?.thoiHan) {
                         const startDate = new Date(data.ngayBatDau);
@@ -66,11 +59,8 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
                         const endDate = new Date(startDate);
                         endDate.setDate(startDate.getDate() + durationDays);
                         calculatedNgayKetThuc = endDate.toISOString();
-                        console.log('🔍 Calculated ngayKetThuc from ngayBatDau + thoiHan:', calculatedNgayKetThuc);
                     }
 
-                    // Format the data for display
-                    // Helper to format date as DD/MM/YYYY with leading zeros
                     const formatDateDDMMYYYY = (isoString) => {
                         try {
                             const d = new Date(isoString);
@@ -113,14 +103,12 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
         return () => { mounted = false };
     }, [isAuthenticated]);
 
-    // Listen for sidebar collapse events and update local state so main content can expand
     useEffect(() => {
         const handler = (e) => {
             try {
                 const collapsed = e && e.detail && typeof e.detail.collapsed === 'boolean' ? e.detail.collapsed : false;
                 setSidebarCollapsed(collapsed);
             } catch (err) {
-                // ignore
             }
         };
         window.addEventListener('sidebar:toggle', handler);
