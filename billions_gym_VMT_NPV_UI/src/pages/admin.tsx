@@ -41,6 +41,23 @@ interface HoiVien {
     };
 }
 
+interface ChiNhanh {
+    _id: string;
+    tenChiNhanh: string;
+    diaChi: string;
+    soDienThoai?: string;
+    moTa?: string;
+    dichVu?: string[];
+    hinhAnh?: string;
+    location?: {
+        type: string;
+        coordinates: number[];
+    };
+    thuTu: number;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
 interface PT {
     _id: string;
     soCCCD: string;
@@ -58,6 +75,7 @@ interface PT {
     moTa: string;
     ngayVaoLam: Date;
     trangThaiPT: 'DANG_HOAT_DONG' | 'NGUNG_LAM_VIEC';
+    chinhanh: string; // ObjectId của chi nhánh
     taiKhoan?: {
         _id?: string | null;
         trangThaiTK: 'DANG_HOAT_DONG' | 'DA_KHOA';
@@ -263,8 +281,9 @@ const AdminDashboard = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(() => {
         const saved = localStorage.getItem('admin-theme');
-        return saved ? saved === 'dark' : true; // Default to dark mode
+        return saved ? saved === 'dark' : false; // Default to light mode (TailAdmin style)
     });
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const notifications = useCrudNotifications();
 
     // Theme toggle effect
@@ -368,94 +387,193 @@ const AdminDashboard = () => {
         };
     }, []);
 
+    // SVG Icons for TailAdmin-style navigation
+    const MenuIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+    );
+
+    const LayoutDashboardIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+    );
+
+    const UsersIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+    );
+
+    const UserCheckIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    );
+
+    const PackageIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+    );
+
+    const CalendarIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+    );
+
+    const ActivityIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+    );
+
+    const DumbbellIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+        </svg>
+    );
+
+    const ScaleIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+        </svg>
+    );
+
+    const SaladIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+    );
+
+    const CreditCardIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+    );
+
+    const BellIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+    );
+
+    const BrainIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+    );
+
+    const SettingsIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+    );
+
+    const SunIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+    );
+
+    const MoonIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+        </svg>
+    );
+
+    const SearchIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+    );
+
+    const ChevronDownIcon = ({ className }: { className?: string }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+    );
+
     return (
-        <div className="admin-shell">
+        <div className={`admin-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
             <aside className="admin-sidebar">
                 <div className="sidebar-header">
                     <div className="brand">
                         <span className="title">BILLIONS</span>
                         <span className="subTitle">FITNESS & GYM</span>
                     </div>
-                    <div className="theme-toggle" onClick={toggleTheme} title={`Chuyển sang chế độ ${isDarkMode ? 'sáng' : 'tối'}`}>
-                        <div className="theme-toggle-slider">
-                            <span className="theme-toggle-icon">
-                                {isDarkMode ? '🌙' : '☀️'}
-                            </span>
-                        </div>
-                    </div>
                 </div>
                 <nav className="sidebar-nav">
-                    <a className={`nav-item ${section === 'overview' ? 'active' : ''}`} href="#/admin">
-                        <span className="nav-icon">📊</span>
-                        Tổng quan
+                    <a className={`nav-item ${section === 'overview' ? 'active' : ''}`} href="#/admin" aria-label="Tổng quan">
+                        <LayoutDashboardIcon className="nav-icon" />
+                        <span>Tổng quan</span>
                     </a>
-                    <a className={`nav-item ${section === 'members' ? 'active' : ''}`} href="#/admin/members">
-                        <span className="nav-icon">👥</span>
-                        Hội viên
+                    <a className={`nav-item ${section === 'members' ? 'active' : ''}`} href="#/admin/members" aria-label="Hội viên">
+                        <UsersIcon className="nav-icon" />
+                        <span>Hội viên</span>
                     </a>
-                    <a className={`nav-item ${section === 'pt' ? 'active' : ''}`} href="#/admin/pt">
-                        <span className="nav-icon">💪</span>
-                        Huấn luyện viên
+                    <a className={`nav-item ${section === 'pt' ? 'active' : ''}`} href="#/admin/pt" aria-label="Huấn luyện viên">
+                        <UserCheckIcon className="nav-icon" />
+                        <span>Huấn luyện viên</span>
                     </a>
-                    <a className={`nav-item ${section === 'packages' ? 'active' : ''}`} href="#/admin/packages">
-                        <span className="nav-icon">📦</span>
-                        Gói tập
+                    <a className={`nav-item ${section === 'packages' ? 'active' : ''}`} href="#/admin/packages" aria-label="Gói tập">
+                        <PackageIcon className="nav-icon" />
+                        <span>Gói tập</span>
                     </a>
-                    <a className={`nav-item ${section === 'schedules' ? 'active' : ''}`} href="#/admin/schedules">
-                        <span className="nav-icon">📅</span>
-                        Lịch tập
+                    <a className={`nav-item ${section === 'schedules' ? 'active' : ''}`} href="#/admin/schedules" aria-label="Lịch tập">
+                        <CalendarIcon className="nav-icon" />
+                        <span>Lịch tập</span>
                     </a>
-                    <a className={`nav-item ${section === 'sessions' ? 'active' : ''}`} href="#/admin/sessions">
-                        <span className="nav-icon">🏃‍♀️</span>
-                        Buổi tập
+                    <a className={`nav-item ${section === 'sessions' ? 'active' : ''}`} href="#/admin/sessions" aria-label="Buổi tập">
+                        <ActivityIcon className="nav-icon" />
+                        <span>Buổi tập</span>
                     </a>
-                    <a className={`nav-item ${section === 'exercises' ? 'active' : ''}`} href="#/admin/exercises">
-                        <span className="nav-icon">🏋️‍♂️</span>
-                        Bài tập
+                    <a className={`nav-item ${section === 'exercises' ? 'active' : ''}`} href="#/admin/exercises" aria-label="Bài tập">
+                        <DumbbellIcon className="nav-icon" />
+                        <span>Bài tập</span>
                     </a>
-                    <a className={`nav-item ${section === 'body_metrics' ? 'active' : ''}`} href="#/admin/body_metrics">
-                        <span className="nav-icon">📏</span>
-                        Chỉ số cơ thể
+                    <a className={`nav-item ${section === 'body_metrics' ? 'active' : ''}`} href="#/admin/body_metrics" aria-label="Chỉ số cơ thể">
+                        <ScaleIcon className="nav-icon" />
+                        <span>Chỉ số cơ thể</span>
                     </a>
-                    <a className={`nav-item ${section === 'nutrition' ? 'active' : ''}`} href="#/admin/nutrition">
-                        <span className="nav-icon">🥗</span>
-                        Dinh dưỡng
+                    <a className={`nav-item ${section === 'nutrition' ? 'active' : ''}`} href="#/admin/nutrition" aria-label="Dinh dưỡng">
+                        <SaladIcon className="nav-icon" />
+                        <span>Dinh dưỡng</span>
                     </a>
-                    <a className={`nav-item ${section === 'payments' ? 'active' : ''}`} href="#/admin/payments">
-                        <span className="nav-icon">💳</span>
-                        Thanh toán
+                    <a className={`nav-item ${section === 'payments' ? 'active' : ''}`} href="#/admin/payments" aria-label="Thanh toán">
+                        <CreditCardIcon className="nav-icon" />
+                        <span>Thanh toán</span>
                     </a>
-                    <a className={`nav-item ${section === 'appointments' ? 'active' : ''}`} href="#/admin/appointments">
-                        <span className="nav-icon">📋</span>
-                        Lịch hẹn PT
+                    <a className={`nav-item ${section === 'appointments' ? 'active' : ''}`} href="#/admin/appointments" aria-label="Lịch hẹn PT">
+                        <CalendarIcon className="nav-icon" />
+                        <span>Lịch hẹn PT</span>
                     </a>
-                    <a className={`nav-item ${section === 'notifications' ? 'active' : ''}`} href="#/admin/notifications">
-                        <span className="nav-icon">🔔</span>
-                        Thông báo
+                    <a className={`nav-item ${section === 'notifications' ? 'active' : ''}`} href="#/admin/notifications" aria-label="Thông báo">
+                        <BellIcon className="nav-icon" />
+                        <span>Thông báo</span>
                     </a>
-                    <a className={`nav-item ${section === 'feedback' ? 'active' : ''}`} href="#/admin/feedback">
-                        <span className="nav-icon">💬</span>
-                        Feedback
+                    <a className={`nav-item ${section === 'ai_suggestions' ? 'active' : ''}`} href="#/admin/ai_suggestions" aria-label="Gợi ý AI">
+                        <BrainIcon className="nav-icon" />
+                        <span>Gợi ý AI</span>
                     </a>
-                    <a className={`nav-item ${section === 'ai_suggestions' ? 'active' : ''}`} href="#/admin/ai_suggestions">
-                        <span className="nav-icon">🤖</span>
-                        Gợi ý AI
+                    <a className={`nav-item ${section === 'reports' ? 'active' : ''}`} href="#/admin/reports" aria-label="Báo cáo">
+                        <ActivityIcon className="nav-icon" />
+                        <span>Báo cáo</span>
                     </a>
-                    <a className={`nav-item ${section === 'reports' ? 'active' : ''}`} href="#/admin/reports">
-                        <span className="nav-icon">📈</span>
-                        Báo cáo
+                    <a className={`nav-item ${section === 'package_workflow' ? 'active' : ''}`} href="#/admin/package_workflow" aria-label="Quy trình gói tập">
+                        <ActivityIcon className="nav-icon" />
+                        <span>Quy trình gói tập</span>
                     </a>
-                    <a className={`nav-item ${section === 'package_workflow' ? 'active' : ''}`} href="#/admin/package_workflow">
-                        <span className="nav-icon">🔄</span>
-                        Quy trình gói tập
+                    <a className={`nav-item ${section === 'trainer_availability' ? 'active' : ''}`} href="#/admin/trainer_availability" aria-label="Lịch PT">
+                        <CalendarIcon className="nav-icon" />
+                        <span>Lịch PT</span>
                     </a>
-                    <a className={`nav-item ${section === 'trainer_availability' ? 'active' : ''}`} href="#/admin/trainer_availability">
-                        <span className="nav-icon">⏰</span>
-                        Lịch PT
-                    </a>
-                    <a className={`nav-item ${section === 'package_registrations' ? 'active' : ''}`} href="#/admin/package_registrations">
-                        <span className="nav-icon">📋</span>
-                        Đăng ký gói tập
+                    <a className={`nav-item ${section === 'package_registrations' ? 'active' : ''}`} href="#/admin/package_registrations" aria-label="Đăng ký gói tập">
+                        <CalendarIcon className="nav-icon" />
+                        <span>Đăng ký gói tập</span>
                     </a>
                 </nav>
             </aside>
@@ -463,51 +581,45 @@ const AdminDashboard = () => {
             <main className="admin-main">
                 <header className="admin-header">
                     <div className="header-left">
-                        <h1>{
-                            section === 'overview' ? 'Tổng quan hệ thống' :
-                                section === 'members' ? 'Quản lý hội viên' :
-                                    section === 'pt' ? 'Quản lý huấn luyện viên' :
-                                        section === 'packages' ? 'Quản lý gói tập' :
-                                            section === 'schedules' ? 'Quản lý lịch tập' :
-                                                section === 'sessions' ? 'Quản lý buổi tập' :
-                                                    section === 'exercises' ? 'Quản lý bài tập' :
-                                                        section === 'body_metrics' ? 'Chỉ số cơ thể' :
-                                                            section === 'nutrition' ? 'Dinh dưỡng' :
-                                                                section === 'payments' ? 'Thanh toán' :
-                                                                    section === 'appointments' ? 'Lịch hẹn PT' :
-                                                                        section === 'notifications' ? 'Thông báo' :
-                                                                            section === 'feedback' ? 'Feedback' :
-                                                                                section === 'ai_suggestions' ? 'Gợi ý AI' :
-                                                                                    section === 'package_workflow' ? 'Quy trình gói tập' :
-                                                                                        section === 'trainer_availability' ? 'Quản lý lịch PT' :
-                                                                                            section === 'package_registrations' ? 'Quản lý đăng ký gói tập' :
-                                                                                                'Báo cáo'
-                        }</h1>
-                        <p>Quản trị toàn diện hệ thống Billions Fitness & Gym</p>
+                        <button
+                            className="sidebar-toggle-btn-header"
+                            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                            title={isSidebarCollapsed ? 'Mở rộng sidebar' : 'Thu nhỏ sidebar'}
+                        >
+                            <MenuIcon className="menu-icon" />
+                        </button>
+                    </div>
+                    <div className="header-center">
+                        <div className="search-container">
+                            <SearchIcon className="search-icon" />
+                            <input
+                                className="search-input"
+                                placeholder="Tìm kiếm nhanh..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                            <button className="search-shortcut" title="⌘K">
+                                ⌘K
+                            </button>
+                        </div>
                     </div>
                     <div className="header-right">
-                        <input
-                            className="search"
-                            placeholder="Tìm kiếm nhanh"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        <Button variant="secondary" size="small">
-                            🔍 Tìm kiếm
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="small"
-                            onClick={() => {
-                                notifications.auth.logoutSuccess();
-                                auth.clearToken();
-                                setTimeout(() => {
-                                    window.location.href = '#/login';
-                                }, 1000);
-                            }}
-                        >
-                            🚪 Đăng xuất
-                        </Button>
+                        <button className="icon-button theme-toggle-btn" onClick={toggleTheme} title={`Chuyển sang chế độ ${isDarkMode ? 'sáng' : 'tối'}`}>
+                            {isDarkMode ? <SunIcon className="icon" /> : <MoonIcon className="icon" />}
+                        </button>
+                        <button className="icon-button notification-btn" title="Thông báo">
+                            <BellIcon className="icon" />
+                            <span className="notification-badge">5</span>
+                        </button>
+                        <div className="user-profile">
+                            <div className="avatar">
+                                <img src="https://ui-avatars.com/api/?name=Admin&background=3b82f6&color=fff" alt="Admin" />
+                            </div>
+                            <div className="user-info">
+                                <span className="user-name">Admin</span>
+                            </div>
+                            <ChevronDownIcon className="chevron-icon" />
+                        </div>
                     </div>
                 </header>
 
@@ -895,10 +1007,11 @@ const TrainerAvailabilityPage = () => {
 // PT Detail Modal Component
 interface PTDetailModalProps {
     pt: PT;
+    chiNhanhs: ChiNhanh[];
     onClose: () => void;
 }
 
-const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, onClose }) => {
+const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, chiNhanhs, onClose }) => {
     // Create modal root if not exists
     let modalRoot = document.getElementById('modal-root');
     if (!modalRoot) {
@@ -1245,10 +1358,29 @@ const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, onClose }) => {
                                     />
                                 </div>
                                 <div className="form-group">
+                                    <label>Chi Nhánh</label>
+                                    <input
+                                        type="text"
+                                        value={chiNhanhs.find(cn => cn._id === pt.chinhanh)?.tenChiNhanh || 'Chưa xác định'}
+                                        readOnly
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
                                     <label>Kinh Nghiệm</label>
                                     <input
                                         type="text"
                                         value={`${pt.kinhNghiem} năm`}
+                                        readOnly
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Bằng Cấp/Chứng Chỉ</label>
+                                    <input
+                                        type="text"
+                                        value={pt.bangCapChungChi}
                                         readOnly
                                     />
                                 </div>
@@ -2216,8 +2348,8 @@ const PackagesPage = () => {
                                         </span>
                                         <span className="package-duration">
                                             {pkg.loaiThoiHan === 'VinhVien' ? 'Vĩnh viễn' :
-                                                `${pkg.thoiHan} ${pkg.donViThoiHan === 'Ngay' ? 'ngày' :
-                                                    pkg.donViThoiHan === 'Thang' ? 'tháng' : 'năm'}`}
+                                                `${pkg.thoiHan} ${pkg.donViThoiHan === 'Ngày' ? 'ngày' :
+                                                    pkg.donViThoiHan === 'Tháng' ? 'tháng' : 'năm'}`}
                                         </span>
                                     </div>
                                 </div>
@@ -2457,8 +2589,8 @@ const PackagesPage = () => {
                                                 <label>Đơn vị</label>
                                                 <input type="text" value={
                                                     viewingItem.loaiThoiHan === 'VinhVien' ? '' :
-                                                        viewingItem.donViThoiHan === 'Ngay' ? 'Ngày' :
-                                                            viewingItem.donViThoiHan === 'Thang' ? 'Tháng' : 'Năm'
+                                                        viewingItem.donViThoiHan === 'Ngày' ? 'Ngày' :
+                                                            viewingItem.donViThoiHan === 'Tháng' ? 'Tháng' : 'Năm'
                                                 } readOnly />
                                             </div>
                                         </div>
@@ -2810,6 +2942,7 @@ const PTPage = () => {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+    const [chiNhanhs, setChiNhanhs] = useState<ChiNhanh[]>([]);
 
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -2890,6 +3023,18 @@ const PTPage = () => {
             setRows([]);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Load Chi nhánh
+    const fetchChiNhanhs = async () => {
+        try {
+            const response = await api.get<{ success: boolean; data: ChiNhanh[] }>('/api/chinhanh');
+            if (response.success && Array.isArray(response.data)) {
+                setChiNhanhs(response.data);
+            }
+        } catch (e) {
+            console.error('Error fetching chi nhánh:', e);
         }
     };
 
@@ -2990,7 +3135,7 @@ const PTPage = () => {
     useEffect(() => {
         let mounted = true;
         (async () => {
-            await fetchPTs();
+            await Promise.all([fetchPTs(), fetchChiNhanhs()]);
         })();
         return () => { mounted = false; };
     }, [refreshTrigger]);
@@ -3115,6 +3260,12 @@ const PTPage = () => {
                                     <span className="pt-detail-value">{r.chuyenMon}</span>
                                 </div>
                                 <div className="pt-detail-item">
+                                    <span className="pt-detail-label">Chi nhánh:</span>
+                                    <span className="pt-detail-value">
+                                        {chiNhanhs.find(cn => cn._id === r.chinhanh)?.tenChiNhanh || 'Chưa xác định'}
+                                    </span>
+                                </div>
+                                <div className="pt-detail-item">
                                     <span className="pt-detail-label">Kinh nghiệm:</span>
                                     <span className="pt-detail-value">{r.kinhNghiem} năm</span>
                                 </div>
@@ -3167,6 +3318,13 @@ const PTPage = () => {
                     { name: 'ngaySinh', label: 'Ngày sinh', type: 'date', validation: { required: true } },
                     { name: 'gioiTinh', label: 'Giới tính', type: 'radio', options: ['Nam', 'Nữ'], validation: { required: true } },
                     { name: 'diaChi', label: 'Địa chỉ', type: 'textarea', validation: { required: true } },
+                    {
+                        name: 'chinhanh',
+                        label: 'Chi nhánh',
+                        type: 'select',
+                        options: chiNhanhs.map(cn => ({ value: cn._id, label: cn.tenChiNhanh })),
+                        validation: { required: true }
+                    },
                     { name: 'chuyenMon', label: 'Chuyên môn', validation: { required: true } },
                     { name: 'kinhNghiem', label: 'Kinh nghiệm (năm)', type: 'number', validation: { required: true, pattern: /^\d+$/, message: 'Kinh nghiệm phải là số nguyên dương' } },
                     { name: 'bangCapChungChi', label: 'Bằng cấp/Chứng chỉ', validation: { required: true } },
@@ -3191,6 +3349,7 @@ const PTPage = () => {
                             ...(val.soCCCD && { soCCCD: val.soCCCD }),
                             ...(val.diaChi && { diaChi: val.diaChi }),
                             ...(val.anhDaiDien && { anhDaiDien: val.anhDaiDien }),
+                            chinhanh: val.chinhanh,
                             chuyenMon: val.chuyenMon,
                             bangCapChungChi: val.bangCapChungChi,
                             kinhNghiem: parseInt(val.kinhNghiem) || 0,
@@ -3253,6 +3412,7 @@ const PTPage = () => {
             {viewingDetail && (
                 <PTDetailModal
                     pt={viewingDetail}
+                    chiNhanhs={chiNhanhs}
                     onClose={() => setViewingDetail(null)}
                 />
             )}

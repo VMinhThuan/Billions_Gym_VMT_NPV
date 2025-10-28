@@ -4,10 +4,7 @@ import Sidebar from '../components/layout/Sidebar';
 import { authUtils } from '../utils/auth';
 import { userAPI } from '../services/api';
 import { useEffect, useState } from 'react';
-import { getRankLabelVi } from '../utils/rankMap';
-import RankBadge from '../components/ui/RankBadge';
 import { packageAPI } from '../services/api';
-import { formatDateToDDMMYYYY } from '../utils/formatDate';
 import UserActions from '../components/UserActions';
 
 const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
@@ -18,6 +15,7 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const [activePackage, setActivePackage] = useState(null);
     const [loadingPackage, setLoadingPackage] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     useEffect(() => {
         let mounted = true;
@@ -48,19 +46,12 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
         const fetchActivePackage = async () => {
             if (!isAuthenticated) return;
             const id = authUtils.getUserId();
-            console.log('🔍 User ID from authUtils:', id);
-            console.log('🔍 isAuthenticated:', isAuthenticated);
             if (!id) return;
             try {
                 setLoadingPackage(true);
                 const res = await packageAPI.getActivePackage(id);
                 const data = res && res.data ? res.data : res;
-                console.log('🔍 Active package raw response:', res);
-                console.log('🔍 Active package data:', data);
-                console.log('🔍 ngayKetThuc value:', data?.ngayKetThuc);
-                console.log('🔍 ngayKetThuc type:', typeof data?.ngayKetThuc);
                 if (mounted && data) {
-                    // Calculate ngayKetThuc if not available
                     let calculatedNgayKetThuc = data.ngayKetThuc;
                     if (!calculatedNgayKetThuc && data.ngayBatDau && data.goiTapId?.thoiHan) {
                         const startDate = new Date(data.ngayBatDau);
@@ -68,11 +59,8 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
                         const endDate = new Date(startDate);
                         endDate.setDate(startDate.getDate() + durationDays);
                         calculatedNgayKetThuc = endDate.toISOString();
-                        console.log('🔍 Calculated ngayKetThuc from ngayBatDau + thoiHan:', calculatedNgayKetThuc);
                     }
 
-                    // Format the data for display
-                    // Helper to format date as DD/MM/YYYY with leading zeros
                     const formatDateDDMMYYYY = (isoString) => {
                         try {
                             const d = new Date(isoString);
@@ -115,6 +103,18 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
         return () => { mounted = false };
     }, [isAuthenticated]);
 
+    useEffect(() => {
+        const handler = (e) => {
+            try {
+                const collapsed = e && e.detail && typeof e.detail.collapsed === 'boolean' ? e.detail.collapsed : false;
+                setSidebarCollapsed(collapsed);
+            } catch (err) {
+            }
+        };
+        window.addEventListener('sidebar:toggle', handler);
+        return () => window.removeEventListener('sidebar:toggle', handler);
+    }, []);
+
     return (
         <Layout onNavigateToLogin={onNavigateToLogin} onNavigateToRegister={onNavigateToRegister}>
             {isAuthenticated && (
@@ -123,7 +123,7 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
                     {/* Main Content - Only this area should scroll */}
-                    <div className="flex-1 pl-0 lg:pl-80">
+                    <div className={`flex-1 pl-0 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-80'}`}>
                         {/* Mobile Sidebar Toggle */}
                         <div className="lg:hidden p-4 bg-[#1a1a1a] border-b border-[#2a2a2a]">
                             <button

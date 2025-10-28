@@ -162,6 +162,10 @@ class ApiService {
         }
     }
 
+    async getUserProfile() {
+        return this.apiCall('/user/profile');
+    }
+
     async updateProfile(userId, data) {
         return this.apiCall(`/user/hoivien/${userId}`, 'PUT', data);
     }
@@ -382,6 +386,27 @@ class ApiService {
         return this.apiCall(`/dinhduong/goi-y/${suggestionId}/phan-hoi`, 'PUT', data);
     }
 
+    // Thực đơn APIs
+    async getHealthyMeals(limit = 10) {
+        const token = await this.getAuthToken();
+        let hoiVienId = null;
+
+        if (token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                hoiVienId = payload.id;
+            } catch (error) {
+                console.error('Error parsing token:', error);
+            }
+        }
+
+        const queryParams = new URLSearchParams();
+        if (hoiVienId) queryParams.append('hoiVienId', hoiVienId);
+        queryParams.append('limit', limit);
+
+        return this.apiCall(`/thucdon/healthy-meals?${queryParams.toString()}`, 'GET', null, false);
+    }
+
     // Membership APIs
     async getMyMembership() {
         const token = await this.getAuthToken();
@@ -478,7 +503,7 @@ class ApiService {
     }
 
     async getBaiTapById(id) {
-        return this.apiCall(`/baitap/${id}`);
+        return this.apiCall(`/baitap/${id}`, 'GET', null, false);
     }
 
     // Lịch sử tập luyện APIs

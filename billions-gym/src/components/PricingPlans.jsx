@@ -78,8 +78,23 @@ const PricingPlans = ({ onComparePackage, onPackagesLoaded }) => {
         return periods;
     };
 
-    const handleViewDetail = (packageId) => {
-        navigate(`/goi-tap/${packageId}`);
+    const handleViewDetail = async (packageId) => {
+        try {
+            // Check if user has registered for any packages
+            const response = await api.get('/chitietgoitap/hoivien/active', {}, false);
+            const hasRegisteredPackage = response?.data && Object.keys(response.data).length > 0;
+
+            if (hasRegisteredPackage) {
+                // User has registered for packages, go to package detail
+                navigate(`/goi-tap/${packageId}`);
+            } else {
+                // User hasn't registered for packages, go to image 2 page (content2)
+                navigate('/trang-anh-2');
+            }
+        } catch (error) {
+            // If API fails, default to package detail page
+            navigate(`/goi-tap/${packageId}`);
+        }
     };
 
     const getFilteredPackages = () => {

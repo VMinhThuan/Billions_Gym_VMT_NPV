@@ -331,12 +331,10 @@ exports.getTaiKhoanByPhone = async (req, res) => {
     try {
         const { sdt } = req.params;
         const taiKhoan = await userService.getTaiKhoanByPhone(sdt);
-        res.json(taiKhoan);
+        if (!taiKhoan) return res.json(null);
+        return res.json(taiKhoan);
     } catch (err) {
-        if (err.message === 'Không tìm thấy tài khoản') {
-            return res.status(404).json({ message: err.message });
-        }
-        res.status(500).json({ message: 'Lỗi khi lấy thông tin tài khoản', error: err.message });
+        return res.json(null);
     }
 };
 

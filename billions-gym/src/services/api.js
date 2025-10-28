@@ -68,7 +68,6 @@ export const apiRequest = async (endpoint, options = {}) => {
         if (response.type === 'opaque' || response.status === 0) {
             throw new Error('CORS error: Unable to connect to server. Please check your network connection and server status.');
         }
-        // Try parse JSON safely; on 204 or empty body, return null
         let data = null;
         try {
             data = await response.json();
@@ -305,8 +304,7 @@ export const api = {
     get: async (path, query = {}, options = {}) => {
         const queryString = new URLSearchParams(query).toString();
         const url = queryString ? `${path}?${queryString}` : path;
-        // Backward compatibility: allow boolean as third arg for requireAuth
-        const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
+        return apiRequest(url, options);
         return apiRequest(url, normalizedOptions);
     },
     post: async (path, body = {}, options = {}) => {
@@ -321,6 +319,14 @@ export const api = {
         const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
         return apiRequest(path, {
             method: 'PUT',
+            body: JSON.stringify(body),
+            ...normalizedOptions
+        });
+    },
+    patch: async (path, body = {}, options = {}) => {
+        const normalizedOptions = typeof options === 'boolean' ? { requireAuth: options } : options;
+        return apiRequest(path, {
+            method: 'PATCH',
             body: JSON.stringify(body),
             ...normalizedOptions
         });

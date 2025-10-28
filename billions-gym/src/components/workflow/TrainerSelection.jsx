@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import './WorkflowComponents.css';
 
-const TrainerSelection = ({ registrationId, selectedTrainer, onSelectTrainer, loading }) => {
+const TrainerSelection = ({ registrationId, selectedTrainer, onSelectTrainer, loading, registration }) => {
     const [trainers, setTrainers] = useState([]);
     const [selectedTrainerId, setSelectedTrainerId] = useState(selectedTrainer?._id || '');
     const [preferences, setPreferences] = useState({
@@ -12,6 +12,9 @@ const TrainerSelection = ({ registrationId, selectedTrainer, onSelectTrainer, lo
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [loadingTrainers, setLoadingTrainers] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [allTrainers, setAllTrainers] = useState([]);
 
     const timeSlots = [
         '06:00-08:00',
@@ -40,7 +43,10 @@ const TrainerSelection = ({ registrationId, selectedTrainer, onSelectTrainer, lo
                     ? response.data.availablePTs
                     : (Array.isArray(response.data) ? response.data
                         : (Array.isArray(response.data?.trainers) ? response.data.trainers : []));
-                setTrainers(list);
+                setAllTrainers(list);
+                setTotalPages(Math.ceil(list.length / 15));
+                setCurrentPage(1);
+                updateDisplayedTrainers(list, 1);
             } else {
                 setError(response.message || 'Không thể tải danh sách PT');
             }
@@ -49,6 +55,19 @@ const TrainerSelection = ({ registrationId, selectedTrainer, onSelectTrainer, lo
             setError('Lỗi khi tải danh sách PT');
         } finally {
             setLoadingTrainers(false);
+        }
+    };
+
+    const updateDisplayedTrainers = (trainerList, page) => {
+        const startIndex = (page - 1) * 15;
+        const endIndex = startIndex + 15;
+        setTrainers(trainerList.slice(startIndex, endIndex));
+    };
+
+    const handlePageChange = (newPage) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+            updateDisplayedTrainers(allTrainers, newPage);
         }
     };
 
@@ -155,7 +174,11 @@ const TrainerSelection = ({ registrationId, selectedTrainer, onSelectTrainer, lo
 
                 {/* Trainers Section */}
                 <div className="trainers-section">
-                    <h4>Danh sách PT phù hợp</h4>
+                    <h4>
+                        {registration?.branchId?.tenChiNhanh
+                            ? `Danh sách PT chi nhánh '${registration.branchId.tenChiNhanh}' phù hợp`
+                            : 'Danh sách PT phù hợp'}
+                    </h4>
 
                     {loadingTrainers ? (
                         <div className="loading-state">
@@ -169,40 +192,67 @@ const TrainerSelection = ({ registrationId, selectedTrainer, onSelectTrainer, lo
                             <p>Vui lòng thử điều chỉnh lịch trình và tìm lại.</p>
                         </div>
                     ) : (
-                        <div className="trainers-grid">
-                            {Array.isArray(trainers) && trainers.map((trainer) => (
-                                <div
-                                    key={trainer._id}
-                                    className={`trainer-card ${selectedTrainerId === trainer._id ? 'selected' : ''}`}
-                                    onClick={() => setSelectedTrainerId(trainer._id)}
-                                >
-                                    <div className="trainer-avatar">
-                                        {trainer.avatar ? (
-                                            <img src={trainer.avatar} alt={trainer.hoTen} />
-                                        ) : (
-                                            <div className="avatar-placeholder">
-                                                {trainer.hoTen?.charAt(0) || 'P'}
+                        <>
+                            <div className="trainers-grid">
+                                {Array.isArray(trainers) && trainers.map((trainer) => (
+                                    <div
+                                        key={trainer._id}
+                                        className={`trainer-card ${selectedTrainerId === trainer._id ? 'selected' : ''}`}
+                                        onClick={() => setSelectedTrainerId(trainer._id)}
+                                    >
+                                        <div className="trainer-avatar">
+                                            {trainer.avatar ? (
+                                                <img src={trainer.avatar} alt={trainer.hoTen} />
+                                            ) : (
+                                                <div className="avatar-placeholder">
+                                                    {trainer.hoTen?.charAt(0) || 'P'}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="trainer-info">
+                                            <h5 className="trainer-name">{trainer.hoTen}</h5>
+                                            <p className="trainer-specialty">{trainer.chuyenMon || 'PT chuyên nghiệp'}</p>
+                                            <div className="trainer-rating">
+                                                <span className="stars">⭐⭐⭐⭐⭐</span>
+                                                <span className="rating-text">5.0</span>
                                             </div>
-                                        )}
-                                    </div>
-                                    <div className="trainer-info">
-                                        <h5 className="trainer-name">{trainer.hoTen}</h5>
-                                        <p className="trainer-specialty">{trainer.chuyenMon || 'PT chuyên nghiệp'}</p>
-                                        <div className="trainer-rating">
-                                            <span className="stars">⭐⭐⭐⭐⭐</span>
-                                            <span className="rating-text">5.0</span>
+                                            <div className="trainer-experience">
+                                                <span className="experience-icon">💪</span>
+                                                <span>{trainer.kinhNghiem || '3+'} năm kinh nghiệm</span>
+                                            </div>
                                         </div>
-                                        <div className="trainer-experience">
-                                            <span className="experience-icon">💪</span>
-                                            <span>{trainer.kinhNghiem || '3+'} năm kinh nghiệm</span>
+                                        <div className="selection-indicator">
+                                            {selectedTrainerId === trainer._id && <span className="checkmark">✓</span>}
                                         </div>
                                     </div>
-                                    <div className="selection-indicator">
-                                        {selectedTrainerId === trainer._id && <span className="checkmark">✓</span>}
+                                ))}
+                            </div>
+
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                                <div className="pagination">
+                                    <button
+                                        className="pagination-btn"
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                    >
+                                        ← Trước
+                                    </button>
+
+                                    <div className="pagination-info">
+                                        Trang {currentPage} / {totalPages}
                                     </div>
+
+                                    <button
+                                        className="pagination-btn"
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                    >
+                                        Sau →
+                                    </button>
                                 </div>
-                            ))}
-                        </div>
+                            )}
+                        </>
                     )}
                 </div>
 

@@ -411,10 +411,29 @@ class PaymentController {
                     if (updatedRegistration.isUpgrade && updatedRegistration.soTienBu > 0) {
                         console.log(`🔄 [CALLBACK] This is an upgrade package - creating upgrade notification`);
 
+                        // ĐẢM BẢO cập nhật gói cũ nếu chưa được set trước đó
+                        try {
+                            const upgradeUpdate = {
+                                trangThaiDangKy: 'DA_NANG_CAP',
+                                trangThaiSuDung: 'DA_NANG_CAP',
+                                lyDoTamDung: 'Nâng cấp gói tập',
+                                ngayTamDung: new Date(),
+                                thoiGianCapNhat: new Date()
+                            };
+                            const updateResult = await ChiTietGoiTap.updateMany({
+                                nguoiDungId: updatedRegistration.nguoiDungId,
+                                _id: { $ne: updatedRegistration._id },
+                                trangThaiDangKy: { $ne: 'DA_NANG_CAP' }
+                            }, { $set: upgradeUpdate });
+                            console.log(`🔄 [CALLBACK] Fallback upgraded ${updateResult.modifiedCount || 0} old packages`);
+                        } catch (fallbackErr) {
+                            console.error('❌ [CALLBACK] Fallback upgrade update error:', fallbackErr);
+                        }
+
                         // Tìm gói cũ của user này (gói có trangThai = DA_NANG_CAP)
                         const oldPackageData = await ChiTietGoiTap.findOne({
                             nguoiDungId: updatedRegistration.nguoiDungId,
-                            trangThai: 'DA_NANG_CAP',
+                            trangThaiSuDung: 'DA_NANG_CAP',
                             trangThaiDangKy: 'DA_NANG_CAP'
                         }).populate('goiTapId');
 
@@ -517,6 +536,26 @@ class PaymentController {
             // Tạo notification khi thanh toán thành công
             if (status === 'DA_THANH_TOAN' && updatedRegistration) {
                 try {
+                    // Nếu là nâng cấp, fallback cập nhật gói cũ để đảm bảo đồng bộ
+                    if (updatedRegistration.isUpgrade && updatedRegistration.soTienBu > 0) {
+                        try {
+                            const upgradeUpdate = {
+                                trangThaiDangKy: 'DA_NANG_CAP',
+                                trangThaiSuDung: 'DA_NANG_CAP',
+                                lyDoTamDung: 'Nâng cấp gói tập',
+                                ngayTamDung: new Date(),
+                                thoiGianCapNhat: new Date()
+                            };
+                            const updateResult = await ChiTietGoiTap.updateMany({
+                                nguoiDungId: updatedRegistration.nguoiDungId,
+                                _id: { $ne: updatedRegistration._id },
+                                trangThaiDangKy: { $ne: 'DA_NANG_CAP' }
+                            }, { $set: upgradeUpdate });
+                            console.log(`🔄 [ZALO CALLBACK] Fallback upgraded ${updateResult.modifiedCount || 0} old packages`);
+                        } catch (fallbackErr) {
+                            console.error('❌ [ZALO CALLBACK] Fallback upgrade update error:', fallbackErr);
+                        }
+                    }
                     // Tạo notification cho người thanh toán
                     await createPaymentSuccessNotification(
                         updatedRegistration.nguoiDungId,
@@ -587,7 +626,7 @@ class PaymentController {
                 oldPackageId,
                 {
                     trangThaiDangKy: 'DA_NANG_CAP',
-                    trangThai: 'DA_NANG_CAP',
+                    trangThaiSuDung: 'DA_NANG_CAP',
                     lyDoTamDung: 'Nâng cấp gói tập',
                     ngayTamDung: new Date(),
                     soTienBu: upgradeInfo.soTienBu,

@@ -8,20 +8,20 @@ import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 const slides = [
     {
         key: 1,
-        title: 'Fitness App',
-        text: 'Track your workouts and challenge\nyour friends for hardcore fun',
+        title: 'Ứng dụng thể hình',
+        text: 'Theo dõi các buổi tập luyện của bạn và thách đấu bạn bè để thêm phần thú vị',
         image: require('../../assets/images/onboarding-img1.avif'),
     },
     {
         key: 2,
-        title: 'Plan Smarter',
-        text: 'Create custom plans and stay motivated\nwith daily reminders.',
+        title: 'Lên kế hoạch thông minh',
+        text: 'Tạo kế hoạch luyện tập riêng và duy trì động lực với các lời nhắc hằng ngày.',
         image: require('../../assets/images/onboarding-img2.avif'),
     },
     {
         key: 3,
-        title: 'Stay Fit Together',
-        text: 'Connect with a community of fitness\nenthusiasts and grow stronger.',
+        title: 'Cùng nhau giữ dáng',
+        text: 'Kết nối với cộng đồng yêu thể thao và cùng nhau trở nên mạnh mẽ hơn.',
         image: require('../../assets/images/onboarding-img3.avif'),
     }
 ];

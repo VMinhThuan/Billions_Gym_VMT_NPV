@@ -1,28 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    ImageBackground,
-    RefreshControl,
-    Dimensions,
-    Image,
-    FlatList
-} from "react-native";
+import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet, ImageBackground, RefreshControl, Dimensions, Image, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { MaterialIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuth } from "../hooks/useAuth";
 import { useTheme, DEFAULT_THEME } from "../hooks/useTheme";
 import apiService from '../api/apiService';
 import Chatbot from '../components/Chatbot';
-import ChartContainer from '../components/ChartContainer';
-import WeeklyProgressChart from '../components/WeeklyProgressChart';
-import GoalProgressChart from '../components/GoalProgressChart';
-import ComparisonChart from '../components/ComparisonChart';
 
 const { width } = Dimensions.get('window');
 
@@ -30,6 +14,7 @@ const HomeScreen = () => {
     const navigation = useNavigation();
     const { logout, userInfo, userToken } = useAuth();
     const { colors } = useTheme();
+    const isLightMode = colors?.background === DEFAULT_THEME.background;
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [memberData, setMemberData] = useState({
@@ -42,29 +27,93 @@ const HomeScreen = () => {
         todayCalories: 0,
         weeklyGoal: 2000
     });
+    const [PTData, setPTData] = useState([]);
 
-    const [chartData, setChartData] = useState({
-        weeklyProgress: [],
-        goalProgress: {
-            workouts: { current: 0, target: 5 },
-            calories: { current: 0, target: 2000 }
-        },
-        comparisonData: []
-    });
-    // Upcoming classes loaded from backend
+    // Upcoming classes 
     const [upcomingClasses, setUpcomingClasses] = useState([]);
     const [loadingUpcoming, setLoadingUpcoming] = useState(false);
 
+    //Workout 
+    const [workoutData, setWorkoutData] = useState([]);
+    const [loadingWorkouts, setLoadingWorkouts] = useState(false);
+
+    // Healthy meals
+    const [healthyMeals, setHealthyMeals] = useState([]);
+    const [loadingMeals, setLoadingMeals] = useState(false);
+    const [currentMealType, setCurrentMealType] = useState('');
+
+    // Exercises
+    const [exercises, setExercises] = useState([]);
+    const [loadingExercises, setLoadingExercises] = useState(false);
+
+    const getMealTypeName = (type) => {
+        const mealNames = {
+            'SANG': 'Bữa sáng gợi ý',
+            'TRUA': 'Bữa trưa gợi ý',
+            'CHIEU': 'Bữa chiều gợi ý',
+            'TOI': 'Bữa tối gợi ý'
+        };
+        return mealNames[type] || 'Bữa ăn';
+    };
+
     useEffect(() => {
         fetchDashboardData();
+        fetchPTData();
+        fetchHealthyMeals();
+        fetchExercises();
     }, []);
+
+    const Avatar = ({ userProfile, size = 50 }) => {
+        const getInitial = (name) => {
+            if (!name) return 'U';
+            return name.charAt(0).toUpperCase();
+        };
+
+        if (userProfile?.anhDaiDien) {
+            return (
+                <Image
+                    source={{ uri: userProfile.anhDaiDien }}
+                    style={{
+                        width: size,
+                        height: size,
+                        borderRadius: size / 2,
+                        marginRight: 12,
+                    }}
+                    resizeMode="cover"
+                />
+            );
+        }
+
+        return (
+            <View
+                style={{
+                    width: size,
+                    height: size,
+                    borderRadius: size / 2,
+                    backgroundColor: '#DA2128',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 8,
+                }}
+            >
+                <Text
+                    style={{
+                        color: 'white',
+                        fontSize: size * 0.5,
+                        fontWeight: 'bold',
+                    }}
+                >
+                    {getInitial(userProfile?.hoTen)}
+                </Text>
+            </View>
+        );
+    };
 
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
 
             if (!userToken) {
-                console.log('User not logged in, redirecting to login');
                 Alert.alert('Phiên đăng nhập hết hạn', 'Vui lòng đăng nhập lại.', [
                     { text: 'OK', onPress: () => logout() }
                 ]);
@@ -193,10 +242,6 @@ const HomeScreen = () => {
                 }
             }
 
-            // Generate chart data
-            generateChartData();
-
-            // Gọi API để lấy thời gian còn lại của hạng hội viên
             await fetchMembershipTimeRemaining();
 
         } catch (error) {
@@ -204,6 +249,15 @@ const HomeScreen = () => {
             Alert.alert('Lỗi', 'Không thể tải dữ liệu. Vui lòng thử lại.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchPTData = async () => {
+        try {
+            const res = await apiService.getAllPT();
+            setPTData(res || []);
+        } catch (error) {
+            console.error('Error fetching PT data:', error);
         }
     };
 
@@ -234,107 +288,14 @@ const HomeScreen = () => {
         return streak;
     };
 
-    const generateChartData = () => {
-        const weeklyProgress = [];
-        const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const dayName = days[6 - i];
-
-            const workouts = Math.floor(Math.random() * 3);
-            const calories = 200 + Math.floor(Math.random() * 600);
-
-            weeklyProgress.push({
-                day: dayName,
-                workouts: workouts,
-                calories: calories
-            });
-        }
-
-        const comparisonData = [];
-        for (let i = 3; i >= 0; i--) {
-            const weekNumber = 4 - i;
-            const workouts = 5 + Math.floor(Math.random() * 10);
-            const calories = 2000 + Math.floor(Math.random() * 3000);
-
-            comparisonData.push({
-                week: `Tuần ${weekNumber}`,
-                workouts: workouts,
-                calories: calories
-            });
-        }
-
-        setChartData({
-            weeklyProgress,
-            goalProgress: {
-                workouts: {
-                    current: memberData.workoutsThisWeek,
-                    target: 5
-                },
-                calories: {
-                    current: memberData.todayCalories,
-                    target: memberData.weeklyGoal
-                }
-            },
-            comparisonData
-        });
-    };
-
     const onRefresh = async () => {
         setRefreshing(true);
-        await fetchDashboardData();
+        await Promise.all([
+            fetchDashboardData(),
+            fetchHealthyMeals(),
+            fetchExercises()
+        ]);
         setRefreshing(false);
-    };
-
-    const renderQuickActions = () => {
-        const actions = [
-            {
-                title: "Đặt lịch PT",
-                icon: "person-outline", // Thay thế icon hợp lệ
-                color: "#DA2128",
-                onPress: () => navigation.navigate('Classes')
-            },
-            {
-                title: "Lịch tập",
-                icon: "barbell-outline", // Thay thế icon hợp lệ
-                color: "#141414",
-                onPress: () => navigation.navigate('WorkoutPlans')
-            },
-            {
-                title: "Dinh dưỡng",
-                icon: "restaurant-outline", // Thay thế icon hợp lệ
-                color: "#DA2128",
-                onPress: () => navigation.navigate('Nutrition')
-            },
-            {
-                title: "Thành viên",
-                icon: "card-outline", // Thay thế icon hợp lệ
-                color: "#141414",
-                onPress: () => navigation.navigate('Membership')
-            }
-        ];
-
-        return (
-            <View style={[styles.quickActionsContainer, { backgroundColor: colors.surface }]}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Truy cập nhanh</Text>
-                <View style={styles.actionsGrid}>
-                    {actions.map((action, index) => (
-                        <TouchableOpacity
-                            key={index}
-                            style={[styles.actionCard, { backgroundColor: colors.card }]}
-                            onPress={action.onPress}
-                        >
-                            <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
-                                <MaterialIcons name={action.icon} size={24} color="white" />
-                            </View>
-                            <Text style={[styles.actionTitle, { color: colors.text }]}>{action.title}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </View>
-        );
     };
 
     const banners = [
@@ -451,9 +412,9 @@ const HomeScreen = () => {
             <View style={[styles.progressContainer, { backgroundColor: colors.surface }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                     <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 18, marginBottom: 0 }]}>Trạng thái hội viên</Text>
-                    <Text style={{ color: colors.textSecondary, fontSize: 16 }}>{daysLeft} Ngày đếm ngược</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 16 }}>{daysLeft} Ngày còn lại</Text>
                 </View>
-                <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.border, marginBottom: 25, overflow: 'hidden' }}>
+                <View style={{ height: 8, borderRadius: 4, backgroundColor: '#878787', marginBottom: 25, overflow: 'hidden' }}>
                     <View style={{
                         height: '100%',
                         width: `${progress * 100}%`,
@@ -477,25 +438,17 @@ const HomeScreen = () => {
         );
     };
 
-    // upcomingClasses state defined earlier; fetched from backend
-
     const fetchUpcomingClasses = async () => {
         try {
             setLoadingUpcoming(true);
             const schedules = await apiService.getAllWorkoutSchedules();
-
-            // Map backend LichTap entries to UI shape used by this screen
-            // Backend LichTap may contain cacBuoiTap (array of BuoiTap). We'll flatten first few buoiTap into upcoming items.
             const items = [];
             (schedules || []).forEach(lich => {
-                // lich.cacBuoiTap may be populated with BuoiTap docs
                 const buoiTaps = Array.isArray(lich.cacBuoiTap) ? lich.cacBuoiTap : [];
                 buoiTaps.forEach(bt => {
-                    // derive display fields
                     const id = bt._id || bt.id || `${lich._id}_${Math.random().toString(36).slice(2, 8)}`;
                     const imageUrl = bt.hinhAnh || bt.hinhAnhMinhHoa?.[0] || bt.anhDaiDien || null;
                     const name = bt.tenBuoiTap || bt.tenBuoiTap || (bt.tenBaiTap ? bt.tenBaiTap : (lich.hoTen || 'Buổi tập'));
-                    // attempt to compute a readable date/time
                     let dateText = 'Sắp tới';
                     let timeText = bt.gioBatDau || bt.gio || '';
                     if (bt.ngay) {
@@ -513,7 +466,6 @@ const HomeScreen = () => {
                 });
             });
 
-            // If there are no buoi taps in schedules, try to fall back to top-level schedule dates
             if (items.length === 0) {
                 (schedules || []).forEach(lich => {
                     const id = lich._id || Math.random().toString(36).slice(2, 8);
@@ -541,9 +493,9 @@ const HomeScreen = () => {
     const renderUpcomingClasses = () => (
         <View style={[styles.upcomingClassesContainer, { backgroundColor: colors.surface }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1 }]}>Lớp học sắp tới</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>Lịch tập sắp tới</Text>
                 <TouchableOpacity>
-                    <Text style={{ color: colors.primary, fontSize: 18, textAlign: 'right' }}>Xem tất cả</Text>
+                    <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
                 </TouchableOpacity>
             </View>
             {upcomingClasses.map(cls => (
@@ -589,257 +541,293 @@ const HomeScreen = () => {
         </View>
     );
 
-    const healthyMeals = [
-        {
-            id: '1',
-            image: { uri: 'https://images.unsplash.com/photo-1646809156467-6e825869b29f?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
-            name: 'Grilled Chicken With Rice',
-            calories: 310,
-        },
-        {
-            id: '2',
-            image: { uri: 'https://images.unsplash.com/photo-1661081090288-fd8ffc486dd7?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
-            name: 'Grilled Fish With Rice',
-            calories: 310,
-        },
-        {
-            id: '3',
-            image: { uri: 'https://img.taste.com.au/HYj36Q1G/w1200-h675-cfill-q80/taste/2016/11/middle-eastern-lamb-koftas-with-aromatic-lentil-rice-106574-1.jpeg' },
-            name: 'Kofta With Basmati',
-            calories: 310,
-        },
-    ];
+    const fetchHealthyMeals = async () => {
+        try {
+            setLoadingMeals(true);
+            const response = await apiService.getHealthyMeals(10);
+
+            console.log('📊 API Response:', {
+                success: response.success,
+                dataLength: response.data?.length,
+                total: response.total,
+                buaAn: response.buaAn,
+                currentTime: response.currentTime
+            });
+
+            if (response.success && response.data) {
+                console.log('🍽️ Số món ăn nhận được:', response.data.length);
+                console.log('📋 Danh sách món:', response.data.map(m => m.tenMonAn));
+                console.log('⏰ Bữa ăn hiện tại:', response.buaAn);
+                setHealthyMeals(response.data);
+                setCurrentMealType(response.buaAn || '');
+            }
+        } catch (error) {
+            console.error('Error fetching healthy meals:', error);
+        } finally {
+            setLoadingMeals(false);
+        }
+    };
+
+    const fetchExercises = async () => {
+        try {
+            setLoadingExercises(true);
+            const response = await apiService.getAllBaiTap();
+
+            console.log('💪 Exercises Response:', {
+                total: response?.length,
+                first3: response?.slice(0, 3).map(ex => ex.tenBaiTap)
+            });
+
+            if (response && Array.isArray(response)) {
+                // Lấy 3 bài tập đầu tiên
+                setExercises(response.slice(0, 3));
+            }
+        } catch (error) {
+            console.error('Error fetching exercises:', error);
+        } finally {
+            setLoadingExercises(false);
+        }
+    };
 
     const renderHealthyMeals = () => (
         <View style={[styles.healthyMealsContainer, { backgroundColor: colors.surface }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1 }]}>Bữa ăn lành mạnh</Text>
-                <TouchableOpacity>
-                    <Text style={{ color: colors.primary, fontSize: 18, textAlign: 'right' }}>Xem tất cả</Text>
-                </TouchableOpacity>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {healthyMeals.map(meal => (
-                    <View key={meal.id} style={[styles.mealCard, { backgroundColor: colors.card, position: 'relative', height: 250 }]}>
-                        <Image source={meal.image} style={[styles.mealImage, { height: 120 }]} />
-                        <Text style={[styles.mealName, { color: colors.text }]} numberOfLines={2}>
-                            {meal.name}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 15 }}>
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, marginBottom: 0 }]}>
+                        {currentMealType ? getMealTypeName(currentMealType) : 'Bữa ăn lành mạnh'}
+                    </Text>
+                    {currentMealType && (
+                        <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 4 }}>
+                            Gợi ý cho bạn
                         </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                            <Text style={[styles.mealCalories, { color: colors.textSecondary }]}>{meal.calories} kcal</Text>
-                        </View>
-                        <TouchableOpacity style={{
-                            position: 'absolute',
-                            right: 12,
-                            bottom: 12,
-                            borderRadius: 20,
-                            backgroundColor: '#da2128',
-                            padding: 6,
-                        }}>
-                            <MaterialIcons name="bookmark-outline" size={22} color={'#ffffff'} />
-                        </TouchableOpacity>
-                    </View>
-                ))}
-            </ScrollView>
-        </View>
-    );
-
-    const coaches = [
-        {
-            id: '1',
-            name: 'Ahmed Ehab',
-            specialty: 'Strength Training',
-            image: { uri: 'https://i.etsystatic.com/11657093/r/il/8cfe1b/5925373976/il_340x270.5925373976_74qf.jpg' },
-        },
-        {
-            id: '2',
-            name: 'Haneen Mohamed',
-            specialty: 'Strength Training',
-            image: { uri: 'https://www.dignitii.com/cdn/shop/articles/Screen_Shot_2022-02-24_at_10.26.16_PM_400x.png?v=1680271614' },
-        },
-    ];
-
-    const renderCoaches = () => (
-        <View style={styles.coachesContainer}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1 }]}>Huấn luyện viên</Text>
-                <TouchableOpacity>
-                    <Text style={{ color: colors.primary, fontSize: 18, textAlign: 'right' }}>Xem tất cả</Text>
+                    )}
+                </View>
+                <TouchableOpacity style={{ paddingTop: 2 }}>
+                    <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
                 </TouchableOpacity>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {coaches.map(coach => (
-                    <View key={coach.id} style={[styles.coachCard, { backgroundColor: 'transparent', height: 190, padding: 0, marginRight: 20 }]}>
-                        <ImageBackground
-                            source={coach.image}
-                            style={[styles.coachImage, { height: 190, width: 170, borderRadius: 14, overflow: 'hidden', marginBottom: 0 }]}
-                            imageStyle={{ borderRadius: 14 }}
-                        >
-                            <View style={{
-                                position: 'absolute',
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                top: 0,
-                                backgroundColor: 'rgba(0,0,0,0.18)',
-                                borderRadius: 14,
-                            }} />
-                            <View style={{
-                                position: 'absolute',
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                paddingVertical: 8,
-                                paddingHorizontal: 6,
-                            }}>
-                                <Text style={[styles.coachName, { color: '#fff', textShadowColor: '#000', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }]} numberOfLines={1}>{coach.name}</Text>
-                                <Text style={[styles.coachSpecialty, { color: '#eee', fontSize: 16 }]} numberOfLines={1}>{coach.specialty}</Text>
+            {loadingMeals ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: colors.textSecondary }}>Đang tải...</Text>
+                </View>
+            ) : healthyMeals.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: colors.textSecondary }}>Chưa có bữa ăn nào</Text>
+                </View>
+            ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {healthyMeals.map(meal => (
+                        <View key={meal.id} style={[styles.mealCard, { backgroundColor: colors.card, position: 'relative', height: 250 }]}>
+                            <Image
+                                source={{ uri: meal.hinhAnh || 'https://via.placeholder.com/170x120' }}
+                                style={[styles.mealImage, { height: 120 }]}
+                            />
+                            <Text style={[styles.mealName, { color: colors.text }]} numberOfLines={2}>
+                                {meal.tenMonAn}
+                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                                <Text style={[styles.mealCalories, { color: colors.textSecondary }]}>
+                                    {meal.thongTinDinhDuong?.calories || 0} kcal
+                                </Text>
                             </View>
-                        </ImageBackground>
-                    </View>
-                ))}
-            </ScrollView>
+                            <TouchableOpacity style={{
+                                position: 'absolute',
+                                right: 12,
+                                bottom: 12,
+                                borderRadius: 20,
+                                backgroundColor: '#da2128',
+                                padding: 6,
+                            }}>
+                                <MaterialIcons name="bookmark-outline" size={22} color={'#ffffff'} />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+                </ScrollView>
+            )}
         </View>
     );
 
-    Object.assign(styles, {
-        coachesContainer: {
-            margin: 15,
-            marginTop: 0,
-            borderRadius: 16,
-            paddingTop: 20,
-            paddingBottom: 60,
-        },
-        coachCard: {
-            width: 170,
-            borderRadius: 14,
-            alignItems: 'center',
-            marginRight: 16,
-        },
-        coachImage: {
-            width: 120,
-            height: 140,
-            borderRadius: 12,
-            marginBottom: 12,
-            resizeMode: 'cover',
-        },
-        coachName: {
-            fontSize: 20,
-            fontWeight: 'w600',
-            marginBottom: 4,
-            textAlign: 'center',
-        },
-        coachSpecialty: {
-            fontSize: 18,
-            fontWeight: 'w600',
-            color: '#888',
-            textAlign: 'center',
-        },
-    });
+    const renderExercises = () => (
+        <View style={[styles.exercisesContainer, { backgroundColor: colors.surface }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 15 }}>
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, marginBottom: 0 }]}>
+                        Bài tập phổ biến
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 4 }}>
+                        Khám phá các bài tập hiệu quả
+                    </Text>
+                </View>
+                <TouchableOpacity onPress={() => navigation.navigate('Workout')} style={{ paddingTop: 2 }}>
+                    <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
+                </TouchableOpacity>
+            </View>
+            {loadingExercises ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: colors.textSecondary }}>Đang tải...</Text>
+                </View>
+            ) : exercises.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: colors.textSecondary }}>Chưa có bài tập nào</Text>
+                </View>
+            ) : (
+                <View style={{ gap: 28 }}>
+                    {exercises.map((exercise, index) => (
+                        <TouchableOpacity
+                            key={exercise._id || index}
+                            style={[
+                                styles.exerciseCard,
+                                {
+                                    backgroundColor: colors.card,
+                                    borderWidth: isLightMode ? 1 : 0,
+                                    borderColor: isLightMode ? '#E5EFF9' : 'transparent'
+                                }
+                            ]}
+                            onPress={() => {
+                                console.log('Exercise clicked:', exercise.tenBaiTap);
+                            }}
+                        >
+                            {/* Image Container with Overlay Badge */}
+                            <View style={styles.exerciseImageContainer}>
+                                <Image
+                                    source={{ uri: exercise.hinhAnh || 'https://via.placeholder.com/319x200' }}
+                                    style={styles.exerciseImage}
+                                />
+                            </View>
 
-    // Place this in your render tree, e.g. after renderCoachingBanner():
-    // {renderCoaches()}
+                            {/* Exercise Info Container */}
+                            <View style={styles.exerciseInfo}>
+                                <Text style={[styles.exerciseName, { color: colors.text }]} numberOfLines={2}>
+                                    {exercise.tenBaiTap}
+                                </Text>
 
-    Object.assign(styles, {
-        healthyMealsContainer: {
-            padding: 20,
-            margin: 15,
-            marginTop: 0,
-            borderRadius: 16,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.08,
-            shadowRadius: 8,
-            elevation: 3,
-        },
-        mealCard: {
-            width: 170,
-            marginRight: 16,
-            borderRadius: 14,
-            padding: 12,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.04,
-            shadowRadius: 4,
-            elevation: 2,
-        },
-        mealImage: {
-            width: '100%',
-            height: 90,
-            borderRadius: 10,
-            marginBottom: 10,
-        },
-        mealName: {
-            fontSize: 16,
-            fontWeight: '600',
-            marginBottom: 6,
-        },
-        mealCalories: {
-            fontSize: 14,
-            flex: 1,
-        },
-        mealBookmark: {
-            borderRadius: 20,
-            backgroundColor: '#f2f2f2',
-            padding: 4,
-            marginLeft: 8,
-        },
-    });
+                                {/* Meta Information Row */}
+                                <View style={styles.exerciseMeta}>
+                                    {/* Level */}
+                                    {exercise.mucDoKho && (
+                                        <>
+                                            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                                {exercise.mucDoKho}
+                                            </Text>
+                                            <Text style={[styles.metaDot, { color: colors.textSecondary }]}>•</Text>
+                                        </>
+                                    )}
 
-    const extraStyles = StyleSheet.create({
-        upcomingClassesContainer: {
-            padding: 20,
-            margin: 15,
-            marginTop: 0,
-            borderRadius: 16,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.08,
-            shadowRadius: 8,
-            elevation: 3,
-        },
-        classCard: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingTop: 12,
-            paddingBottom: 12,
-            paddingLeft: 10,
-            borderRadius: 12,
-            marginBottom: 14,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.04,
-            shadowRadius: 4,
-            elevation: 2,
-        },
-        classImage: {
-            width: 80,
-            height: 60,
-            borderRadius: 10,
-            marginRight: 14,
-        },
-        classInfo: {
-            flex: 1,
-            justifyContent: 'center',
-        },
-        className: {
-            fontSize: 18,
-            fontWeight: '600',
-            marginBottom: 2,
-        },
-        classMeta: {
-            fontSize: 14,
-        },
-        classBookmark: {
-            borderRadius: 20,
-            backgroundColor: '#da2128',
-            marginLeft: 8,
-        },
-    });
+                                    {/* Time */}
+                                    {exercise.thoiGian && (
+                                        <>
+                                            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                                {exercise.thoiGian}
+                                            </Text>
+                                            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                                {' phút'}
+                                            </Text>
+                                            <Text style={[styles.metaDot, { color: colors.textSecondary }]}>•</Text>
+                                        </>
+                                    )}
 
-    Object.assign(styles, extraStyles);
+                                    {/* Calories */}
+                                    <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                        {exercise.kcal || 0}
+                                    </Text>
+                                    <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                        {' kcal'}
+                                    </Text>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            )}
+        </View>
+    );
 
-    // Định nghĩa hàm fetchMembershipTimeRemaining
+    const renderCoaches = () => {
+        const getCoachInitial = (name) => {
+            if (!name) return 'PT';
+            return name.charAt(0).toUpperCase();
+        };
+
+        return (
+            <View style={styles.coachesContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>Huấn luyện viên</Text>
+                    <TouchableOpacity>
+                        <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
+                    </TouchableOpacity>
+                </View>
+                <FlatList
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    data={PTData.slice(0, 5)}
+                    renderItem={({ item: coach }) => (
+                        <View key={coach._id} style={[styles.coachCard, { backgroundColor: 'transparent', height: 190, padding: 0, marginRight: 20 }]}>
+                            {coach.anhDaiDien ? (
+                                <ImageBackground
+                                    source={{ uri: coach.anhDaiDien }}
+                                    style={[styles.coachImage, { height: 190, width: 170, borderRadius: 14, overflow: 'hidden', marginBottom: 0 }]}
+                                    imageStyle={{ borderRadius: 14 }}
+                                >
+                                    <View style={{
+                                        position: 'absolute',
+                                        bottom: 0,
+                                        left: 0,
+                                        right: 0,
+                                        top: 0,
+                                        backgroundColor: 'rgba(0,0,0,0.3)',
+                                        borderRadius: 14,
+                                    }} />
+                                    <View style={{
+                                        position: 'absolute',
+                                        bottom: 0,
+                                        left: 0,
+                                        right: 0,
+                                        paddingVertical: 8,
+                                        paddingHorizontal: 6,
+                                    }}>
+                                        <Text style={[styles.coachName, { color: '#fff', textShadowColor: '#000', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }]} numberOfLines={1}>{coach.hoTen}</Text>
+                                        <Text style={[styles.coachSpecialty, { color: '#fff', fontSize: 16, textShadowColor: '#000', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{coach.chuyenMon}</Text>
+                                    </View>
+                                </ImageBackground>
+                            ) : (
+                                <View style={{
+                                    height: 190,
+                                    width: 170,
+                                    borderRadius: 14,
+                                    backgroundColor: '#DA2128',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    overflow: 'hidden',
+                                }}>
+                                    <Text style={{
+                                        fontSize: 60,
+                                        fontWeight: 'bold',
+                                        color: '#fff',
+                                        marginBottom: 10,
+                                    }}>
+                                        {getCoachInitial(coach.hoTen)}
+                                    </Text>
+                                    <View style={{
+                                        position: 'absolute',
+                                        bottom: 0,
+                                        left: 0,
+                                        right: 0,
+                                        backgroundColor: 'rgba(0,0,0,0.3)',
+                                        paddingVertical: 8,
+                                        paddingHorizontal: 6,
+                                    }}>
+                                        <Text style={[styles.coachName, { color: '#fff' }]} numberOfLines={1}>{coach.hoTen}</Text>
+                                        <Text style={[styles.coachSpecialty, { color: '#fff', fontSize: 16 }]} numberOfLines={1}>{coach.chuyenMon}</Text>
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+                    )}
+                />
+            </View>
+        );
+    };
+
     const fetchMembershipTimeRemaining = async () => {
         try {
             const userId = userInfo?._id || userInfo?.id || userInfo?.userId;
@@ -847,24 +835,13 @@ const HomeScreen = () => {
                 console.error('Không tìm thấy userId, không thể lấy thời gian còn lại.');
                 return;
             }
-            // Ensure userId is used in all API calls that require it
             const response = await apiService.apiCall(`/hanghoivien/thoi-gian-con-lai/${userId}`, 'GET');
-            // api may return { success: true, data: { userId, timeRemaining } } or nested as result.data.data
             const timeRemaining = (response && response.data && response.data.data && typeof response.data.data.timeRemaining === 'number')
                 ? response.data.data.timeRemaining
                 : (response && response.data && typeof response.data.timeRemaining === 'number'
                     ? response.data.timeRemaining
                     : (response && typeof response.timeRemaining === 'number' ? response.timeRemaining : 0));
 
-            // Example fix for user rank API (if used elsewhere in your code):
-            // const rankResponse = await apiService.apiCall(`/users/${userId}/with-rank`, 'GET');
-            // if (rankResponse && typeof rankResponse === 'object') {
-            //     // handle rankResponse
-            // } else {
-            //     console.error('Error fetching user rank: Non-JSON response');
-            // }
-
-            // Lấy số ngày của tháng hiện tại
             const now = new Date();
             const year = now.getFullYear();
             const month = now.getMonth() + 1;
@@ -886,13 +863,16 @@ const HomeScreen = () => {
                 {/* Header */}
                 <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.borderLight }]}>
                     <View style={styles.headerLeft}>
-                        <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>Xin chào, 👋</Text>
-                        <Text style={[styles.userNameText, { color: colors.text }]}>
-                            {userInfo?.hoTen || userInfo?.sdt || 'Thành viên'}
-                        </Text>
+                        <Avatar userProfile={userInfo} size={50} />
+                        <View>
+                            <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>Xin chào, 👋</Text>
+                            <Text style={[styles.userNameText, { color: colors.text }]}>
+                                {userInfo?.hoTen || userInfo?.sdt || 'Thành viên'}
+                            </Text>
+                        </View>
                     </View>
                     <TouchableOpacity style={[styles.notificationButton, { backgroundColor: colors.card }]}>
-                        <MaterialIcons name="notifications" size={24} color={colors.text} />
+                        <MaterialIcons name="notifications" size={30} color={colors.text} />
                     </TouchableOpacity>
                 </View>
 
@@ -906,99 +886,13 @@ const HomeScreen = () => {
 
                     {renderMembershipStatus()}
 
+                    {renderExercises()}
+
                     {renderUpcomingClasses()}
 
                     {renderHealthyMeals()}
 
                     {renderCoaches()}
-
-                    {/* Charts Section
-                    <ChartContainer title="Tiến độ tuần này">
-                        <WeeklyProgressChart data={chartData.weeklyProgress} />
-                    </ChartContainer> */}
-
-                    {/* <View style={styles.chartsRow}>
-                        <View style={styles.chartHalf}>
-                            <ChartContainer title="Mục tiêu tập luyện" style={styles.halfChart}>
-                                <GoalProgressChart
-                                    current={chartData.goalProgress.workouts.current}
-                                    target={chartData.goalProgress.workouts.target}
-                                    title="Buổi tập"
-                                    unit=" buổi"
-                                />
-                            </ChartContainer>
-                        </View>
-                        <View style={styles.chartHalf}>
-                            <ChartContainer title="Mục tiêu calories" style={styles.halfChart}>
-                                <GoalProgressChart
-                                    current={chartData.goalProgress.calories.current}
-                                    target={chartData.goalProgress.calories.target}
-                                    title="Calories"
-                                    unit=" cal"
-                                />
-                            </ChartContainer>
-                        </View>
-                    </View> */}
-
-                    {/* <ChartContainer title="So sánh 4 tuần gần đây">
-                        <ComparisonChart data={chartData.comparisonData} />
-                    </ChartContainer> */}
-
-                    {/* Next Class Card */}
-                    {/* <View style={[styles.nextClassContainer, { backgroundColor: colors.surface }]}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Lớp học tiếp theo</Text>
-                        <View style={[styles.nextClassCard, { backgroundColor: colors.card, borderLeftColor: colors.primary }]}>
-                            <View style={styles.nextClassIcon}>
-                                <MaterialIcons name="self-improvement" size={30} color={colors.primary} />
-                            </View>
-                            <View style={styles.nextClassInfo}>
-                                <Text style={[styles.nextClassName, { color: colors.text }]}>{memberData.nextClass}</Text>
-                                <Text style={[styles.nextClassTime, { color: colors.textSecondary }]}>Hôm nay - {memberData.nextClassTime}</Text>
-                                <Text style={[styles.nextClassStatus, { color: colors.primary }]}>Đã đặt lịch</Text>
-                            </View>
-                            <TouchableOpacity style={[styles.nextClassButton, { backgroundColor: colors.primary }]}>
-                                <Text style={styles.nextClassButtonText}>Chi tiết</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View> */}
-
-                    {/* Quick Actions */}
-                    {/* {renderQuickActions()} */}
-
-                    {/* Weekly Goal Progress */}
-                    {/* <View style={[styles.goalSection, { backgroundColor: colors.surface }]}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Mục tiêu tuần này</Text>
-                        <View style={[styles.goalCard, { backgroundColor: colors.card }]}>
-                            <View style={[styles.goalProgress, { backgroundColor: colors.border }]}>
-                                <View style={[styles.goalProgressBar, {
-                                    width: `${(memberData.todayCalories / memberData.weeklyGoal) * 100}%`,
-                                    backgroundColor: colors.primary
-                                }]} />
-                            </View>
-                            <View style={styles.goalInfo}>
-                                <Text style={[styles.goalCurrent, { color: colors.text }]}>{memberData.todayCalories}</Text>
-                                <Text style={[styles.goalTarget, { color: colors.textSecondary }]}>/ {memberData.weeklyGoal} calories</Text>
-                            </View>
-                            <Text style={[styles.goalText, { color: colors.textSecondary }]}>Tuyệt vời! Bạn đang đạt được mục tiêu</Text>
-                        </View>
-                    </View> */}
-
-                    {/* AI Suggestions */}
-                    {/* <View style={[styles.aiSection, { backgroundColor: colors.surface }]}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Gợi ý cho bạn</Text>
-                        <View style={[styles.aiCard, { backgroundColor: colors.card }]}>
-                            <Ionicons name="bulb" size={24} color={colors.primary} />
-                            <Text style={[styles.aiText, { color: colors.text }]}>
-                                Thử lớp Pilates vào thứ 4 để cải thiện độ dẻo dai
-                            </Text>
-                        </View>
-                        <View style={[styles.aiCard, { backgroundColor: colors.card }]}>
-                            <Ionicons name="nutrition" size={24} color={colors.text} />
-                            <Text style={[styles.aiText, { color: colors.text }]}>
-                                Bổ sung protein sau buổi tập để phục hồi cơ bắp tốt hơn
-                            </Text>
-                        </View>
-                    </View> */}
                 </ScrollView>
             </SafeAreaView>
             <Chatbot />
@@ -1020,6 +914,8 @@ const styles = StyleSheet.create({
     },
     headerLeft: {
         flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     welcomeText: {
         fontSize: 16,
@@ -1031,7 +927,6 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     notificationButton: {
-        padding: 8,
         borderRadius: 20,
     },
     scrollView: {
@@ -1052,177 +947,14 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 3,
     },
-    progressGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-    },
-    progressCard: {
-        width: '48%',
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 12,
-        alignItems: 'center',
-    },
-    progressIcon: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    progressValue: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 2,
-    },
-    progressTitle: {
-        fontSize: 14,
-        fontWeight: '600',
-        textAlign: 'center',
-    },
-    progressSubtitle: {
-        fontSize: 12,
-        textAlign: 'center',
-    },
-    nextClassContainer: {
-        padding: 20,
-        margin: 15,
-        marginTop: 0,
-        borderRadius: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    nextClassCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderRadius: 12,
-        borderLeftWidth: 4,
-    },
-    nextClassIcon: {
-        marginRight: 16,
-    },
-    nextClassInfo: {
-        flex: 1,
-    },
-    nextClassName: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 4,
-    },
     nextClassTime: {
         fontSize: 14,
         marginBottom: 2,
-    },
-    nextClassStatus: {
-        fontSize: 12,
-        fontWeight: '600',
     },
     nextClassButton: {
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 8,
-    },
-    nextClassButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    quickActionsContainer: {
-        padding: 20,
-        margin: 15,
-        marginTop: 0,
-        borderRadius: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    actionsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-    },
-    actionCard: {
-        width: '48%',
-        alignItems: 'center',
-        padding: 16,
-        marginBottom: 12,
-        borderRadius: 12,
-    },
-    actionIcon: {
-        width: 54,
-        height: 54,
-        borderRadius: 27,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    actionTitle: {
-        fontSize: 14,
-        textAlign: 'center',
-        fontWeight: '600',
-    },
-    goalSection: {
-        padding: 20,
-        margin: 15,
-        marginTop: 0,
-        borderRadius: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    goalCard: {
-        padding: 16,
-        borderRadius: 12,
-    },
-    goalProgress: {
-        height: 8,
-        borderRadius: 4,
-        marginBottom: 12,
-        overflow: 'hidden',
-        backgroundColor: '#b3b3b3',
-    },
-    goalProgressBar: {
-        height: '100%',
-        borderRadius: 4,
-        backgroundColor: '#da2128',
-    },
-    goalInfo: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        marginBottom: 8,
-    },
-    goalCurrent: {
-        fontSize: 24,
-        fontWeight: 'bold',
-    },
-    goalTarget: {
-        fontSize: 16,
-        marginLeft: 4,
-    },
-    goalText: {
-        fontSize: 14,
-    },
-    aiSection: {
-        padding: 20,
-        margin: 15,
-        marginTop: 0,
-        marginBottom: 30,
-        borderRadius: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
     },
     bannerContainer: {
         margin: 15,
@@ -1248,9 +980,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         paddingHorizontal: 20,
     },
-    bannerContent: {
-        alignItems: 'center',
-    },
     bannerTitle: {
         fontSize: 22,
         fontWeight: 'regular',
@@ -1259,21 +988,6 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         letterSpacing: 1,
         lineHeight: 35,
-    },
-    bannerSubtitle: {
-        fontSize: 16,
-        color: 'rgba(255, 255, 255, 0.9)',
-        textAlign: 'center',
-        marginBottom: 12,
-    },
-    bannerDescription: {
-        fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.8)',
-        textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: 20,
-        paddingHorizontal: 10,
-        fontStyle: 'italic',
     },
     bannerButton: {
         flexDirection: 'row',
@@ -1295,70 +1009,237 @@ const styles = StyleSheet.create({
         marginRight: 8,
         letterSpacing: 0.5,
     },
-    aiCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 12,
-    },
-    aiText: {
-        flex: 1,
-        fontSize: 14,
-        marginLeft: 12,
-        lineHeight: 20,
-    },
-    chartsRow: {
-        flexDirection: 'row',
-        marginHorizontal: 15,
-        marginTop: 0,
-        gap: 10,
-    },
-    chartHalf: {
-        flex: 1,
-    },
-    halfChart: {
-        margin: 0,
-    },
-    membershipContainer: {
-        padding: 20,
-        margin: 15,
-        borderRadius: 16,
-        backgroundColor: '#f8f9fa',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 3,
-        alignItems: 'center',
-    },
-    membershipTitle: {
-        fontSize: 18,
-        fontWeight: '500',
-        marginBottom: 8,
-        color: '#333',
-    },
     membershipDays: {
         fontSize: 24,
         fontWeight: 'bold',
         color: '#DA2128',
     },
-    progressText: {
-        fontSize: 16,
-        fontWeight: '500',
-        marginBottom: 8,
-        color: '#333',
-    },
-    progressBarBackground: {
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#e0e0e0',
-        overflow: 'hidden',
-    },
     progressBar: {
         height: '100%',
         borderRadius: 4,
         backgroundColor: '#da2128',
+    },
+    coachesContainer: {
+        margin: 15,
+        marginTop: 0,
+        borderRadius: 16,
+        paddingTop: 20,
+        paddingBottom: 60,
+    },
+    coachCard: {
+        width: 170,
+        borderRadius: 14,
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    coachImage: {
+        width: 120,
+        borderRadius: 12,
+        marginBottom: 12,
+        resizeMode: 'contain',
+    },
+    coachName: {
+        fontSize: 20,
+        fontWeight: 'w600',
+        marginBottom: 4,
+        textAlign: 'center',
+    },
+    coachSpecialty: {
+        fontSize: 18,
+        fontWeight: 'w600',
+        color: '#888',
+        textAlign: 'center',
+    },
+    healthyMealsContainer: {
+        padding: 20,
+        margin: 15,
+        marginTop: 0,
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    mealCard: {
+        width: 170,
+        marginRight: 16,
+        borderRadius: 14,
+        padding: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    mealImage: {
+        width: '100%',
+        height: 90,
+        borderRadius: 10,
+        marginBottom: 10,
+    },
+    mealName: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 6,
+    },
+    mealCalories: {
+        fontSize: 14,
+        flex: 1,
+    },
+    mealBookmark: {
+        borderRadius: 20,
+        backgroundColor: '#f2f2f2',
+        padding: 4,
+        marginLeft: 8,
+    },
+    exercisesContainer: {
+        padding: 20,
+        margin: 15,
+        marginTop: 0,
+        marginBottom: 20,
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    exerciseCard: {
+        width: '100%',
+        borderRadius: 10,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+        elevation: 3,
+    },
+    exerciseImageContainer: {
+        width: '100%',
+        height: 200,
+        position: 'relative',
+    },
+    exerciseImage: {
+        width: '100%',
+        height: 200,
+        resizeMode: 'cover',
+    },
+    workoutBadge: {
+        position: 'absolute',
+        left: 20,
+        bottom: 20,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        paddingHorizontal: 7.5,
+        paddingVertical: 5,
+        borderRadius: 4,
+    },
+    workoutBadgeText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: '700',
+        fontFamily: 'Manrope',
+        letterSpacing: 0.5,
+    },
+    exerciseInfo: {
+        width: '100%',
+        paddingTop: 16,
+        paddingLeft: 20,
+        paddingBottom: 16,
+        paddingRight: 20,
+    },
+    exerciseName: {
+        fontSize: 16,
+        fontWeight: '700',
+        fontFamily: 'Manrope',
+        marginBottom: 6,
+    },
+    exerciseMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+    },
+    metaText: {
+        fontSize: 14,
+        fontWeight: '400',
+        fontFamily: 'Manrope',
+    },
+    metaDot: {
+        fontSize: 14,
+        fontWeight: '400',
+        fontFamily: 'Manrope',
+        marginHorizontal: 4,
+    },
+    workoutsContainer: {
+        padding: 20,
+        margin: 15,
+        marginTop: 0,
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    workoutCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 14,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    upcomingClassesContainer: {
+        padding: 20,
+        margin: 15,
+        marginTop: 0,
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    classCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingTop: 12,
+        paddingBottom: 12,
+        paddingLeft: 10,
+        borderRadius: 12,
+        marginBottom: 14,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    classImage: {
+        width: 80,
+        height: 60,
+        borderRadius: 10,
+        marginRight: 14,
+    },
+    classInfo: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    className: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    classMeta: {
+        fontSize: 14,
+    },
+    classBookmark: {
+        borderRadius: 20,
+        backgroundColor: '#da2128',
+        marginLeft: 8,
     },
 });
 

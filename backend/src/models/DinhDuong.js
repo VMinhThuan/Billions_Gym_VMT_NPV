@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-// Schema cho gợi ý dinh dưỡng AI
 const DinhDuongSchema = new mongoose.Schema({
     hoiVien: { type: mongoose.Schema.Types.ObjectId, ref: 'HoiVien', required: true },
     ngayGoiY: { type: Date, default: Date.now },

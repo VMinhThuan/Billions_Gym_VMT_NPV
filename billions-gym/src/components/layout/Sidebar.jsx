@@ -10,8 +10,9 @@ const Sidebar = ({ isOpen, onClose }) => {
 
     const [apiUser, setApiUser] = useState(null);
     const [isLoadingUser, setIsLoadingUser] = useState(false);
+    const [collapsed, setCollapsed] = useState(false);
 
-    // Fetch user profile 
+    // Fetch user profile
     useEffect(() => {
         const fetchUserProfile = async () => {
             if (!localUser?._id) return;
@@ -61,13 +62,6 @@ const Sidebar = ({ isOpen, onClose }) => {
             icon: 'package',
             path: '/active-package',
             description: 'Thông tin gói tập đang sử dụng'
-        },
-        {
-            id: 'packages',
-            label: 'Đăng ký gói tập',
-            icon: 'plus-circle',
-            path: '/packages',
-            description: 'Đăng ký hoặc gia hạn gói tập'
         },
         {
             id: 'schedule',
@@ -227,104 +221,69 @@ const Sidebar = ({ isOpen, onClose }) => {
             )}
 
             {/* Sidebar */}
-            <div className={`fixed top-0 left-0 h-screen w-80 bg-[#1a1a1a] border-r border-[#2a2a2a] transform transition-transform duration-300 ease-in-out z-50 overflow-y-auto sidebar-scroll ${isOpen ? 'translate-x-0' : '-translate-x-full'
-                } lg:translate-x-0`}>
-
-                {/* Header */}
-                <div className="p-6 border-b border-[#2a2a2a]">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-white text-xl font-bold">Menu</h2>
-                        <button
-                            onClick={onClose}
-                            className="lg:hidden text-gray-400 hover:text-white transition-colors"
-                        >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
-                {/* User Info */}
-                {/* <div className="p-6 border-b border-[#484747]"> */}
-                {/* <div className="flex flex-col items-center justify-center space-y-3"> */}
-                {/* <div className="relative flex items-center justify-center"> */}
-                {/* Avatar ring */}
-                {/* <div
-                                className="w-26 h-26 rounded-full flex items-center justify-center overflow-hidden"
-                                style={{ padding: '3px', background: avatarBorderColor }}
-                                title={user?.loaiThanhVien || user?.rank || ''}
-                            >
-                                <div className="w-full h-full rounded-full bg-[#da2128] flex items-center justify-center text-white font-bold overflow-hidden">
-                                    {user && user.anhDaiDien ? (
-                                        <img
-                                            src={user.anhDaiDien}
-                                            alt={user?.hoTen || 'avatar'}
-                                            className="w-full h-full rounded-full object-cover"
-                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                        />
-                                    ) : (
-                                        <span className='text-5xl font-medium'>{(user && user.hoTen && user.hoTen[0]) ? user.hoTen[0].toUpperCase() : 'U'}</span>
-                                    )}
-                                </div>
-                            </div> */}
-
-                {/* Centered badge under the ring */}
-                {/* <div className="absolute bottom-0 transform translate-y-1/2 flex items-center justify-center w-full pointer-events-none">
-                                <div
-                                    className="pointer-events-auto px-2 py-0.5 rounded-full text-xs font-semibold text-white shadow-md"
-                                    style={{ background: avatarBorderColor, minWidth: 56, textAlign: 'center' }}
-                                    title={user?.hangHoiVien?.tenHienThi || user?.hangHoiVien || ''}
-                                >
-                                    {(() => {
-                                        const hv = user?.hangHoiVien;
-                                        if (!hv) return 'KHÔNG';
-                                        if (typeof hv === 'string') return hv;
-                                        return hv.tenHienThi || hv.tenHang || 'KHÔNG';
-                                    })()}
-                                </div>
-                            </div> */}
-                {/* </div> */}
-                {/* <div className="text-center mt-3">
-                            <div className="text-white font-medium text-xl">{user?.hoTen || 'Hội viên'}</div>
-                            <div className="text-gray-400 text-[16px]">{user?.sdt || user?.email || ''}</div>
-                        </div> */}
-                {/* </div> */}
-                {/* </div> */}
+            <div className={`fixed top-16 pt-4 left-0 h-[calc(100vh-4rem)] ${collapsed ? 'w-20' : 'w-80'} bg-[#1a1a1a] border-r border-[#2a2a2a] transition-[width] duration-300 ease-in-out z-50 ${collapsed ? 'overflow-hidden' : 'overflow-y-auto'} sidebar-scroll ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 will-change-[width]`}>
 
                 {/* Menu Items */}
                 <nav className="flex-1">
-                    <div className="p-4">
-                        {menuItems.map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => handleNavigate(item.path)}
-                                className={`w-full flex items-center space-x-3 px-4 py-3 text-left text-gray-300 hover:text-white hover:bg-[#2a2a2a] rounded-lg transition-all duration-200 group mb-2 ${isActive(item.path)
-                                    ? 'bg-[#303030] border-l-4 border-[#da2128] text-white cursor-pointer'
-                                    : 'bg-transparent border-l-4 border-transparent cursor-pointer'
-                                    }`}
-                            >
-                                <div className={`text-white group-hover:text-[#da2128] transition-colors ${isActive(item.path) ? 'text-[#da2128]' : ''
-                                    }`}>
-                                    {getIcon(item.icon)}
-                                </div>
-                                <div className="flex-1">
-                                    <div className="font-medium text-inherit group-hover:text-[#da2128]">{item.label}</div>
-                                    <div className="text-xs text-gray-400 group-hover:text-gray-400">
-                                        {item.description}
+                    <div className={`p-4 ${collapsed ? 'pt-4' : 'pt-4'}`}>
+                        {menuItems.map((item, index) => (
+                            <div key={item.id} className="relative mb-2">
+                                <button
+                                    onClick={() => handleNavigate(item.path)}
+                                    title={item.label}
+                                    className={`w-full flex items-center ${collapsed ? 'justify-center' : 'space-x-3'} px-4 py-3 ${collapsed ? 'text-center' : 'text-left'} text-gray-300 hover:text-white hover:bg-[#2a2a2a] rounded-lg transition-all duration-200 group ${isActive(item.path)
+                                        ? 'bg-[#303030] border-l-4 border-[#da2128] text-white cursor-pointer'
+                                        : 'bg-transparent border-l-4 border-transparent cursor-pointer'
+                                        }`}
+                                >
+                                    <div className={`text-white group-hover:text-[#da2128] transition-colors ${isActive(item.path) ? 'text-[#da2128]' : ''
+                                        }`}>
+                                        {getIcon(item.icon)}
                                     </div>
-                                </div>
-                                {item.badge && (
-                                    <div className="bg-[#da2128] text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
-                                        {item.badge}
+                                    <div className="flex-1">
+                                        <div className={`font-medium text-inherit group-hover:text-[#da2128] ${collapsed ? 'hidden' : ''}`}>{item.label}</div>
+                                        <div className={`text-xs text-gray-400 group-hover:text-gray-400 ${collapsed ? 'hidden' : ''}`}>
+                                            {item.description}
+                                        </div>
                                     </div>
-                                )}
-                            </button>
+                                    {item.badge && (
+                                        <div className="bg-[#da2128] text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                                            {item.badge}
+                                        </div>
+                                    )}
+                                </button>
+                            </div>
                         ))}
                     </div>
                 </nav>
 
             </div>
+
+            {/* Collapse button*/}
+            <button
+                onClick={() => {
+                    const next = !collapsed;
+                    setCollapsed(next);
+                    try {
+                        window.dispatchEvent(new CustomEvent('sidebar:toggle', { detail: { collapsed: next } }));
+                    } catch (e) { }
+                }}
+                title={collapsed ? 'Mở rộng' : 'Thu gọn'}
+                className="hidden lg:flex fixed items-center justify-center w-12 h-12 text-white text-opacity-50 hover:text-opacity-100 hover:scale-110 transition-all duration-300 ease-out z-[200] cursor-pointer will-change-[left,transform]"
+                style={{ left: collapsed ? '3.5rem' : '19rem', top: '5rem' }}
+                aria-label={collapsed ? 'Mở rộng' : 'Thu gọn'}
+            >
+                <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    className={`transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`}
+                >
+                    <path d="M8.70710678,12 L19.5,12 C19.7761424,12 20,12.2238576 20,12.5 C20,12.7761424 19.7761424,13 19.5,13 L8.70710678,13 L11.8535534,16.1464466 C12.0488155,16.3417088 12.0488155,16.6582912 11.8535534,16.8535534 C11.6582912,17.0488155 11.3417088,17.0488155 11.1464466,16.8535534 L7.14644661,12.8535534 C6.95118446,12.6582912 6.95118446,12.3417088 7.14644661,12.1464466 L11.1464466,8.14644661 C11.3417088,7.95118446 11.6582912,7.95118446 11.8535534,8.14644661 C12.0488155,8.34170876 12.0488155,8.65829124 11.8535534,8.85355339 L8.70710678,12 L8.70710678,12 Z M4,5.5 C4,5.22385763 4.22385763,5 4.5,5 C4.77614237,5 5,5.22385763 5,5.5 L5,19.5 C5,19.7761424 4.77614237,20 4.5,20 C4.22385763,20 4,19.7761424 4,19.5 L4,5.5 Z" fill="currentColor" />
+                </svg>
+            </button>
         </>
     );
 };

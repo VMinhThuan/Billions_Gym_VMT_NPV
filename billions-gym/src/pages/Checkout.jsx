@@ -59,6 +59,8 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const [formLocked, setFormLocked] = useState(false);
     const [branches, setBranches] = useState([]);
     const [selectedBranchId, setSelectedBranchId] = useState('');
+    const [userCoords, setUserCoords] = useState(null);
+    const ipFallbackCalledRef = React.useRef(false);
 
     // Upgrade logic states
     const [existingPackage, setExistingPackage] = useState(null);
@@ -250,6 +252,20 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
         return Math.max(0, diffDays);
     };
 
+    // Haversine distance (km)
+    const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+        const R = 6371; // Earth radius in km
+        const toRad = (deg) => (deg * Math.PI) / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    };
+
     // Load branches nearest first
     useEffect(() => {
         const loadBranches = async (lat, lng) => {
@@ -257,21 +273,109 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                 const qs = lat && lng ? `?lat=${lat}&lng=${lng}` : '';
                 const data = await api.get(`/chinhanh${qs}`, {}, false);
                 if (data.success) {
-                    setBranches(data.data);
-                    if (data.data?.length) setSelectedBranchId(data.data[0]._id);
+                    let list = data.data || [];
+                    // Nếu backend không trả distance, tự tính client-side
+                    if (lat && lng) {
+                        list = list.map(b => {
+                            const coords = b.location?.coordinates;
+                            if (coords && coords.length === 2) {
+                                const [bLng, bLat] = coords;
+                                const distanceKm = calculateDistanceKm(lat, lng, bLat, bLng);
+                                return { ...b, distanceKm };
+                            }
+                            return b;
+                        });
+                        // Sắp xếp gần -> xa dựa trên distance (ưu tiên backend distance nếu có)
+                        list.sort((a, b) => {
+                            const da = (a.distance ?? (a.distanceKm ? a.distanceKm * 1000 : Infinity));
+                            const db = (b.distance ?? (b.distanceKm ? b.distanceKm * 1000 : Infinity));
+                            return da - db;
+                        });
+                    }
+                    setBranches(list);
+                    if (list?.length) setSelectedBranchId(list[0]._id);
                 }
             } catch (e) { console.error('Load branches error', e); }
         };
+        const ipFallback = async () => {
+            if (ipFallbackCalledRef.current) return; // guard against multiple calls
+            ipFallbackCalledRef.current = true;
+
+            // 1) try cache first (valid within 24h)
+            try {
+                const cached = JSON.parse(localStorage.getItem('geo_ip_coords') || 'null');
+                if (cached && Date.now() - cached.ts < 24 * 60 * 60 * 1000) {
+                    setUserCoords({ lat: cached.lat, lng: cached.lng });
+                    await loadBranches(cached.lat, cached.lng);
+                    return;
+                }
+            } catch (_) { }
+
+            // 2) try providers sequentially
+            const providers = [
+                async () => {
+                    const r = await fetch('https://get.geojs.io/v1/ip/geo.json');
+                    if (!r.ok) throw new Error('geojs failed');
+                    const j = await r.json();
+                    return { lat: parseFloat(j.latitude), lng: parseFloat(j.longitude) };
+                },
+                async () => {
+                    const r = await fetch('https://ipapi.co/json/');
+                    if (!r.ok) throw new Error('ipapi failed');
+                    const j = await r.json();
+                    return { lat: parseFloat(j.latitude), lng: parseFloat(j.longitude) };
+                }
+            ];
+
+            for (const provider of providers) {
+                try {
+                    const coords = await provider();
+                    if (coords && !Number.isNaN(coords.lat) && !Number.isNaN(coords.lng)) {
+                        setUserCoords(coords);
+                        localStorage.setItem('geo_ip_coords', JSON.stringify({ ...coords, ts: Date.now() }));
+                        await loadBranches(coords.lat, coords.lng);
+                        return;
+                    }
+                } catch (_) { /* try next provider */ }
+            }
+
+            // 3) final fallback: no coords -> plain list
+            await loadBranches();
+        };
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                (pos) => loadBranches(pos.coords.latitude, pos.coords.longitude),
-                () => loadBranches(),
-                { timeout: 4000 }
+                (pos) => { setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); loadBranches(pos.coords.latitude, pos.coords.longitude); },
+                () => ipFallback(),
+                { timeout: 4000, enableHighAccuracy: false, maximumAge: 60000 }
             );
+            // also start a safety timer to trigger fallback if geolocation hangs
+            setTimeout(() => ipFallback(), 4500);
         } else {
-            loadBranches();
+            ipFallback();
         }
     }, []);
+
+    // Recompute distances client-side if userCoords becomes available after branches loaded
+    useEffect(() => {
+        if (!userCoords || !Array.isArray(branches) || branches.length === 0) return;
+        const { lat, lng } = userCoords;
+        const recomputed = branches.map(b => {
+            if (typeof b.distance === 'number') return b; // backend already provided (meters)
+            const coords = b.location?.coordinates;
+            if (coords && coords.length === 2) {
+                const [bLng, bLat] = coords;
+                const distanceKm = calculateDistanceKm(lat, lng, bLat, bLng);
+                return { ...b, distanceKm };
+            }
+            return b;
+        }).sort((a, b) => {
+            const da = (a.distance ?? (a.distanceKm ? a.distanceKm * 1000 : Infinity));
+            const db = (b.distance ?? (b.distanceKm ? b.distanceKm * 1000 : Infinity));
+            return da - db;
+        });
+        setBranches(recomputed);
+        if (recomputed?.length) setSelectedBranchId(recomputed[0]._id);
+    }, [userCoords]);
 
     // Check login status on component mount and localStorage changes
     useEffect(() => {
@@ -838,9 +942,15 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                     <div className="detail-item">
                                         <label>Chi nhánh tập:</label>
                                         <select value={selectedBranchId} onChange={(e) => setSelectedBranchId(e.target.value)} className="modern-input">
-                                            {branches.map(b => (
-                                                <option key={b._id} value={b._id}>{b.tenChiNhanh} {b.distance ? `- ${(b.distance / 1000).toFixed(1)} km` : ''}</option>
-                                            ))}
+                                            {branches.map(b => {
+                                                const km = typeof b.distance === 'number'
+                                                    ? (b.distance / 1000)
+                                                    : (typeof b.distanceKm === 'number' ? b.distanceKm : null);
+                                                const suffix = km != null ? ` - ${km.toFixed(1)} km` : '';
+                                                return (
+                                                    <option key={b._id} value={b._id}>{b.tenChiNhanh}{suffix}</option>
+                                                );
+                                            })}
                                         </select>
                                     </div>
                                     <div className="detail-item">

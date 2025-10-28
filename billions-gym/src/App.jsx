@@ -7,6 +7,7 @@ import PackageDetail from './pages/PackageDetail'
 import Checkout from './pages/Checkout'
 import PaymentSuccess from './pages/PaymentSuccess'
 import PackageWorkflow from './pages/PackageWorkflow'
+import TestAPI from './components/TestAPI'
 import { authUtils } from './utils/auth'
 import { NotificationProvider, useNotification } from './contexts/NotificationContext'
 import { LanguageProvider } from './contexts/LanguageContext'
@@ -15,6 +16,7 @@ import './styles/responsive.css'
 import './styles/header-responsive.css'
 import ProfileScreen from './pages/Profile'
 import ProfileEdit from './pages/ProfileEdit'
+import ActivePackage from './pages/ActivePackage'
 
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -101,10 +103,12 @@ const AppContent = () => {
             <Route path="/checkout/:id" element={<Checkout onNavigateToLogin={() => navigateToPage('login')} onNavigateToRegister={() => navigateToPage('register')} />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/package-workflow/:registrationId" element={<PackageWorkflow />} />
+            <Route path="/test-api" element={<TestAPI />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path='/profile' element={<ProfileScreen />} />
             <Route path='/profile/edit' element={<ProfileEdit />} />
+            <Route path='/active-package' element={<ActivePackage />} />
           </Routes>
         </div>
       )}

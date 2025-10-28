@@ -59,7 +59,14 @@ const dangKyGoiTap = async (req, res) => {
         }
 
         // Tính ngày kết thúc dựa trên thời hạn gói tập
+        // Ngày kết thúc = Ngày bắt đầu + Thời hạn gói tập
+        // Áp dụng cho cả: Gói mới và Gói nâng cấp
         const ngayKetThuc = new Date(ngayBatDau);
+
+        console.log(`📅 Tính ngày kết thúc cho gói ${goiTap.tenGoiTap}`);
+        console.log(`   - Ngày bắt đầu: ${new Date(ngayBatDau).toLocaleDateString('vi-VN')}`);
+        console.log(`   - Thời hạn: ${goiTap.thoiHan} ${goiTap.donViThoiHan}`);
+
         if (goiTap.donViThoiHan === 'Ngày') {
             ngayKetThuc.setDate(ngayKetThuc.getDate() + goiTap.thoiHan);
         } else if (goiTap.donViThoiHan === 'Tháng') {
@@ -67,6 +74,9 @@ const dangKyGoiTap = async (req, res) => {
         } else if (goiTap.donViThoiHan === 'Năm') {
             ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + goiTap.thoiHan);
         }
+
+        console.log(`   - Ngày kết thúc: ${ngayKetThuc.toLocaleDateString('vi-VN')}`);
+        console.log(`   - isUpgrade: ${isUpgrade}`);
 
         // Tạo đăng ký mới
         const dangKyMoi = new ChiTietGoiTap({
@@ -267,11 +277,14 @@ const getActivePackage = async (req, res) => {
                 }
             ]
         })
-            .populate('maGoiTap', 'tenGoiTap donGia thoiHan donViThoiHan')
-            .populate('goiTapId', 'tenGoiTap donGia thoiHan donViThoiHan')
+            .populate('maGoiTap')
+            .populate('goiTapId')
             .sort({ ngayDangKy: -1, thoiGianDangKy: -1 }); // Lấy gói mới nhất
 
         console.log('🔍 getActivePackage - Found package:', activePackage ? 'Yes' : 'No');
+        if (activePackage) {
+            console.log('GetActivePackage - Package details:', activePackage);
+        }
 
         if (!activePackage) {
             return res.status(404).json({ message: 'Không có gói tập đang hoạt động' });

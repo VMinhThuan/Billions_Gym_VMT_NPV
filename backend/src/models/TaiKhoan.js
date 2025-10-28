@@ -8,4 +8,9 @@ const TaiKhoanSchema = new mongoose.Schema({
     nguoiDung: { type: mongoose.Schema.Types.ObjectId, ref: 'NguoiDung', required: true }
 }, { collection: 'taiKhoans', timestamps: true });
 
+// Thêm index cho sdt để tăng tốc truy vấn
+TaiKhoanSchema.index({ sdt: 1 });
+// Thêm index cho nguoiDung để tăng tốc truy vấn
+TaiKhoanSchema.index({ nguoiDung: 1 });
+
 module.exports = mongoose.model('TaiKhoan', TaiKhoanSchema);

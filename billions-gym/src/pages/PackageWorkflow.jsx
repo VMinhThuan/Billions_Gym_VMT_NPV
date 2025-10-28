@@ -4,8 +4,9 @@ import { api } from '../services/api';
 import SimpleLayout from '../components/layout/SimpleLayout';
 import BranchSelection from '../components/workflow/BranchSelection';
 import TrainerSelection from '../components/workflow/TrainerSelection';
-import ScheduleSelection from '../components/workflow/ScheduleSelection';
+import ScheduleBuilder from '../components/workflow/ScheduleBuilder';
 import WorkflowComplete from '../components/workflow/WorkflowComplete';
+import { getBranchImage } from '../utils/branchImageMapper';
 import './PackageWorkflow.css';
 
 const PackageWorkflow = () => {
@@ -70,8 +71,8 @@ const PackageWorkflow = () => {
 
     const handleSelectBranch = async (branchId) => {
         try {
-            // Use new PATCH route for direct update from step 1
-            const response = await api.put(`/chitietgoitap/${registrationId}/branch`, { branchId });
+            // Use PATCH route for direct update from step 1
+            const response = await api.patch(`/chitietgoitap/${registrationId}/branch`, { branchId });
 
             if (response.success) {
                 // Mark as confirmed, then refresh status and advance
@@ -109,11 +110,16 @@ const PackageWorkflow = () => {
 
     const handleCreateSchedule = async (scheduleData) => {
         try {
-            const response = await api.post(`/package-workflow/generate-schedule/${registrationId}`, scheduleData);
+            console.log('🎯 Parent handleCreateSchedule called with:', scheduleData);
+            const response = await api.post('/lich-tap/create-schedule', scheduleData);
 
             if (response.success) {
+                console.log('✅ Schedule created successfully, refreshing workflow status...');
                 // Refresh workflow status
                 await fetchWorkflowStatus();
+                // Chuyển sang bước tiếp theo
+                setCurrentStep(prev => prev + 1);
+                console.log('🚀 Moved to next step');
             } else {
                 setError(response.message || 'Lỗi khi tạo lịch tập');
             }
@@ -164,6 +170,7 @@ const PackageWorkflow = () => {
                             selectedTrainer={workflowData.workflowSteps.selectTrainer.data}
                             onSelectTrainer={handleSelectTrainer}
                             loading={loading}
+                            registration={workflowData?.registration}
                         />
                     );
                 }
@@ -175,6 +182,7 @@ const PackageWorkflow = () => {
                             selectedTrainer={workflowData.workflowSteps.selectTrainer.data}
                             onSelectTrainer={handleSelectTrainer}
                             loading={loading}
+                            registration={workflowData?.registration}
                         />
                     );
                 } else {
@@ -190,9 +198,9 @@ const PackageWorkflow = () => {
             case 2: // Tạo lịch tập (owner) hoặc Hoàn thành (partner)
                 if (isOwner) {
                     return (
-                        <ScheduleSelection
+                        <ScheduleBuilder
                             registrationId={registrationId}
-                            selectedSchedule={workflowData.workflowSteps.createSchedule.data}
+                            selectedTrainer={workflowData.workflowSteps.selectTrainer.data}
                             onCreateSchedule={handleCreateSchedule}
                             loading={loading}
                         />
@@ -317,16 +325,35 @@ const PackageWorkflow = () => {
                             {/* Banner confirm current branch for step 1 (owner) */}
                             {workflowData?.isOwner && currentStep === 0 && (
                                 <div className="mb-6 rounded-xl border border-[#262626] bg-[#101010] p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className="text-sm text-gray-400">Chi nhánh bạn chọn</div>
-                                            <div className="text-lg font-semibold text-gray-100">
-                                                {workflowData?.registration?.branchId?.tenChiNhanh || 'Chưa chọn'}
+                                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                                        <div className="flex items-center gap-4">
+                                            {/* Branch Image */}
+                                            <div className="w-20 h-20 rounded-lg overflow-hidden border border-[#262626] flex-shrink-0">
+                                                <img
+                                                    src={getBranchImage(workflowData?.registration?.branchId)}
+                                                    alt={workflowData?.registration?.branchId?.tenChiNhanh || 'Chi nhánh'}
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        e.target.style.display = 'none';
+                                                        e.target.nextSibling.style.display = 'flex';
+                                                    }}
+                                                />
+                                                <div className="w-full h-full bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] flex items-center justify-center text-gray-500 text-2xl" style={{ display: 'none' }}>
+                                                    🏢
+                                                </div>
                                             </div>
-                                            {workflowData?.registration?.branchId?.diaChi && (
-                                                <div className="text-sm text-gray-400">{workflowData.registration.branchId.diaChi}</div>
-                                            )}
+
+                                            <div>
+                                                <div className="text-sm text-gray-400">Chi nhánh bạn chọn</div>
+                                                <div className="text-lg font-semibold text-gray-100">
+                                                    {workflowData?.registration?.branchId?.tenChiNhanh || 'Chưa chọn'}
+                                                </div>
+                                                {workflowData?.registration?.branchId?.diaChi && (
+                                                    <div className="text-sm text-gray-400">{workflowData.registration.branchId.diaChi}</div>
+                                                )}
+                                            </div>
                                         </div>
+
                                         <div className="flex items-center gap-2">
                                             <button
                                                 onClick={() => handleSelectBranch(workflowData?.registration?.branchId?._id)}
@@ -355,12 +382,12 @@ const PackageWorkflow = () => {
             {/* Modal chọn chi nhánh */}
             {showBranchModal && (
                 <div className="fixed inset-0 z-[9999] bg-black/70 flex items-center justify-center p-4" onClick={() => setShowBranchModal(false)}>
-                    <div className="w-full max-w-3xl bg-[#141414] border border-[#262626] rounded-xl shadow-xl" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-[#262626]">
-                            <h3 className="text-white font-semibold">Chọn chi nhánh mới</h3>
-                            <button className="text-gray-400 hover:text-white" onClick={() => setShowBranchModal(false)}>✕</button>
+                    <div className="w-full max-w-6xl bg-[#141414] border border-[#262626] rounded-xl shadow-xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-[#262626] flex-shrink-0">
+                            <h3 className="text-white font-semibold text-lg">Chọn chi nhánh mới</h3>
+                            <button className="text-gray-400 hover:text-white text-xl" onClick={() => setShowBranchModal(false)}>✕</button>
                         </div>
-                        <div className="p-4">
+                        <div className="p-6 overflow-y-auto flex-1">
                             <BranchSelection
                                 branches={branches}
                                 selectedBranch={workflowData?.registration?.branchId}

@@ -8,7 +8,6 @@ import { ActivityIndicator, View, Text, TextInput } from 'react-native';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    // Register a base family name 'Poppins' for better weight mapping
     'Poppins': require('./assets/fonts/Poppins-Regular.ttf'),
     'Poppins-Medium': require('./assets/fonts/Poppins-Medium.ttf'),
     'Poppins-Bold': require('./assets/fonts/Poppins-Bold.ttf'),
@@ -16,8 +15,6 @@ export default function App() {
 
   React.useEffect(() => {
     if (!fontsLoaded) return;
-
-    // Set default font family for all Text and TextInput components
     try {
       if (Text.defaultProps == null) Text.defaultProps = {};
       Text.defaultProps.style = {
@@ -30,12 +27,9 @@ export default function App() {
         ...(TextInput.defaultProps.style || {}),
         fontFamily: 'Poppins',
       };
-      // Helpful debug message during development
-      // eslint-disable-next-line no-console
+
       console.log('Poppins fonts loaded and global defaults set');
     } catch (e) {
-      // Some environments may not allow mutating defaultProps; ignore safely
-      // eslint-disable-next-line no-console
       console.warn('Could not set global default fontFamily:', e);
     }
   }, [fontsLoaded]);
