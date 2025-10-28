@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "Framelink Figma MCP": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "figma-developer-mcp",
+        "--figma-api-key=YOUR_FIGMA_API_KEY_HERE",
+        "--stdio"
+      ],
+      "description": "Figma MCP server for accessing Figma design data in AI-powered code tools"
+    }
+  }
+}
