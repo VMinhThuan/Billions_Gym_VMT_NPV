@@ -12,6 +12,7 @@
 !.vscode/README.md
 !.vscode/mcp-settings.json
 !.vscode/mcp-settings.env.example.json
+!.vscode/mcp-settings.windows.json
 .idea/
 *.swp
 *.swo

@@ -25,7 +25,12 @@ The MCP server configuration is located in `.vscode/mcp-settings.json`.
 
 **Important:** Replace `YOUR_FIGMA_API_KEY_HERE` with your actual Figma API key.
 
-You have two options to set your API key:
+**Platform-Specific Configurations:**
+- **macOS/Linux**: Use `mcp-settings.json` (default)
+- **Windows**: Use `mcp-settings.windows.json` or modify the default configuration
+- **Environment Variables**: Use `mcp-settings.env.example.json` (recommended for all platforms)
+
+You have multiple options to set your API key:
 
 #### Option A: Direct Configuration (Simple but less secure)
 
@@ -49,7 +54,29 @@ Edit `.vscode/mcp-settings.json` and replace the placeholder:
 
 ⚠️ **Warning:** If you use this method, make sure not to commit your API key to version control!
 
-#### Option B: Environment Variable (Recommended)
+#### Option B: Windows Configuration
+
+If you're on Windows, copy or rename `.vscode/mcp-settings.windows.json` to `.vscode/mcp-settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "Framelink Figma MCP": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "figma-developer-mcp",
+        "--figma-api-key=YOUR_ACTUAL_FIGMA_API_KEY",
+        "--stdio"
+      ]
+    }
+  }
+}
+```
+
+#### Option C: Environment Variable (Recommended)
 
 Instead of putting the API key directly in the config file, use an environment variable:
 
