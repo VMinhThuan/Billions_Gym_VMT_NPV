@@ -145,7 +145,14 @@ const ActivePackage = () => {
         }
     });
 
-    const pricingPlans = filteredPackages.map(pkg => ({
+    const popularPackages = filteredPackages.filter(p => p.popular);
+    const nonPopularPackages = filteredPackages.filter(p => !p.popular);
+
+    popularPackages.sort((a, b) => (b.soLuongNguoiThamGia || 0) - (a.soLuongNguoiThamGia || 0));
+
+    const sortedPackages = [...popularPackages, ...nonPopularPackages];
+
+    const pricingPlans = sortedPackages.map(pkg => ({
         id: pkg._id,
         name: pkg.tenGoiTap,
         description: pkg.moTa || 'Gói tập chất lượng cao với nhiều quyền lợi.',
@@ -281,18 +288,15 @@ const ActivePackage = () => {
                                                 <p className="text-xs text-gray-500 mt-2">
                                                     <br />
                                                     Hết hạn: {(() => {
-                                                        // Nếu có ngày kết thúc trực tiếp thì dùng
                                                         if (currentPackage.ngayKetThuc) {
                                                             return new Date(currentPackage.ngayKetThuc).toLocaleDateString('vi-VN');
                                                         }
 
-                                                        // Nếu không có, tính từ ngày bắt đầu + thời hạn gói
                                                         if (currentPackage.ngayBatDau && currentPkg.thoiHan) {
                                                             const ngayBatDau = new Date(currentPackage.ngayBatDau);
                                                             const thoiHan = currentPkg.thoiHan;
                                                             const ngayKetThuc = new Date(ngayBatDau);
 
-                                                            // Tính ngày kết thúc dựa trên đơn vị thời gian
                                                             if (currentPkg.donViThoiHan === 'Ngày') {
                                                                 ngayKetThuc.setDate(ngayKetThuc.getDate() + thoiHan);
                                                             } else if (currentPkg.donViThoiHan === 'Tháng') {
@@ -300,7 +304,6 @@ const ActivePackage = () => {
                                                             } else if (currentPkg.donViThoiHan === 'Năm') {
                                                                 ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + thoiHan);
                                                             } else {
-                                                                // Mặc định tính theo ngày nếu không rõ đơn vị
                                                                 ngayKetThuc.setDate(ngayKetThuc.getDate() + thoiHan);
                                                             }
 
@@ -358,6 +361,9 @@ const ActivePackage = () => {
                                 {pricingPlans.map((plan, index) => {
                                     const isPopular = plan.isPopular;
                                     const isSelected = selectedPackageId === plan.id;
+
+                                    const ctaLabel = currentPackage ? 'Nâng cấp ngay' : 'Chọn gói này';
+                                    const ariaLabel = currentPackage ? `Nâng cấp lên gói ${plan.name}` : `Chọn gói ${plan.name}`;
 
                                     return (
                                         <article
@@ -423,10 +429,12 @@ const ActivePackage = () => {
                                             <button
                                                 onClick={() => navigate(`/goi-tap/${plan.id}`)}
                                                 className="w-full mt-auto flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[#ff536b] to-[#ff536b]/70 text-white font-semibold cursor-pointer hover:opacity-90 transition-all duration-300 hover:shadow-lg hover:shadow-[#ff536b]/30 relative z-10"
-                                                aria-label={`Nâng cấp lên gói ${plan.name}`}
+                                                aria-label={ariaLabel}
                                             >
-                                                Nâng cấp ngay
-                                                <img src={topRightIcon} alt="" className="w-5 h-5" aria-hidden="true" />
+                                                {ctaLabel}
+                                                {currentPackage && (
+                                                    <img src={topRightIcon} alt="" className="w-5 h-5" aria-hidden="true" />
+                                                )}
                                             </button>
                                         </article>
                                     );

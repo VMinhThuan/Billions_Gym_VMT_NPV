@@ -53,13 +53,32 @@ export default function UserActions({
                     setActivityData(statsData.data || []);
                 }
 
-                // Fetch all trainers (PT list)
-                const trainersRes = await fetch(getApiUrl('/user/pt'), {
+                // Fetch trainers (conditional behavior):
+                // - If user has no active package => load highlighted PTs (top-rated, limited)
+                // - If user has active package with a branch => load PTs for that branch only
+                // - Fallback: load all PTs
+                let trainerApiPath = '/user/pt';
+                try {
+                    if (!activePackage) {
+                        trainerApiPath = '/user/pt?highlight=true&limit=5';
+                    } else {
+                        // activePackage may include branchId as an object or id
+                        const branch = activePackage.branchId || activePackage.registration?.branchId || null;
+                        const branchId = branch && (branch._id || branch) ? (branch._id || branch) : null;
+                        if (branchId) {
+                            trainerApiPath = `/user/pt?branchId=${branchId}`;
+                        }
+                    }
+                } catch (e) {
+                    // keep default
+                }
+
+                const trainersRes = await fetch(getApiUrl(trainerApiPath), {
                     headers: getAuthHeaders(true)
                 });
                 if (trainersRes.ok) {
                     const trainersData = await trainersRes.json();
-                    console.log('🔍 Trainers data:', trainersData);
+                    console.log('🔍 Trainers data:', trainersData, 'requested:', trainerApiPath);
                     setTrainers(trainersData.data || trainersData || []);
                 }
 
@@ -92,7 +111,7 @@ export default function UserActions({
         if (user?._id) {
             fetchDashboardData();
         }
-    }, [user?._id]);
+    }, [user?._id, activePackage]);
 
     const handleAction = (action) => {
         switch (action) {
