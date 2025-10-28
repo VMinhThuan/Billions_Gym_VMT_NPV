@@ -44,7 +44,7 @@ Edit `.vscode/mcp-settings.json` and replace the placeholder:
       "args": [
         "-y",
         "figma-developer-mcp",
-        "--figma-api-key=YOUR_ACTUAL_FIGMA_API_KEY",
+        "--figma-api-key=YOUR_FIGMA_API_KEY_HERE",
         "--stdio"
       ]
     }
@@ -68,7 +68,7 @@ If you're on Windows, copy or rename `.vscode/mcp-settings.windows.json` to `.vs
         "npx",
         "-y",
         "figma-developer-mcp",
-        "--figma-api-key=YOUR_ACTUAL_FIGMA_API_KEY",
+        "--figma-api-key=YOUR_FIGMA_API_KEY_HERE",
         "--stdio"
       ]
     }
@@ -93,7 +93,7 @@ Instead of putting the API key directly in the config file, use an environment v
         "--stdio"
       ],
       "env": {
-        "FIGMA_API_KEY": "YOUR_ACTUAL_FIGMA_API_KEY"
+        "FIGMA_API_KEY": "YOUR_FIGMA_API_KEY_HERE"
       }
     }
   }
