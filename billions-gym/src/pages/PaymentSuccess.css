@@ -384,6 +384,12 @@
     margin-bottom: 1rem;
 }
 
+/* Ensure svg/img inside status-icon is horizontally centered */
+.status-icon img {
+    display: block;
+    margin: 0 auto;
+}
+
 /* Status Title - Center in header */
 .status-title {
     text-align: center;

@@ -320,7 +320,42 @@ const createPT = async (data) => {
     return pt;
 };
 
-const getAllPT = async () => {
+/**
+ * Get PTs with optional filters.
+ * options: { branchId, highlight, limit, q }
+ */
+const getAllPT = async (options = {}) => {
+    const { branchId, highlight, limit, q } = options || {};
+
+    // If there's a search query, delegate to searchPT
+    if (q) return searchPT(q);
+
+    // Highlight mode: return top-rated PTs across branches
+    if (highlight) {
+        const lim = parseInt(limit, 10) || 5;
+        let pts = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG' })
+            .sort({ danhGia: -1, kinhNghiem: -1 })
+            .limit(lim);
+
+        // Fallback to base model if no results
+        if (!pts || pts.length === 0) {
+            pts = await require('../models/NguoiDung').NguoiDung.find({ vaiTro: 'PT' })
+                .sort({ danhGia: -1, kinhNghiem: -1 })
+                .limit(lim);
+        }
+        return pts;
+    }
+
+    // Branch-specific PTs
+    if (branchId) {
+        let pts = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG', chinhanh: branchId });
+        if (!pts || pts.length === 0) {
+            pts = await require('../models/NguoiDung').NguoiDung.find({ vaiTro: 'PT', chinhanh: branchId });
+        }
+        return pts;
+    }
+
+    // Default: return all PTs
     return PT.find();
 };
 

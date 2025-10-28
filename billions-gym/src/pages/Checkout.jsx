@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import SimpleLayout from '../components/layout/SimpleLayout';
 import { api } from '../services/api';
 import './Checkout.css';
+import zaloLogo from '../assets/icons/zalopay.svg';
+import momoLogo from '../assets/icons/momo.png';
 
 const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const { id } = useParams();
@@ -718,7 +720,7 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                             <div className="form-section">
                                 <div className="section-header">
                                     <h3 className="section-title">1. Thông tin hội viên</h3>
-                                    {isLoggedIn && (
+                                    {/* {isLoggedIn && (
                                         <div className="login-status">
                                             <span className="login-badge">✓ Đã đăng nhập</span>
                                             <span className="locked-badge">🔒 Thông tin được khóa</span>
@@ -730,7 +732,7 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                                 🔄
                                             </button>
                                         </div>
-                                    )}
+                                    )} */}
                                 </div>
 
                                 {!isLoggedIn && (
@@ -743,7 +745,7 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                             >
                                                 Đăng nhập ngay
                                             </button>
-                                            <button
+                                            {/* <button
                                                 className="debug-btn"
                                                 onClick={() => {
                                                     const user = JSON.parse(localStorage.getItem('user'));
@@ -753,7 +755,7 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                                 title="Debug thông tin đăng nhập"
                                             >
                                                 🐛 Debug
-                                            </button>
+                                            </button> */}
                                         </div>
                                     </div>
                                 )}
@@ -922,14 +924,18 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                         className={`payment-method ${paymentMethod === 'zalopay' ? 'active zalopay' : ''}`}
                                         onClick={() => handlePaymentMethod('zalopay')}
                                     >
-                                        <div className="payment-logo zalopay">ZP</div>
+                                        <div className="payment-logo zalopay">
+                                            <img src={zaloLogo} alt="ZaloPay" className="w-10 h-10" aria-hidden="true" />
+                                        </div>
                                         <span>ZaloPay</span>
                                     </button>
                                     <button
                                         className={`payment-method ${paymentMethod === 'momo' ? 'active momo' : ''}`}
                                         onClick={() => handlePaymentMethod('momo')}
                                     >
-                                        <div className="payment-logo momo">M</div>
+                                        <div className="payment-logo momo">
+                                            <img src={momoLogo} alt="MoMo" className="w-10 h-10" aria-hidden="true" />
+                                        </div>
                                         <span>MoMo</span>
                                     </button>
                                 </div>
