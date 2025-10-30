@@ -35,6 +35,15 @@ interface HoiVien {
     ngayHetHan: Date;
     trangThaiHoiVien: 'DANG_HOAT_DONG' | 'TAM_NGUNG' | 'HET_HAN';
     cacChiSoCoThe: string[];
+    soTienTichLuy?: number;
+    soBuoiTapDaTap?: number;
+    maChiNhanh?: string; // Chi nhánh hội viên thuộc về
+    hangHoiVien?: {
+        _id?: string;
+        tenHienThi?: string;
+        tenHang?: string;
+        mauSac?: string;
+    };
     taiKhoan?: {
         _id?: string | null;
         trangThaiTK: 'DANG_HOAT_DONG' | 'DA_KHOA';
@@ -1745,6 +1754,13 @@ const MembersPage = () => {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+    const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const [selectedBranch, setSelectedBranch] = useState<string>('all');
+    const [branches, setBranches] = useState<ChiNhanh[]>([]);
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [filterRank, setFilterRank] = useState<string>('all');
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
     const notifications = useCrudNotifications();
 
     const handleSort = (key: string) => {
@@ -1865,17 +1881,57 @@ const MembersPage = () => {
         return () => { mounted = false; };
     }, [refreshTrigger]);
 
-    // Filter sorted rows based on search query
+    // Fetch chi nhánh
+    useEffect(() => {
+        const fetchBranches = async () => {
+            try {
+                const response = await api.get<{ success: boolean; data: ChiNhanh[] }>('/api/chinhanh');
+                if (response.success && Array.isArray(response.data)) {
+                    setBranches(response.data);
+                }
+            } catch (e) {
+                console.error('Error fetching branches:', e);
+                setBranches([]);
+            }
+        };
+        fetchBranches();
+    }, []);
+
+    // Filter sorted rows based on search query, branch, status, and rank
     const filtered = sortedRows.filter(r => {
-        if (!q.trim()) return true;
-        const searchTerm = q.toLowerCase().trim();
-        return (
-            (r.hoTen && r.hoTen.toLowerCase().includes(searchTerm)) ||
-            (r.email && r.email.toLowerCase().includes(searchTerm)) ||
-            (r.sdt && r.sdt.toLowerCase().includes(searchTerm)) ||
-            (r.soCCCD && r.soCCCD.toLowerCase().includes(searchTerm)) ||
-            (r.diaChi && r.diaChi.toLowerCase().includes(searchTerm))
-        );
+        // Search filter
+        if (q.trim()) {
+            const searchTerm = q.toLowerCase().trim();
+            const matchesSearch = (
+                (r.hoTen && r.hoTen.toLowerCase().includes(searchTerm)) ||
+                (r.email && r.email.toLowerCase().includes(searchTerm)) ||
+                (r.sdt && r.sdt.toLowerCase().includes(searchTerm)) ||
+                (r.soCCCD && r.soCCCD.toLowerCase().includes(searchTerm)) ||
+                (r.diaChi && r.diaChi.toLowerCase().includes(searchTerm))
+            );
+            if (!matchesSearch) return false;
+        }
+
+        // Branch filter
+        if (selectedBranch !== 'all') {
+            // Chỉ lọc những hội viên có maChiNhanh khớp với selectedBranch
+            // Nếu hội viên không có maChiNhanh, vẫn hiển thị
+            if (r.maChiNhanh && r.maChiNhanh !== selectedBranch) return false;
+        }
+
+        // Status filter
+        if (filterStatus !== 'all') {
+            if (r.trangThaiHoiVien !== filterStatus) return false;
+        }
+
+        // Rank filter
+        if (filterRank !== 'all') {
+            // Chỉ lọc những hội viên có hangHoiVien khớp với filterRank
+            // Nếu hội viên không có hangHoiVien, vẫn hiển thị
+            if (r.hangHoiVien && r.hangHoiVien.tenHang !== filterRank) return false;
+        }
+
+        return true;
     });
 
     // Hàm để thay đổi trạng thái tài khoản
@@ -1954,136 +2010,273 @@ const MembersPage = () => {
         }
     };
 
+    // Close menu khi click outside
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Element;
+            if (!target.closest('.members-actions-wrapper')) {
+                setOpenMenuId(null);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
+
+    const toggleSelectMember = (id: string) => {
+        setSelectedMembers(prev =>
+            prev.includes(id)
+                ? prev.filter(m => m !== id)
+                : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedMembers.length === filtered.length) {
+            setSelectedMembers([]);
+        } else {
+            setSelectedMembers(filtered.map(r => r._id));
+        }
+    };
+
+    const getStatusClass = (status: string) => {
+        switch (status) {
+            case 'DANG_HOAT_DONG': return 'dang-hoat-dong';
+            case 'TAM_NGUNG': return 'tam-ngung';
+            case 'HET_HAN': return 'het-han';
+            default: return 'dang-hoat-dong';
+        }
+    };
+
+    const formatCurrency = (amount: number) => {
+        if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+        if (amount >= 1000) return `${(amount / 1000).toFixed(1)}K`;
+        return amount.toString();
+    };
+
+    const handleApplyFilters = () => {
+        // Filters are already applied in real-time through the `filtered` computed value
+        // This function just shows feedback to the user
+        const activeFilterCount = [
+            selectedBranch !== 'all' ? 1 : 0,
+            filterStatus !== 'all' ? 1 : 0,
+            filterRank !== 'all' ? 1 : 0,
+            q.trim() !== '' ? 1 : 0
+        ].reduce((a, b) => a + b, 0);
+
+        notifications.generic.success(
+            `Đã áp dụng bộ lọc! Tìm thấy ${filtered.length} hội viên${activeFilterCount > 0 ? ` với ${activeFilterCount} bộ lọc` : ''}`
+        );
+    };
+
+    const handleClearFilters = () => {
+        setSelectedBranch('all');
+        setFilterStatus('all');
+        setFilterRank('all');
+        setQ('');
+        notifications.generic.info('Đã xóa bộ lọc! Hiển thị tất cả hội viên.');
+    };
+
+    const hasActiveFilters = () => {
+        return selectedBranch !== 'all' || filterStatus !== 'all' || filterRank !== 'all' || q.trim() !== '';
+    };
+
     return (
-        <Card className="panel">
-            <div className="toolbar">
-                <div className="toolbar-left"><h2>Quản lý hội viên</h2></div>
-                <div className="toolbar-right">
-                    <input
-                        className="input"
-                        placeholder="Tìm tên/điện thoại/email"
-                        value={q}
-                        onChange={e => setQ(e.target.value)}
-                        onKeyPress={e => {
-                            if (e.key === 'Enter') {
-                                handleSearch(q);
-                            }
-                        }}
-                    />
-                    <Button variant="secondary" onClick={() => handleSearch(q)}>Tìm kiếm</Button>
-                    <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
-                    <div className="table-navigation-controls">
-                        <button
-                            className="table-nav-btn table-nav-left"
-                            onClick={() => {
-                                const container = document.querySelector('.table-container');
-                                if (container) {
-                                    container.scrollBy({ left: -200, behavior: 'smooth' });
-                                }
-                            }}
-                            title="Di chuyển sang trái"
-                        >
-                            ‹
-                        </button>
-                        <button
-                            className="table-nav-btn table-nav-right"
-                            onClick={() => {
-                                const container = document.querySelector('.table-container');
-                                if (container) {
-                                    container.scrollBy({ left: 200, behavior: 'smooth' });
-                                }
-                            }}
-                            title="Di chuyển sang phải"
-                        >
-                            ›
-                        </button>
-                    </div>
+        <div className="members-management-page">
+            {/* Page Header */}
+            <div className="members-page-header">
+                <div className="members-page-header-content">
+                    <h1 className="members-page-title">Quản lý hội viên</h1>
+                    <p className="members-page-description">
+                        Theo dõi thông tin, trạng thái, gói tập và chi nhánh của tất cả hội viên Billions Fitness & Gym.
+                    </p>
                 </div>
             </div>
-            <div className="table-container">
-                <table className="table">
+
+            {/* Filter Toolbar */}
+            <div className="members-filter-toolbar">
+                <button
+                    className="members-filter-icon-btn"
+                    onClick={() => setShowFilterMenu(!showFilterMenu)}
+                >
+                    🔽
+                </button>
+                <select
+                    className="members-filter-dropdown"
+                    value={selectedBranch}
+                    onChange={e => setSelectedBranch(e.target.value)}
+                >
+                    <option value="all">CHI NHÁNH</option>
+                    {branches.map(branch => (
+                        <option key={branch._id} value={branch._id}>
+                            {branch.tenChiNhanh}
+                        </option>
+                    ))}
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterStatus}
+                    onChange={e => setFilterStatus(e.target.value)}
+                >
+                    <option value="all">TRẠNG THÁI</option>
+                    <option value="DANG_HOAT_DONG">Đang hoạt động</option>
+                    <option value="TAM_NGUNG">Tạm ngưng</option>
+                    <option value="HET_HAN">Hết hạn</option>
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterRank}
+                    onChange={e => setFilterRank(e.target.value)}
+                >
+                    <option value="all">HẠNG</option>
+                    <option value="BRONZE">Bronze</option>
+                    <option value="SILVER">Silver</option>
+                    <option value="GOLD">Gold</option>
+                    <option value="PLATINUM">Platinum</option>
+                    <option value="DIAMOND">Diamond</option>
+                </select>
+                <input
+                    className="members-filter-search"
+                    type="text"
+                    placeholder="Tìm theo tên, SĐT, email..."
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                />
+                <button className="members-filter-apply-btn" onClick={handleApplyFilters}>
+                    APPLY
+                </button>
+                <button className="members-filter-clear-btn" onClick={handleClearFilters}>
+                    CLEAR
+                </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="members-page-actions">
+                <button className="members-add-btn" onClick={() => setShow(true)}>
+                    <span>+</span> Thêm hội viên
+                </button>
+            </div>
+
+            {/* Table Wrapper */}
+            <div className="members-table-wrapper">
+                <table className="members-table">
                     <thead>
                         <tr>
-                            <SortableHeader
-                                sortKey="hoTen"
-                                currentSort={sortConfig}
-                                onSort={handleSort}
-                            >
-                                Họ tên
-                            </SortableHeader>
-                            <th>Email</th>
-                            <th>SĐT</th>
-                            <th>Giới tính</th>
-                            <th>Ngày sinh</th>
-                            <SortableHeader
-                                sortKey="ngayThamGia"
-                                currentSort={sortConfig}
-                                onSort={handleSort}
-                            >
-                                Ngày tham gia
-                            </SortableHeader>
-                            <th>Trạng thái</th>
-                            <th>Hành động</th>
+                            <th style={{ width: '50px' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedMembers.length === filtered.length && filtered.length > 0}
+                                    onChange={toggleSelectAll}
+                                />
+                            </th>
+                            <th>User name</th>
+                            <th>Contact</th>
+                            <th>Rank</th>
+                            <th>Status</th>
+                            <th>Total spent</th>
+                            <th>Workouts</th>
+                            <th>Joined date</th>
+                            <th>Expire date</th>
+                            <th style={{ width: '60px' }}></th>
                         </tr>
                     </thead>
                     <tbody>
                         {filtered.map(r => (
-                            <tr key={r._id}>
+                            <tr key={r._id} onClick={() => handleViewDetail(r)} style={{ cursor: 'pointer' }}>
+                                <td onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedMembers.includes(r._id)}
+                                        onChange={() => toggleSelectMember(r._id)}
+                                    />
+                                </td>
                                 <td>
-                                    <div className="user-info">
-                                        <div>
-                                            <div className="user-name">{r.hoTen}</div>
+                                    <div className="members-user-cell">
+                                        <img
+                                            className="members-avatar"
+                                            src={r.anhDaiDien || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.hoTen)}&background=3b82f6&color=fff`}
+                                            alt={r.hoTen}
+                                        />
+                                        <div className="members-user-info">
+                                            <div className="members-user-name">{r.hoTen}</div>
+                                            <div className="members-user-email">{r.email || 'N/A'}</div>
                                         </div>
                                     </div>
                                 </td>
-                                <td>{r.email ? r.email : 'N/A'}
-                                </td>
-                                <td>{r.sdt}</td>
-                                <td>{r.gioiTinh === 'Nam' ? 'Nam' : 'Nữ'}</td>
-                                <td>{r.ngaySinh ? new Date(r.ngaySinh).toLocaleDateString('vi-VN', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric'
-                                }) : 'N/A'}</td>
-                                <td>{r.ngayThamGia ? new Date(r.ngayThamGia).toLocaleDateString('vi-VN', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric'
-                                }) : 'N/A'}</td>
                                 <td>
-                                    <span className={`badge ${!r.taiKhoan?._id ? 'warning' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'success' : 'danger'}`}>
-                                        {!r.taiKhoan?._id ? 'CHƯA CÓ TÀI KHOẢN' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' : 'ĐÃ KHÓA'}
+                                    <div className="members-contact-cell">
+                                        <span className="members-contact-phone">{r.sdt}</span>
+                                        <span className="members-contact-email">{r.email || 'N/A'}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span className={`members-rank-badge bronze`}>
+                                        Bronze
                                     </span>
                                 </td>
                                 <td>
-                                    <div className="action-buttons">
-                                        <button className="btn-icon btn-view" onClick={() => handleViewDetail(r)}>
-                                            👁️ Chi tiết
-                                        </button>
-                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
-                                            ✏️ Sửa
-                                        </button>
+                                    <span className={`members-status-badge ${getStatusClass(r.trangThaiHoiVien)}`}>
+                                        {r.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'Đang hoạt động' :
+                                            r.trangThaiHoiVien === 'TAM_NGUNG' ? 'Tạm ngưng' : 'Hết hạn'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="members-metric-display compact">
+                                        {formatCurrency(r.soTienTichLuy || 0)}₫
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="members-metric-display compact">
+                                        {r.soBuoiTapDaTap || 0}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="members-date-display">
+                                        {r.ngayThamGia ? new Date(r.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="members-date-display">
+                                        {r.ngayHetHan ? new Date(r.ngayHetHan).toLocaleDateString('vi-VN') : 'N/A'}
+                                    </span>
+                                </td>
+                                <td onClick={(e) => e.stopPropagation()}>
+                                    <div className="members-actions-wrapper">
                                         <button
-                                            className="status-select"
-                                            onClick={() => {
-                                                const currentStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
-                                                const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
-                                                handleChangeAccountStatus(r._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
-                                            }}
-                                            disabled={isChangingStatus === r._id || !r.taiKhoan?._id}
-                                            style={{
-                                                background: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' :
-                                                    'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                boxShadow: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '0 2px 8px rgba(239, 68, 68, 0.3)' :
-                                                    '0 2px 8px rgba(16, 185, 129, 0.3)',
-                                                opacity: !r.taiKhoan?._id ? 0.5 : 1
-                                            }}
+                                            className="members-actions-btn"
+                                            onClick={() => setOpenMenuId(openMenuId === r._id ? null : r._id)}
                                         >
-                                            {r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '🔒 Vô hiệu hóa' : '🔓 Kích hoạt'}
+                                            ⋯
                                         </button>
-                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
-                                            🗑️ Xóa
-                                        </button>
+                                        {openMenuId === r._id && (
+                                            <div className="members-actions-menu">
+                                                <div className="members-actions-menu-item" onClick={() => {
+                                                    handleViewDetail(r);
+                                                    setOpenMenuId(null);
+                                                }}>
+                                                    👁️ Xem chi tiết
+                                                </div>
+                                                <div className="members-actions-menu-item" onClick={() => {
+                                                    setEditingItem(r);
+                                                    setOpenMenuId(null);
+                                                }}>
+                                                    ✏️ Sửa
+                                                </div>
+                                                <div className="members-actions-menu-item" onClick={() => {
+                                                    const currentStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
+                                                    const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
+                                                    handleChangeAccountStatus(r._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
+                                                    setOpenMenuId(null);
+                                                }}>
+                                                    {r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '🔒 Vô hiệu hóa' : '🔓 Kích hoạt'}
+                                                </div>
+                                                <div className="members-actions-menu-item danger" onClick={() => {
+                                                    setDeleteConfirm({ show: true, item: r });
+                                                    setOpenMenuId(null);
+                                                }}>
+                                                    🗑️ Xóa
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -2091,6 +2284,27 @@ const MembersPage = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination */}
+            {filtered.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px', gap: '8px' }}>
+                    {[1, 2, 3, 4, 5].map(page => (
+                        <button
+                            key={page}
+                            style={{
+                                padding: '8px 12px',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '6px',
+                                background: page === 1 ? '#EF4444' : 'white',
+                                color: page === 1 ? 'white' : '#1e293b',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                </div>
+            )}
             {(show || editingItem) && (
                 <EntityForm
                     title="Hội Viên"
@@ -2216,7 +2430,7 @@ const MembersPage = () => {
                 />
             )}
             {isLoading && <Loading overlay text="Đang tải hội viên..." />}
-        </Card>
+        </div>
     );
 };
 
