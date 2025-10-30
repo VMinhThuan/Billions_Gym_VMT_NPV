@@ -15,7 +15,10 @@ html, body {
 .schedule-page {
     display: flex;
     min-height: 100vh;
-    width: 100%;
+    /* Reserve space for the sidebar to avoid horizontal overflow
+       when using margin-left. Use calc so the page width fits
+       inside the viewport and vertical scrolling remains. */
+    width: calc(100% - 320px);
     background-color: #0a0a0a !important;
     font-family: 'Montserrat', sans-serif;
     margin-left: 320px; /* Default margin for expanded sidebar */
@@ -24,6 +27,7 @@ html, body {
     box-shadow: none !important;
     z-index: 1;
     position: relative;
+    overflow-x: hidden; /* Prevent horizontal scrollbar while keeping vertical scroll */
 }
 
 /* Adjust layout when sidebar is collapsed */
@@ -31,7 +35,8 @@ html, body {
 .schedule-page.sidebar-collapsed {
     margin-left: 80px; /* Adjust margin for collapsed sidebar */
     background-color: #0a0a0a !important;
-    width: 100%;
+    /* Match reserved space when sidebar is collapsed */
+    width: calc(100% - 80px);
 }
 
 /* Adjust layout when sidebar is expanded */
@@ -393,18 +398,6 @@ html, body {
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
-
-/* Make date-navigation and selected-day-schedule responsive */
-.date-navigation,
-.selected-day-schedule {
-    width: calc(100% - 80px); /* Adjust width dynamically based on sidebar */
-}
-
-.schedule-page.sidebar-expanded .date-navigation,
-.schedule-page.sidebar-expanded .selected-day-schedule {
-    width: calc(100% - 320px); /* Adjust width when sidebar is expanded */
-}
-
 @media (max-width: 768px) {
     .date-navigation,
     .selected-day-schedule {
