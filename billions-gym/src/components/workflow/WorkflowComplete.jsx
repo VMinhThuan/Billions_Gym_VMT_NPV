@@ -63,7 +63,7 @@ const WorkflowComplete = ({ registration, onComplete }) => {
         <div className="workflow-complete">
             <div className="complete-header">
                 <div className="success-icon">🎉</div>
-                <h3>Chúc mừng! Bạn đã hoàn tất đăng ký gói tập</h3>
+                <h3 className='text-white'>Chúc mừng! Bạn đã hoàn tất đăng ký gói tập</h3>
                 <p>Gói tập của bạn đã được kích hoạt thành công. Bạn có thể bắt đầu hành trình fitness ngay bây giờ!</p>
             </div>
 

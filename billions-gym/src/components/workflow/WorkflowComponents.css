@@ -259,7 +259,7 @@
 
 .time-slot-label {
     font-size: 0.875rem;
-    color: #4a5568;
+    color: white;
 }
 
 .trainers-section {
@@ -602,7 +602,7 @@
 
 .day-name {
     font-weight: 600;
-    color: #f2f2f2;
+    color: #f2f2f2 !important;
     font-size: 0.875rem;
 }
 
@@ -806,6 +806,12 @@
     margin-bottom: 1rem;
 }
 
+/* Specific override: when the h3 explicitly has the `text-white` class,
+   make its color white without changing other .complete-header h3 rules */
+.complete-header h3.text-white {
+    color: #ffffff;
+}
+
 .complete-header p {
     color: #4a5568;
     font-size: 1.125rem;
@@ -949,6 +955,14 @@
 
 .step-card:hover::before {
     left: 100%;
+}
+/* Ensure all step icons occupy the same horizontal space so step-content aligns */
+.step-icon {
+    width: 56px;
+    min-width: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .step-card:hover {
@@ -1718,6 +1732,14 @@
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
+.time-slot-card.available .time-slot-time {
+    color: #1a202c;
+}
+
+.time-slot-card.selected .time-slot-time {
+    color: #10b981;
+}
+
 .time-slot-card.selected {
     /* Selected slot visual — green gradient with lift */
     border-color: transparent;
@@ -1808,6 +1830,12 @@
     font-size: 0.625rem;
     color: #a3a3a3;
     font-weight: 400;
+    /* Truncate long trainer names with ellipsis */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 100%;
 }
 
 /* Session Selection Modal */
@@ -2076,6 +2104,12 @@
     background: #141414;
     display: flex;
     justify-content: flex-end;
+}
+
+/* Make btn-secondary text white on hover only inside the session selection modal
+   so other .btn-secondary styles across the app are unaffected */
+.session-modal .btn-secondary:hover {
+    color: #ffffff;
 }
 
 /* Animations */

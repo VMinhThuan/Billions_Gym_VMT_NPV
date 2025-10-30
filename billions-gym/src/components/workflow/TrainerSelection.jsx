@@ -165,7 +165,7 @@ const TrainerSelection = ({ registrationId, selectedTrainer, onSelectTrainer, lo
                     <button
                         type="button"
                         onClick={fetchAvailableTrainers}
-                        className="btn-secondary"
+                        className="bg-transparent border border-[#a3a3a3] px-5 py-2.5 cursor-pointer hover:bg-[#da2128] text-[#a3a3a3] hover:text-white hover:border-transparent transition rounded-md"
                         disabled={loadingTrainers}
                     >
                         {loadingTrainers ? 'Đang tải...' : 'Tìm PT phù hợp'}

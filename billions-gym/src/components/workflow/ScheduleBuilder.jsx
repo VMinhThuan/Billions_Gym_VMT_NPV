@@ -488,7 +488,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                             <div className="day-date">
                                 {new Date(day.date).getDate()}/{new Date(day.date).getMonth() + 1}
                             </div>
-                            {day.isToday && <div className="today-badge">Hôm nay</div>}
+                            {/* {day.isToday && <div className="today-badge">Hôm nay</div>} */}
                         </div>
 
                         <div className="time-slots-container">
@@ -521,7 +521,6 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                                             )}
                                             {status === 'selected' && selectedSessionInSlot && (
                                                 <div className="selected-session-info">
-                                                    <span className="status-text selected">✓ Đã chọn</span>
                                                     <div className="selected-trainer">
                                                         {selectedSessionInSlot.ptPhuTrach.hoTen}
                                                     </div>
@@ -592,7 +591,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                                     {/* Info message about single selection per time slot */}
                                     <div className="selection-info">
                                         <span className="info-icon">ℹ️</span>
-                                        <span>Bạn chỉ có thể chọn 1 buổi tập trong mỗi ca</span>
+                                        <span className='text-[#dadada]'>Bạn chỉ có thể chọn 1 buổi tập trong mỗi ca</span>
                                     </div>
 
                                     {selectedTimeSlot.sessions.map(session => {
