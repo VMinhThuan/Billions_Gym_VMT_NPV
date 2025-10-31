@@ -29,9 +29,10 @@ const Schedule = () => {
     }
 
     useEffect(() => {
+        // Update clock every second for real-time countdowns
         const timer = setInterval(() => {
             setCurrentTime(new Date());
-        }, 60000);
+        }, 1000);
 
         return () => clearInterval(timer);
     }, []);
@@ -94,6 +95,7 @@ const Schedule = () => {
                         ngayBatDau: buoiTap.ngayTap,
                         gioBatDau: buoiTap.gioBatDau,
                         gioKetThuc: buoiTap.gioKetThuc,
+                        tenBuoiTap: buoiTap.tenBuoiTap || buoiTap.buoiTap?.tenBuoiTap || lichTap.goiTap?.tenGoiTap || 'Buổi tập',
                         goiTap: {
                             tenGoiTap: lichTap.goiTap?.tenGoiTap || buoiTap.buoiTap?.tenBuoiTap || 'Buổi tập'
                         },
@@ -163,6 +165,30 @@ const Schedule = () => {
         }
 
         return '#999999';
+    };
+
+    const getCountdown = (session) => {
+        try {
+            // Combine selected date with session start time for accurate comparison today
+            const start = new Date(session.ngayBatDau);
+            // If gioBatDau is HH:mm, set hours and minutes
+            if (session.gioBatDau && session.gioBatDau.includes(':')) {
+                const [h, m] = session.gioBatDau.split(':').map(Number);
+                start.setHours(h || 0, m || 0, 0, 0);
+            }
+
+            const diffMs = start.getTime() - currentTime.getTime();
+            if (diffMs <= 0) return null; // Already started or passed
+
+            const totalSeconds = Math.floor(diffMs / 1000);
+            const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+            const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+            const seconds = String(totalSeconds % 60).padStart(2, '0');
+
+            return `${hours}:${minutes}:${seconds}`;
+        } catch {
+            return null;
+        }
     };
 
     const renderCalendarDays = () => {
@@ -350,8 +376,9 @@ const Schedule = () => {
                                     <div className="session-list">
                                         {getSelectedDaySchedule().length > 0 ? (
                                             getSelectedDaySchedule().map(session => {
-                                                const sessionType = session.goiTap?.tenGoiTap || 'Khác';
+                                                const sessionType = session.tenBuoiTap || session.goiTap?.tenGoiTap || 'Khác';
                                                 const color = getSessionColor(sessionType);
+                                                const countdown = isToday(selectedDate) ? getCountdown(session) : null;
 
                                                 return (
                                                     <div
@@ -373,6 +400,11 @@ const Schedule = () => {
                                                         {session.chiNhanh && (
                                                             <div className="session-branch">
                                                                 📍 {session.chiNhanh}
+                                                            </div>
+                                                        )}
+                                                        {countdown && (
+                                                            <div className="countdown-badge" style={{ borderColor: color, color }}>
+                                                                Bắt đầu sau {countdown}
                                                             </div>
                                                         )}
                                                         <div className="session-status">

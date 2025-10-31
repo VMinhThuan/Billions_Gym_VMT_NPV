@@ -956,6 +956,7 @@
 .step-card:hover::before {
     left: 100%;
 }
+
 /* Ensure all step icons occupy the same horizontal space so step-content aligns */
 .step-icon {
     width: 56px;
@@ -1683,6 +1684,8 @@
     align-items: center;
     text-align: center;
     box-sizing: border-box;
+    /* Ensure perfect centering */
+    width: 100%;
 }
 
 .time-slot-card:hover {
@@ -1723,17 +1726,26 @@
 
 .time-slot-card.available {
     border-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.05);
+    background: #0b1220;
+    /* darker background for contrast */
 }
 
 .time-slot-card.available:hover {
     border-color: #2563eb;
-    background: rgba(59, 130, 246, 0.1);
+    background: #111827;
+    /* slightly brighter on hover but still dark */
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
 .time-slot-card.available .time-slot-time {
-    color: #1a202c;
+    color: #ffffff;
+    /* high contrast on blue-tinted background */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Improve contrast for helper text inside available slots */
+.time-slot-card.available .status-text {
+    color: #e5f0ff;
 }
 
 .time-slot-card.selected .time-slot-time {
@@ -1741,23 +1753,26 @@
 }
 
 .time-slot-card.selected {
-    /* Selected slot visual — green gradient with lift */
-    border-color: transparent;
-    background: linear-gradient(135deg, #00B37E 0%, #4ADE80 100%);
-    color: #062E1A;
-    box-shadow: 0 12px 30px rgba(6, 46, 26, 0.12), 0 4px 12px rgba(6, 46, 26, 0.08) inset;
+    /* Selected slot visual — dark base for max contrast */
+    border-color: #22c55e;
+    background: #064e3b;
+    /* deep teal */
+    color: #ffffff;
+    box-shadow: 0 8px 24px rgba(34, 197, 94, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .time-slot-card.selected:hover {
-    border-color: #059669;
-    background: rgba(16, 185, 129, 0.15);
+    border-color: #16a34a;
+    background: #065f46;
 }
 
 .time-slot-time {
     font-weight: 600;
-    color: #f2f2f2;
+    color: #f9fafb;
     font-size: 0.875rem;
     margin-bottom: 0.25rem;
+    text-align: center;
+    width: 100%;
 }
 
 /* Make time text wrap and scale slightly if longer */
@@ -1772,6 +1787,8 @@
     font-size: 0.75rem;
     line-height: 1.1;
     color: #a3a3a3;
+    text-align: center;
+    width: 100%;
 }
 
 /* Past slot text muted 50% */

@@ -1,6 +1,7 @@
 /* Scoped reset for schedule page. Avoid setting global overflow on html/body which
    prevents scrolling site-wide when this stylesheet is loaded. */
-html, body {
+html,
+body {
     background: #0a0a0a !important;
     min-height: 100vh;
     /* use 100% to avoid horizontal overflow due to vertical scrollbar */
@@ -10,6 +11,7 @@ html, body {
     box-sizing: border-box;
     /* DO NOT set overflow here globally - it blocks scrolling on other pages */
 }
+
 /* Schedule Page Layout */
 
 .schedule-page {
@@ -21,19 +23,22 @@ html, body {
     width: calc(100% - 320px);
     background-color: #0a0a0a !important;
     font-family: 'Montserrat', sans-serif;
-    margin-left: 320px; /* Default margin for expanded sidebar */
+    margin-left: 320px;
+    /* Default margin for expanded sidebar */
     margin-top: 64px;
     transition: margin-left 0.3s ease-in-out;
     box-shadow: none !important;
     z-index: 1;
     position: relative;
-    overflow-x: hidden; /* Prevent horizontal scrollbar while keeping vertical scroll */
+    overflow-x: hidden;
+    /* Prevent horizontal scrollbar while keeping vertical scroll */
 }
 
 /* Adjust layout when sidebar is collapsed */
 
 .schedule-page.sidebar-collapsed {
-    margin-left: 80px; /* Adjust margin for collapsed sidebar */
+    margin-left: 80px;
+    /* Adjust margin for collapsed sidebar */
     background-color: #0a0a0a !important;
     /* Match reserved space when sidebar is collapsed */
     width: calc(100% - 80px);
@@ -41,7 +46,8 @@ html, body {
 
 /* Adjust layout when sidebar is expanded */
 .schedule-page.sidebar-expanded {
-    margin-left: 320px; /* Adjust margin for expanded sidebar */
+    margin-left: 320px;
+    /* Adjust margin for expanded sidebar */
 }
 
 /* Sidebar */
@@ -64,9 +70,10 @@ html, body {
     align-items: center;
     gap: 12px;
     padding: 16px;
-    background: #0f1724; /* panel background */
+    background: #0f1724;
+    /* panel background */
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(2,6,23,0.6);
+    box-shadow: 0 2px 8px rgba(2, 6, 23, 0.6);
 }
 
 .user-avatar {
@@ -86,13 +93,15 @@ html, body {
     margin: 0;
     font-size: 16px;
     font-weight: 600;
-    color: #F3F4F6; /* light */
+    color: #F3F4F6;
+    /* light */
 }
 
 .user-info p {
     margin: 4px 0 0 0;
     font-size: 12px;
-    color: #9CA3AF; /* muted light */
+    color: #9CA3AF;
+    /* muted light */
 }
 
 /* Mini Calendar */
@@ -101,7 +110,7 @@ html, body {
     background: #141414;
     border-radius: 8px;
     padding: 20px;
-    box-shadow: 0 2px 8px rgba(2,6,23,0.6);
+    box-shadow: 0 2px 8px rgba(2, 6, 23, 0.6);
 }
 
 .calendar-header {
@@ -180,21 +189,30 @@ html, body {
 }
 
 .calendar-day.today {
-    background: transparent; /* Reset background */
-    color: #f2f2f2; /* Reset text color */
-    font-weight: normal; /* Reset font weight */
+    background: transparent;
+    /* Reset background */
+    color: #f2f2f2;
+    /* Reset text color */
+    font-weight: normal;
+    /* Reset font weight */
 }
 
 .calendar-day.today:not(.selected) {
-    background: transparent; /* Remove background for today when not selected */
-    color: #f2f2f2; /* Reset text color for today when not selected */
-    font-weight: normal; /* Reset font weight for today when not selected */
+    background: transparent;
+    /* Remove background for today when not selected */
+    color: #f2f2f2;
+    /* Reset text color for today when not selected */
+    font-weight: normal;
+    /* Reset font weight for today when not selected */
 }
 
 .calendar-day.selected {
-    background: #da2128; /* Selected day background */
-    color: white; /* Selected day text color */
-    font-weight: 600; /* Bold font for selected day */
+    background: #da2128;
+    /* Selected day background */
+    color: white;
+    /* Selected day text color */
+    font-weight: 600;
+    /* Bold font for selected day */
 }
 
 .calendar-day:hover {
@@ -220,7 +238,7 @@ html, body {
     background: #0f1724;
     border-radius: 8px;
     padding: 20px;
-    box-shadow: 0 2px 8px rgba(2,6,23,0.6);
+    box-shadow: 0 2px 8px rgba(2, 6, 23, 0.6);
 }
 
 .calendar-details h4 {
@@ -368,7 +386,9 @@ html, body {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .retry-button {
@@ -394,14 +414,18 @@ html, body {
     gap: 16px;
     margin-bottom: 24px;
     padding: 16px;
-    background: #141414; /* Darker background for navigation */
+    background: #141414;
+    /* Darker background for navigation */
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
+
 @media (max-width: 768px) {
+
     .date-navigation,
     .selected-day-schedule {
-        width: 100%; /* Full width for smaller screens */
+        width: 100%;
+        /* Full width for smaller screens */
     }
 }
 
@@ -434,11 +458,13 @@ html, body {
     color: #f2f2f2;
     transition: all 0.2s ease;
 }
+
 .nav-btn:hover {
     background: #da2128;
     border: none;
     color: white;
 }
+
 .today-btn:disabled {
     background: #da2128;
     cursor: not-allowed;
@@ -516,7 +542,7 @@ html, body {
     background: #0f1724;
     border-radius: 8px;
     padding: 12px;
-    box-shadow: 0 2px 8px rgba(2,6,23,0.6);
+    box-shadow: 0 2px 8px rgba(2, 6, 23, 0.6);
 }
 
 /* Current Time Indicator */
@@ -526,7 +552,8 @@ html, body {
     gap: 8px;
     margin-bottom: 12px;
     padding: 8px;
-    background: rgba(218, 33, 40, 0.2); /* Subtle highlight */
+    background: rgba(218, 33, 40, 0.2);
+    /* Subtle highlight */
     border-left: 3px solid #da2128;
 }
 
@@ -545,9 +572,20 @@ html, body {
 }
 
 @keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.2); opacity: 0.7; }
-    100% { transform: scale(1); opacity: 1; }
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.2);
+        opacity: 0.7;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 /* Session List */
@@ -562,7 +600,8 @@ html, body {
     align-items: center;
     justify-content: center;
     padding: 40px 20px;
-    color: #9CA3AF; /* Muted light text */
+    color: #9CA3AF;
+    /* Muted light text */
     font-size: 14px;
     text-align: center;
 }
@@ -576,46 +615,71 @@ html, body {
     cursor: pointer;
     transition: all 0.2s ease;
     backdrop-filter: blur(6px);
-    box-shadow: 0 1px 6px rgba(2,6,23,0.6);
-    background: #0b1220; /* card background */
+    box-shadow: 0 1px 6px rgba(2, 6, 23, 0.6);
+    background: #0b1220;
+    /* card background */
+    color: #F3F4F6;
+    /* default text color for readability */
 }
 
 .session-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(2,6,23,0.8);
+    box-shadow: 0 6px 16px rgba(2, 6, 23, 0.8);
 }
 
 .session-time {
     font-size: 12px;
-    font-weight: 600;
-    color: #9CA3AF;
+    font-weight: 700;
+    color: #FFFFFF;
+    /* high contrast */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     margin-bottom: 4px;
 }
 
 .session-title {
     font-size: 14px;
-    font-weight: 600;
-    color: #F3F4F6;
+    font-weight: 700;
+    color: #FFFFFF;
+    /* high contrast */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     margin-bottom: 4px;
 }
 
 .session-trainer {
     font-size: 12px;
-    color: #9CA3AF;
+    color: #F3F4F6;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     margin-bottom: 4px;
 }
 
 .session-branch {
     font-size: 11px;
-    color: #9CA3AF;
+    color: #F3F4F6;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     margin-bottom: 4px;
 }
 
 .session-status {
     font-size: 10px;
-    font-weight: 500;
-    color: #9CA3AF;
+    font-weight: 600;
+    color: #F3F4F6;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     margin-top: 4px;
+}
+
+/* Countdown badge for upcoming sessions */
+.countdown-badge {
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #F3F4F6;
 }
 
 .session-card.da_tham_gia {
@@ -633,7 +697,8 @@ html, body {
 
 /* Selected Day Schedule */
 .selected-day-schedule {
-    background: #141414; /* Panel background */
+    background: #141414;
+    /* Panel background */
     border-radius: 8px;
     padding: 24px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
@@ -675,7 +740,7 @@ html, body {
 }
 
 .selected-day-schedule .session-item:hover {
-    box-shadow: 0 6px 18px rgba(2,6,23,0.8);
+    box-shadow: 0 6px 18px rgba(2, 6, 23, 0.8);
     transform: translateY(-2px);
 }
 
@@ -786,9 +851,12 @@ html, body {
 }
 
 @keyframes pulse-dot {
-    0%, 100% {
+
+    0%,
+    100% {
         box-shadow: 0 0 0 2px #da2128, 0 0 0 4px rgba(218, 33, 40, 0.3);
     }
+
     50% {
         box-shadow: 0 0 0 2px #da2128, 0 0 0 8px rgba(218, 33, 40, 0.1);
     }
@@ -808,7 +876,7 @@ html, body {
     .schedule-page {
         margin-left: 80px;
     }
-    
+
     .schedule-sidebar {
         width: 380px;
     }
@@ -847,7 +915,7 @@ html, body {
     .week-header {
         padding: 16px;
     }
-    
+
     .days-grid {
         gap: 12px;
         padding: 0 16px 16px 16px;
@@ -869,19 +937,19 @@ html, body {
         padding: 12px;
         gap: 4px;
     }
-    
+
     .week-day {
         padding: 8px 4px;
     }
-    
+
     .day-number {
         font-size: 14px;
     }
-    
+
     .day-name {
         font-size: 11px;
     }
-    
+
     .days-grid {
         grid-template-columns: 1fr;
         gap: 16px;
