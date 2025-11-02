@@ -8,7 +8,8 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 const path = require('path');
 
-const BaiTap = require(path.join(__dirname, '..', 'src', 'models', 'BaiTap'));
+// Sử dụng Exercise model (đã merge với BaiTap)
+const BaiTap = require(path.join(__dirname, '..', 'src', 'models', 'Exercise'));
 
 const MONGO_URI = process.env.MONGO_URI || process.env.DATABASE_URL || 'mongodb://localhost:27017/billions_gym';
 

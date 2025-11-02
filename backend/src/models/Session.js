@@ -8,7 +8,7 @@ const SessionSchema = new Schema({
     ngay: { type: Date, required: true, index: true },
     gioBatDau: { type: String, required: true }, // HH:mm
     gioKetThuc: { type: String, required: true }, // HH:mm
-    taiLieuBaiTap: [{ type: Types.ObjectId, ref: 'BaiTap' }],
+    taiLieuBaiTap: [{ type: Types.ObjectId, ref: 'Exercise' }], // Changed from 'BaiTap' to 'Exercise'
     hinhAnh: { type: String, default: '' },
     doKho: { type: String, enum: ['DE', 'TRUNG_BINH', 'KHO'], default: 'TRUNG_BINH', index: true },
     soLuongToiDa: { type: Number, default: 20, min: 1 },

@@ -6,7 +6,7 @@ const TemplateBuoiTapSchema = new Schema({
     moTa: { type: String, default: '' },
     loai: { type: String, default: '' },
     doKho: { type: String, enum: ['DE', 'TRUNG_BINH', 'KHO'], default: 'TRUNG_BINH', index: true },
-    baiTap: [{ type: Types.ObjectId, ref: 'BaiTap' }],
+    baiTap: [{ type: Types.ObjectId, ref: 'Exercise' }], // Changed from 'BaiTap' to 'Exercise'
     hinhAnh: { type: String, default: '' },
 }, { timestamps: true, collection: 'templateBuoiTaps' });
 

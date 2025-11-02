@@ -92,6 +92,8 @@ const reviewRouter = require('./src/routes/review.route');
 const paymentRouter = require('./src/routes/payment.route');
 const sessionRouter = require('./src/routes/session.route');
 const sessionTemplateRouter = require('./src/routes/sessionTemplate.route');
+const exerciseRouter = require('./src/routes/exercise.route');
+const sessionPlaylistRouter = require('./src/routes/sessionPlaylist.route');
 const chiNhanhRouter = require('./src/routes/chinhanh.route');
 const notificationRouter = require('./src/routes/notification.route');
 
@@ -119,7 +121,9 @@ app.use('/api/dang-ky-goi-tap', dangKyGoiTapRouter);
 app.use('/api', reviewRouter);
 app.use('/api/payment', paymentRouter);
 app.use('/api/sessions', sessionRouter);
+app.use('/api/sessions/:sessionId/playlist', sessionPlaylistRouter);
 app.use('/api/session-templates', sessionTemplateRouter);
+app.use('/api/exercises', exerciseRouter);
 app.use('/api/chinhanh', chiNhanhRouter);
 app.use('/api/notifications', notificationRouter);
 
