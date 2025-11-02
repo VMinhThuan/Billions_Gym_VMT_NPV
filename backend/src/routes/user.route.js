@@ -9,7 +9,7 @@ const chiTietGoiTapController = require('../controllers/chitietgoitap.controller
 // CRUD Hội Viên (chỉ Ông Chủ)
 router.post('/hoivien', auth, authorize(['OngChu']), userController.createHoiVien);
 router.get('/hoivien', auth, authorize(['OngChu']), userController.getAllHoiVien);
-router.put('/hoivien/:id', auth, authorize(['OngChu', 'HoiVien']), userController.updateHoiVien);
+router.put('/hoivien/:id', auth, authorize(['OngChu',]), userController.updateHoiVien);
 router.delete('/hoivien/:id', auth, authorize(['OngChu']), userController.deleteHoiVien);
 
 // Kiểm tra email và số điện thoại
@@ -23,7 +23,7 @@ router.get('/taikhoan/by-phone/:sdt', auth, authorize(['OngChu']), userControlle
 
 // CRUD PT (chỉ Ông Chủ)
 router.post('/pt', auth, authorize(['OngChu']), userController.createPT);
-router.get('/pt', auth, userController.getAllPT);
+router.get('/pt', userController.getAllPT);
 router.put('/pt/:id', auth, authorize(['OngChu']), userController.updatePT);
 router.delete('/pt/:id', auth, authorize(['OngChu']), userController.deletePT);
 
@@ -47,5 +47,11 @@ router.put('/hoivien/:id/status', auth, authorize(['OngChu']), userController.up
 
 // Lấy danh sách học viên của PT
 router.get('/pt/students', auth, authorize(['PT', 'OngChu']), userController.getPTStudents);
+
+// Lấy hạng hội viên của người dùng
+router.get('/:id/with-rank', auth, authorize(['OngChu', 'HoiVien']), userController.getUserWithRank);
+
+router.get('/profile', auth, userController.getUserProfile);
+router.put('/profile/edit', auth, userController.updateUserProfile);
 
 module.exports = router;

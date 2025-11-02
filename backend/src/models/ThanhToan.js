@@ -11,7 +11,6 @@ const ThanhToanSchema = new mongoose.Schema({
     maChiTietGoiTap: { type: mongoose.Schema.Types.ObjectId, ref: 'ChiTietGoiTap' } // Liên kết với gói tập
 }, { collection: 'thanhToans', timestamps: true });
 
-// Middleware để tự động khóa sau khi thanh toán thành công
 ThanhToanSchema.pre('save', function (next) {
     if (this.isModified('trangThaiThanhToan') && this.trangThaiThanhToan === 'THANH_CONG') {
         this.isLocked = true;
@@ -19,7 +18,6 @@ ThanhToanSchema.pre('save', function (next) {
     next();
 });
 
-// Middleware để ngăn chặn chỉnh sửa khi đã khóa
 ThanhToanSchema.pre(['updateOne', 'findOneAndUpdate'], function (next) {
     const update = this.getUpdate();
     if (this.getFilter().isLocked === true || this.getFilter()._id) {

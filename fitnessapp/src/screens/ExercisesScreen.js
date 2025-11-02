@@ -93,9 +93,11 @@ const ExercisesScreen = () => {
     };
 
     const filteredExercises = exercises.filter(exercise => {
-        const matchesCategory = selectedCategory === 'Tất cả' || exercise.nhomCo === selectedCategory;
-        const matchesSearch = exercise.tenBaiTap.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            exercise.moTa.toLowerCase().includes(searchQuery.toLowerCase());
+        const name = exercise?.tenBaiTap || '';
+        const desc = exercise?.moTa || '';
+        const group = exercise?.nhomCo || '';
+        const matchesCategory = selectedCategory === 'Tất cả' || group === selectedCategory;
+        const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) || desc.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
     });
 
@@ -156,82 +158,84 @@ const ExercisesScreen = () => {
         </View>
     );
 
-    const renderExerciseCard = ({ item }) => (
-        <TouchableOpacity
-            style={[styles.exerciseCard, { backgroundColor: colors.surface }]}
-            onPress={() => navigation.navigate('ExerciseDetail', { exercise: item })}
-        >
-            <View style={styles.exerciseHeader}>
-                <View style={styles.exerciseIconContainer}>
-                    <Ionicons
-                        name={getCategoryIcon(item.nhomCo)}
-                        size={24}
-                        color={colors.primary}
-                    />
-                </View>
-                <View style={styles.exerciseInfo}>
-                    <Text style={[styles.exerciseName, { color: colors.text }]}>
-                        {item.tenBaiTap}
-                    </Text>
-                    <Text style={[styles.exerciseCategory, { color: colors.textSecondary }]}>
-                        {item.nhomCo}
-                    </Text>
-                </View>
-                <View style={styles.exerciseBadges}>
-                    <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(item.mucDo) }]}>
+    const renderExerciseCard = ({ item }) => {
+        const safe = item || {};
+        return (
+            <TouchableOpacity
+                style={[styles.exerciseCard, { backgroundColor: colors.surface }]}
+                onPress={() => navigation.navigate('ExerciseDetail', { exercise: safe })}
+            >
+                <View style={styles.exerciseHeader}>
+                    <View style={styles.exerciseIconContainer}>
                         <Ionicons
-                            name={getDifficultyIcon(item.mucDo)}
-                            size={12}
-                            color="#fff"
+                            name={getCategoryIcon(safe.nhomCo)}
+                            size={24}
+                            color={colors.primary}
                         />
-                        <Text style={styles.difficultyText}>{item.mucDo}</Text>
+                    </View>
+                    <View style={styles.exerciseInfo}>
+                        <Text style={[styles.exerciseName, { color: colors.text }]}>
+                            {safe.tenBaiTap}
+                        </Text>
+                        <Text style={[styles.exerciseCategory, { color: colors.textSecondary }]}>
+                            {safe.nhomCo}
+                        </Text>
+                    </View>
+                    <View style={styles.exerciseBadges}>
+                        <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(item.mucDo) }]}>
+                            <Ionicons
+                                name={getDifficultyIcon(safe.mucDo)}
+                                size={12}
+                                color="#fff"
+                            />
+                            <Text style={styles.difficultyText}>{safe.mucDo}</Text>
+                        </View>
                     </View>
                 </View>
-            </View>
+                <Text style={[styles.exerciseDescription, { color: colors.textSecondary }]} numberOfLines={2}>
+                    {safe.moTa}
+                </Text>
 
-            <Text style={[styles.exerciseDescription, { color: colors.textSecondary }]} numberOfLines={2}>
-                {item.moTa}
-            </Text>
+                <View style={styles.exerciseStats}>
+                    <View style={styles.statItem}>
+                        <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                        <Text style={[styles.statText, { color: colors.textSecondary }]}>
+                            {safe.thoiGian || 0} phút
+                        </Text>
+                    </View>
+                    <View style={styles.statItem}>
+                        <Ionicons name="repeat-outline" size={16} color={colors.textSecondary} />
+                        <Text style={[styles.statText, { color: colors.textSecondary }]}>
+                            {safe.soLanLap || 0} lần
+                        </Text>
+                    </View>
+                    <View style={styles.statItem}>
+                        <Ionicons name="layers-outline" size={16} color={colors.textSecondary} />
+                        <Text style={[styles.statText, { color: colors.textSecondary }]}>
+                            {safe.soSet || 0} set
+                        </Text>
+                    </View>
+                </View>
 
-            <View style={styles.exerciseStats}>
-                <View style={styles.statItem}>
-                    <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                        {item.thoiGian} phút
-                    </Text>
+                <View style={styles.exerciseActions}>
+                    <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: colors.primary }]}
+                        onPress={() => navigation.navigate('ExerciseDetail', { exercise: safe })}
+                    >
+                        <Ionicons name="eye-outline" size={16} color="#fff" />
+                        <Text style={styles.actionButtonText}>Xem chi tiết</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: colors.secondary }]}
+                        onPress={() => navigation.navigate('WorkoutTracking')}
+                    >
+                        <Ionicons name="play-outline" size={16} color="#fff" />
+                        <Text style={styles.actionButtonText}>Bắt đầu</Text>
+                    </TouchableOpacity>
                 </View>
-                <View style={styles.statItem}>
-                    <Ionicons name="repeat-outline" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                        {item.soLanLap} lần
-                    </Text>
-                </View>
-                <View style={styles.statItem}>
-                    <Ionicons name="layers-outline" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                        {item.soSet} set
-                    </Text>
-                </View>
-            </View>
-
-            <View style={styles.exerciseActions}>
-                <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: colors.primary }]}
-                    onPress={() => navigation.navigate('ExerciseDetail', { exercise: item })}
-                >
-                    <Ionicons name="eye-outline" size={16} color="#fff" />
-                    <Text style={styles.actionButtonText}>Xem chi tiết</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: colors.secondary }]}
-                    onPress={() => navigation.navigate('WorkoutTracking')}
-                >
-                    <Ionicons name="play-outline" size={16} color="#fff" />
-                    <Text style={styles.actionButtonText}>Bắt đầu</Text>
-                </TouchableOpacity>
-            </View>
-        </TouchableOpacity>
-    );
+            </TouchableOpacity>
+        );
+    };
 
     const renderEmptyState = () => (
         <View style={styles.emptyState}>

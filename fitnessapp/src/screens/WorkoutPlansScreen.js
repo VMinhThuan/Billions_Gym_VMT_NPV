@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
+import { useTheme } from '../hooks/useTheme';
 import apiService from '../api/apiService';
 
 const { width } = Dimensions.get('window');
@@ -24,8 +24,10 @@ const WorkoutPlansScreen = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState('all');
+    const [selectedTab, setSelectedTab] = useState('workout');
     const [workoutPlans, setWorkoutPlans] = useState([]);
     const [myWorkouts, setMyWorkouts] = useState([]);
+    const [allExercises, setAllExercises] = useState([]);
 
     useEffect(() => {
         fetchWorkoutData();
@@ -35,10 +37,10 @@ const WorkoutPlansScreen = () => {
         try {
             setLoading(true);
 
-            // Fetch both my assigned workouts and all available workout plans
-            const [myWorkoutsData, allWorkoutsData] = await Promise.allSettled([
+            const [myWorkoutsData, allWorkoutsData, allExercisesData] = await Promise.allSettled([
                 apiService.getMyWorkoutPlans(),
-                apiService.getAllWorkoutPlans()
+                apiService.getAllWorkoutPlans(),
+                apiService.getAllBaiTap()
             ]);
 
             if (myWorkoutsData.status === 'fulfilled') {
@@ -48,7 +50,6 @@ const WorkoutPlansScreen = () => {
             if (allWorkoutsData.status === 'fulfilled') {
                 const workouts = allWorkoutsData.value || [];
 
-                // Transform backend data to frontend format
                 const transformedWorkouts = workouts.map(workout => ({
                     id: workout._id,
                     title: workout.tenBuoiTap || 'Buổi tập',
@@ -58,12 +59,54 @@ const WorkoutPlansScreen = () => {
                     category: mapCategory(workout.loaiBuoiTap),
                     completed: workout.trangThai === 'DaHoanThanh',
                     description: workout.moTa || 'Buổi tập luyện',
-                    exercises: workout.danhSachBaiTap?.map(bt => bt.tenBaiTap) || [],
+                    exercises: workout.danhSachBaiTap?.map(bt => ({
+                        tenBaiTap: bt.tenBaiTap,
+                        hinhAnh: bt.hinhAnh || bt.hinhAnhMinhHoa?.[0] || 'https://via.placeholder.com/128',
+                        nhomCo: bt.nhomCo,
+                        mucTieuBaiTap: bt.mucTieuBaiTap
+                    })) || [],
                     ngayTap: workout.ngayTap,
                     trangThai: workout.trangThai
                 }));
 
                 setWorkoutPlans(transformedWorkouts);
+            }
+
+            if (allExercisesData && allExercisesData.status === 'fulfilled') {
+                console.log('allExercisesData from API:', allExercisesData.value);
+                setAllExercises(allExercisesData.value || []);
+            } else {
+                try {
+                    const fallback = await apiService.apiCall('/baitap', 'GET', null, false);
+                    console.log('Fallback exercises data:', fallback);
+                    setAllExercises(Array.isArray(fallback) ? fallback : []);
+                } catch (fallbackErr) {
+                    console.warn('Failed to fetch exercises (unauthenticated fallback):', fallbackErr.message || fallbackErr);
+                    const mockExercises = [
+                        {
+                            _id: 'mock1',
+                            tenBaiTap: 'Push-up',
+                            hinhAnh: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400',
+                            nhomCo: 'Ngực',
+                            mucDoKho: 'Trung bình'
+                        },
+                        {
+                            _id: 'mock2',
+                            tenBaiTap: 'Squat',
+                            hinhAnh: 'https://images.unsplash.com/photo-1566241440091-ec10de8db2e1?w=400',
+                            nhomCo: 'Chân',
+                            mucDoKho: 'Dễ'
+                        },
+                        {
+                            _id: 'mock3',
+                            tenBaiTap: 'Plank',
+                            hinhAnh: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400',
+                            nhomCo: 'Bụng',
+                            mucDoKho: 'Trung bình'
+                        }
+                    ];
+                    setAllExercises(mockExercises);
+                }
             }
 
         } catch (error) {
@@ -104,23 +147,21 @@ const WorkoutPlansScreen = () => {
         return `${Math.round(totalCalories * 0.8)}-${Math.round(totalCalories * 1.2)}`;
     };
 
-    const handleCompleteWorkout = async (workoutId) => {
+    const computeExerciseKcal = (ex = {}) => {
         try {
-            await apiService.completeWorkout(workoutId);
-            Alert.alert('Thành công', 'Đã đánh dấu hoàn thành buổi tập!');
-            fetchWorkoutData(); // Refresh data
-        } catch (error) {
-            console.error('Error completing workout:', error);
-            Alert.alert('Lỗi', 'Không thể hoàn thành buổi tập. Vui lòng thử lại.');
+            const thoiGian = ex?.thoiGian || ex?.thoiGianTap || 0;
+            if (thoiGian && Number(thoiGian) > 0) {
+                return Math.round(Number(thoiGian) * 8);
+            }
+
+            const diff = (ex?.mucDoKho || ex?.mucDo || '').toLowerCase();
+            if (diff.includes('de') || diff.includes('dễ')) return 50;
+            if (diff.includes('khó') || diff.includes('kho')) return 150;
+            return 100;
+        } catch (e) {
+            return 100;
         }
     };
-
-    const categories = [
-        { id: 'all', name: 'Tất cả', icon: 'fitness-center' },
-        { id: 'cardio', name: 'Cardio', icon: 'favorite' },
-        { id: 'strength', name: 'Sức mạnh', icon: 'self-improvement' },
-        { id: 'flexibility', name: 'Dẻo dai', icon: 'spa' }
-    ];
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -128,115 +169,165 @@ const WorkoutPlansScreen = () => {
         setRefreshing(false);
     };
 
-    const getDifficultyColor = (difficulty) => {
-        switch (difficulty) {
-            case 'Dễ': return '#4CAF50';
-            case 'Trung bình': return '#FF9800';
-            case 'Khó': return '#DA2128';
-            default: return '#666';
-        }
-    };
-
     const filteredWorkouts = selectedCategory === 'all'
         ? workoutPlans
         : workoutPlans.filter(plan => plan.category === selectedCategory);
 
-    const renderCategoryTabs = () => (
-        <View style={[styles.categoryContainer, { backgroundColor: colors.surface }]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {categories.map((category) => (
-                    <TouchableOpacity
-                        key={category.id}
-                        style={[
-                            styles.categoryTab,
-                            { backgroundColor: colors.card, borderColor: colors.border },
-                            selectedCategory === category.id && [styles.categoryTabActive, { backgroundColor: colors.primary }]
-                        ]}
-                        onPress={() => setSelectedCategory(category.id)}
-                    >
-                        <MaterialIcons
-                            name={category.icon}
-                            size={20}
-                            color={selectedCategory === category.id ? '#fff' : colors.textSecondary}
-                        />
-                        <Text style={[
-                            styles.categoryText,
-                            { color: colors.text },
-                            selectedCategory === category.id && [styles.categoryTextActive, { color: '#fff' }]
-                        ]}>
-                            {category.name}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
+    const renderSegmentTabs = () => (
+        <View style={styles.segmentContainer}>
+            {(() => {
+                const isLightTheme = (() => {
+                    try {
+                        const bg = (colors.background || '').replace('#', '').trim();
+                        if (!bg) return false;
+                        const hex = bg.length === 3 ? bg.split('').map(c => c + c).join('') : bg.slice(0, 6);
+                        const r = parseInt(hex.slice(0, 2), 16) / 255;
+                        const g = parseInt(hex.slice(2, 4), 16) / 255;
+                        const b = parseInt(hex.slice(4, 6), 16) / 255;
+                        const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                        return lum > 0.7;
+                    } catch (e) {
+                        return false;
+                    }
+                })();
+
+                const activeBg = isLightTheme ? '#da2128' : colors.primary;
+                const activeText = '#FFFFFF';
+                const inactiveBg = isLightTheme ? '#F3F6F9' : 'transparent';
+                const inactiveBorder = isLightTheme ? 'transparent' : colors.border;
+                const inactiveText = isLightTheme ? '#111827' : colors.text;
+
+                return ['workout', 'tutorials', 'activity'].map(tab => {
+                    const isActive = selectedTab === tab;
+                    const label = tab === 'workout' ? 'workout' : tab === 'tutorials' ? 'Tutorials' : 'Activity';
+                    return (
+                        <TouchableOpacity
+                            key={tab}
+                            onPress={() => setSelectedTab(tab)}
+                            activeOpacity={0.9}
+                            style={[
+                                styles.segmentButton,
+                                isActive
+                                    ? { backgroundColor: activeBg, borderWidth: isLightTheme ? 0 : 1 }
+                                    : { backgroundColor: inactiveBg, borderColor: inactiveBorder, borderWidth: isLightTheme ? 0 : 1 }
+                            ]}
+                        >
+                            <Text style={[
+                                styles.segmentText,
+                                isActive ? { color: activeText } : { color: inactiveText }
+                            ]}>{label}</Text>
+                        </TouchableOpacity>
+                    );
+                });
+            })()}
         </View>
     );
 
-    const renderWorkoutCard = (workout) => (
-        <TouchableOpacity key={workout.id} style={[styles.workoutCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.workoutHeader}>
-                <View style={styles.workoutInfo}>
-                    <Text style={[styles.workoutTitle, { color: colors.text }]}>{workout.title}</Text>
-                    <Text style={[styles.workoutDescription, { color: colors.textSecondary }]}>{workout.description}</Text>
-                </View>
-                {workout.completed && (
-                    <View style={styles.completedBadge}>
-                        <MaterialIcons name="check-circle" size={24} color={colors.success} />
-                    </View>
-                )}
-            </View>
+    const renderExerciseCard = (exercise, idx) => {
+        if (!exercise) {
+            return null;
+        }
 
-            <View style={styles.workoutDetails}>
-                <View style={styles.detailItem}>
-                    <MaterialIcons name="schedule" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.detailText, { color: colors.textSecondary }]}>{workout.duration}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                    <MaterialIcons name="trending-up" size={16} color={getDifficultyColor(workout.difficulty)} />
-                    <Text style={[styles.detailText, { color: getDifficultyColor(workout.difficulty) }]}>
-                        {workout.difficulty}
-                    </Text>
-                </View>
-                <View style={styles.detailItem}>
-                    <MaterialIcons name="local-fire-department" size={16} color={colors.primary} />
-                    <Text style={[styles.detailText, { color: colors.textSecondary }]}>{workout.calories} cal</Text>
-                </View>
-            </View>
-
-            <View style={styles.exercisesList}>
-                <Text style={[styles.exercisesTitle, { color: colors.text }]}>Bài tập:</Text>
-                <View style={styles.exerciseTags}>
-                    {workout.exercises.slice(0, 3).map((exercise, index) => (
-                        <View key={index} style={[styles.exerciseTag, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                            <Text style={[styles.exerciseTagText, { color: colors.text }]}>{exercise}</Text>
-                        </View>
-                    ))}
-                    {workout.exercises.length > 3 && (
-                        <View style={[styles.exerciseTag, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                            <Text style={[styles.exerciseTagText, { color: colors.text }]}>+{workout.exercises.length - 3}</Text>
-                        </View>
-                    )}
-                </View>
-            </View>
-
+        return (
             <TouchableOpacity
-                style={[styles.startButton, { backgroundColor: colors.primary }]}
-                onPress={() => handleCompleteWorkout(workout.id)}
+                key={exercise._id || idx}
+                style={[styles.cardWrapper, { borderWidth: 1, borderColor: colors.border }]}
+                activeOpacity={0.9}
+                onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: exercise._id })}
             >
-                <MaterialIcons name="play-arrow" size={20} color="#fff" />
-                <Text style={styles.startButtonText}>
-                    {workout.completed ? 'Tập lại' : 'Bắt đầu'}
-                </Text>
+                <Image
+                    source={{ uri: exercise?.hinhAnh || exercise?.hinhAnhMinhHoa?.[0] || 'https://via.placeholder.com/800x400?text=Exercise' }}
+                    style={styles.cardImage}
+                    resizeMode="cover"
+                />
+                <View style={styles.cardOverlay} />
+                <View style={styles.cardContentRow}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.cardTitle, { color: '#fff' }]} numberOfLines={1}>{exercise?.tenBaiTap || 'Bài tập'}</Text>
+                        <View style={styles.cardMetaRow}>
+                            <View style={styles.metaItem}>
+                                <MaterialIcons name="fitness-center" size={14} color="#fff" />
+                                <Text style={styles.metaText}>{exercise?.nhomCo || 'Tập luyện'}</Text>
+                            </View>
+                            <View style={styles.metaItem}>
+                                <MaterialIcons name="local-fire-department" size={14} color="#fff" />
+                                <Text style={styles.metaText}>{(exercise?.kcal ?? computeExerciseKcal(exercise)) + ' kcal'}</Text>
+                            </View>
+                            <View style={styles.metaItem}>
+                                <MaterialIcons name="speed" size={14} color="#fff" />
+                                <Text style={styles.metaText}>{exercise?.mucDoKho || 'Trung bình'}</Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    <TouchableOpacity onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: exercise._id })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Text style={[styles.viewLink, { color: colors.primary }]}>View Details</Text>
+                    </TouchableOpacity>
+                </View>
             </TouchableOpacity>
+        );
+    };
+
+    const renderWorkoutCard = (workout, idx) => (
+        <TouchableOpacity
+            key={workout.id || idx}
+            style={[styles.cardWrapper, { borderWidth: 1, borderColor: colors.border }]}
+            activeOpacity={0.9}
+            onPress={() => { /* navigate if needed */ }}
+        >
+            <Image
+                source={{ uri: workout.image || 'https://via.placeholder.com/800x400?text=Workout' }}
+                style={styles.cardImage}
+                resizeMode="cover"
+            />
+            <View style={styles.cardOverlay} />
+            <View style={styles.cardContentRow}>
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, { color: '#fff' }]} numberOfLines={1}>{workout.title}</Text>
+                    <View style={styles.cardMetaRow}>
+                        <View style={styles.metaItem}>
+                            <MaterialIcons name="local-fire-department" size={14} color="#fff" />
+                            <Text style={styles.metaText}>{workout.calories} kcal</Text>
+                        </View>
+                        <View style={styles.metaItem}>
+                            <MaterialIcons name="schedule" size={14} color="#fff" />
+                            <Text style={styles.metaText}>{workout.duration}</Text>
+                        </View>
+                    </View>
+                </View>
+
+                <TouchableOpacity onPress={() => navigation.navigate('ExerciseDetail', { workoutId: workout.id })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={[styles.viewLink, { color: colors.primary }]}>View Exercises</Text>
+                </TouchableOpacity>
+            </View>
         </TouchableOpacity>
     );
+
+    const getFormattedDate = (d = new Date()) => {
+        try {
+            const day = d.getDate();
+            const weekday = d.toLocaleString(undefined, { weekday: 'short' });
+            const month = d.toLocaleString(undefined, { month: 'long' });
+            const year = d.getFullYear();
+            return `${day} ${weekday}, ${month}, ${year}`;
+        } catch (e) {
+            return '';
+        }
+    };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>Lịch tập</Text>
-                <TouchableOpacity style={[styles.searchButton, { backgroundColor: colors.surface }]}>
-                    <MaterialIcons name="search" size={24} color={colors.text} />
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
+                    <MaterialIcons name="arrow-back" size={20} color={colors.text} />
+                </TouchableOpacity>
+
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Buổi tập</Text>
+                </View>
+
+                <TouchableOpacity style={styles.iconButton} onPress={() => { /* notifications */ }}>
+                    <Ionicons name="notifications-outline" size={20} color={colors.text} />
                 </TouchableOpacity>
             </View>
 
@@ -246,22 +337,32 @@ const WorkoutPlansScreen = () => {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
             >
-                {renderCategoryTabs()}
-
-                <View style={[styles.aiRecommendation, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <View style={styles.aiIcon}>
-                        <Ionicons name="bulb" size={20} color={colors.primary} />
-                    </View>
-                    <View style={styles.aiContent}>
-                        <Text style={[styles.aiTitle, { color: colors.text }]}>Gợi ý cho bạn</Text>
-                        <Text style={[styles.aiText, { color: colors.textSecondary }]}>
-                            Dựa trên mục tiêu của bạn, hãy thử "Cardio Burn" để đốt cháy mỡ thừa hiệu quả
-                        </Text>
-                    </View>
+                <View style={styles.dateRow}>
+                    <Text style={[styles.dateText, { color: colors.textSecondary }]}>{getFormattedDate(new Date())}</Text>
                 </View>
 
+                {renderSegmentTabs()}
+
+                <Text style={[styles.sectionTitle, { color: colors.text, marginLeft: 20, marginTop: 16 }]}>Danh sách bài tập</Text>
+
                 <View style={styles.workoutList}>
-                    {filteredWorkouts.map(renderWorkoutCard)}
+                    {(() => {
+                        console.log('Current selectedTab:', selectedTab);
+                        console.log('allExercises:', allExercises);
+                        console.log('allExercises length:', allExercises?.length);
+
+                        if (selectedTab === 'workout') {
+                            if (allExercises && allExercises.length > 0) {
+                                return allExercises
+                                    .filter(exercise => exercise && exercise._id)
+                                    .map(renderExerciseCard);
+                            } else {
+                                return <Text style={{ color: colors.textSecondary, textAlign: 'center', marginTop: 20 }}>Không có bài tập để hiển thị</Text>;
+                            }
+                        } else {
+                            return filteredWorkouts.map(renderWorkoutCard);
+                        }
+                    })()}
                 </View>
 
                 <View style={styles.progressSection}>
@@ -305,8 +406,25 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
     },
     headerTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
+        fontSize: 20,
+        fontWeight: '700',
+        textAlign: 'center',
+    },
+    iconButton: {
+        padding: 8,
+        width: 40,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    dateText: {
+        fontSize: 16,
+        marginTop: 6,
+    },
+    dateRow: {
+        alignItems: 'start',
+        marginTop: 8,
+        marginBottom: 6,
+        paddingHorizontal: 20,
     },
     searchButton: {
         padding: 8,
@@ -327,9 +445,6 @@ const styles = StyleSheet.create({
         marginRight: 12,
         borderRadius: 20,
         borderWidth: 1,
-    },
-    categoryTabActive: {
-        // Active background color
     },
     categoryText: {
         marginLeft: 8,
@@ -366,9 +481,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666',
         lineHeight: 18,
-    },
-    workoutList: {
-        paddingHorizontal: 20,
     },
     workoutCard: {
         borderRadius: 16,
@@ -430,12 +542,12 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     exerciseTag: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
         borderRadius: 12,
         marginRight: 8,
-        marginBottom: 4,
-        borderWidth: 1,
+        marginBottom: 8,
+        borderWidth: 0,
     },
     exerciseTagText: {
         fontSize: 12,
@@ -447,6 +559,40 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         paddingVertical: 12,
         borderRadius: 8,
+    },
+    exercisesSection: {
+        paddingVertical: 12,
+        marginHorizontal: 20,
+        borderRadius: 12,
+        borderWidth: 1,
+        marginBottom: 12,
+    },
+    exerciseTagsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+    },
+    exercisesListContainer: {
+        paddingHorizontal: 20,
+        marginTop: 12,
+        marginBottom: 28,
+    },
+    exerciseItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        marginTop: 10,
+    },
+    exerciseThumb: {
+        width: 64,
+        height: 56,
+        borderRadius: 8,
+        backgroundColor: '#eee'
+    },
+    exerciseTitle: {
+        fontSize: 15,
+        fontWeight: '600'
     },
     startButtonText: {
         marginLeft: 8,
@@ -503,6 +649,120 @@ const styles = StyleSheet.create({
     progressText: {
         fontSize: 14,
         textAlign: 'center',
+    },
+    segmentContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        marginTop: 8,
+        marginBottom: 12,
+    },
+    segmentButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 22,
+        marginHorizontal: 6,
+        borderWidth: 1,
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        elevation: 4,
+    },
+    segmentText: {
+        fontSize: 15,
+        fontWeight: '700',
+        textTransform: 'capitalize'
+    },
+    cardWrapper: {
+        height: 160,
+        borderRadius: 14,
+        overflow: 'hidden',
+        marginBottom: 14,
+        marginHorizontal: 20,
+    },
+    cardImage: {
+        ...StyleSheet.absoluteFillObject,
+        width: '100%',
+        height: '100%',
+    },
+    cardOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.45)'
+    },
+    cardContent: {
+        position: 'absolute',
+        left: 16,
+        right: 16,
+        bottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    cardContentRow: {
+        position: 'absolute',
+        left: 16,
+        right: 16,
+        bottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+    },
+    cardMetaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 6,
+    },
+    viewLink: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    cardTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        marginBottom: 6,
+    },
+    cardMeta: {
+        flexDirection: 'row',
+        alignItems: 'center'
+    },
+    metaItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    metaText: {
+        color: '#fff',
+        marginLeft: 6,
+        fontSize: 14,
+    },
+    viewButton: {
+        backgroundColor: '#0066FF',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        marginLeft: 12,
+    },
+    viewButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+    },
+    rankContainer: {
+        padding: 16,
+        backgroundColor: '#f3f4f6',
+        borderRadius: 8,
+        margin: 20,
+        marginBottom: 0,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+    },
+    rankText: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#111827',
     },
 });
 

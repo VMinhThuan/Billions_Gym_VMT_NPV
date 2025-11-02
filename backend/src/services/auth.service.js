@@ -8,14 +8,21 @@ const mongoose = require('mongoose');
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 const findTaiKhoanBySdt = async (sdt) => {
-    return TaiKhoan.findOne({ sdt });
+    try {
+        // Sử dụng lean() để trả về plain JavaScript object, không phải Mongoose document
+        // Điều này giúp cải thiện hiệu suất
+        return await TaiKhoan.findOne({ sdt }).lean();
+    } catch (error) {
+        console.error('Error finding TaiKhoan by sdt:', error);
+        throw error;
+    }
 };
 
 const findNguoiDungById = async (id) => {
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
         throw new Error('ID người dùng không hợp lệ');
     }
-    return NguoiDung.findById(id);
+    return NguoiDung.findById(id).populate('hangHoiVien');
 };
 
 const guiOTPQuenMatKhau = async (sdt) => {

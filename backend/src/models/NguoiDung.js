@@ -48,8 +48,15 @@ const PTSchema = new mongoose.Schema({
     moTa: { type: String },
     ngayVaoLam: { type: Date, default: Date.now },
     trangThaiPT: { type: String, enum: ['DANG_HOAT_DONG', 'NGUNG_LAM_VIEC'], default: 'DANG_HOAT_DONG' },
+    chinhanh: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ChiNhanh',
+        required: true
+    },
 });
 
 const PT = NguoiDung.discriminator('PT', PTSchema);
+
+const HangHoiVien = require('./HangHoiVien');
 
 module.exports = { NguoiDung, HoiVien, OngChu, PT };

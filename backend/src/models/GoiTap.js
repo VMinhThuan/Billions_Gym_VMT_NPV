@@ -11,10 +11,39 @@ const GoiTapSchema = new mongoose.Schema({
         default: 'Ngay',
         required: true
     },
+    loaiThoiHan: {
+        type: String,
+        enum: ['VinhVien', 'TinhTheoNgay'],
+        default: 'TinhTheoNgay',
+        required: true
+    },
+    soLuongNguoiThamGia: {
+        type: Number,
+        required: true,
+        min: 1,
+        default: 1
+    },
+    loaiGoiTap: {
+        type: String,
+        enum: ['CaNhan', 'Nhom', 'CongTy'],
+        default: 'CaNhan',
+        required: true
+    },
     giaGoc: { type: Number },
     popular: { type: Boolean, default: false },
     hinhAnhDaiDien: { type: String },
     kichHoat: { type: Boolean, default: true },
+    ghiChu: { type: String },
+    quyenLoi: [{
+        tenQuyenLoi: { type: String, required: true },
+        moTa: { type: String },
+        icon: { type: String, default: '💪' },
+        loai: {
+            type: String,
+            enum: ['co_ban', 'cao_cap', 'vip', 'premium'],
+            default: 'co_ban'
+        }
+    }],
 }, { collection: 'goiTaps', timestamps: true });
 
 module.exports = mongoose.model('GoiTap', GoiTapSchema);

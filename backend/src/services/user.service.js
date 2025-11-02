@@ -180,6 +180,15 @@ const updateHoiVien = async (id, data) => {
         updateData.avatar = data.avatar;
     }
 
+    // Xử lý trangThaiHoiVien
+    if (data.trangThaiHoiVien !== undefined && data.trangThaiHoiVien !== oldHoiVien.trangThaiHoiVien) {
+        updateData.trangThaiHoiVien = data.trangThaiHoiVien;
+
+        // Đồng bộ trạng thái tài khoản với trạng thái hội viên
+        const trangThaiTK = data.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'DANG_HOAT_DONG' : 'DA_KHOA';
+        await TaiKhoan.updateOne({ nguoiDung: id }, { trangThaiTK: trangThaiTK });
+    }
+
     // Xử lý ngaySinh - chỉ update nếu có giá trị mới
     if (data.ngaySinh !== undefined && data.ngaySinh !== null) {
         updateData.ngaySinh = data.ngaySinh;
@@ -445,14 +454,68 @@ const checkPhoneExists = async (sdt, excludeId = null) => {
 const getTaiKhoanByPhone = async (sdt) => {
     try {
         const taiKhoan = await TaiKhoan.findOne({ sdt }).populate('nguoiDung');
-        if (!taiKhoan) {
-            throw new Error('Không tìm thấy tài khoản');
-        }
-        return taiKhoan;
+        // Trả về null nếu không có – tránh ném lỗi để controller có thể trả 200 rỗng
+        return taiKhoan || null;
     } catch (error) {
         console.error('Error getting account by phone:', error);
-        throw error;
+        // An toàn: không ném lỗi 500 cho trường hợp này, trả null
+        return null;
     }
+};
+
+// Lấy hạng hội viên của người dùng
+const getUserWithRank = async (userId) => {
+    const user = await HoiVien.findById(userId).populate('hangHoiVien');
+    if (!user) {
+        throw new Error('Không tìm thấy người dùng');
+    }
+    return {
+        id: user._id,
+        hoTen: user.hoTen,
+        hangHoiVien: user.hangHoiVien ? user.hangHoiVien.tenHang : 'Chưa có hạng'
+    };
+};
+
+const getUserProfile = async (userId) => {
+    const user = await TaiKhoan.findOne({ nguoiDung: userId }).populate({
+        path: 'nguoiDung',
+        populate: {
+            path: 'hangHoiVien'
+        }
+    });
+    if (!user) {
+        throw new Error('Không tìm thấy người dùng');
+    }
+    return user.nguoiDung;
+};
+
+const updateUserProfile = async (userId, data) => {
+    const taiKhoan = await TaiKhoan.findOne({ nguoiDung: userId });
+    if (!taiKhoan) {
+        throw new Error('Không tìm thấy tài khoản');
+    }
+    if (data.sdt && data.sdt !== taiKhoan.sdt) {
+        const existedTK = await TaiKhoan.findOne({ sdt: data.sdt, nguoiDung: { $ne: userId } });
+        if (existedTK) {
+            const err = new Error('Số điện thoại đã tồn tại ở tài khoản khác');
+            err.code = 11000;
+            err.keyPattern = { sdt: 1 };
+            throw err;
+        }
+        taiKhoan.sdt = data.sdt;
+        await taiKhoan.save();
+    }
+
+    const user = await HoiVien.findById(userId) || await PT.findById(userId);
+    if (!user) {
+        throw new Error('Không tìm thấy người dùng');
+    }
+    const updateData = { ...data };
+    return user.constructor.findByIdAndUpdate(
+        userId,
+        updateData,
+        { new: true, runValidators: true }
+    );
 };
 
 module.exports = {
@@ -472,5 +535,8 @@ module.exports = {
     checkEmailExists,
     checkPhoneExists,
     getTaiKhoanByPhone,
-    searchHoiVien
+    searchHoiVien,
+    getUserWithRank,
+    getUserProfile,
+    updateUserProfile
 };

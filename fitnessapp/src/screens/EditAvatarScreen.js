@@ -29,9 +29,8 @@ const EditAvatarScreen = () => {
         }
 
         try {
-            setSaving(true);
 
-            // Validate URL
+            setSaving(true);
             try {
                 new URL(avatarUrl);
             } catch {
@@ -39,8 +38,6 @@ const EditAvatarScreen = () => {
                 return;
             }
 
-            // Here you would typically save the avatar URL to the backend
-            // For now, we'll just show success message
             Alert.alert(
                 'Thành công',
                 'Cập nhật ảnh đại diện thành công',

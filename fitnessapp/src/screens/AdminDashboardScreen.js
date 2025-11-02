@@ -40,7 +40,6 @@ const AdminDashboardScreen = ({ navigation }) => {
 
     const loadDashboardData = async () => {
         try {
-            // Load admin dashboard data
             const [members, ptList, payments, bookings] = await Promise.all([
                 apiService.getAllMembers(),
                 apiService.getAllPT(),
@@ -48,7 +47,6 @@ const AdminDashboardScreen = ({ navigation }) => {
                 apiService.getAllBookings()
             ]);
 
-            // Ensure we have arrays to work with
             const safeMembers = Array.isArray(members) ? members : [];
             const safePTList = Array.isArray(ptList) ? ptList : [];
             const safePayments = Array.isArray(payments) ? payments : [];
@@ -58,7 +56,6 @@ const AdminDashboardScreen = ({ navigation }) => {
             const thisMonth = today.getMonth();
             const thisYear = today.getFullYear();
 
-            // Calculate statistics
             const activeMemberships = safeMembers.filter(member =>
                 member.trangThaiHoiVien === 'DANG_HOAT_DONG'
             ).length;
@@ -81,7 +78,6 @@ const AdminDashboardScreen = ({ navigation }) => {
                 booking.trangThai === 'HOAN_THANH'
             ).length;
 
-            // Top PT by revenue
             const ptRevenue = {};
             safePayments
                 .filter(payment => payment.trangThai === 'HOAN_THANH')
@@ -102,12 +98,10 @@ const AdminDashboardScreen = ({ navigation }) => {
                 .sort((a, b) => b.revenue - a.revenue)
                 .slice(0, 5);
 
-            // Recent members
             const recentMembers = safeMembers
                 .sort((a, b) => new Date(b.ngayThamGia) - new Date(a.ngayThamGia))
                 .slice(0, 5);
 
-            // Membership statistics
             const membershipStats = [
                 { name: 'Đang hoạt động', value: safeMembers.filter(m => m.trangThaiHoiVien === 'DANG_HOAT_DONG').length, color: '#4CAF50' },
                 { name: 'Tạm ngưng', value: safeMembers.filter(m => m.trangThaiHoiVien === 'TAM_NGUNG').length, color: '#FF9800' },
@@ -129,7 +123,6 @@ const AdminDashboardScreen = ({ navigation }) => {
         } catch (error) {
             console.error('Error loading admin dashboard data:', error);
 
-            // Handle specific error types
             if (error.message && error.message.includes('403')) {
                 Alert.alert('Lỗi quyền truy cập', 'Bạn không có quyền truy cập vào trang này. Vui lòng đăng nhập với tài khoản quản trị viên.');
             } else if (error.message && error.message.includes('401')) {

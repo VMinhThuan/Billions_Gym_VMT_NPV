@@ -52,11 +52,6 @@ button {
     cursor: pointer;
 }
 
-button:focus {
-    outline: 2px solid #007bff;
-    outline-offset: 2px;
-}
-
 /* Images */
 img {
     max-width: 100%;

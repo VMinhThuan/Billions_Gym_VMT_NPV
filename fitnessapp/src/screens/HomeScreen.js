@@ -1,27 +1,12 @@
-import React, { useState, useEffect } from "react";
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    ImageBackground,
-    RefreshControl,
-    Dimensions,
-    Image
-} from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet, ImageBackground, RefreshControl, Dimensions, Image, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { MaterialIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuth } from "../hooks/useAuth";
 import { useTheme, DEFAULT_THEME } from "../hooks/useTheme";
 import apiService from '../api/apiService';
 import Chatbot from '../components/Chatbot';
-import ChartContainer from '../components/ChartContainer';
-import WeeklyProgressChart from '../components/WeeklyProgressChart';
-import GoalProgressChart from '../components/GoalProgressChart';
-import ComparisonChart from '../components/ComparisonChart';
 
 const { width } = Dimensions.get('window');
 
@@ -29,6 +14,7 @@ const HomeScreen = () => {
     const navigation = useNavigation();
     const { logout, userInfo, userToken } = useAuth();
     const { colors } = useTheme();
+    const isLightMode = colors?.background === DEFAULT_THEME.background;
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [memberData, setMemberData] = useState({
@@ -41,34 +27,99 @@ const HomeScreen = () => {
         todayCalories: 0,
         weeklyGoal: 2000
     });
+    const [PTData, setPTData] = useState([]);
 
-    const [chartData, setChartData] = useState({
-        weeklyProgress: [],
-        goalProgress: {
-            workouts: { current: 0, target: 5 },
-            calories: { current: 0, target: 2000 }
-        },
-        comparisonData: []
-    });
+    // Upcoming classes 
+    const [upcomingClasses, setUpcomingClasses] = useState([]);
+    const [loadingUpcoming, setLoadingUpcoming] = useState(false);
+
+    //Workout 
+    const [workoutData, setWorkoutData] = useState([]);
+    const [loadingWorkouts, setLoadingWorkouts] = useState(false);
+
+    // Healthy meals
+    const [healthyMeals, setHealthyMeals] = useState([]);
+    const [loadingMeals, setLoadingMeals] = useState(false);
+    const [currentMealType, setCurrentMealType] = useState('');
+
+    // Exercises
+    const [exercises, setExercises] = useState([]);
+    const [loadingExercises, setLoadingExercises] = useState(false);
+
+    const getMealTypeName = (type) => {
+        const mealNames = {
+            'SANG': 'Bữa sáng gợi ý',
+            'TRUA': 'Bữa trưa gợi ý',
+            'CHIEU': 'Bữa chiều gợi ý',
+            'TOI': 'Bữa tối gợi ý'
+        };
+        return mealNames[type] || 'Bữa ăn';
+    };
 
     useEffect(() => {
         fetchDashboardData();
+        fetchPTData();
+        fetchHealthyMeals();
+        fetchExercises();
     }, []);
+
+    const Avatar = ({ userProfile, size = 50 }) => {
+        const getInitial = (name) => {
+            if (!name) return 'U';
+            return name.charAt(0).toUpperCase();
+        };
+
+        if (userProfile?.anhDaiDien) {
+            return (
+                <Image
+                    source={{ uri: userProfile.anhDaiDien }}
+                    style={{
+                        width: size,
+                        height: size,
+                        borderRadius: size / 2,
+                        marginRight: 12,
+                    }}
+                    resizeMode="cover"
+                />
+            );
+        }
+
+        return (
+            <View
+                style={{
+                    width: size,
+                    height: size,
+                    borderRadius: size / 2,
+                    backgroundColor: '#DA2128',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 8,
+                }}
+            >
+                <Text
+                    style={{
+                        color: 'white',
+                        fontSize: size * 0.5,
+                        fontWeight: 'bold',
+                    }}
+                >
+                    {getInitial(userProfile?.hoTen)}
+                </Text>
+            </View>
+        );
+    };
 
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
 
-            // Check if user is logged in using AuthContext
             if (!userToken) {
-                console.log('User not logged in, redirecting to login');
                 Alert.alert('Phiên đăng nhập hết hạn', 'Vui lòng đăng nhập lại.', [
                     { text: 'OK', onPress: () => logout() }
                 ]);
                 return;
             }
 
-            // Fetch multiple data sources in parallel
             const [
                 workoutPlans,
                 bodyStats,
@@ -83,7 +134,6 @@ const HomeScreen = () => {
                 apiService.getMyMembership()
             ]);
 
-            // Process workout data
             if (workoutPlans.status === 'fulfilled' && workoutPlans.value) {
                 try {
                     const workouts = Array.isArray(workoutPlans.value) ? workoutPlans.value : [];
@@ -106,7 +156,6 @@ const HomeScreen = () => {
                 }
             }
 
-            // Process PT booking data for next class
             if (ptBookings.status === 'fulfilled' && ptBookings.value) {
                 try {
                     const bookings = Array.isArray(ptBookings.value) ? ptBookings.value : [];
@@ -127,11 +176,9 @@ const HomeScreen = () => {
                         }));
                     }
                 } catch (error) {
-                    // Silent error handling for PT booking data
                 }
             }
 
-            // Process membership data
             if (membershipInfo.status === 'fulfilled' && membershipInfo.value) {
                 try {
                     const memberships = Array.isArray(membershipInfo.value) ? membershipInfo.value : [];
@@ -154,7 +201,13 @@ const HomeScreen = () => {
                 }
             }
 
-            // Process body stats data
+            // Fetch upcoming classes (workout schedules)
+            try {
+                fetchUpcomingClasses();
+            } catch (e) {
+                console.warn('Failed to fetch upcoming classes:', e.message || e);
+            }
+
             if (bodyStats.status === 'fulfilled' && bodyStats.value) {
                 try {
                     const stats = bodyStats.value;
@@ -169,20 +222,16 @@ const HomeScreen = () => {
                 }
             }
 
-            // Process nutrition data
             if (nutritionInfo.status === 'fulfilled' && nutritionInfo.value) {
                 try {
                     const nutrition = nutritionInfo.value;
-                    // Handle both array and object responses
                     if (Array.isArray(nutrition)) {
-                        // If it's an array, get the latest entry
                         const latestNutrition = nutrition[0] || {};
                         setMemberData(prev => ({
                             ...prev,
                             todayCalories: latestNutrition.caloriesConsumed || 0
                         }));
                     } else if (nutrition && typeof nutrition === 'object') {
-                        // If it's an object, use it directly
                         setMemberData(prev => ({
                             ...prev,
                             todayCalories: nutrition.caloriesConsumed || 0
@@ -193,8 +242,7 @@ const HomeScreen = () => {
                 }
             }
 
-            // Generate chart data
-            generateChartData();
+            await fetchMembershipTimeRemaining();
 
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
@@ -204,10 +252,18 @@ const HomeScreen = () => {
         }
     };
 
+    const fetchPTData = async () => {
+        try {
+            const res = await apiService.getAllPT();
+            setPTData(res || []);
+        } catch (error) {
+            console.error('Error fetching PT data:', error);
+        }
+    };
+
     const calculateStreak = (completedWorkouts) => {
         if (!completedWorkouts.length) return 0;
 
-        // Sort workouts by date (newest first)
         const sortedWorkouts = completedWorkouts
             .sort((a, b) => new Date(b.ngayTap) - new Date(a.ngayTap));
 
@@ -232,161 +288,573 @@ const HomeScreen = () => {
         return streak;
     };
 
-    const generateChartData = () => {
-        // Generate weekly progress data (last 7 days)
-        const weeklyProgress = [];
-        const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const dayName = days[6 - i];
-
-            // Generate sample data (in real app, this would come from API)
-            const workouts = Math.floor(Math.random() * 3);
-            const calories = 200 + Math.floor(Math.random() * 600);
-
-            weeklyProgress.push({
-                day: dayName,
-                workouts: workouts,
-                calories: calories
-            });
-        }
-
-        // Generate comparison data (last 4 weeks)
-        const comparisonData = [];
-        for (let i = 3; i >= 0; i--) {
-            const weekNumber = 4 - i;
-            const workouts = 5 + Math.floor(Math.random() * 10);
-            const calories = 2000 + Math.floor(Math.random() * 3000);
-
-            comparisonData.push({
-                week: `Tuần ${weekNumber}`,
-                workouts: workouts,
-                calories: calories
-            });
-        }
-
-        setChartData({
-            weeklyProgress,
-            goalProgress: {
-                workouts: {
-                    current: memberData.workoutsThisWeek,
-                    target: 5
-                },
-                calories: {
-                    current: memberData.todayCalories,
-                    target: memberData.weeklyGoal
-                }
-            },
-            comparisonData
-        });
-    };
-
     const onRefresh = async () => {
         setRefreshing(true);
-        await fetchDashboardData();
+        await Promise.all([
+            fetchDashboardData(),
+            fetchHealthyMeals(),
+            fetchExercises()
+        ]);
         setRefreshing(false);
     };
 
-    const renderQuickActions = () => {
-        const actions = [
-            {
-                title: "Đặt lịch PT",
-                icon: "person",
-                color: "#DA2128",
-                onPress: () => navigation.navigate('ClassBooking')
-            },
-            {
-                title: "Lịch tập",
-                icon: "fitness-center",
-                color: "#141414",
-                onPress: () => navigation.navigate('WorkoutPlans')
-            },
-            {
-                title: "Dinh dưỡng",
-                icon: "restaurant",
-                color: "#DA2128",
-                onPress: () => navigation.navigate('Nutrition')
-            },
-            {
-                title: "Thành viên",
-                icon: "card-membership",
-                color: "#141414",
-                onPress: () => navigation.navigate('Membership')
+    const banners = [
+        {
+            image: 'https://www.wheystore.vn/upload_images/images/2024/10/08/pt-gym-dam-nhan-vai-tro-gi.jpg',
+            title: 'Huấn luyện viên cá nhân\nĐồng hành cùng bạn',
+            buttonText: 'Đặt lịch PT',
+            onPress: () => navigation.navigate('Classes'),
+        },
+        {
+            image: 'https://www.wheystore.vn/upload_images/images/2024/10/08/pt-gym-dam-nhan-vai-tro-gi.jpg',
+            title: 'Tăng hiệu quả tập luyện\nVới chương trình riêng',
+            buttonText: 'Xem chương trình',
+            onPress: () => navigation.navigate('WorkoutPlans'),
+        },
+        {
+            image: 'https://www.wheystore.vn/upload_images/images/2024/10/08/pt-gym-dam-nhan-vai-tro-gi.jpg',
+            title: 'Chuyên gia dinh dưỡng\nTư vấn miễn phí',
+            buttonText: 'Đặt lịch tư vấn',
+            onPress: () => navigation.navigate('Nutrition'),
+        },
+    ];
+
+    const renderCoachingBanner = () => {
+        const [activeIndex, setActiveIndex] = useState(0);
+        const flatListRef = useRef(null);
+
+        const onViewRef = useRef(({ viewableItems }) => {
+            if (viewableItems.length > 0) {
+                setActiveIndex(viewableItems[0].index);
             }
-        ];
+        });
+        const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 50 });
 
         return (
-            <View style={[styles.quickActionsContainer, { backgroundColor: colors.surface }]}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Truy cập nhanh</Text>
-                <View style={styles.actionsGrid}>
-                    {actions.map((action, index) => (
-                        <TouchableOpacity
-                            key={index}
-                            style={[styles.actionCard, { backgroundColor: colors.card }]}
-                            onPress={action.onPress}
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                <FlatList
+                    ref={flatListRef}
+                    data={banners}
+                    keyExtractor={(_, idx) => idx.toString()}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onViewableItemsChanged={onViewRef.current}
+                    viewabilityConfig={viewConfigRef.current}
+                    contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}
+                    renderItem={({ item }) => (
+                        <View
+                            style={[
+                                styles.bannerContainer,
+                                {
+                                    width: width - 30,
+                                    alignSelf: 'center',
+                                    marginLeft: 15,
+                                    marginRight: 15,
+                                }
+                            ]}
                         >
-                            <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
-                                <MaterialIcons name={action.icon} size={24} color="white" />
-                            </View>
-                            <Text style={[styles.actionTitle, { color: colors.text }]}>{action.title}</Text>
-                        </TouchableOpacity>
+                            <ImageBackground
+                                source={{ uri: item.image }}
+                                style={styles.bannerImageBackground}
+                                imageStyle={styles.bannerImage}
+                            >
+                                <View style={[styles.bannerOverlay, { justifyContent: 'flex-start', alignItems: 'flex-start', paddingTop: 30 }]}>
+                                    <View style={{ alignItems: 'flex-start', width: '100%' }}>
+                                        <Text style={[styles.bannerTitle, { textAlign: 'left', alignSelf: 'flex-start' }]}>
+                                            {item.title}
+                                        </Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.bannerButton,
+                                            {
+                                                position: 'absolute',
+                                                right: 20,
+                                                bottom: 20,
+                                            }
+                                        ]}
+                                        onPress={item.onPress}
+                                    >
+                                        <Text style={styles.bannerButtonText}>{item.buttonText}</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </ImageBackground>
+                        </View>
+                    )}
+                />
+
+                {/* Dots indicator */}
+                <View style={{ flexDirection: 'row', justifyContent: 'center', }}>
+                    {banners.map((_, idx) => (
+                        <View
+                            key={idx}
+                            style={{
+                                width: 9,
+                                height: 9,
+                                borderRadius: '50%',
+                                marginHorizontal: 3,
+                                backgroundColor: activeIndex === idx ? '#DA2128' : '#C4C4C4',
+                            }}
+                        />
                     ))}
                 </View>
             </View>
         );
     };
 
-    const renderFitnessProgress = () => {
-        const progressData = [
-            {
-                title: "Tuần này",
-                value: memberData.workoutsThisWeek.toString(),
-                subtitle: "buổi tập",
-                icon: "fitness-center",
-                color: "#DA2128"
-            },
-            {
-                title: "Streak",
-                value: memberData.currentStreak.toString(),
-                subtitle: "ngày",
-                icon: "local-fire-department",
-                color: "#141414"
-            },
-            {
-                title: "Calories",
-                value: memberData.todayCalories.toString(),
-                subtitle: "hôm nay",
-                icon: "flash-on",
-                color: "#DA2128"
-            },
-            {
-                title: "Còn lại",
-                value: memberData.membershipDaysLeft.toString(),
-                subtitle: "ngày",
-                icon: "schedule",
-                color: "#141414"
-            }
-        ];
+    const renderMembershipStatus = () => {
+        const daysLeft = memberData.membershipDaysLeft;
+        const totalDays = 30;
+        const progress = Math.min(daysLeft / totalDays, 1);
 
         return (
             <View style={[styles.progressContainer, { backgroundColor: colors.surface }]}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Tiến độ của bạn</Text>
-                <View style={styles.progressGrid}>
-                    {progressData.map((item, index) => (
-                        <View key={index} style={[styles.progressCard, { backgroundColor: colors.card }]}>
-                            <View style={[styles.progressIcon, { backgroundColor: item.color }]}>
-                                <MaterialIcons name={item.icon} size={20} color="white" />
-                            </View>
-                            <Text style={[styles.progressValue, { color: colors.text }]}>{item.value}</Text>
-                            <Text style={[styles.progressTitle, { color: colors.text }]}>{item.title}</Text>
-                            <Text style={[styles.progressSubtitle, { color: colors.textSecondary }]}>{item.subtitle}</Text>
-                        </View>
-                    ))}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 18, marginBottom: 0 }]}>Trạng thái hội viên</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 16 }}>{daysLeft} Ngày còn lại</Text>
                 </View>
+                <View style={{ height: 8, borderRadius: 4, backgroundColor: '#878787', marginBottom: 25, overflow: 'hidden' }}>
+                    <View style={{
+                        height: '100%',
+                        width: `${progress * 100}%`,
+                        backgroundColor: colors.primary,
+                        borderRadius: 4
+                    }} />
+                </View>
+                <TouchableOpacity
+                    style={{
+                        backgroundColor: colors.primary,
+                        borderRadius: 10,
+                        paddingVertical: 14,
+                        alignItems: 'center',
+                        marginTop: 4
+                    }}
+                    onPress={() => navigation.navigate('Membership')}
+                >
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>Làm mới ngay</Text>
+                </TouchableOpacity>
             </View>
         );
+    };
+
+    const fetchUpcomingClasses = async () => {
+        try {
+            setLoadingUpcoming(true);
+            const schedules = await apiService.getAllWorkoutSchedules();
+            const items = [];
+            (schedules || []).forEach(lich => {
+                const buoiTaps = Array.isArray(lich.cacBuoiTap) ? lich.cacBuoiTap : [];
+                buoiTaps.forEach(bt => {
+                    const id = bt._id || bt.id || `${lich._id}_${Math.random().toString(36).slice(2, 8)}`;
+                    const imageUrl = bt.hinhAnh || bt.hinhAnhMinhHoa?.[0] || bt.anhDaiDien || null;
+                    const name = bt.tenBuoiTap || bt.tenBuoiTap || (bt.tenBaiTap ? bt.tenBaiTap : (lich.hoTen || 'Buổi tập'));
+                    let dateText = 'Sắp tới';
+                    let timeText = bt.gioBatDau || bt.gio || '';
+                    if (bt.ngay) {
+                        try { dateText = new Date(bt.ngay).toLocaleDateString('vi-VN'); } catch (e) { }
+                    }
+
+                    items.push({
+                        id,
+                        image: imageUrl ? { uri: imageUrl } : require('../../assets/images/onboarding-img1.avif'),
+                        name: bt.tenBuoiTap || (bt.tenBaiTap ? bt.tenBaiTap : (lich.hoiVien?.hoTen || 'Buổi tập')),
+                        date: dateText,
+                        time: timeText || '--:--',
+                        seatsLeft: bt.soCho || bt.soLuong || 0,
+                    });
+                });
+            });
+
+            if (items.length === 0) {
+                (schedules || []).forEach(lich => {
+                    const id = lich._id || Math.random().toString(36).slice(2, 8);
+                    const nextDate = lich.ngayBatDau ? new Date(lich.ngayBatDau).toLocaleDateString('vi-VN') : 'Sắp tới';
+                    items.push({
+                        id,
+                        image: require('../../assets/images/onboarding-img1.avif'),
+                        name: lich.hoiVien?.hoTen || 'Lịch tập',
+                        date: nextDate,
+                        time: '--:--',
+                        seatsLeft: 0,
+                    });
+                });
+            }
+
+            setUpcomingClasses(items);
+        } catch (error) {
+            console.error('Error fetching upcoming classes:', error);
+            setUpcomingClasses([]);
+        } finally {
+            setLoadingUpcoming(false);
+        }
+    };
+
+    const renderUpcomingClasses = () => (
+        <View style={[styles.upcomingClassesContainer, { backgroundColor: colors.surface }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>Lịch tập sắp tới</Text>
+                <TouchableOpacity>
+                    <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
+                </TouchableOpacity>
+            </View>
+            {upcomingClasses.map(cls => (
+                <View key={cls.id} style={[styles.classCard, { backgroundColor: colors.card, padding: 18, position: 'relative' }]}>
+                    <Image source={cls.image} style={[styles.classImage, { width: 120, height: 120 }]} />
+                    <View style={styles.classInfo}>
+                        <Text style={[styles.className, { color: colors.text, fontSize: 21 }]}>{cls.name}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                            <MaterialIcons name="calendar-today" size={16} color={colors.textSecondary} />
+                            <Text style={[styles.classMeta, { color: colors.textSecondary, marginLeft: 6, fontSize: 16 }]}>{cls.date === 'Tomorrow' ? 'Ngày mai' : cls.date}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                            <MaterialIcons name="schedule" size={16} color={colors.textSecondary} />
+                            <Text style={[styles.classMeta, { color: colors.textSecondary, marginLeft: 6, fontSize: 16 }]}>{cls.time}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                            <MaterialIcons name="event-seat" size={16} color={colors.textSecondary} />
+                            <Text style={[styles.classMeta, { color: colors.textSecondary, marginLeft: 6, fontSize: 16 }]}>{cls.seatsLeft} chỗ còn lại</Text>
+                        </View>
+                    </View>
+                    {/* Arrow right icon for each item */}
+                    <TouchableOpacity style={{
+                        position: 'absolute',
+                        right: 12,
+                        top: 12,
+                        backgroundColor: 'transparent',
+                        padding: 6,
+                        zIndex: 2,
+                    }}>
+                        <Ionicons name="chevron-forward-outline" size={22} color={colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{
+                        position: 'absolute',
+                        right: 12,
+                        bottom: 12,
+                        ...styles.classBookmark,
+                        padding: 6
+                    }}>
+                        <MaterialIcons name="bookmark-outline" size={22} color={'#ffffff'} />
+                    </TouchableOpacity>
+                </View>
+            ))}
+        </View>
+    );
+
+    const fetchHealthyMeals = async () => {
+        try {
+            setLoadingMeals(true);
+            const response = await apiService.getHealthyMeals(10);
+
+            console.log('📊 API Response:', {
+                success: response.success,
+                dataLength: response.data?.length,
+                total: response.total,
+                buaAn: response.buaAn,
+                currentTime: response.currentTime
+            });
+
+            if (response.success && response.data) {
+                console.log('🍽️ Số món ăn nhận được:', response.data.length);
+                console.log('📋 Danh sách món:', response.data.map(m => m.tenMonAn));
+                console.log('⏰ Bữa ăn hiện tại:', response.buaAn);
+                setHealthyMeals(response.data);
+                setCurrentMealType(response.buaAn || '');
+            }
+        } catch (error) {
+            console.error('Error fetching healthy meals:', error);
+        } finally {
+            setLoadingMeals(false);
+        }
+    };
+
+    const fetchExercises = async () => {
+        try {
+            setLoadingExercises(true);
+            const response = await apiService.getAllBaiTap();
+
+            console.log('💪 Exercises Response:', {
+                total: response?.length,
+                first3: response?.slice(0, 3).map(ex => ex.tenBaiTap)
+            });
+
+            if (response && Array.isArray(response)) {
+                // Lấy 3 bài tập đầu tiên
+                setExercises(response.slice(0, 3));
+            }
+        } catch (error) {
+            console.error('Error fetching exercises:', error);
+        } finally {
+            setLoadingExercises(false);
+        }
+    };
+
+    const renderHealthyMeals = () => (
+        <View style={[styles.healthyMealsContainer, { backgroundColor: colors.surface }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 15 }}>
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, marginBottom: 0 }]}>
+                        {currentMealType ? getMealTypeName(currentMealType) : 'Bữa ăn lành mạnh'}
+                    </Text>
+                    {currentMealType && (
+                        <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 4 }}>
+                            Gợi ý cho bạn
+                        </Text>
+                    )}
+                </View>
+                <TouchableOpacity style={{ paddingTop: 2 }}>
+                    <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
+                </TouchableOpacity>
+            </View>
+            {loadingMeals ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: colors.textSecondary }}>Đang tải...</Text>
+                </View>
+            ) : healthyMeals.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: colors.textSecondary }}>Chưa có bữa ăn nào</Text>
+                </View>
+            ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {healthyMeals.map(meal => (
+                        <View key={meal.id} style={[styles.mealCard, { backgroundColor: colors.card, position: 'relative', height: 250 }]}>
+                            <Image
+                                source={{ uri: meal.hinhAnh || 'https://via.placeholder.com/170x120' }}
+                                style={[styles.mealImage, { height: 120 }]}
+                            />
+                            <Text style={[styles.mealName, { color: colors.text }]} numberOfLines={2}>
+                                {meal.tenMonAn}
+                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                                <Text style={[styles.mealCalories, { color: colors.textSecondary }]}>
+                                    {meal.thongTinDinhDuong?.calories || 0} kcal
+                                </Text>
+                            </View>
+                            <TouchableOpacity style={{
+                                position: 'absolute',
+                                right: 12,
+                                bottom: 12,
+                                borderRadius: 20,
+                                backgroundColor: '#da2128',
+                                padding: 6,
+                            }}>
+                                <MaterialIcons name="bookmark-outline" size={22} color={'#ffffff'} />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+                </ScrollView>
+            )}
+        </View>
+    );
+
+    const renderExercises = () => (
+        <View style={[styles.exercisesContainer, { backgroundColor: colors.surface }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 15 }}>
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, marginBottom: 0 }]}>
+                        Bài tập phổ biến
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 4 }}>
+                        Khám phá các bài tập hiệu quả
+                    </Text>
+                </View>
+                <TouchableOpacity onPress={() => navigation.navigate('Workout')} style={{ paddingTop: 2 }}>
+                    <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
+                </TouchableOpacity>
+            </View>
+            {loadingExercises ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: colors.textSecondary }}>Đang tải...</Text>
+                </View>
+            ) : exercises.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: colors.textSecondary }}>Chưa có bài tập nào</Text>
+                </View>
+            ) : (
+                <View style={{ gap: 28 }}>
+                    {exercises.map((exercise, index) => (
+                        <TouchableOpacity
+                            key={exercise._id || index}
+                            style={[
+                                styles.exerciseCard,
+                                {
+                                    backgroundColor: colors.card,
+                                    borderWidth: isLightMode ? 1 : 0,
+                                    borderColor: isLightMode ? '#E5EFF9' : 'transparent'
+                                }
+                            ]}
+                            onPress={() => {
+                                console.log('Exercise clicked:', exercise.tenBaiTap);
+                            }}
+                        >
+                            {/* Image Container with Overlay Badge */}
+                            <View style={styles.exerciseImageContainer}>
+                                <Image
+                                    source={{ uri: exercise.hinhAnh || 'https://via.placeholder.com/319x200' }}
+                                    style={styles.exerciseImage}
+                                />
+                            </View>
+
+                            {/* Exercise Info Container */}
+                            <View style={styles.exerciseInfo}>
+                                <Text style={[styles.exerciseName, { color: colors.text }]} numberOfLines={2}>
+                                    {exercise.tenBaiTap}
+                                </Text>
+
+                                {/* Meta Information Row */}
+                                <View style={styles.exerciseMeta}>
+                                    {/* Level */}
+                                    {exercise.mucDoKho && (
+                                        <>
+                                            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                                {exercise.mucDoKho}
+                                            </Text>
+                                            <Text style={[styles.metaDot, { color: colors.textSecondary }]}>•</Text>
+                                        </>
+                                    )}
+
+                                    {/* Time */}
+                                    {exercise.thoiGian && (
+                                        <>
+                                            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                                {exercise.thoiGian}
+                                            </Text>
+                                            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                                {' phút'}
+                                            </Text>
+                                            <Text style={[styles.metaDot, { color: colors.textSecondary }]}>•</Text>
+                                        </>
+                                    )}
+
+                                    {/* Calories */}
+                                    <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                        {exercise.kcal || 0}
+                                    </Text>
+                                    <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                        {' kcal'}
+                                    </Text>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            )}
+        </View>
+    );
+
+    const renderCoaches = () => {
+        const getCoachInitial = (name) => {
+            if (!name) return 'PT';
+            return name.charAt(0).toUpperCase();
+        };
+
+        return (
+            <View style={styles.coachesContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>Huấn luyện viên</Text>
+                    <TouchableOpacity>
+                        <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
+                    </TouchableOpacity>
+                </View>
+                <FlatList
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    data={PTData.slice(0, 5)}
+                    renderItem={({ item: coach }) => (
+                        <View key={coach._id} style={[styles.coachCard, { backgroundColor: 'transparent', height: 190, padding: 0, marginRight: 20 }]}>
+                            {coach.anhDaiDien ? (
+                                <ImageBackground
+                                    source={{ uri: coach.anhDaiDien }}
+                                    style={[styles.coachImage, { height: 190, width: 170, borderRadius: 14, overflow: 'hidden', marginBottom: 0 }]}
+                                    imageStyle={{ borderRadius: 14 }}
+                                >
+                                    <View style={{
+                                        position: 'absolute',
+                                        bottom: 0,
+                                        left: 0,
+                                        right: 0,
+                                        top: 0,
+                                        backgroundColor: 'rgba(0,0,0,0.3)',
+                                        borderRadius: 14,
+                                    }} />
+                                    <View style={{
+                                        position: 'absolute',
+                                        bottom: 0,
+                                        left: 0,
+                                        right: 0,
+                                        paddingVertical: 8,
+                                        paddingHorizontal: 6,
+                                    }}>
+                                        <Text style={[styles.coachName, { color: '#fff', textShadowColor: '#000', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }]} numberOfLines={1}>{coach.hoTen}</Text>
+                                        <Text style={[styles.coachSpecialty, { color: '#fff', fontSize: 16, textShadowColor: '#000', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{coach.chuyenMon}</Text>
+                                    </View>
+                                </ImageBackground>
+                            ) : (
+                                <View style={{
+                                    height: 190,
+                                    width: 170,
+                                    borderRadius: 14,
+                                    backgroundColor: '#DA2128',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    overflow: 'hidden',
+                                }}>
+                                    <Text style={{
+                                        fontSize: 60,
+                                        fontWeight: 'bold',
+                                        color: '#fff',
+                                        marginBottom: 10,
+                                    }}>
+                                        {getCoachInitial(coach.hoTen)}
+                                    </Text>
+                                    <View style={{
+                                        position: 'absolute',
+                                        bottom: 0,
+                                        left: 0,
+                                        right: 0,
+                                        backgroundColor: 'rgba(0,0,0,0.3)',
+                                        paddingVertical: 8,
+                                        paddingHorizontal: 6,
+                                    }}>
+                                        <Text style={[styles.coachName, { color: '#fff' }]} numberOfLines={1}>{coach.hoTen}</Text>
+                                        <Text style={[styles.coachSpecialty, { color: '#fff', fontSize: 16 }]} numberOfLines={1}>{coach.chuyenMon}</Text>
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+                    )}
+                />
+            </View>
+        );
+    };
+
+    const fetchMembershipTimeRemaining = async () => {
+        try {
+            const userId = userInfo?._id || userInfo?.id || userInfo?.userId;
+            if (!userId) {
+                console.error('Không tìm thấy userId, không thể lấy thời gian còn lại.');
+                return;
+            }
+            const response = await apiService.apiCall(`/hanghoivien/thoi-gian-con-lai/${userId}`, 'GET');
+            const timeRemaining = (response && response.data && response.data.data && typeof response.data.data.timeRemaining === 'number')
+                ? response.data.data.timeRemaining
+                : (response && response.data && typeof response.data.timeRemaining === 'number'
+                    ? response.data.timeRemaining
+                    : (response && typeof response.timeRemaining === 'number' ? response.timeRemaining : 0));
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            const daysInMonth = new Date(year, month, 0).getDate();
+
+            setMemberData(prev => ({
+                ...prev,
+                membershipDaysLeft: Math.max(0, Number(timeRemaining) || 0),
+                membershipTotalDays: daysInMonth
+            }));
+        } catch (error) {
+            console.error('Lỗi khi lấy thời gian còn lại của hạng hội viên:', error);
+        }
     };
 
     return (
@@ -395,13 +863,16 @@ const HomeScreen = () => {
                 {/* Header */}
                 <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.borderLight }]}>
                     <View style={styles.headerLeft}>
-                        <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>Xin chào!</Text>
-                        <Text style={[styles.userNameText, { color: colors.text }]}>
-                            {userInfo?.hoTen || userInfo?.sdt || 'Thành viên'}
-                        </Text>
+                        <Avatar userProfile={userInfo} size={50} />
+                        <View>
+                            <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>Xin chào, 👋</Text>
+                            <Text style={[styles.userNameText, { color: colors.text }]}>
+                                {userInfo?.hoTen || userInfo?.sdt || 'Thành viên'}
+                            </Text>
+                        </View>
                     </View>
                     <TouchableOpacity style={[styles.notificationButton, { backgroundColor: colors.card }]}>
-                        <MaterialIcons name="notifications" size={24} color={colors.text} />
+                        <MaterialIcons name="notifications" size={30} color={colors.text} />
                     </TouchableOpacity>
                 </View>
 
@@ -411,96 +882,17 @@ const HomeScreen = () => {
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                     }
                 >
-                    {/* Progress Cards */}
-                    {renderFitnessProgress()}
+                    {renderCoachingBanner()}
 
-                    {/* Charts Section */}
-                    <ChartContainer title="Tiến độ tuần này">
-                        <WeeklyProgressChart data={chartData.weeklyProgress} />
-                    </ChartContainer>
+                    {renderMembershipStatus()}
 
-                    <View style={styles.chartsRow}>
-                        <View style={styles.chartHalf}>
-                            <ChartContainer title="Mục tiêu tập luyện" style={styles.halfChart}>
-                                <GoalProgressChart
-                                    current={chartData.goalProgress.workouts.current}
-                                    target={chartData.goalProgress.workouts.target}
-                                    title="Buổi tập"
-                                    unit=" buổi"
-                                />
-                            </ChartContainer>
-                        </View>
-                        <View style={styles.chartHalf}>
-                            <ChartContainer title="Mục tiêu calories" style={styles.halfChart}>
-                                <GoalProgressChart
-                                    current={chartData.goalProgress.calories.current}
-                                    target={chartData.goalProgress.calories.target}
-                                    title="Calories"
-                                    unit=" cal"
-                                />
-                            </ChartContainer>
-                        </View>
-                    </View>
+                    {renderExercises()}
 
-                    <ChartContainer title="So sánh 4 tuần gần đây">
-                        <ComparisonChart data={chartData.comparisonData} />
-                    </ChartContainer>
+                    {renderUpcomingClasses()}
 
-                    {/* Next Class Card */}
-                    <View style={[styles.nextClassContainer, { backgroundColor: colors.surface }]}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Lớp học tiếp theo</Text>
-                        <View style={[styles.nextClassCard, { backgroundColor: colors.card, borderLeftColor: colors.primary }]}>
-                            <View style={styles.nextClassIcon}>
-                                <MaterialIcons name="self-improvement" size={30} color={colors.primary} />
-                            </View>
-                            <View style={styles.nextClassInfo}>
-                                <Text style={[styles.nextClassName, { color: colors.text }]}>{memberData.nextClass}</Text>
-                                <Text style={[styles.nextClassTime, { color: colors.textSecondary }]}>Hôm nay - {memberData.nextClassTime}</Text>
-                                <Text style={[styles.nextClassStatus, { color: colors.primary }]}>Đã đặt lịch</Text>
-                            </View>
-                            <TouchableOpacity style={[styles.nextClassButton, { backgroundColor: colors.primary }]}>
-                                <Text style={styles.nextClassButtonText}>Chi tiết</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
+                    {renderHealthyMeals()}
 
-                    {/* Quick Actions */}
-                    {renderQuickActions()}
-
-                    {/* Weekly Goal Progress */}
-                    <View style={[styles.goalSection, { backgroundColor: colors.surface }]}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Mục tiêu tuần này</Text>
-                        <View style={[styles.goalCard, { backgroundColor: colors.card }]}>
-                            <View style={[styles.goalProgress, { backgroundColor: colors.border }]}>
-                                <View style={[styles.goalProgressBar, {
-                                    width: `${(memberData.todayCalories / memberData.weeklyGoal) * 100}%`,
-                                    backgroundColor: colors.primary
-                                }]} />
-                            </View>
-                            <View style={styles.goalInfo}>
-                                <Text style={[styles.goalCurrent, { color: colors.text }]}>{memberData.todayCalories}</Text>
-                                <Text style={[styles.goalTarget, { color: colors.textSecondary }]}>/ {memberData.weeklyGoal} calories</Text>
-                            </View>
-                            <Text style={[styles.goalText, { color: colors.textSecondary }]}>Tuyệt vời! Bạn đang đạt được mục tiêu</Text>
-                        </View>
-                    </View>
-
-                    {/* AI Suggestions */}
-                    <View style={[styles.aiSection, { backgroundColor: colors.surface }]}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Gợi ý cho bạn</Text>
-                        <View style={[styles.aiCard, { backgroundColor: colors.card }]}>
-                            <Ionicons name="bulb" size={24} color={colors.primary} />
-                            <Text style={[styles.aiText, { color: colors.text }]}>
-                                Thử lớp Pilates vào thứ 4 để cải thiện độ dẻo dai
-                            </Text>
-                        </View>
-                        <View style={[styles.aiCard, { backgroundColor: colors.card }]}>
-                            <Ionicons name="nutrition" size={24} color={colors.text} />
-                            <Text style={[styles.aiText, { color: colors.text }]}>
-                                Bổ sung protein sau buổi tập để phục hồi cơ bắp tốt hơn
-                            </Text>
-                        </View>
-                    </View>
+                    {renderCoaches()}
                 </ScrollView>
             </SafeAreaView>
             <Chatbot />
@@ -522,6 +914,8 @@ const styles = StyleSheet.create({
     },
     headerLeft: {
         flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     welcomeText: {
         fontSize: 16,
@@ -533,15 +927,14 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     notificationButton: {
-        padding: 8,
         borderRadius: 20,
     },
     scrollView: {
         flex: 1,
     },
     sectionTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
+        fontSize: 24,
+        fontWeight: '500',
         marginBottom: 15,
     },
     progressContainer: {
@@ -554,169 +947,113 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 3,
     },
-    progressGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-    },
-    progressCard: {
-        width: '48%',
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 12,
-        alignItems: 'center',
-    },
-    progressIcon: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    progressValue: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 2,
-    },
-    progressTitle: {
-        fontSize: 14,
-        fontWeight: '600',
-        textAlign: 'center',
-    },
-    progressSubtitle: {
-        fontSize: 12,
-        textAlign: 'center',
-    },
-    nextClassContainer: {
-        padding: 20,
-        margin: 15,
-        marginTop: 0,
-        borderRadius: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    nextClassCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderRadius: 12,
-        borderLeftWidth: 4,
-    },
-    nextClassIcon: {
-        marginRight: 16,
-    },
-    nextClassInfo: {
-        flex: 1,
-    },
-    nextClassName: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 4,
-    },
     nextClassTime: {
         fontSize: 14,
         marginBottom: 2,
-    },
-    nextClassStatus: {
-        fontSize: 12,
-        fontWeight: '600',
     },
     nextClassButton: {
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 8,
     },
-    nextClassButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    quickActionsContainer: {
-        padding: 20,
+    bannerContainer: {
         margin: 15,
-        marginTop: 0,
+        marginBottom: 20,
         borderRadius: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    actionsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-    },
-    actionCard: {
-        width: '48%',
-        alignItems: 'center',
-        padding: 16,
-        marginBottom: 12,
-        borderRadius: 12,
-    },
-    actionIcon: {
-        width: 54,
-        height: 54,
-        borderRadius: 27,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    actionTitle: {
-        fontSize: 14,
-        textAlign: 'center',
-        fontWeight: '600',
-    },
-    goalSection: {
-        padding: 20,
-        margin: 15,
-        marginTop: 0,
-        borderRadius: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    goalCard: {
-        padding: 16,
-        borderRadius: 12,
-    },
-    goalProgress: {
-        height: 8,
-        borderRadius: 4,
-        marginBottom: 12,
         overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        elevation: 5,
     },
-    goalProgressBar: {
-        height: '100%',
-        borderRadius: 4,
+    bannerImageBackground: {
+        height: 200,
+        justifyContent: 'center',
     },
-    goalInfo: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
+    bannerImage: {
+        borderRadius: 16,
+    },
+    bannerOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        paddingHorizontal: 20,
+    },
+    bannerTitle: {
+        fontSize: 22,
+        fontWeight: 'regular',
+        color: 'white',
+        textAlign: 'center',
         marginBottom: 8,
+        letterSpacing: 1,
+        lineHeight: 35,
     },
-    goalCurrent: {
+    bannerButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#DA2128',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 10,
+        shadowColor: '#DA2128',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.4,
+        shadowRadius: 6,
+        elevation: 4,
+    },
+    bannerButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '600',
+        marginRight: 8,
+        letterSpacing: 0.5,
+    },
+    membershipDays: {
         fontSize: 24,
         fontWeight: 'bold',
+        color: '#DA2128',
     },
-    goalTarget: {
-        fontSize: 16,
-        marginLeft: 4,
+    progressBar: {
+        height: '100%',
+        borderRadius: 4,
+        backgroundColor: '#da2128',
     },
-    goalText: {
-        fontSize: 14,
+    coachesContainer: {
+        margin: 15,
+        marginTop: 0,
+        borderRadius: 16,
+        paddingTop: 20,
+        paddingBottom: 60,
     },
-    aiSection: {
+    coachCard: {
+        width: 170,
+        borderRadius: 14,
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    coachImage: {
+        width: 120,
+        borderRadius: 12,
+        marginBottom: 12,
+        resizeMode: 'contain',
+    },
+    coachName: {
+        fontSize: 20,
+        fontWeight: 'w600',
+        marginBottom: 4,
+        textAlign: 'center',
+    },
+    coachSpecialty: {
+        fontSize: 18,
+        fontWeight: 'w600',
+        color: '#888',
+        textAlign: 'center',
+    },
+    healthyMealsContainer: {
         padding: 20,
         margin: 15,
         marginTop: 0,
-        marginBottom: 30,
         borderRadius: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
@@ -724,30 +1061,185 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 3,
     },
-    aiCard: {
+    mealCard: {
+        width: 170,
+        marginRight: 16,
+        borderRadius: 14,
+        padding: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    mealImage: {
+        width: '100%',
+        height: 90,
+        borderRadius: 10,
+        marginBottom: 10,
+    },
+    mealName: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 6,
+    },
+    mealCalories: {
+        fontSize: 14,
+        flex: 1,
+    },
+    mealBookmark: {
+        borderRadius: 20,
+        backgroundColor: '#f2f2f2',
+        padding: 4,
+        marginLeft: 8,
+    },
+    exercisesContainer: {
+        padding: 20,
+        margin: 15,
+        marginTop: 0,
+        marginBottom: 20,
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    exerciseCard: {
+        width: '100%',
+        borderRadius: 10,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+        elevation: 3,
+    },
+    exerciseImageContainer: {
+        width: '100%',
+        height: 200,
+        position: 'relative',
+    },
+    exerciseImage: {
+        width: '100%',
+        height: 200,
+        resizeMode: 'cover',
+    },
+    workoutBadge: {
+        position: 'absolute',
+        left: 20,
+        bottom: 20,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        paddingHorizontal: 7.5,
+        paddingVertical: 5,
+        borderRadius: 4,
+    },
+    workoutBadgeText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: '700',
+        fontFamily: 'Manrope',
+        letterSpacing: 0.5,
+    },
+    exerciseInfo: {
+        width: '100%',
+        paddingTop: 16,
+        paddingLeft: 20,
+        paddingBottom: 16,
+        paddingRight: 20,
+    },
+    exerciseName: {
+        fontSize: 16,
+        fontWeight: '700',
+        fontFamily: 'Manrope',
+        marginBottom: 6,
+    },
+    exerciseMeta: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 12,
+        flexWrap: 'wrap',
     },
-    aiText: {
-        flex: 1,
+    metaText: {
         fontSize: 14,
-        marginLeft: 12,
-        lineHeight: 20,
+        fontWeight: '400',
+        fontFamily: 'Manrope',
     },
-    chartsRow: {
-        flexDirection: 'row',
-        marginHorizontal: 15,
+    metaDot: {
+        fontSize: 14,
+        fontWeight: '400',
+        fontFamily: 'Manrope',
+        marginHorizontal: 4,
+    },
+    workoutsContainer: {
+        padding: 20,
+        margin: 15,
         marginTop: 0,
-        gap: 10,
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
     },
-    chartHalf: {
+    workoutCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 14,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    upcomingClassesContainer: {
+        padding: 20,
+        margin: 15,
+        marginTop: 0,
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    classCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingTop: 12,
+        paddingBottom: 12,
+        paddingLeft: 10,
+        borderRadius: 12,
+        marginBottom: 14,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    classImage: {
+        width: 80,
+        height: 60,
+        borderRadius: 10,
+        marginRight: 14,
+    },
+    classInfo: {
         flex: 1,
+        justifyContent: 'center',
     },
-    halfChart: {
-        margin: 0,
+    className: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    classMeta: {
+        fontSize: 14,
+    },
+    classBookmark: {
+        borderRadius: 20,
+        backgroundColor: '#da2128',
+        marginLeft: 8,
     },
 });
 
