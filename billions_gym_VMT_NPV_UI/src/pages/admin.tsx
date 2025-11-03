@@ -19,7 +19,7 @@ import '../components/PackageRegistrationManager.css';
 
 type Stat = { label: string; value: string; trend?: 'up' | 'down'; sub?: string };
 
-type SectionKey = 'overview' | 'members' | 'pt' | 'packages' | 'schedules' | 'sessions' | 'exercises' | 'body_metrics' | 'nutrition' | 'payments' | 'notifications' | 'feedback' | 'reports' | 'ai_suggestions' | 'appointments' | 'package_workflow' | 'trainer_availability' | 'package_registrations';
+type SectionKey = 'overview' | 'members' | 'pt' | 'packages' | 'schedules' | 'sessions' | 'exercises' | 'body_metrics' | 'nutrition' | 'payments' | 'notifications' | 'feedback' | 'reports' | 'ai_suggestions' | 'appointments' | 'package_workflow' | 'trainer_availability' | 'package_registrations' | 'templates';
 
 interface HoiVien {
     _id: string;
@@ -151,14 +151,43 @@ interface BuoiTap {
 
 interface BaiTap {
     _id: string;
-    tenBaiTap: string;
-    moTa: string;
-    hinhAnh: string;
-    videoHuongDan: string;
-    nhomCo: string;
-    hinhAnhMinhHoa: string;
-    createdAt: Date;
-    updatedAt: Date;
+    tenBaiTap?: string;
+    title?: string;
+    moTa?: string;
+    description?: string;
+    hinhAnh?: string;
+    videoHuongDan?: string;
+    source_url?: string;
+    nhomCo?: string;
+    hinhAnhMinhHoa?: string[];
+    mucDoKho?: string;
+    difficulty?: 'beginner' | 'intermediate' | 'advanced';
+    thietBiSuDung?: string;
+    soHiepvaSoLanLap?: number;
+    mucTieuBaiTap?: string;
+    duration_sec?: number;
+    thoiGian?: number;
+    kcal?: number;
+    type?: 'video_file' | 'doc_file' | 'external_link';
+    status?: 'active' | 'inactive';
+    ratings?: {
+        averageRating: number;
+        totalRatings: number;
+    };
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
+interface TemplateBuoiTap {
+    _id: string;
+    ten: string;
+    moTa?: string;
+    loai?: string;
+    doKho?: 'DE' | 'TRUNG_BINH' | 'KHO';
+    hinhAnh?: string;
+    baiTap?: BaiTap[] | string[]; // Array of exercise IDs or populated exercises
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 
 interface ChiSoCoThe {
@@ -562,6 +591,10 @@ const AdminDashboard = () => {
                         <DumbbellIcon className="nav-icon" />
                         <span>Bài tập</span>
                     </a>
+                    <a className={`nav-item ${section === 'templates' ? 'active' : ''}`} href="#/admin/templates" aria-label="Template buổi tập">
+                        <ActivityIcon className="nav-icon" />
+                        <span>Template buổi tập</span>
+                    </a>
                     <a className={`nav-item ${section === 'body_metrics' ? 'active' : ''}`} href="#/admin/body_metrics" aria-label="Chỉ số cơ thể">
                         <ScaleIcon className="nav-icon" />
                         <span>Chỉ số cơ thể</span>
@@ -694,6 +727,7 @@ const AdminDashboard = () => {
                     {section === 'schedules' && <SchedulesPage />}
                     {section === 'sessions' && <SessionsPage />}
                     {section === 'exercises' && <ExercisesPage />}
+                    {section === 'templates' && <TemplatesPage />}
                     {section === 'body_metrics' && <BodyMetricsPage />}
                     {section === 'nutrition' && <NutritionPage />}
                     {section === 'payments' && <PaymentsPage />}
@@ -4793,66 +4827,402 @@ const ExercisesPage = () => {
     const [show, setShow] = useState(false);
     const [editingItem, setEditingItem] = useState<BaiTap | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: BaiTap | null }>({ show: false, item: null });
-    const [sortBy, setSortBy] = useState<'name' | 'price' | 'duration'>('name');
-    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [isLoading, setIsLoading] = useState(false);
-    const [rows, setRows] = useState<any[]>([]);
+    const [rows, setRows] = useState<BaiTap[]>([]);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const notifications = useCrudNotifications();
+    const [filterNhomCo, setFilterNhomCo] = useState<string>('all');
+    const [filterMucDoKho, setFilterMucDoKho] = useState<string>('all');
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+    // Fetch exercises
+    const fetchExercises = async () => {
+        try {
+            setIsLoading(true);
+            const data = await api.get('/api/baitap');
+            if (Array.isArray(data)) {
+                setRows(data);
+            } else {
+                setRows([]);
+            }
+        } catch (e) {
+            console.error('Error fetching exercises:', e);
+            setRows([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
-        let mounted = true;
-        (async () => {
-            try {
-                setIsLoading(true);
-                const data = await api.get('/api/baitap');
-                if (mounted && Array.isArray(data)) setRows(data);
-            } catch (e) {
-                console.error('Error fetching exercises:', e);
-                setRows([]);
-            } finally {
-                if (mounted) setIsLoading(false);
+        fetchExercises();
+    }, [refreshTrigger]);
+
+    // Get unique nhomCo values for filter
+    const nhomCoOptions = React.useMemo(() => {
+        const nhomCoSet = new Set<string>();
+        rows.forEach(ex => {
+            if (ex.nhomCo) {
+                ex.nhomCo.split(',').forEach(nc => {
+                    const trimmed = nc.trim();
+                    if (trimmed) nhomCoSet.add(trimmed);
+                });
             }
-        })();
-        return () => { mounted = false; };
-    }, []);
-    const filtered = rows.filter(r => {
-        if (!q.trim()) return true;
-        const searchTerm = q.toLowerCase().trim();
-        return (
-            (r.tenBaiTap && typeof r.tenBaiTap === 'string' && r.tenBaiTap.toLowerCase().includes(searchTerm)) ||
-            (r.nhomCo && typeof r.nhomCo === 'string' && r.nhomCo.toLowerCase().includes(searchTerm)) ||
-            (r.moTa && typeof r.moTa === 'string' && r.moTa.toLowerCase().includes(searchTerm))
-        );
+        });
+        return Array.from(nhomCoSet).sort();
+    }, [rows]);
+
+    // Sort exercises
+    const sortedRows = React.useMemo(() => {
+        if (!sortConfig) return rows;
+
+        return [...rows].sort((a, b) => {
+            let aValue: any, bValue: any;
+
+            switch (sortConfig.key) {
+                case 'tenBaiTap':
+                    aValue = (a.tenBaiTap || a.title || '').toLowerCase();
+                    bValue = (b.tenBaiTap || b.title || '').toLowerCase();
+                    break;
+                case 'nhomCo':
+                    aValue = (a.nhomCo || '').toLowerCase();
+                    bValue = (b.nhomCo || '').toLowerCase();
+                    break;
+                case 'difficulty':
+                    const difficultyOrder = { 'beginner': 1, 'intermediate': 2, 'advanced': 3 };
+                    aValue = difficultyOrder[a.difficulty || 'beginner'] || 0;
+                    bValue = difficultyOrder[b.difficulty || 'beginner'] || 0;
+                    break;
+                case 'kcal':
+                    aValue = a.kcal || 0;
+                    bValue = b.kcal || 0;
+                    break;
+                case 'createdAt':
+                    aValue = new Date(a.createdAt || 0).getTime();
+                    bValue = new Date(b.createdAt || 0).getTime();
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [rows, sortConfig]);
+
+    // Filter exercises
+    const filtered = sortedRows.filter(r => {
+        // Search filter
+        if (q.trim()) {
+            const searchTerm = q.toLowerCase().trim();
+            const matchesSearch = (
+                ((r.tenBaiTap || r.title) && (r.tenBaiTap || r.title || '').toLowerCase().includes(searchTerm)) ||
+                ((r.moTa || r.description) && (r.moTa || r.description || '').toLowerCase().includes(searchTerm)) ||
+                (r.nhomCo && r.nhomCo.toLowerCase().includes(searchTerm)) ||
+                (r.mucTieuBaiTap && r.mucTieuBaiTap.toLowerCase().includes(searchTerm))
+            );
+            if (!matchesSearch) return false;
+        }
+
+        // Nhóm cơ filter
+        if (filterNhomCo !== 'all') {
+            if (!r.nhomCo || !r.nhomCo.toLowerCase().includes(filterNhomCo.toLowerCase())) return false;
+        }
+
+        // Mức độ khó filter
+        if (filterMucDoKho !== 'all') {
+            const exerciseDifficulty = r.difficulty || (r.mucDoKho === 'DE' ? 'beginner' : r.mucDoKho === 'TRUNG_BINH' ? 'intermediate' : r.mucDoKho === 'KHO' ? 'advanced' : 'beginner');
+            if (filterMucDoKho === 'beginner' && exerciseDifficulty !== 'beginner') return false;
+            if (filterMucDoKho === 'intermediate' && exerciseDifficulty !== 'intermediate') return false;
+            if (filterMucDoKho === 'advanced' && exerciseDifficulty !== 'advanced') return false;
+        }
+
+        // Status filter
+        if (filterStatus !== 'all') {
+            const exerciseStatus = r.status || 'active';
+            if (filterStatus !== exerciseStatus) return false;
+        }
+
+        return true;
     });
 
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        } else if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
+            setSortConfig(null);
+            return;
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const handleClearFilters = () => {
+        setFilterNhomCo('all');
+        setFilterMucDoKho('all');
+        setFilterStatus('all');
+        setQ('');
+        setSortConfig(null);
+    };
+
+    const getDifficultyLabel = (exercise: BaiTap) => {
+        if (exercise.difficulty === 'beginner') return 'Cơ bản';
+        if (exercise.difficulty === 'intermediate') return 'Trung bình';
+        if (exercise.difficulty === 'advanced') return 'Nâng cao';
+        if (exercise.mucDoKho === 'DE') return 'Cơ bản';
+        if (exercise.mucDoKho === 'TRUNG_BINH') return 'Trung bình';
+        if (exercise.mucDoKho === 'KHO') return 'Nâng cao';
+        return 'Cơ bản';
+    };
+
+    const getDifficultyColor = (exercise: BaiTap) => {
+        const difficulty = exercise.difficulty || (exercise.mucDoKho === 'DE' ? 'beginner' : exercise.mucDoKho === 'TRUNG_BINH' ? 'intermediate' : exercise.mucDoKho === 'KHO' ? 'advanced' : 'beginner');
+        if (difficulty === 'beginner') return '#22c55e';
+        if (difficulty === 'intermediate') return '#f59e0b';
+        if (difficulty === 'advanced') return '#ef4444';
+        return '#6b7280';
+    };
+
     return (
-        <Card className="panel">
-            <div className="toolbar">
-                <div className="toolbar-left"><h2>Quản lý bài tập</h2></div>
-                <div className="toolbar-right">
-                    <input className="input" placeholder="Tìm bài tập" value={q} onChange={e => setQ(e.target.value)} />
-                    <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
+        <div className="members-management-page">
+            {/* Page Header */}
+            <div className="members-page-header">
+                <div className="members-page-header-content">
+                    <h1 className="members-page-title">Quản lý bài tập</h1>
+                    <p className="members-page-description">
+                        Quản lý tất cả bài tập, video hướng dẫn và tài liệu tập luyện của Billions Fitness & Gym.
+                    </p>
                 </div>
             </div>
-            <div className="exercises-grid">
-                {filtered.map(exercise => (
-                    <Card key={exercise._id} className="exercise-card" hover>
-                        <img src={exercise.hinhAnh} alt={exercise.tenBaiTap} className="exercise-image" />
-                        <div className="exercise-content">
-                            <h3 className="exercise-title">{exercise.tenBaiTap}</h3>
-                            <p className="exercise-description">{exercise.moTa}</p>
-                            <div className="exercise-muscle-group">
-                                <span className="muscle-tag">{exercise.nhomCo}</span>
-                            </div>
-                            <div className="exercise-actions">
-                                <Button variant="ghost" size="small" onClick={() => setEditingItem(exercise)}>Sửa</Button>
-                                <Button variant="ghost" size="small" onClick={() => { const copyData = { ...exercise }; delete (copyData as any)._id; setEditingItem(copyData); setShow(true); }}>Sao chép</Button>
-                                <Button variant="ghost" size="small" onClick={() => setDeleteConfirm({ show: true, item: exercise })}>Xóa</Button>
-                            </div>
-                        </div>
-                    </Card>
-                ))}
 
+            {/* Filter Toolbar */}
+            <div className="members-filter-toolbar">
+                <input
+                    className="members-filter-search"
+                    type="text"
+                    placeholder="Tìm theo tên, mô tả, nhóm cơ..."
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                />
+                <select
+                    className="members-filter-dropdown"
+                    value={filterNhomCo}
+                    onChange={e => setFilterNhomCo(e.target.value)}
+                >
+                    <option value="all">NHÓM CƠ</option>
+                    {nhomCoOptions.map(nc => (
+                        <option key={nc} value={nc}>{nc}</option>
+                    ))}
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterMucDoKho}
+                    onChange={e => setFilterMucDoKho(e.target.value)}
+                >
+                    <option value="all">MỨC ĐỘ KHÓ</option>
+                    <option value="beginner">Cơ bản</option>
+                    <option value="intermediate">Trung bình</option>
+                    <option value="advanced">Nâng cao</option>
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterStatus}
+                    onChange={e => setFilterStatus(e.target.value)}
+                >
+                    <option value="all">TRẠNG THÁI</option>
+                    <option value="active">Đang hoạt động</option>
+                    <option value="inactive">Ngừng hoạt động</option>
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={sortConfig ? `${sortConfig.key}-${sortConfig.direction}` : 'none'}
+                    onChange={e => {
+                        const value = e.target.value;
+                        if (value === 'none') {
+                            setSortConfig(null);
+                        } else {
+                            const [key, direction] = value.split('-');
+                            setSortConfig({ key, direction: direction as 'asc' | 'desc' });
+                        }
+                    }}
+                >
+                    <option value="none">SẮP XẾP</option>
+                    <option value="tenBaiTap-asc">Tên: A → Z</option>
+                    <option value="tenBaiTap-desc">Tên: Z → A</option>
+                    <option value="nhomCo-asc">Nhóm cơ: A → Z</option>
+                    <option value="difficulty-asc">Độ khó: Dễ → Khó</option>
+                    <option value="difficulty-desc">Độ khó: Khó → Dễ</option>
+                    <option value="kcal-desc">Calo: Cao nhất</option>
+                    <option value="kcal-asc">Calo: Thấp nhất</option>
+                    <option value="createdAt-desc">Ngày tạo: Mới nhất</option>
+                    <option value="createdAt-asc">Ngày tạo: Cũ nhất</option>
+                </select>
+                <button className="members-filter-clear-btn" onClick={handleClearFilters}>
+                    CLEAR
+                </button>
             </div>
+
+            {/* Action Buttons */}
+            <div className="members-page-actions">
+                <button className="members-add-btn" onClick={() => setShow(true)}>
+                    <span>+</span> Thêm bài tập
+                </button>
+            </div>
+
+            {/* Exercises Grid */}
+            <div className="pt-branches-container">
+                {isLoading ? (
+                    <Loading text="Đang tải bài tập..." />
+                ) : filtered.length === 0 ? (
+                    <div className="pt-empty-state">
+                        <p>Không tìm thấy bài tập nào.</p>
+                    </div>
+                ) : (
+                    <div className="pt-cards-grid">
+                        {filtered.map(exercise => (
+                            <div key={exercise._id} className="pt-card exercise-card">
+                                <div className="pt-card-header">
+                                    <div className="pt-avatar">
+                                        {exercise.hinhAnh ? (
+                                            <img src={exercise.hinhAnh} alt={exercise.tenBaiTap || exercise.title} className="pt-avatar-img" />
+                                        ) : (
+                                            <div className="pt-avatar-placeholder">
+                                                {(exercise.tenBaiTap || exercise.title || 'B').charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="pt-info">
+                                        <h3 className="pt-name">{exercise.tenBaiTap || exercise.title || 'Bài tập'}</h3>
+                                        <p className="pt-phone">
+                                            <span style={{ color: getDifficultyColor(exercise), fontWeight: 'bold' }}>
+                                                {getDifficultyLabel(exercise)}
+                                            </span>
+                                            {exercise.kcal && ` • ${exercise.kcal} kcal`}
+                                        </p>
+                                    </div>
+                                    <div className="pt-menu">
+                                        <button
+                                            className="pt-menu-btn"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                document.querySelectorAll('.pt-menu-dropdown.show').forEach(dropdown => {
+                                                    dropdown.classList.remove('show');
+                                                });
+                                                const menu = e.currentTarget.nextElementSibling;
+                                                if (menu) {
+                                                    menu.classList.toggle('show');
+                                                }
+                                            }}
+                                        >
+                                            ⋯
+                                        </button>
+                                        <div className="pt-menu-dropdown">
+                                            <button
+                                                className="pt-menu-item"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingItem(exercise);
+                                                }}
+                                            >
+                                                ✏️ Sửa
+                                            </button>
+                                            <button
+                                                className="pt-menu-item"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const copyData = { ...exercise };
+                                                    delete (copyData as any)._id;
+                                                    delete (copyData as any).createdAt;
+                                                    delete (copyData as any).updatedAt;
+                                                    setEditingItem(copyData);
+                                                    setShow(true);
+                                                }}
+                                            >
+                                                📋 Sao chép
+                                            </button>
+                                            <button
+                                                className="pt-menu-item pt-menu-delete"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setDeleteConfirm({ show: true, item: exercise });
+                                                }}
+                                            >
+                                                🗑️ Xóa
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-card-divider"></div>
+
+                                <div className="pt-card-details">
+                                    {exercise.nhomCo && (
+                                        <div className="pt-detail-item">
+                                            <span className="pt-detail-label">Nhóm cơ:</span>
+                                            <span className="pt-detail-value">{exercise.nhomCo}</span>
+                                        </div>
+                                    )}
+                                    {exercise.thietBiSuDung && (
+                                        <div className="pt-detail-item">
+                                            <span className="pt-detail-label">Thiết bị:</span>
+                                            <span className="pt-detail-value">{exercise.thietBiSuDung}</span>
+                                        </div>
+                                    )}
+                                    {exercise.soHiepvaSoLanLap && exercise.soHiepvaSoLanLap > 0 && (
+                                        <div className="pt-detail-item">
+                                            <span className="pt-detail-label">Hiệp/Lần lặp:</span>
+                                            <span className="pt-detail-value">{exercise.soHiepvaSoLanLap}</span>
+                                        </div>
+                                    )}
+                                    {exercise.mucTieuBaiTap && (
+                                        <div className="pt-detail-item">
+                                            <span className="pt-detail-label">Mục tiêu:</span>
+                                            <span className="pt-detail-value" style={{ fontSize: '0.85em' }}>
+                                                {exercise.mucTieuBaiTap}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {(exercise.duration_sec || exercise.thoiGian) && (
+                                        <div className="pt-detail-item">
+                                            <span className="pt-detail-label">Thời lượng:</span>
+                                            <span className="pt-detail-value">
+                                                {Math.floor((exercise.duration_sec || exercise.thoiGian || 0) / 60)} phút
+                                            </span>
+                                        </div>
+                                    )}
+                                    {exercise.ratings && exercise.ratings.totalRatings > 0 && (
+                                        <div className="pt-detail-item">
+                                            <span className="pt-detail-label">Đánh giá:</span>
+                                            <span className="pt-detail-value">
+                                                ⭐ {exercise.ratings.averageRating.toFixed(1)} ({exercise.ratings.totalRatings})
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {(exercise.videoHuongDan || exercise.source_url) && (
+                                    <>
+                                        <div className="pt-card-divider"></div>
+                                        <div className="pt-card-actions">
+                                            <button
+                                                className="pt-action-btn pt-action-view"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    window.open(exercise.videoHuongDan || exercise.source_url, '_blank');
+                                                }}
+                                            >
+                                                📺 Xem video
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             {(show || editingItem) && <EntityForm
                 title="Bài tập"
                 initialData={editingItem || undefined}
@@ -4861,21 +5231,51 @@ const ExercisesPage = () => {
                     { name: 'tenBaiTap', label: 'Tên bài tập', validation: { required: true, pattern: /^[\p{L}\d\s\-_]+$/u, message: 'Tên bài tập không được chứa ký tự đặc biệt' } },
                     { name: 'moTa', label: 'Mô tả', type: 'textarea', validation: { required: true } },
                     { name: 'nhomCo', label: 'Nhóm cơ', validation: { required: true } },
+                    {
+                        name: 'mucDoKho', label: 'Mức độ khó', type: 'select', options: [
+                            { value: 'DE', label: 'Dễ' },
+                            { value: 'TRUNG_BINH', label: 'Trung bình' },
+                            { value: 'KHO', label: 'Khó' }
+                        ]
+                    },
+                    {
+                        name: 'difficulty', label: 'Độ khó (mới)', type: 'select', options: [
+                            { value: 'beginner', label: 'Cơ bản' },
+                            { value: 'intermediate', label: 'Trung bình' },
+                            { value: 'advanced', label: 'Nâng cao' }
+                        ]
+                    },
+                    { name: 'thietBiSuDung', label: 'Thiết bị sử dụng' },
+                    { name: 'soHiepvaSoLanLap', label: 'Số hiệp và số lần lặp', type: 'number' },
+                    { name: 'mucTieuBaiTap', label: 'Mục tiêu bài tập', type: 'textarea' },
                     { name: 'videoHuongDan', label: 'Video hướng dẫn (URL)', validation: { pattern: /^https?:\/\/.+/, message: 'URL video không hợp lệ' } },
-                    { name: 'hinhAnhMinhHoa', label: 'Hình ảnh minh họa (URL)', validation: { pattern: /^https?:\/\/.+/, message: 'URL hình ảnh không hợp lệ' } }
+                    { name: 'source_url', label: 'Link nguồn (YouTube/Vimeo)', validation: { pattern: /^https?:\/\/.+/, message: 'URL không hợp lệ' } },
+                    { name: 'hinhAnhMinhHoa', label: 'Hình ảnh minh họa (URL, cách nhau bởi dấu phẩy)', validation: { pattern: /^https?:\/\/.+/, message: 'URL hình ảnh không hợp lệ' } },
+                    { name: 'duration_sec', label: 'Thời lượng (giây)', type: 'number' },
+                    { name: 'kcal', label: 'Calo (kcal)', type: 'number' },
+                    {
+                        name: 'status', label: 'Trạng thái', type: 'select', options: [
+                            { value: 'active', label: 'Đang hoạt động' },
+                            { value: 'inactive', label: 'Ngừng hoạt động' }
+                        ]
+                    }
                 ]}
                 onClose={() => { setShow(false); setEditingItem(null); }}
                 onSave={async (val) => {
                     try {
-                        if (editingItem) {
+                        if (editingItem && editingItem._id) {
                             const updated = await api.put(`/api/baitap/${editingItem._id}`, val);
                             setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
+                            notifications.generic.success('Cập nhật bài tập thành công!');
                         } else {
                             const created = await api.post('/api/baitap', val);
                             setRows([created, ...rows]);
+                            notifications.generic.success('Tạo bài tập thành công!');
                         }
+                        setRefreshTrigger(prev => prev + 1);
                     } catch (error) {
                         console.error('Error saving exercise:', error);
+                        notifications.generic.error('Có lỗi xảy ra khi lưu bài tập!');
                     }
                     setShow(false);
                     setEditingItem(null);
@@ -4883,7 +5283,7 @@ const ExercisesPage = () => {
             />}
             {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
                 title="Xác nhận xóa bài tập"
-                message={`Bạn có chắc chắn muốn xóa bài tập "${deleteConfirm.item.tenBaiTap}"? Hành động này không thể hoàn tác.`}
+                message={`Bạn có chắc chắn muốn xóa bài tập "${deleteConfirm.item.tenBaiTap || deleteConfirm.item.title || 'này'}"? Hành động này không thể hoàn tác.`}
                 type="danger"
                 confirmText="Xóa"
                 cancelText="Hủy"
@@ -4891,15 +5291,1199 @@ const ExercisesPage = () => {
                     try {
                         await api.delete(`/api/baitap/${deleteConfirm.item!._id}`);
                         setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
+                        notifications.generic.success('Xóa bài tập thành công!');
                     } catch (error) {
                         console.error('Error deleting exercise:', error);
+                        notifications.generic.error('Có lỗi xảy ra khi xóa bài tập!');
                     }
                     setDeleteConfirm({ show: false, item: null });
                 }}
                 onCancel={() => setDeleteConfirm({ show: false, item: null })}
             />}
             {isLoading && <Loading overlay text="Đang tải bài tập..." />}
-        </Card>
+        </div>
+    );
+};
+
+// Templates Page - Hiển thị 20 template với playlist bài tập (giống PTPage chia theo chi nhánh)
+const TemplatesPage = () => {
+    const [isLoading, setIsLoading] = useState(false);
+    const [templates, setTemplates] = useState<TemplateBuoiTap[]>([]);
+    const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set()); // Mặc định tất cả đều đóng
+    const [filterLoai, setFilterLoai] = useState<string>('all');
+    const [filterDoKho, setFilterDoKho] = useState<string>('all');
+    const [q, setQ] = useState('');
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+    const [templateSortConfig, setTemplateSortConfig] = useState<{ key: 'count'; direction: 'asc' | 'desc' } | null>(null);
+    // Sort config riêng cho từng template (templateId -> sortConfig)
+    const [templateExerciseSortConfigs, setTemplateExerciseSortConfigs] = useState<{ [templateId: string]: { key: string; direction: 'asc' | 'desc' } | null }>({});
+    // Selected exercises cho bulk edit
+    const [selectedExercises, setSelectedExercises] = useState<Set<string>>(new Set());
+    const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+    const [bulkEditData, setBulkEditData] = useState<any>({});
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const [bulkUpdateProgress, setBulkUpdateProgress] = useState<{ current: number; total: number } | null>(null);
+    const notifications = useCrudNotifications();
+
+    // Fetch templates (KHÔNG populate bài tập để load nhanh hơn)
+    const fetchTemplates = async () => {
+        try {
+            setIsLoading(true);
+            // Không populate exercises để load nhanh hơn, sẽ lazy load khi expand
+            const cacheBuster = `?_t=${Date.now()}`;
+            const data = await api.get(`/api/session-templates${cacheBuster}`);
+            if (Array.isArray(data)) {
+                console.log(`📋 Loaded ${data.length} templates from backend (without exercises for faster loading)`);
+                // Templates chỉ có baiTap IDs, không có full exercise data
+                setTemplates(data);
+            } else {
+                setTemplates([]);
+            }
+        } catch (e) {
+            console.error('Error fetching templates:', e);
+            setTemplates([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Fetch exercises cho một template cụ thể (lazy load khi expand)
+    const fetchExercisesForTemplate = async (templateId: string) => {
+        try {
+            // Kiểm tra xem đã load chưa
+            if (loadedExercises[templateId] && loadedExercises[templateId].length > 0) {
+                return loadedExercises[templateId];
+            }
+
+            const template = templates.find(t => t._id === templateId);
+            if (!template) return [];
+
+            // Nếu đã có exercises trong template (đã populated từ trước)
+            if (template.baiTap && Array.isArray(template.baiTap)) {
+                const firstItem = template.baiTap[0];
+                // Nếu là object (đã populated), return luôn
+                if (firstItem && typeof firstItem === 'object' && firstItem._id) {
+                    const exercises = template.baiTap.filter((bt: any): bt is BaiTap =>
+                        bt && typeof bt === 'object' && bt._id
+                    );
+                    // Lưu vào loadedExercises
+                    setLoadedExercises(prev => ({
+                        ...prev,
+                        [templateId]: exercises
+                    }));
+                    return exercises;
+                }
+            }
+
+            // Nếu chưa có, fetch từ template detail với populate
+            const templateDetail = await api.get(`/api/session-templates/${templateId}?populateExercises=true`);
+            if (templateDetail && templateDetail.baiTap && Array.isArray(templateDetail.baiTap)) {
+                const exercises = templateDetail.baiTap.filter((bt: any): bt is BaiTap =>
+                    bt && typeof bt === 'object' && bt._id
+                );
+
+                // Lưu vào loadedExercises
+                setLoadedExercises(prev => ({
+                    ...prev,
+                    [templateId]: exercises
+                }));
+
+                return exercises;
+            }
+            return [];
+        } catch (error) {
+            console.error(`Error fetching exercises for template ${templateId}:`, error);
+            return [];
+        }
+    };
+
+    useEffect(() => {
+        fetchTemplates();
+    }, []);
+
+    // Filter templates (chỉ lọc template, không lọc bài tập bên trong)
+    const filteredTemplates = templates.filter(t => {
+        // Search filter
+        if (q.trim()) {
+            const searchTerm = q.toLowerCase().trim();
+            const matchesSearch = (
+                (t.ten && t.ten.toLowerCase().includes(searchTerm)) ||
+                (t.moTa && t.moTa.toLowerCase().includes(searchTerm)) ||
+                (t.loai && t.loai.toLowerCase().includes(searchTerm))
+            );
+            if (!matchesSearch) return false;
+        }
+
+        // Loai filter
+        if (filterLoai !== 'all') {
+            if (t.loai !== filterLoai) return false;
+        }
+
+        // DoKho filter
+        if (filterDoKho !== 'all') {
+            if (t.doKho !== filterDoKho) return false;
+        }
+
+        return true;
+    });
+
+    // State để lưu exercises đã được load cho từng template
+    const [loadedExercises, setLoadedExercises] = useState<{ [templateId: string]: BaiTap[] }>({});
+
+    // Group exercises by template (sử dụng loadedExercises thay vì template.baiTap)
+    const groupedByTemplate = React.useMemo(() => {
+        const grouped: { [key: string]: BaiTap[] } = {};
+
+        filteredTemplates.forEach(template => {
+            const templateId = template._id;
+            // Lấy từ loadedExercises nếu có, nếu không thì empty array
+            grouped[templateId] = loadedExercises[templateId] || [];
+        });
+
+        return grouped;
+    }, [filteredTemplates, loadedExercises]);
+
+    // Get unique loai values
+    const loaiOptions = React.useMemo(() => {
+        const loaiSet = new Set<string>();
+        templates.forEach(t => {
+            if (t.loai) loaiSet.add(t.loai);
+        });
+        return Array.from(loaiSet).sort();
+    }, [templates]);
+
+    // Toggle template expansion và lazy load exercises khi expand
+    const toggleTemplate = (templateId: string) => {
+        const isCurrentlyExpanded = expandedTemplates.has(templateId);
+
+        // Toggle expansion state trước
+        setExpandedTemplates(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(templateId)) {
+                newSet.delete(templateId);
+                return newSet;
+            } else {
+                newSet.add(templateId);
+
+                // Nếu đang mở và chưa load exercises, thì load
+                if (!loadedExercises[templateId]) {
+                    fetchExercisesForTemplate(templateId).then(exercises => {
+                        setLoadedExercises(prev => ({
+                            ...prev,
+                            [templateId]: exercises
+                        }));
+                    }).catch(err => {
+                        console.error(`Error loading exercises for template ${templateId}:`, err);
+                    });
+                }
+
+                return newSet;
+            }
+        });
+    };
+
+    // Get template name
+    const getTemplateName = (templateId: string) => {
+        const template = templates.find(t => t._id === templateId);
+        return template ? template.ten : 'Không xác định';
+    };
+
+    const getDoKhoLabel = (doKho?: string) => {
+        if (doKho === 'DE') return 'Dễ';
+        if (doKho === 'TRUNG_BINH') return 'Trung bình';
+        if (doKho === 'KHO') return 'Khó';
+        return 'Trung bình';
+    };
+
+    const getDoKhoColor = (doKho?: string) => {
+        if (doKho === 'DE') return '#22c55e';
+        if (doKho === 'TRUNG_BINH') return '#f59e0b';
+        if (doKho === 'KHO') return '#ef4444';
+        return '#6b7280';
+    };
+
+    const handleClearFilters = () => {
+        setFilterLoai('all');
+        setFilterDoKho('all');
+        setQ('');
+        setSortConfig(null);
+        setTemplateSortConfig(null);
+        setTemplateExerciseSortConfigs({});
+        setSelectedExercises(new Set());
+    };
+
+    // Toggle select exercise
+    const toggleSelectExercise = (exerciseId: string) => {
+        setSelectedExercises(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(exerciseId)) {
+                newSet.delete(exerciseId);
+            } else {
+                newSet.add(exerciseId);
+            }
+            return newSet;
+        });
+    };
+
+    // Toggle select all exercises in a template
+    const toggleSelectAllExercisesInTemplate = (templateId: string) => {
+        // Sử dụng loadedExercises để lấy exercises
+        const exercisesInTemplate = loadedExercises[templateId] || [];
+        const allSelected = exercisesInTemplate.length > 0 && exercisesInTemplate.every(ex => selectedExercises.has(ex._id));
+
+        setSelectedExercises(prev => {
+            const newSet = new Set(prev);
+            if (allSelected) {
+                // Deselect all
+                exercisesInTemplate.forEach(ex => newSet.delete(ex._id));
+            } else {
+                // Select all
+                exercisesInTemplate.forEach(ex => newSet.add(ex._id));
+            }
+            return newSet;
+        });
+    };
+
+    // Check if all exercises in template are selected
+    const areAllExercisesInTemplateSelected = (templateId: string) => {
+        const exercisesInTemplate = loadedExercises[templateId] || [];
+        return exercisesInTemplate.length > 0 && exercisesInTemplate.every(ex => selectedExercises.has(ex._id));
+    };
+
+    // Check if some exercises in template are selected
+    const areSomeExercisesInTemplateSelected = (templateId: string) => {
+        const exercisesInTemplate = loadedExercises[templateId] || [];
+        return exercisesInTemplate.some(ex => selectedExercises.has(ex._id));
+    };
+
+    // Compress image function (tương tự EntityForm)
+    const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.8): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        reject(new Error('Cannot get canvas context'));
+                        return;
+                    }
+
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(compressedDataUrl);
+                };
+                img.onerror = reject;
+                img.src = e.target?.result as string;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    };
+
+    // Handle file upload for bulk edit
+    const handleBulkImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            notifications.generic.error('Kích thước file không được vượt quá 5MB');
+            return;
+        }
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            notifications.generic.error('File phải là hình ảnh');
+            return;
+        }
+
+        try {
+            // Compress image
+            const compressedImage = await compressImage(file, 800, 0.8);
+            setPreviewImage(compressedImage);
+            setBulkEditData({ ...bulkEditData, hinhAnh: compressedImage });
+        } catch (error) {
+            console.error('Error processing image:', error);
+            notifications.generic.error('Lỗi khi xử lý hình ảnh');
+        }
+    };
+
+    // Handle bulk edit - Tối ưu với batch processing và progress
+    const handleBulkEdit = async () => {
+        if (selectedExercises.size === 0) {
+            notifications.generic.error('Vui lòng chọn ít nhất một bài tập!');
+            return;
+        }
+
+        // Chỉ lấy các trường có giá trị (loại bỏ undefined và empty string)
+        const updateData: any = {};
+        Object.keys(bulkEditData).forEach(key => {
+            const value = bulkEditData[key];
+            if (value !== undefined && value !== '' && value !== null) {
+                updateData[key] = value;
+            }
+        });
+
+        if (Object.keys(updateData).length === 0) {
+            notifications.generic.error('Vui lòng điền ít nhất một trường để cập nhật!');
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const exerciseIds = Array.from(selectedExercises);
+            const total = exerciseIds.length;
+            setBulkUpdateProgress({ current: 0, total });
+
+            // Batch processing: xử lý từng batch nhỏ để tránh overload
+            const BATCH_SIZE = 5; // Xử lý 5 bài tập mỗi lần
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 0; i < exerciseIds.length; i += BATCH_SIZE) {
+                const batch = exerciseIds.slice(i, i + BATCH_SIZE);
+                const batchPromises = batch.map(async (exerciseId) => {
+                    try {
+                        await api.put(`/api/baitap/${exerciseId}`, updateData);
+                        successCount++;
+                        return { success: true, id: exerciseId };
+                    } catch (error) {
+                        console.error(`Error updating exercise ${exerciseId}:`, error);
+                        errorCount++;
+                        return { success: false, id: exerciseId, error };
+                    }
+                });
+
+                await Promise.all(batchPromises);
+                setBulkUpdateProgress({ current: Math.min(i + BATCH_SIZE, total), total });
+
+                // Delay nhỏ giữa các batch để tránh overload server
+                if (i + BATCH_SIZE < exerciseIds.length) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+
+            // Hiển thị thông báo trước
+            if (errorCount === 0) {
+                notifications.generic.success(`Đã cập nhật ${successCount} bài tập thành công!`);
+            } else {
+                notifications.generic.success(`Đã cập nhật ${successCount} bài tập thành công. ${errorCount} bài tập gặp lỗi.`);
+            }
+
+            // Refresh templates và reload exercises cho các template đã expanded
+            try {
+                await fetchTemplates();
+                // Reload exercises cho các template đã được expand
+                const expandedIds = Array.from(expandedTemplates);
+                const reloadPromises = expandedIds.map(async (templateId) => {
+                    const exercises = await fetchExercisesForTemplate(templateId);
+                    setLoadedExercises(prev => ({
+                        ...prev,
+                        [templateId]: exercises
+                    }));
+                });
+                await Promise.all(reloadPromises);
+            } catch (err) {
+                console.error('Error refreshing templates:', err);
+                // Vẫn tiếp tục đóng modal dù có lỗi refresh
+            }
+
+            // Đóng modal và clear data sau khi refresh xong
+            setSelectedExercises(new Set());
+            setShowBulkEditModal(false);
+            setBulkEditData({});
+            setPreviewImage(null);
+            setBulkUpdateProgress(null);
+
+            // Reset file input
+            const fileInput = document.getElementById('bulk-edit-image-input') as HTMLInputElement;
+            if (fileInput) fileInput.value = '';
+        } catch (error) {
+            console.error('Error bulk updating exercises:', error);
+            notifications.generic.error('Có lỗi xảy ra khi cập nhật bài tập!');
+            // Đóng modal ngay cả khi có lỗi
+            setShowBulkEditModal(false);
+            setBulkEditData({});
+            setPreviewImage(null);
+            setBulkUpdateProgress(null);
+            // Reset file input
+            const fileInput = document.getElementById('bulk-edit-image-input') as HTMLInputElement;
+            if (fileInput) fileInput.value = '';
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Handle sort cho exercises trong một template cụ thể
+    const handleTemplateExerciseSort = (templateId: string, sortValue: string) => {
+        if (sortValue === 'none') {
+            setTemplateExerciseSortConfigs(prev => {
+                const newConfigs = { ...prev };
+                delete newConfigs[templateId];
+                return newConfigs;
+            });
+        } else {
+            const [key, direction] = sortValue.split('-');
+            setTemplateExerciseSortConfigs(prev => ({
+                ...prev,
+                [templateId]: { key, direction: direction as 'asc' | 'desc' }
+            }));
+        }
+    };
+
+    // Sort exercises trong một template
+    const getSortedExercisesForTemplate = (templateId: string, exercises: BaiTap[]): BaiTap[] => {
+        const sortConfig = templateExerciseSortConfigs[templateId];
+        if (!sortConfig) return exercises;
+
+        return [...exercises].sort((a, b) => {
+            let aValue: any, bValue: any;
+
+            switch (sortConfig.key) {
+                case 'tenBaiTap':
+                    aValue = (a.tenBaiTap || a.title || '').toLowerCase();
+                    bValue = (b.tenBaiTap || b.title || '').toLowerCase();
+                    break;
+                case 'difficulty':
+                    const difficultyOrder = { 'beginner': 1, 'intermediate': 2, 'advanced': 3 };
+                    const aDiff = a.difficulty || (a.mucDoKho === 'DE' ? 'beginner' : a.mucDoKho === 'TRUNG_BINH' ? 'intermediate' : a.mucDoKho === 'KHO' ? 'advanced' : 'beginner');
+                    const bDiff = b.difficulty || (b.mucDoKho === 'DE' ? 'beginner' : b.mucDoKho === 'TRUNG_BINH' ? 'intermediate' : b.mucDoKho === 'KHO' ? 'advanced' : 'beginner');
+                    aValue = difficultyOrder[aDiff as keyof typeof difficultyOrder] || 0;
+                    bValue = difficultyOrder[bDiff as keyof typeof difficultyOrder] || 0;
+                    break;
+                case 'kcal':
+                    aValue = a.kcal || 0;
+                    bValue = b.kcal || 0;
+                    break;
+                case 'ratings':
+                    aValue = a.ratings?.averageRating || 0;
+                    bValue = b.ratings?.averageRating || 0;
+                    break;
+                case 'duration':
+                    aValue = a.duration_sec || a.thoiGian || 0;
+                    bValue = b.duration_sec || b.thoiGian || 0;
+                    break;
+                case 'nhomCo':
+                    aValue = (a.nhomCo || '').toLowerCase();
+                    bValue = (b.nhomCo || '').toLowerCase();
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    };
+
+    return (
+        <div className="members-management-page">
+            {/* Page Header */}
+            <div className="members-page-header">
+                <div className="members-page-header-content">
+                    <h1 className="members-page-title">Quản lý Template Buổi tập</h1>
+                    <p className="members-page-description">
+                        Quản lý các template buổi tập và playlist bài tập của Billions Fitness & Gym. Mỗi template chứa 20 bài tập phù hợp.
+                    </p>
+                </div>
+            </div>
+
+            {/* Filter Toolbar */}
+            <div className="members-filter-toolbar">
+                <input
+                    className="members-filter-search"
+                    type="text"
+                    placeholder="Tìm theo tên, mô tả, loại..."
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                />
+                <select
+                    className="members-filter-dropdown"
+                    value={filterLoai}
+                    onChange={e => setFilterLoai(e.target.value)}
+                >
+                    <option value="all">LOẠI</option>
+                    {loaiOptions.map(loai => (
+                        <option key={loai} value={loai}>{loai}</option>
+                    ))}
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterDoKho}
+                    onChange={e => setFilterDoKho(e.target.value)}
+                >
+                    <option value="all">MỨC ĐỘ KHÓ</option>
+                    <option value="DE">Dễ</option>
+                    <option value="TRUNG_BINH">Trung bình</option>
+                    <option value="KHO">Khó</option>
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={
+                        templateSortConfig
+                            ? `template-count-${templateSortConfig.direction}`
+                            : (sortConfig ? `${sortConfig.key}-${sortConfig.direction}` : 'none')
+                    }
+                    onChange={e => {
+                        const value = e.target.value;
+                        if (value === 'none') {
+                            setSortConfig(null);
+                            setTemplateSortConfig(null);
+                        } else if (value.startsWith('template-count-')) {
+                            const direction = value.split('-')[2] as 'asc' | 'desc';
+                            setTemplateSortConfig({ key: 'count', direction });
+                            setSortConfig(null);
+                        } else {
+                            const [key, direction] = value.split('-');
+                            setSortConfig({ key, direction: direction as 'asc' | 'desc' });
+                            setTemplateSortConfig(null);
+                        }
+                    }}
+                >
+                    <option value="none">SẮP XẾP</option>
+                    <option value="template-count-desc">Số lượng bài tập: Nhiều nhất</option>
+                    <option value="template-count-asc">Số lượng bài tập: Ít nhất</option>
+                    <option value="ten-asc">Tên template: A → Z</option>
+                    <option value="ten-desc">Tên template: Z → A</option>
+                </select>
+                <button className="members-filter-clear-btn" onClick={handleClearFilters}>
+                    CLEAR
+                </button>
+            </div>
+
+            {/* Template Sections with Exercise Cards - Giống PTPage chia theo chi nhánh */}
+            <div className="pt-branches-container">
+                {isLoading ? (
+                    <Loading text="Đang tải templates..." />
+                ) : Object.keys(groupedByTemplate).length === 0 ? (
+                    <div className="pt-empty-state">
+                        <p>Không tìm thấy template nào.</p>
+                    </div>
+                ) : (
+                    Object.keys(groupedByTemplate)
+                        .sort((a, b) => {
+                            // If sorting by exercise count
+                            if (templateSortConfig) {
+                                const countA = groupedByTemplate[a]?.length || 0;
+                                const countB = groupedByTemplate[b]?.length || 0;
+
+                                // Sort by count
+                                if (templateSortConfig.direction === 'desc') {
+                                    return countB - countA; // Descending: more exercises first
+                                } else {
+                                    return countA - countB; // Ascending: fewer exercises first
+                                }
+                            }
+
+                            // Default sort: alphabetically by template name
+                            return getTemplateName(a).localeCompare(getTemplateName(b));
+                        })
+                        .map(templateId => {
+                            const exercisesInTemplate = groupedByTemplate[templateId];
+                            const isExpanded = expandedTemplates.has(templateId);
+                            const template = templates.find(t => t._id === templateId);
+                            const templateName = template ? template.ten : 'Không xác định';
+                            // Lấy số lượng bài tập từ template.baiTap (array of IDs) hoặc từ loaded exercises
+                            const exerciseCount = template?.baiTap && Array.isArray(template.baiTap)
+                                ? (typeof template.baiTap[0] === 'object'
+                                    ? template.baiTap.length
+                                    : template.baiTap.length)
+                                : exercisesInTemplate.length;
+
+                            return (
+                                <div key={templateId} className="pt-branch-section">
+                                    <div className="pt-branch-header">
+                                        <div className="pt-branch-header-left" onClick={() => toggleTemplate(templateId)}>
+                                            <span className="pt-branch-icon">{isExpanded ? '▼' : '▶'}</span>
+                                            <h3 className="pt-branch-name">{templateName}</h3>
+                                            <span className="pt-branch-count">({exerciseCount})</span>
+                                        </div>
+                                        {isExpanded && (
+                                            <div className="pt-branch-header-right" onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={areAllExercisesInTemplateSelected(templateId)}
+                                                    ref={(input) => {
+                                                        if (input) input.indeterminate = areSomeExercisesInTemplateSelected(templateId) && !areAllExercisesInTemplateSelected(templateId);
+                                                    }}
+                                                    onChange={() => toggleSelectAllExercisesInTemplate(templateId)}
+                                                    className="pt-branch-checkbox"
+                                                    title="Chọn tất cả bài tập trong template này"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {isExpanded && (
+                                        <div className="pt-branch-cards-wrapper">
+                                            {/* Loading state khi đang fetch exercises */}
+                                            {!loadedExercises[templateId] && exercisesInTemplate.length === 0 && (
+                                                <div style={{ textAlign: 'center', padding: '20px' }}>
+                                                    <Loading text="Đang tải bài tập..." />
+                                                </div>
+                                            )}
+
+                                            {/* Template Info & Sort Toolbar */}
+                                            {exercisesInTemplate.length > 0 && (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    marginBottom: '16px',
+                                                    gap: '16px',
+                                                    flexWrap: 'wrap'
+                                                }}>
+                                                    {/* Template Info */}
+                                                    {template?.moTa && (
+                                                        <div style={{
+                                                            padding: '16px',
+                                                            background: '#f9fafb',
+                                                            borderRadius: '8px',
+                                                            flex: 1,
+                                                            minWidth: '300px'
+                                                        }}>
+                                                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '8px' }}>
+                                                                {template.loai && (
+                                                                    <span style={{
+                                                                        padding: '4px 8px',
+                                                                        background: '#e0e7ff',
+                                                                        color: '#4f46e5',
+                                                                        borderRadius: '4px',
+                                                                        fontSize: '0.85em',
+                                                                        fontWeight: 'bold'
+                                                                    }}>
+                                                                        {template.loai}
+                                                                    </span>
+                                                                )}
+                                                                <span style={{
+                                                                    padding: '4px 8px',
+                                                                    background: getDoKhoColor(template.doKho) + '20',
+                                                                    color: getDoKhoColor(template.doKho),
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '0.85em',
+                                                                    fontWeight: 'bold'
+                                                                }}>
+                                                                    {getDoKhoLabel(template.doKho)}
+                                                                </span>
+                                                            </div>
+                                                            <p style={{ margin: 0, color: '#6b7280' }}>{template.moTa}</p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Sort Dropdown cho template này */}
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        minWidth: '200px'
+                                                    }}>
+                                                        <label style={{
+                                                            fontSize: '0.9em',
+                                                            fontWeight: 'bold',
+                                                            color: '#6b7280',
+                                                            whiteSpace: 'nowrap'
+                                                        }}>
+                                                            Sắp xếp:
+                                                        </label>
+                                                        <select
+                                                            className="members-filter-dropdown"
+                                                            style={{
+                                                                flex: 1,
+                                                                minWidth: '180px',
+                                                                fontSize: '0.9em'
+                                                            }}
+                                                            value={
+                                                                templateExerciseSortConfigs[templateId]
+                                                                    ? `${templateExerciseSortConfigs[templateId]!.key}-${templateExerciseSortConfigs[templateId]!.direction}`
+                                                                    : 'none'
+                                                            }
+                                                            onChange={e => handleTemplateExerciseSort(templateId, e.target.value)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <option value="none">Mặc định</option>
+                                                            <option value="tenBaiTap-asc">Tên: A → Z</option>
+                                                            <option value="tenBaiTap-desc">Tên: Z → A</option>
+                                                            <option value="difficulty-asc">Độ khó: Dễ → Khó</option>
+                                                            <option value="difficulty-desc">Độ khó: Khó → Dễ</option>
+                                                            <option value="kcal-desc">Kcal: Cao nhất</option>
+                                                            <option value="kcal-asc">Kcal: Thấp nhất</option>
+                                                            <option value="ratings-desc">Đánh giá: Cao nhất</option>
+                                                            <option value="ratings-asc">Đánh giá: Thấp nhất</option>
+                                                            <option value="duration-asc">Thời lượng: Ngắn nhất</option>
+                                                            <option value="duration-desc">Thời lượng: Dài nhất</option>
+                                                            <option value="nhomCo-asc">Nhóm cơ: A → Z</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Bulk Edit Button */}
+                                            {exercisesInTemplate.length > 0 && selectedExercises.size > 0 && (
+                                                <div style={{
+                                                    marginBottom: '16px',
+                                                    padding: '12px 16px',
+                                                    background: '#f0f9ff',
+                                                    border: '1px solid #3b82f6',
+                                                    borderRadius: '8px',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center'
+                                                }}>
+                                                    <span style={{ fontWeight: 'bold', color: '#3b82f6' }}>
+                                                        Đã chọn: {selectedExercises.size} bài tập
+                                                    </span>
+                                                    <button
+                                                        className="members-add-btn"
+                                                        style={{
+                                                            background: '#3b82f6',
+                                                            color: 'white',
+                                                            padding: '8px 16px',
+                                                            fontSize: '0.9em'
+                                                        }}
+                                                        onClick={() => setShowBulkEditModal(true)}
+                                                    >
+                                                        ✏️ Chỉnh sửa hàng loạt
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* Exercises Grid - Giống trang Bài tập */}
+                                            {exercisesInTemplate.length === 0 ? (
+                                                <div className="pt-empty-state">
+                                                    <p>Template này chưa có bài tập nào.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="pt-cards-grid">
+                                                    {getSortedExercisesForTemplate(templateId, exercisesInTemplate).map((exercise: BaiTap, index: number) => (
+                                                        <div key={exercise._id || index} className="pt-card exercise-card">
+                                                            <div className="pt-card-checkbox-wrapper">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedExercises.has(exercise._id)}
+                                                                    onChange={() => toggleSelectExercise(exercise._id)}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="pt-card-checkbox"
+                                                                />
+                                                            </div>
+                                                            <div className="pt-card-header">
+                                                                <div className="pt-avatar">
+                                                                    {exercise.hinhAnh ? (
+                                                                        <img src={exercise.hinhAnh} alt={exercise.tenBaiTap || exercise.title} className="pt-avatar-img" />
+                                                                    ) : (
+                                                                        <div className="pt-avatar-placeholder">
+                                                                            {(exercise.tenBaiTap || exercise.title || 'B').charAt(0).toUpperCase()}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="pt-info">
+                                                                    <h3 className="pt-name">{exercise.tenBaiTap || exercise.title || 'Bài tập'}</h3>
+                                                                    <p className="pt-phone">
+                                                                        <span style={{
+                                                                            color: exercise.difficulty === 'beginner' ? '#22c55e' :
+                                                                                exercise.difficulty === 'intermediate' ? '#f59e0b' :
+                                                                                    exercise.difficulty === 'advanced' ? '#ef4444' : '#6b7280',
+                                                                            fontWeight: 'bold'
+                                                                        }}>
+                                                                            {exercise.difficulty === 'beginner' ? 'Cơ bản' :
+                                                                                exercise.difficulty === 'intermediate' ? 'Trung bình' :
+                                                                                    exercise.difficulty === 'advanced' ? 'Nâng cao' :
+                                                                                        exercise.mucDoKho === 'DE' ? 'Dễ' :
+                                                                                            exercise.mucDoKho === 'TRUNG_BINH' ? 'Trung bình' :
+                                                                                                exercise.mucDoKho === 'KHO' ? 'Khó' : 'Cơ bản'}
+                                                                        </span>
+                                                                        {exercise.kcal && ` • ${exercise.kcal} kcal`}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="pt-menu">
+                                                                    <button
+                                                                        className="pt-menu-btn"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            document.querySelectorAll('.pt-menu-dropdown.show').forEach(dropdown => {
+                                                                                dropdown.classList.remove('show');
+                                                                            });
+                                                                            const menu = e.currentTarget.nextElementSibling;
+                                                                            if (menu) {
+                                                                                menu.classList.toggle('show');
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        ⋯
+                                                                    </button>
+                                                                    <div className="pt-menu-dropdown">
+                                                                        <button
+                                                                            className="pt-menu-item"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                window.open(exercise.videoHuongDan || exercise.source_url, '_blank');
+                                                                            }}
+                                                                        >
+                                                                            📺 Xem video
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="pt-card-divider"></div>
+
+                                                            <div className="pt-card-details">
+                                                                {exercise.nhomCo && (
+                                                                    <div className="pt-detail-item">
+                                                                        <span className="pt-detail-label">Nhóm cơ:</span>
+                                                                        <span className="pt-detail-value">{exercise.nhomCo}</span>
+                                                                    </div>
+                                                                )}
+                                                                {exercise.thietBiSuDung && (
+                                                                    <div className="pt-detail-item">
+                                                                        <span className="pt-detail-label">Thiết bị:</span>
+                                                                        <span className="pt-detail-value">{exercise.thietBiSuDung}</span>
+                                                                    </div>
+                                                                )}
+                                                                {exercise.soHiepvaSoLanLap && exercise.soHiepvaSoLanLap > 0 && (
+                                                                    <div className="pt-detail-item">
+                                                                        <span className="pt-detail-label">Hiệp/Lần lặp:</span>
+                                                                        <span className="pt-detail-value">{exercise.soHiepvaSoLanLap}</span>
+                                                                    </div>
+                                                                )}
+                                                                {exercise.mucTieuBaiTap && (
+                                                                    <div className="pt-detail-item">
+                                                                        <span className="pt-detail-label">Mục tiêu:</span>
+                                                                        <span className="pt-detail-value" style={{ fontSize: '0.85em' }}>
+                                                                            {exercise.mucTieuBaiTap}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {(exercise.duration_sec || exercise.thoiGian) && (
+                                                                    <div className="pt-detail-item">
+                                                                        <span className="pt-detail-label">Thời lượng:</span>
+                                                                        <span className="pt-detail-value">
+                                                                            {Math.floor((exercise.duration_sec || exercise.thoiGian || 0) / 60)} phút
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {exercise.ratings && exercise.ratings.totalRatings > 0 && (
+                                                                    <div className="pt-detail-item">
+                                                                        <span className="pt-detail-label">Đánh giá:</span>
+                                                                        <span className="pt-detail-value">
+                                                                            ⭐ {exercise.ratings.averageRating.toFixed(1)} ({exercise.ratings.totalRatings})
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {(exercise.videoHuongDan || exercise.source_url) && (
+                                                                <>
+                                                                    <div className="pt-card-divider"></div>
+                                                                    <div className="pt-card-actions">
+                                                                        <button
+                                                                            className="pt-action-btn pt-action-view"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                window.open(exercise.videoHuongDan || exercise.source_url, '_blank');
+                                                                            }}
+                                                                        >
+                                                                            📺 Xem video
+                                                                        </button>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                )}
+            </div>
+
+            {isLoading && <Loading overlay text="Đang tải templates..." />}
+
+            {/* Bulk Edit Modal */}
+            {showBulkEditModal && (
+                <div className="modal-overlay" onClick={() => setShowBulkEditModal(false)}>
+                    <div className="change-branch-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+                        <div className="modal-header">
+                            <h2>Chỉnh sửa hàng loạt {selectedExercises.size} bài tập</h2>
+                            <button className="modal-close" onClick={() => setShowBulkEditModal(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ marginBottom: '16px', color: '#6b7280' }}>
+                                Điền các trường bạn muốn cập nhật cho tất cả bài tập đã chọn. Các trường để trống sẽ không thay đổi.
+                            </p>
+
+                            {/* Progress Bar */}
+                            {bulkUpdateProgress && (
+                                <div style={{
+                                    marginBottom: '16px',
+                                    padding: '12px',
+                                    background: '#f0f9ff',
+                                    border: '1px solid #3b82f6',
+                                    borderRadius: '8px'
+                                }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        marginBottom: '8px'
+                                    }}>
+                                        <span style={{ fontSize: '0.9em', fontWeight: 'bold', color: '#3b82f6' }}>
+                                            Đang cập nhật...
+                                        </span>
+                                        <span style={{ fontSize: '0.9em', color: '#6b7280' }}>
+                                            {bulkUpdateProgress.current} / {bulkUpdateProgress.total}
+                                        </span>
+                                    </div>
+                                    <div style={{
+                                        width: '100%',
+                                        height: '8px',
+                                        background: '#e5e7eb',
+                                        borderRadius: '4px',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <div style={{
+                                            width: `${(bulkUpdateProgress.current / bulkUpdateProgress.total) * 100}%`,
+                                            height: '100%',
+                                            background: '#3b82f6',
+                                            transition: 'width 0.3s ease'
+                                        }}></div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Hình ảnh upload */}
+                            <div className="form-group">
+                                <label>Hình ảnh bài tập</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleBulkImageUpload}
+                                    className="file-input"
+                                    id="bulk-edit-image-input"
+                                    style={{ display: 'none' }}
+                                />
+                                <label
+                                    htmlFor="bulk-edit-image-input"
+                                    className="file-upload-label"
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '10px',
+                                        padding: '18px 20px',
+                                        border: '2px dashed #cbd5e1',
+                                        borderRadius: '12px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s ease',
+                                        backgroundColor: previewImage ? '#f0f9ff' : '#f9fafb',
+                                        borderColor: previewImage ? '#3b82f6' : '#cbd5e1'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!previewImage) {
+                                            e.currentTarget.style.borderColor = '#3b82f6';
+                                            e.currentTarget.style.backgroundColor = '#f0f9ff';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!previewImage) {
+                                            e.currentTarget.style.borderColor = '#cbd5e1';
+                                            e.currentTarget.style.backgroundColor = '#f9fafb';
+                                        }
+                                    }}
+                                >
+                                    {previewImage ? (
+                                        <>
+                                            <span>📷</span>
+                                            <span>Hình ảnh đã chọn (click để đổi)</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>📤</span>
+                                            <span>Chọn hình ảnh (tối đa 5MB)</span>
+                                        </>
+                                    )}
+                                </label>
+                                {previewImage && (
+                                    <div style={{
+                                        position: 'relative',
+                                        marginTop: '12px',
+                                        borderRadius: '8px',
+                                        overflow: 'hidden',
+                                        maxWidth: '200px',
+                                        border: '2px solid #3b82f6'
+                                    }}>
+                                        <img
+                                            src={previewImage}
+                                            alt="Preview"
+                                            style={{
+                                                width: '100%',
+                                                height: '120px',
+                                                objectFit: 'cover',
+                                                display: 'block'
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                setPreviewImage(null);
+                                                setBulkEditData({ ...bulkEditData, hinhAnh: undefined });
+                                                // Reset file input
+                                                const fileInput = document.getElementById('bulk-edit-image-input') as HTMLInputElement;
+                                                if (fileInput) fileInput.value = '';
+                                            }}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '8px',
+                                                right: '8px',
+                                                width: '28px',
+                                                height: '28px',
+                                                borderRadius: '50%',
+                                                background: 'rgba(239, 68, 68, 0.9)',
+                                                color: 'white',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '16px',
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                )}
+                                <p className="file-size-hint">Tối đa 5MB. Hình ảnh sẽ được tự động nén.</p>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Mức độ khó (mới)</label>
+                                <select
+                                    className="form-select"
+                                    value={bulkEditData.difficulty || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, difficulty: e.target.value || undefined })}
+                                >
+                                    <option value="">-- Giữ nguyên --</option>
+                                    <option value="beginner">Cơ bản</option>
+                                    <option value="intermediate">Trung bình</option>
+                                    <option value="advanced">Nâng cao</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Mức độ khó (cũ)</label>
+                                <select
+                                    className="form-select"
+                                    value={bulkEditData.mucDoKho || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, mucDoKho: e.target.value || undefined })}
+                                >
+                                    <option value="">-- Giữ nguyên --</option>
+                                    <option value="DE">Dễ</option>
+                                    <option value="TRUNG_BINH">Trung bình</option>
+                                    <option value="KHO">Khó</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Nhóm cơ</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={bulkEditData.nhomCo || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, nhomCo: e.target.value || undefined })}
+                                    placeholder="Giữ nguyên nếu để trống"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Thiết bị sử dụng</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={bulkEditData.thietBiSuDung || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, thietBiSuDung: e.target.value || undefined })}
+                                    placeholder="Giữ nguyên nếu để trống"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Calo (kcal)</label>
+                                <input
+                                    type="number"
+                                    className="form-input"
+                                    value={bulkEditData.kcal || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, kcal: e.target.value ? parseInt(e.target.value) : undefined })}
+                                    placeholder="Giữ nguyên nếu để trống"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Thời lượng (giây)</label>
+                                <input
+                                    type="number"
+                                    className="form-input"
+                                    value={bulkEditData.duration_sec || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, duration_sec: e.target.value ? parseInt(e.target.value) : undefined })}
+                                    placeholder="Giữ nguyên nếu để trống"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Trạng thái</label>
+                                <select
+                                    className="form-select"
+                                    value={bulkEditData.status || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, status: e.target.value || undefined })}
+                                >
+                                    <option value="">-- Giữ nguyên --</option>
+                                    <option value="active">Đang hoạt động</option>
+                                    <option value="inactive">Ngừng hoạt động</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => {
+                                    setShowBulkEditModal(false);
+                                    setBulkEditData({});
+                                    setPreviewImage(null);
+                                    // Reset file input
+                                    const fileInput = document.getElementById('bulk-edit-image-input') as HTMLInputElement;
+                                    if (fileInput) fileInput.value = '';
+                                }}
+                                disabled={isLoading}
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleBulkEdit}
+                                disabled={isLoading}
+                            >
+                                {isLoading
+                                    ? (bulkUpdateProgress
+                                        ? `Đang cập nhật ${bulkUpdateProgress.current}/${bulkUpdateProgress.total}...`
+                                        : 'Đang cập nhật...')
+                                    : `Cập nhật ${selectedExercises.size} bài tập`
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 
