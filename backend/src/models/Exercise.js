@@ -151,7 +151,7 @@ const ExerciseSchema = new Schema({
     }
 }, {
     timestamps: true,
-    collection: 'exercises'
+    collection: 'BaiTap' // Sử dụng collection BaiTap để tương thích với dữ liệu cũ
 });
 
 // Hàm tính kcal tự động (từ BaiTap)
@@ -256,10 +256,11 @@ ExerciseSchema.index({ 'ratings.averageRating': -1 });
 ExerciseSchema.index({ tenBaiTap: 1 });
 ExerciseSchema.index({ nhomCo: 1 });
 
-// Tạo alias cho backward compatibility với BaiTap
+// Tạo model với tên Exercise nhưng collection là BaiTap
 const Exercise = mongoose.model('Exercise', ExerciseSchema);
 
 // Export cả Exercise và BaiTap alias để tương thích với code cũ
+// Tất cả đều trỏ đến cùng một collection 'BaiTap'
 module.exports = Exercise;
 module.exports.BaiTap = Exercise; // Alias cho backward compatibility
 

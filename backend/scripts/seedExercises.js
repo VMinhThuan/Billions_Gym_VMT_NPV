@@ -41,6 +41,181 @@ function generateRandomRatings() {
     };
 }
 
+// Hàm map nhóm cơ theo template type
+function getNhomCoByTemplateType(templateType) {
+    const mapping = {
+        'Pull': 'Lưng, Xô, Tay trước',
+        'Push': 'Ngực, Vai, Tay sau',
+        'Legs': 'Đùi trước, Đùi sau, Mông, Bắp chân',
+        'Cardio': 'Toàn thân, Tim mạch',
+        'Boxing': 'Toàn thân, Tim mạch, Tay',
+        'ShoulderAbs': 'Vai, Bụng',
+        'BB': 'Toàn thân, Sức mạnh',
+        'FullBody': 'Toàn thân',
+        'Core': 'Bụng, Core',
+        'Yoga': 'Toàn thân, Linh hoạt',
+        'HIIT': 'Toàn thân, Tim mạch',
+        'Strength': 'Toàn thân, Sức mạnh',
+        'Endurance': 'Tim mạch, Sức bền',
+        'Flexibility': 'Linh hoạt, Giãn cơ',
+        'CrossFit': 'Toàn thân, Sức mạnh',
+        'Calisthenics': 'Toàn thân, Bodyweight',
+        'Bodybuilding': 'Toàn thân, Tăng cơ',
+        'Functional': 'Toàn thân, Chức năng',
+        'Recovery': 'Toàn thân, Phục hồi',
+        'BackBiceps': 'Lưng, Tay trước',
+        'ChestTriceps': 'Ngực, Tay sau',
+        'Upper': 'Ngực, Lưng, Vai, Tay',
+        'Lower': 'Đùi, Mông, Bắp chân',
+        'Plyo': 'Toàn thân, Sức bật',
+        'Bodyweight': 'Toàn thân, Bodyweight',
+        'Mobility': 'Toàn thân, Linh hoạt',
+        'DB': 'Toàn thân, Tạ đơn'
+    };
+    return mapping[templateType] || 'Toàn thân';
+}
+
+// Hàm map thiết bị theo template type và bài tập
+function getThietBiByType(templateType, title) {
+    const titleLower = title.toLowerCase();
+
+    // Bodyweight exercises
+    if (titleLower.includes('push-up') || titleLower.includes('pull-up') ||
+        titleLower.includes('squat') && !titleLower.includes('barbell') && !titleLower.includes('dumbbell') ||
+        titleLower.includes('lunge') && !titleLower.includes('barbell') ||
+        titleLower.includes('plank') || titleLower.includes('crunch') ||
+        titleLower.includes('boxing') && !titleLower.includes('bag')) {
+        return 'Không cần thiết bị';
+    }
+
+    // Cardio equipment
+    if (templateType === 'Cardio' || templateType === 'HIIT' || templateType === 'Endurance') {
+        if (titleLower.includes('running') || titleLower.includes('treadmill')) return 'Máy chạy bộ';
+        if (titleLower.includes('cycling') || titleLower.includes('bike')) return 'Xe đạp tập';
+        if (titleLower.includes('rowing')) return 'Máy chèo thuyền';
+        if (titleLower.includes('elliptical')) return 'Máy elliptical';
+        if (titleLower.includes('stair')) return 'Máy leo cầu thang';
+        if (titleLower.includes('jump rope')) return 'Dây nhảy';
+        return 'Không cần thiết bị hoặc máy cardio';
+    }
+
+    // Boxing equipment
+    if (templateType === 'Boxing') {
+        if (titleLower.includes('bag') || titleLower.includes('bao')) return 'Bao cát';
+        if (titleLower.includes('speed')) return 'Bao tốc độ';
+        if (titleLower.includes('double')) return 'Bao đôi';
+        return 'Không cần thiết bị';
+    }
+
+    // Yoga/Pilates
+    if (templateType === 'Yoga' || templateType === 'Flexibility' || templateType === 'Recovery') {
+        return 'Thảm yoga';
+    }
+
+    // Barbell exercises
+    if (titleLower.includes('barbell') || templateType === 'BB') {
+        return 'Tạ đòn, Bánh tạ';
+    }
+
+    // Dumbbell exercises
+    if (titleLower.includes('dumbbell')) {
+        return 'Tạ đơn';
+    }
+
+    // Machine exercises
+    if (titleLower.includes('machine') || titleLower.includes('cable') ||
+        titleLower.includes('pulldown') || titleLower.includes('row') && titleLower.includes('cable') ||
+        titleLower.includes('press') && (titleLower.includes('leg') || titleLower.includes('chest'))) {
+        return 'Máy tập luyện';
+    }
+
+    // Kettlebell
+    if (titleLower.includes('kettlebell')) {
+        return 'Tạ ấm (Kettlebell)';
+    }
+
+    // Default by template
+    const templateMapping = {
+        'Pull': 'Máy kéo, Tạ đòn',
+        'Push': 'Ghế tập, Tạ đòn, Tạ đơn',
+        'Legs': 'Máy đùi, Tạ đòn',
+        'ShoulderAbs': 'Tạ đơn, Tạ đòn',
+        'Core': 'Thảm tập',
+        'Calisthenics': 'Không cần thiết bị',
+        'Functional': 'Tạ ấm, Dây kháng lực'
+    };
+
+    return templateMapping[templateType] || 'Tạ đơn, Tạ đòn';
+}
+
+// Hàm map mục tiêu theo template type
+function getMucTieuByTemplateType(templateType) {
+    const mapping = {
+        'Pull': 'Phát triển nhóm cơ kéo, Tăng sức mạnh lưng và tay',
+        'Push': 'Phát triển nhóm cơ đẩy, Tăng sức mạnh ngực và tay',
+        'Legs': 'Phát triển cơ chân, Tăng sức mạnh đùi và mông',
+        'Cardio': 'Đốt cháy calo, Tăng sức bền tim mạch',
+        'Boxing': 'Tăng sức mạnh, Cải thiện tim mạch và phối hợp',
+        'ShoulderAbs': 'Phát triển vai và bụng, Tăng sức mạnh core',
+        'BB': 'Tăng sức mạnh tối đa, Powerlifting',
+        'FullBody': 'Tập toàn thân, Tăng sức mạnh tổng thể',
+        'Core': 'Tăng cường core, Cải thiện sự ổn định',
+        'Yoga': 'Tăng linh hoạt, Giảm căng thẳng, Cân bằng',
+        'HIIT': 'Đốt cháy calo tối đa, Tăng sức bền',
+        'Strength': 'Tăng sức mạnh, Phát triển cơ bắp',
+        'Endurance': 'Tăng sức bền, Cải thiện tim mạch',
+        'Flexibility': 'Tăng linh hoạt, Giảm căng cơ',
+        'CrossFit': 'Tập luyện toàn diện, Sức mạnh và sức bền',
+        'Calisthenics': 'Tăng sức mạnh với trọng lượng cơ thể',
+        'Bodybuilding': 'Tăng cơ, Phát triển cơ bắp tối đa',
+        'Functional': 'Tăng sức mạnh chức năng, Cải thiện vận động',
+        'Recovery': 'Phục hồi cơ bắp, Giảm đau nhức',
+        'BackBiceps': 'Phát triển lưng và tay trước, Tăng sức mạnh',
+        'ChestTriceps': 'Phát triển ngực và tay sau, Tăng sức mạnh',
+        'Upper': 'Phát triển phần trên cơ thể, Tăng sức mạnh',
+        'Lower': 'Phát triển phần dưới cơ thể, Tăng sức mạnh',
+        'Plyo': 'Tăng sức bật, Phát triển sức mạnh nổ',
+        'Bodyweight': 'Tập với trọng lượng cơ thể, Tăng sức mạnh',
+        'Mobility': 'Tăng linh hoạt, Cải thiện vận động',
+        'DB': 'Tập với tạ đơn, Phát triển toàn thân'
+    };
+    return mapping[templateType] || 'Tập luyện toàn diện';
+}
+
+// Hàm tính số hiệp và số lần lặp dựa trên difficulty và duration
+function getSoHiepvaSoLanLap(difficulty, duration) {
+    // Duration tính bằng giây, chuyển sang phút
+    const minutes = Math.floor(duration / 60);
+
+    if (difficulty === 'beginner') {
+        return 12; // 3 sets x 4 reps
+    } else if (difficulty === 'intermediate') {
+        return 20; // 4 sets x 5 reps
+    } else {
+        return 30; // 5 sets x 6 reps
+    }
+}
+
+// Hàm tạo hình ảnh URL từ title
+function getHinhAnhUrl(title, templateType) {
+    // Sử dụng Unsplash với keyword phù hợp
+    const keywords = {
+        'Pull': 'back workout',
+        'Push': 'chest workout',
+        'Legs': 'leg workout',
+        'Cardio': 'cardio workout',
+        'Boxing': 'boxing training',
+        'ShoulderAbs': 'shoulder abs workout',
+        'BB': 'barbell workout',
+        'Core': 'core workout',
+        'Yoga': 'yoga pose',
+        'HIIT': 'hiit workout'
+    };
+
+    const keyword = keywords[templateType] || 'fitness workout';
+    return `https://images.unsplash.com/photo-${Math.random().toString(36).substring(7)}?w=800&q=80`;
+}
+
 // Định nghĩa 20 bài tập cho mỗi template type với YouTube links thật
 const exercisesByTemplateType = {
     'Pull': [
@@ -439,6 +614,182 @@ const exercisesByTemplateType = {
         { title: 'Functional Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1500 },
         { title: 'Complete Functional', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 2100 }
     ],
+    'BackBiceps': [
+        { title: 'Back & Biceps Workout', youtubeId: 'CAwf7n6Luuc', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Wide Grip Pull-ups', youtubeId: 'CAwf7n6Luuc', difficulty: 'advanced', duration: 420 },
+        { title: 'Barbell Bicep Curls', youtubeId: 'IaZd5H3H9Os', difficulty: 'beginner', duration: 480 },
+        { title: 'Cable Bicep Curls', youtubeId: 'IaZd5H3H9Os', difficulty: 'intermediate', duration: 450 },
+        { title: 'Hammer Curls', youtubeId: 'IaZd5H3H9Os', difficulty: 'intermediate', duration: 420 },
+        { title: 'Lat Pulldown', youtubeId: 'CAwf7n6Luuc', difficulty: 'beginner', duration: 540 },
+        { title: 'Seated Cable Row', youtubeId: 'k8Lys7pvEPs', difficulty: 'intermediate', duration: 600 },
+        { title: 'Concentration Curls', youtubeId: 'IaZd5H3H9Os', difficulty: 'intermediate', duration: 400 },
+        { title: 'Preacher Curls', youtubeId: 'IaZd5H3H9Os', difficulty: 'intermediate', duration: 450 },
+        { title: 'Chin-ups', youtubeId: 'CAwf7n6Luuc', difficulty: 'intermediate', duration: 480 },
+        { title: 'T-Bar Row', youtubeId: 'wAqY8VQqrYs', difficulty: 'advanced', duration: 540 },
+        { title: 'Cable Face Pull', youtubeId: 'rep-qVOkqgk', difficulty: 'intermediate', duration: 420 },
+        { title: 'Reverse Grip Pulldown', youtubeId: 'CAwf7n6Luuc', difficulty: 'intermediate', duration: 480 },
+        { title: '21s Bicep Curls', youtubeId: 'IaZd5H3H9Os', difficulty: 'advanced', duration: 540 },
+        { title: 'One Arm Cable Curls', youtubeId: 'IaZd5H3H9Os', difficulty: 'intermediate', duration: 400 },
+        { title: 'Bent Over Barbell Row', youtubeId: 'k8Lys7pvEPs', difficulty: 'intermediate', duration: 560 },
+        { title: 'Drag Curls', youtubeId: 'IaZd5H3H9Os', difficulty: 'advanced', duration: 450 },
+        { title: 'Wide Grip Cable Row', youtubeId: 'k8Lys7pvEPs', difficulty: 'intermediate', duration: 500 },
+        { title: 'Bicep Peak Training', youtubeId: 'IaZd5H3H9Os', difficulty: 'advanced', duration: 600 },
+        { title: 'Complete Back & Biceps', youtubeId: 'CAwf7n6Luuc', difficulty: 'intermediate', duration: 2400 }
+    ],
+    'ChestTriceps': [
+        { title: 'Chest & Triceps Workout', youtubeId: 'rT7DgCr-3pg', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Bench Press', youtubeId: 'rT7DgCr-3pg', difficulty: 'intermediate', duration: 720 },
+        { title: 'Tricep Dips', youtubeId: '6kALZikXxLc', difficulty: 'beginner', duration: 480 },
+        { title: 'Incline Dumbbell Press', youtubeId: '8iP4vqZNebc', difficulty: 'intermediate', duration: 600 },
+        { title: 'Close Grip Bench Press', youtubeId: 'rT7DgCr-3pg', difficulty: 'advanced', duration: 540 },
+        { title: 'Cable Flyes', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 500 },
+        { title: 'Tricep Pushdowns', youtubeId: '6kALZikXxLc', difficulty: 'beginner', duration: 450 },
+        { title: 'Dumbbell Flyes', youtubeId: 'eozdVDA78K0', difficulty: 'beginner', duration: 480 },
+        { title: 'Overhead Tricep Extension', youtubeId: '6kALZikXxLc', difficulty: 'intermediate', duration: 420 },
+        { title: 'Push-ups', youtubeId: 'IODxDxX7oi4', difficulty: 'beginner', duration: 540 },
+        { title: 'Diamond Push-ups', youtubeId: 'IODxDxX7oi4', difficulty: 'intermediate', duration: 480 },
+        { title: 'Cable Crossover', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 460 },
+        { title: 'Skull Crushers', youtubeId: '6kALZikXxLc', difficulty: 'advanced', duration: 500 },
+        { title: 'Pec Deck Machine', youtubeId: 'eozdVDA78K0', difficulty: 'beginner', duration: 400 },
+        { title: 'Rope Tricep Extension', youtubeId: '6kALZikXxLc', difficulty: 'intermediate', duration: 440 },
+        { title: 'Decline Bench Press', youtubeId: '8iP4vqZNebc', difficulty: 'advanced', duration: 560 },
+        { title: 'Tricep Kickbacks', youtubeId: '6kALZikXxLc', difficulty: 'beginner', duration: 380 },
+        { title: 'Chest Press Machine', youtubeId: 'eozdVDA78K0', difficulty: 'beginner', duration: 520 },
+        { title: 'Overhead Cable Extension', youtubeId: '6kALZikXxLc', difficulty: 'advanced', duration: 460 },
+        { title: 'Complete Chest & Triceps', youtubeId: 'rT7DgCr-3pg', difficulty: 'intermediate', duration: 2400 }
+    ],
+    'Upper': [
+        { title: 'Upper Body Workout', youtubeId: 'rT7DgCr-3pg', difficulty: 'intermediate', duration: 2100 },
+        { title: 'Upper Body Push Pull', youtubeId: 'rT7DgCr-3pg', difficulty: 'intermediate', duration: 2400 },
+        { title: 'Upper Body Strength', youtubeId: 'Dy28eq2PjcM', difficulty: 'advanced', duration: 2700 },
+        { title: 'Upper Body Hypertrophy', youtubeId: 'rT7DgCr-3pg', difficulty: 'intermediate', duration: 2400 },
+        { title: 'Upper Body Beginner', youtubeId: 'IODxDxX7oi4', difficulty: 'beginner', duration: 1800 },
+        { title: 'Upper Body Compound', youtubeId: 'Dy28eq2PjcM', difficulty: 'advanced', duration: 2100 },
+        { title: 'Upper Body Isolation', youtubeId: 'rT7DgCr-3pg', difficulty: 'intermediate', duration: 2000 },
+        { title: 'Upper Body Volume', youtubeId: 'rT7DgCr-3pg', difficulty: 'advanced', duration: 2400 },
+        { title: 'Upper Body Power', youtubeId: 'Dy28eq2PjcM', difficulty: 'advanced', duration: 2100 },
+        { title: 'Upper Body Endurance', youtubeId: 'rT7DgCr-3pg', difficulty: 'intermediate', duration: 2400 },
+        { title: 'Upper Body Circuit', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Upper Body HIIT', youtubeId: 'ml6cT4AZdqI', difficulty: 'advanced', duration: 1500 },
+        { title: 'Upper Body Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1200 },
+        { title: 'Upper Body Recovery', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1500 },
+        { title: 'Upper Body Flex', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1800 },
+        { title: 'Upper Body Conditioning', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 2000 },
+        { title: 'Upper Body Calisthenics', youtubeId: 'IODxDxX7oi4', difficulty: 'advanced', duration: 2100 },
+        { title: 'Upper Body Dumbbell', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Upper Body Cable', youtubeId: 'rep-qVOkqgk', difficulty: 'intermediate', duration: 1900 },
+        { title: 'Complete Upper Body', youtubeId: 'rT7DgCr-3pg', difficulty: 'intermediate', duration: 2400 }
+    ],
+    'Lower': [
+        { title: 'Lower Body Workout', youtubeId: 'Dy28eq2PjcM', difficulty: 'intermediate', duration: 2400 },
+        { title: 'Lower Body Strength', youtubeId: 'Dy28eq2PjcM', difficulty: 'advanced', duration: 2700 },
+        { title: 'Lower Body Hypertrophy', youtubeId: 'Dy28eq2PjcM', difficulty: 'intermediate', duration: 2400 },
+        { title: 'Lower Body Beginner', youtubeId: 'QOVaHwm-Q6U', difficulty: 'beginner', duration: 1800 },
+        { title: 'Lower Body Power', youtubeId: 'Dy28eq2PjcM', difficulty: 'advanced', duration: 2100 },
+        { title: 'Lower Body Volume', youtubeId: 'Dy28eq2PjcM', difficulty: 'advanced', duration: 2700 },
+        { title: 'Lower Body Compound', youtubeId: 'Dy28eq2PjcM', difficulty: 'intermediate', duration: 2400 },
+        { title: 'Lower Body Isolation', youtubeId: 'IZxyjW8PL9g', difficulty: 'intermediate', duration: 2000 },
+        { title: 'Lower Body Endurance', youtubeId: 'QOVaHwm-Q6U', difficulty: 'intermediate', duration: 2400 },
+        { title: 'Lower Body Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1500 },
+        { title: 'Lower Body Recovery', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1200 },
+        { title: 'Lower Body Circuit', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Lower Body HIIT', youtubeId: 'ml6cT4AZdqI', difficulty: 'advanced', duration: 1500 },
+        { title: 'Lower Body Dumbbell', youtubeId: 'QOVaHwm-Q6U', difficulty: 'intermediate', duration: 2100 },
+        { title: 'Lower Body Machine', youtubeId: 'IZxyjW8PL9g', difficulty: 'beginner', duration: 2000 },
+        { title: 'Lower Body Bodyweight', youtubeId: 'IODxDxX7oi4', difficulty: 'beginner', duration: 1500 },
+        { title: 'Lower Body Functional', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Lower Body Plyometric', youtubeId: 'ml6cT4AZdqI', difficulty: 'advanced', duration: 1200 },
+        { title: 'Lower Body Flexibility', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1800 },
+        { title: 'Complete Lower Body', youtubeId: 'Dy28eq2PjcM', difficulty: 'intermediate', duration: 2400 }
+    ],
+    'Plyo': [
+        { title: 'Plyometric Basics', youtubeId: 'ml6cT4AZdqI', difficulty: 'beginner', duration: 900 },
+        { title: 'Plyometric Jump Training', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 1200 },
+        { title: 'Box Jumps', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 600 },
+        { title: 'Burpees', youtubeId: 'auBLP_X8BSg', difficulty: 'advanced', duration: 720 },
+        { title: 'Jump Squats', youtubeId: 'Dy28eq2PjcM', difficulty: 'intermediate', duration: 540 },
+        { title: 'Plyometric Push-ups', youtubeId: 'IODxDxX7oi4', difficulty: 'advanced', duration: 600 },
+        { title: 'Lateral Bounds', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 480 },
+        { title: 'Depth Jumps', youtubeId: 'ml6cT4AZdqI', difficulty: 'advanced', duration: 540 },
+        { title: 'Plyometric Lunges', youtubeId: 'QOVaHwm-Q6U', difficulty: 'intermediate', duration: 600 },
+        { title: 'Tuck Jumps', youtubeId: 'ml6cT4AZdqI', difficulty: 'advanced', duration: 420 },
+        { title: 'Broad Jumps', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 480 },
+        { title: 'Plyometric Core', youtubeId: '1fbU_MkV7NE', difficulty: 'advanced', duration: 540 },
+        { title: 'Single Leg Hops', youtubeId: 'ml6cT4AZdqI', difficulty: 'advanced', duration: 500 },
+        { title: 'Plyometric Circuit', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 1200 },
+        { title: 'Plyometric Power', youtubeId: 'Dy28eq2PjcM', difficulty: 'advanced', duration: 900 },
+        { title: 'Explosive Training', youtubeId: 'ml6cT4AZdqI', difficulty: 'advanced', duration: 1080 },
+        { title: 'Plyometric Endurance', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 1500 },
+        { title: 'Plyometric Recovery', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 600 },
+        { title: 'Advanced Plyometric', youtubeId: 'ml6cT4AZdqI', difficulty: 'advanced', duration: 1200 },
+        { title: 'Complete Plyometric', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 1800 }
+    ],
+    'Bodyweight': [
+        { title: 'Bodyweight Basics', youtubeId: 'IODxDxX7oi4', difficulty: 'beginner', duration: 1200 },
+        { title: 'Bodyweight Full Body', youtubeId: 'IODxDxX7oi4', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Bodyweight Upper', youtubeId: 'IODxDxX7oi4', difficulty: 'intermediate', duration: 1500 },
+        { title: 'Bodyweight Lower', youtubeId: 'IODxDxX7oi4', difficulty: 'intermediate', duration: 1500 },
+        { title: 'Bodyweight Core', youtubeId: '1fbU_MkV7NE', difficulty: 'intermediate', duration: 1200 },
+        { title: 'Bodyweight Cardio', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Bodyweight HIIT', youtubeId: 'ml6cT4AZdqI', difficulty: 'advanced', duration: 1200 },
+        { title: 'Bodyweight Strength', youtubeId: 'IODxDxX7oi4', difficulty: 'intermediate', duration: 2100 },
+        { title: 'Bodyweight Calisthenics', youtubeId: 'IODxDxX7oi4', difficulty: 'advanced', duration: 2400 },
+        { title: 'Bodyweight Beginner', youtubeId: 'IODxDxX7oi4', difficulty: 'beginner', duration: 1500 },
+        { title: 'Bodyweight Advanced', youtubeId: 'IODxDxX7oi4', difficulty: 'advanced', duration: 2100 },
+        { title: 'Bodyweight Circuit', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 1500 },
+        { title: 'Bodyweight Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1200 },
+        { title: 'Bodyweight Flexibility', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1500 },
+        { title: 'Bodyweight Endurance', youtubeId: 'IODxDxX7oi4', difficulty: 'advanced', duration: 2400 },
+        { title: 'Bodyweight Power', youtubeId: 'ml6cT4AZdqI', difficulty: 'advanced', duration: 1200 },
+        { title: 'Bodyweight Recovery', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 900 },
+        { title: 'Bodyweight Functional', youtubeId: 'IODxDxX7oi4', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Bodyweight Progressive', youtubeId: 'IODxDxX7oi4', difficulty: 'intermediate', duration: 2100 },
+        { title: 'Complete Bodyweight', youtubeId: 'IODxDxX7oi4', difficulty: 'intermediate', duration: 1800 }
+    ],
+    'Mobility': [
+        { title: 'Mobility Basics', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1200 },
+        { title: 'Full Body Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1800 },
+        { title: 'Hip Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 900 },
+        { title: 'Shoulder Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 900 },
+        { title: 'Spine Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1200 },
+        { title: 'Ankle Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 600 },
+        { title: 'Thoracic Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'intermediate', duration: 1200 },
+        { title: 'Mobility Flow', youtubeId: 'v7AYKMP6rOE', difficulty: 'intermediate', duration: 1500 },
+        { title: 'Dynamic Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'intermediate', duration: 1200 },
+        { title: 'Static Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1800 },
+        { title: 'Mobility for Athletes', youtubeId: 'v7AYKMP6rOE', difficulty: 'intermediate', duration: 1500 },
+        { title: 'Mobility Recovery', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1200 },
+        { title: 'Mobility Warm-up', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 600 },
+        { title: 'Mobility Cool-down', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 900 },
+        { title: 'Advanced Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'advanced', duration: 1800 },
+        { title: 'Mobility Routine', youtubeId: 'v7AYKMP6rOE', difficulty: 'intermediate', duration: 1500 },
+        { title: 'Mobility Stretching', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1800 },
+        { title: 'Mobility Yoga', youtubeId: 'v7AYKMP6rOE', difficulty: 'intermediate', duration: 2100 },
+        { title: 'Mobility Exercises', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1200 },
+        { title: 'Complete Mobility', youtubeId: 'v7AYKMP6rOE', difficulty: 'intermediate', duration: 1800 }
+    ],
+    'DB': [
+        { title: 'Dumbbell Full Body', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Dumbbell Upper Body', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 1500 },
+        { title: 'Dumbbell Lower Body', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 1500 },
+        { title: 'Dumbbell Chest', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 1200 },
+        { title: 'Dumbbell Back', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 1200 },
+        { title: 'Dumbbell Shoulders', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 1200 },
+        { title: 'Dumbbell Arms', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 1500 },
+        { title: 'Dumbbell Legs', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 1500 },
+        { title: 'Dumbbell Core', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 1200 },
+        { title: 'Dumbbell Strength', youtubeId: 'eozdVDA78K0', difficulty: 'advanced', duration: 2100 },
+        { title: 'Dumbbell Hypertrophy', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Dumbbell Circuit', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 1500 },
+        { title: 'Dumbbell HIIT', youtubeId: 'ml6cT4AZdqI', difficulty: 'advanced', duration: 1200 },
+        { title: 'Dumbbell Beginner', youtubeId: 'eozdVDA78K0', difficulty: 'beginner', duration: 1500 },
+        { title: 'Dumbbell Advanced', youtubeId: 'eozdVDA78K0', difficulty: 'advanced', duration: 2100 },
+        { title: 'Dumbbell Functional', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Dumbbell Power', youtubeId: 'eozdVDA78K0', difficulty: 'advanced', duration: 1800 },
+        { title: 'Dumbbell Endurance', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 2000 },
+        { title: 'Dumbbell Cardio', youtubeId: 'ml6cT4AZdqI', difficulty: 'intermediate', duration: 1800 },
+        { title: 'Complete Dumbbell', youtubeId: 'eozdVDA78K0', difficulty: 'intermediate', duration: 2100 }
+    ],
     'Recovery': [
         { title: 'Recovery Basics', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1800 },
         { title: 'Active Recovery', youtubeId: 'v7AYKMP6rOE', difficulty: 'beginner', duration: 1200 },
@@ -503,16 +854,38 @@ async function seedExercises() {
             console.log(`📝 Creating ${exercises.length} exercises for type: ${type}`);
 
             for (const exerciseData of exercises) {
+                // Lấy các thuộc tính từ BaiTap model
+                const nhomCo = getNhomCoByTemplateType(type);
+                const thietBiSuDung = getThietBiByType(type, exerciseData.title);
+                const mucTieuBaiTap = getMucTieuByTemplateType(type);
+                const soHiepvaSoLanLap = getSoHiepvaSoLanLap(exerciseData.difficulty, exerciseData.duration);
+                const hinhAnh = getHinhAnhUrl(exerciseData.title, type);
+
                 const exercise = new Exercise({
+                    // Fields từ Exercise (mới)
                     title: exerciseData.title,
+                    tenBaiTap: exerciseData.title, // Sync với title
                     type: 'external_link',
                     source_url: `https://www.youtube.com/watch?v=${exerciseData.youtubeId}`,
-                    description: exerciseData.title + ' - Video hướng dẫn chi tiết',
+                    videoHuongDan: `https://www.youtube.com/watch?v=${exerciseData.youtubeId}`, // Sync
+                    description: exerciseData.title + ' - Video hướng dẫn chi tiết từ YouTube',
+                    moTa: exerciseData.title + ' - Video hướng dẫn chi tiết từ YouTube', // Sync với description
                     duration_sec: exerciseData.duration,
+                    thoiGian: exerciseData.duration, // Sync với duration_sec
                     difficulty: exerciseData.difficulty,
+                    // Auto sync mucDoKho trong pre-save hook
                     status: 'active',
                     metadata: { youtubeId: exerciseData.youtubeId },
-                    ratings: generateRandomRatings()
+                    ratings: generateRandomRatings(),
+
+                    // Fields từ BaiTap (cũ) - bổ sung đầy đủ
+                    nhomCo: nhomCo,
+                    thietBiSuDung: thietBiSuDung,
+                    mucTieuBaiTap: mucTieuBaiTap,
+                    soHiepvaSoLanLap: soHiepvaSoLanLap,
+                    hinhAnh: hinhAnh,
+                    hinhAnhMinhHoa: [hinhAnh], // Array hình ảnh minh họa
+                    // kcal sẽ được tính tự động trong pre-save hook
                 });
                 allExercises.push(exercise);
             }
@@ -520,10 +893,11 @@ async function seedExercises() {
             exercisesByType[type] = exercises.length;
         }
 
-        // Lưu tất cả exercises
+        // Lưu tất cả exercises vào collection BaiTap
         if (allExercises.length > 0) {
+            console.log(`\n💾 Saving ${allExercises.length} exercises to BaiTap collection...\n`);
             const savedExercises = await Exercise.insertMany(allExercises, { ordered: false });
-            console.log(`\n✅ Successfully created ${savedExercises.length} Exercise records\n`);
+            console.log(`\n✅ Successfully created ${savedExercises.length} Exercise records in BaiTap collection\n`);
 
             // Thống kê
             console.log('📊 Statistics by Template Type:');
@@ -559,7 +933,9 @@ async function seedExercises() {
 
             console.log('\n🎉 Exercise seeding completed successfully!');
             console.log(`\n📦 Total: ${savedExercises.length} exercises created`);
+            console.log(`📁 Collection: BaiTap`);
             console.log(`📺 All exercises use real YouTube links`);
+            console.log(`🏷️  All exercises include: nhomCo, thietBiSuDung, mucTieuBaiTap, hinhAnh, soHiepvaSoLanLap`);
             console.log('\n💡 Tip: You can now assign these exercises to session playlists using the playlist API');
         } else {
             console.log('⚠️  No exercises were created. Please check your template types.');
