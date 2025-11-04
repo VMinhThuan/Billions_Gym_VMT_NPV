@@ -2,11 +2,7 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const BaiTapSchema = new Schema({
-    // Fields từ Exercise (mới) - đã được merge
-    title: {
-        type: String,
-        trim: true
-    },
+    // Fields chính - chỉ dùng tiếng Việt
     tenBaiTap: {
         type: String,
         required: true,
@@ -33,20 +29,10 @@ const BaiTapSchema = new Schema({
         default: null,
         trim: true
     },
-    duration_sec: {
-        type: Number,
-        default: null,
-        min: 0
-    },
     thoiGian: {
         type: Number,
         default: null,
         min: 0
-    },
-    description: {
-        type: String,
-        default: null,
-        trim: true
     },
     moTa: {
         type: String,
@@ -60,14 +46,7 @@ const BaiTapSchema = new Schema({
     status: {
         type: String,
         enum: ['active', 'inactive'],
-        default: 'active',
-        index: true
-    },
-    difficulty: {
-        type: String,
-        enum: ['beginner', 'intermediate', 'advanced'],
-        default: 'beginner',
-        index: true
+        default: 'active'
     },
     mucDoKho: {
         type: String,
@@ -153,20 +132,13 @@ const BaiTapSchema = new Schema({
 // Hàm tính kcal tự động
 function computeDefaultKcal(doc) {
     try {
-        // Ưu tiên dùng duration_sec hoặc thoiGian
-        const thoiGian = doc.duration_sec || doc.thoiGian || 0;
+        // Dùng thoiGian (tiếng Việt)
+        const thoiGian = doc.thoiGian || 0;
         if (thoiGian && Number(thoiGian) > 0) {
             return Math.round(Number(thoiGian) * 8);
         }
 
-        // Nếu có difficulty, tính theo difficulty
-        if (doc.difficulty) {
-            if (doc.difficulty === 'beginner') return 50;
-            if (doc.difficulty === 'advanced') return 150;
-            return 100;
-        }
-
-        // Nếu có mucDoKho cũ
+        // Tính theo mucDoKho
         if (doc.mucDoKho) {
             const diff = (doc.mucDoKho || '').toLowerCase();
             if (diff.includes('de') || diff.includes('dễ') || diff === 'de') return 50;
@@ -180,38 +152,34 @@ function computeDefaultKcal(doc) {
     }
 }
 
-// Pre-save hook để sync fields và validate
+// Pre-save hook để validate và tự động xóa fields tiếng Anh (nếu có)
 BaiTapSchema.pre('save', function (next) {
-    // Sync title <-> tenBaiTap
-    if (this.title && !this.tenBaiTap) {
-        this.tenBaiTap = this.title;
-    } else if (this.tenBaiTap && !this.title) {
-        this.title = this.tenBaiTap;
-    }
+    // Migration: Nếu có dữ liệu cũ với fields tiếng Anh, sync sang tiếng Việt trước khi xóa
+    if (this.isNew || this.isModified()) {
+        // Sync title -> tenBaiTap (nếu có)
+        if (this.title && !this.tenBaiTap) {
+            this.tenBaiTap = this.title;
+        }
+        // Sync description -> moTa (nếu có)
+        if (this.description && !this.moTa) {
+            this.moTa = this.description;
+        }
+        // Sync duration_sec -> thoiGian (nếu có)
+        if (this.duration_sec && !this.thoiGian) {
+            this.thoiGian = this.duration_sec;
+        }
+        // Sync difficulty -> mucDoKho (nếu có)
+        if (this.difficulty && !this.mucDoKho) {
+            if (this.difficulty === 'beginner') this.mucDoKho = 'DE';
+            else if (this.difficulty === 'intermediate') this.mucDoKho = 'TRUNG_BINH';
+            else if (this.difficulty === 'advanced') this.mucDoKho = 'KHO';
+        }
 
-    // Sync description <-> moTa
-    if (this.description && !this.moTa) {
-        this.moTa = this.description;
-    } else if (this.moTa && !this.description) {
-        this.description = this.moTa;
-    }
-
-    // Sync duration_sec <-> thoiGian
-    if (this.duration_sec && !this.thoiGian) {
-        this.thoiGian = this.duration_sec;
-    } else if (this.thoiGian && !this.duration_sec) {
-        this.duration_sec = this.thoiGian;
-    }
-
-    // Sync difficulty <-> mucDoKho
-    if (this.difficulty && !this.mucDoKho) {
-        if (this.difficulty === 'beginner') this.mucDoKho = 'DE';
-        else if (this.difficulty === 'intermediate') this.mucDoKho = 'TRUNG_BINH';
-        else if (this.difficulty === 'advanced') this.mucDoKho = 'KHO';
-    } else if (this.mucDoKho && !this.difficulty) {
-        if (this.mucDoKho === 'DE') this.difficulty = 'beginner';
-        else if (this.mucDoKho === 'TRUNG_BINH') this.difficulty = 'intermediate';
-        else if (this.mucDoKho === 'KHO') this.difficulty = 'advanced';
+        // Xóa các fields tiếng Anh sau khi đã sync
+        if (this.title !== undefined) delete this.title;
+        if (this.description !== undefined) delete this.description;
+        if (this.duration_sec !== undefined) delete this.duration_sec;
+        if (this.difficulty !== undefined) delete this.difficulty;
     }
 
     // Sync videoHuongDan với source_url hoặc file_url
@@ -247,7 +215,7 @@ BaiTapSchema.pre('save', function (next) {
 // Indexes
 BaiTapSchema.index({ type: 1, status: 1 });
 BaiTapSchema.index({ status: 1 });
-BaiTapSchema.index({ difficulty: 1, status: 1 });
+BaiTapSchema.index({ mucDoKho: 1, status: 1 });
 BaiTapSchema.index({ 'ratings.averageRating': -1 });
 BaiTapSchema.index({ tenBaiTap: 1 });
 BaiTapSchema.index({ nhomCo: 1 });
