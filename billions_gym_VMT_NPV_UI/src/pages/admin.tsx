@@ -35,6 +35,15 @@ interface HoiVien {
     ngayHetHan: Date;
     trangThaiHoiVien: 'DANG_HOAT_DONG' | 'TAM_NGUNG' | 'HET_HAN';
     cacChiSoCoThe: string[];
+    soTienTichLuy?: number;
+    soBuoiTapDaTap?: number;
+    maChiNhanh?: string; // Chi nhánh hội viên thuộc về
+    hangHoiVien?: {
+        _id?: string;
+        tenHienThi?: string;
+        tenHang?: string;
+        mauSac?: string;
+    };
     taiKhoan?: {
         _id?: string | null;
         trangThaiTK: 'DANG_HOAT_DONG' | 'DA_KHOA';
@@ -114,12 +123,30 @@ interface LichTap {
 
 interface BuoiTap {
     _id: string;
-    ngayTap: Date;
-    pt: string;
-    cacBaiTap: string[];
-    trangThaiTap: 'DA_HOAN_THANH' | 'CHUA_HOAN_THANH';
-    createdAt: Date;
-    updatedAt: Date;
+    tenBuoiTap?: string;
+    chiNhanh?: string | { _id?: string; tenChiNhanh?: string; };
+    ptPhuTrach?: string | { _id?: string; hoTen?: string; sdt?: string; chuyenMon?: string; };
+    ngayTap: Date | string;
+    gioBatDau?: string;
+    gioKetThuc?: string;
+    cacBaiTap?: Array<{
+        _id?: string;
+        baiTap?: string | { _id?: string; tenBaiTap?: string; };
+        soLanLap?: number;
+        soSet?: number;
+    }>;
+    trangThai?: 'CHUAN_BI' | 'DANG_DIEN_RA' | 'HOAN_THANH' | 'HUY';
+    trangThaiTap?: 'DA_HOAN_THANH' | 'CHUA_HOAN_THANH';
+    soLuongToiDa?: number;
+    soLuongHienTai?: number;
+    danhSachHoiVien?: Array<{
+        hoiVien?: string | { _id?: string; hoTen?: string; };
+        trangThai?: string;
+    }>;
+    moTa?: string;
+    ghiChu?: string;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
 }
 
 interface BaiTap {
@@ -1481,6 +1508,12 @@ const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, chiNhanhs, onClose })
                                         <span className='user-info-form-content-item-value'>{pt.chuyenMon}</span>
                                     </div>
                                     <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Chi Nhánh</label>
+                                        <span className='user-info-form-content-item-value'>
+                                            {pt.chinhanh ? (chiNhanhs.find(cn => cn._id === pt.chinhanh)?.tenChiNhanh || 'Chưa xác định') : 'Chưa có chi nhánh'}
+                                        </span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
                                         <label className='user-info-form-content-item-label'>Bằng Cấp/Chứng Chỉ</label>
                                         <span className='user-info-form-content-item-value'>{pt.bangCapChungChi}</span>
                                     </div>
@@ -1745,6 +1778,13 @@ const MembersPage = () => {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+    const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const [selectedBranch, setSelectedBranch] = useState<string>('all');
+    const [branches, setBranches] = useState<ChiNhanh[]>([]);
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [filterRank, setFilterRank] = useState<string>('all');
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
     const notifications = useCrudNotifications();
 
     const handleSort = (key: string) => {
@@ -1769,9 +1809,37 @@ const MembersPage = () => {
                     aValue = a.hoTen?.toLowerCase() || '';
                     bValue = b.hoTen?.toLowerCase() || '';
                     break;
+                case 'sdt':
+                    aValue = a.sdt || '';
+                    bValue = b.sdt || '';
+                    break;
+                case 'email':
+                    aValue = a.email?.toLowerCase() || '';
+                    bValue = b.email?.toLowerCase() || '';
+                    break;
+                case 'maChiNhanh':
+                    aValue = a.maChiNhanh || '';
+                    bValue = b.maChiNhanh || '';
+                    break;
+                case 'soTienTichLuy':
+                    aValue = a.soTienTichLuy || 0;
+                    bValue = b.soTienTichLuy || 0;
+                    break;
+                case 'soBuoiTapDaTap':
+                    aValue = a.soBuoiTapDaTap || 0;
+                    bValue = b.soBuoiTapDaTap || 0;
+                    break;
                 case 'ngayThamGia':
                     aValue = new Date(a.ngayThamGia || 0).getTime();
                     bValue = new Date(b.ngayThamGia || 0).getTime();
+                    break;
+                case 'ngayHetHan':
+                    aValue = new Date(a.ngayHetHan || 0).getTime();
+                    bValue = new Date(b.ngayHetHan || 0).getTime();
+                    break;
+                case 'trangThaiHoiVien':
+                    aValue = a.trangThaiHoiVien || '';
+                    bValue = b.trangThaiHoiVien || '';
                     break;
                 default:
                     return 0;
@@ -1865,17 +1933,59 @@ const MembersPage = () => {
         return () => { mounted = false; };
     }, [refreshTrigger]);
 
-    // Filter sorted rows based on search query
+    // Fetch chi nhánh
+    useEffect(() => {
+        const fetchBranches = async () => {
+            try {
+                const response = await api.get<{ success: boolean; data: ChiNhanh[] }>('/api/chinhanh');
+                if (response.success && Array.isArray(response.data)) {
+                    setBranches(response.data);
+                }
+            } catch (e) {
+                console.error('Error fetching branches:', e);
+                setBranches([]);
+            }
+        };
+        fetchBranches();
+    }, []);
+
+    // Filter sorted rows based on search query, branch, status, and rank
     const filtered = sortedRows.filter(r => {
-        if (!q.trim()) return true;
-        const searchTerm = q.toLowerCase().trim();
-        return (
-            (r.hoTen && r.hoTen.toLowerCase().includes(searchTerm)) ||
-            (r.email && r.email.toLowerCase().includes(searchTerm)) ||
-            (r.sdt && r.sdt.toLowerCase().includes(searchTerm)) ||
-            (r.soCCCD && r.soCCCD.toLowerCase().includes(searchTerm)) ||
-            (r.diaChi && r.diaChi.toLowerCase().includes(searchTerm))
-        );
+        // Search filter
+        if (q.trim()) {
+            const searchTerm = q.toLowerCase().trim();
+            const matchesSearch = (
+                (r.hoTen && r.hoTen.toLowerCase().includes(searchTerm)) ||
+                (r.email && r.email.toLowerCase().includes(searchTerm)) ||
+                (r.sdt && r.sdt.toLowerCase().includes(searchTerm)) ||
+                (r.soCCCD && r.soCCCD.toLowerCase().includes(searchTerm)) ||
+                (r.diaChi && r.diaChi.toLowerCase().includes(searchTerm))
+            );
+            if (!matchesSearch) return false;
+        }
+
+        // Branch filter
+        if (selectedBranch !== 'all') {
+            // Chỉ hiển thị hội viên có maChiNhanh khớp với selectedBranch
+            // Nếu hội viên không có maChiNhanh hoặc không khớp, loại bỏ
+            const memberBranchId = r.maChiNhanh ? String(r.maChiNhanh) : null;
+            const selectedBranchId = String(selectedBranch);
+            if (!memberBranchId || memberBranchId !== selectedBranchId) return false;
+        }
+
+        // Status filter
+        if (filterStatus !== 'all') {
+            if (r.trangThaiHoiVien !== filterStatus) return false;
+        }
+
+        // Rank filter
+        if (filterRank !== 'all') {
+            // Chỉ hiển thị hội viên có hangHoiVien khớp với filterRank
+            // Nếu hội viên không có hangHoiVien hoặc không khớp, loại bỏ
+            if (!r.hangHoiVien || !r.hangHoiVien.tenHang || r.hangHoiVien.tenHang !== filterRank) return false;
+        }
+
+        return true;
     });
 
     // Hàm để thay đổi trạng thái tài khoản
@@ -1954,136 +2064,377 @@ const MembersPage = () => {
         }
     };
 
+    // Close menu khi click outside
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Element;
+            if (!target.closest('.members-actions-wrapper')) {
+                setOpenMenuId(null);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
+
+    const toggleSelectMember = (id: string) => {
+        setSelectedMembers(prev =>
+            prev.includes(id)
+                ? prev.filter(m => m !== id)
+                : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedMembers.length === filtered.length) {
+            setSelectedMembers([]);
+        } else {
+            setSelectedMembers(filtered.map(r => r._id));
+        }
+    };
+
+    const getStatusClass = (status: string) => {
+        switch (status) {
+            case 'DANG_HOAT_DONG': return 'dang-hoat-dong';
+            case 'TAM_NGUNG': return 'tam-ngung';
+            case 'HET_HAN': return 'het-han';
+            default: return 'dang-hoat-dong';
+        }
+    };
+
+    const formatCurrency = (amount: number) => {
+        if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+        if (amount >= 1000) return `${(amount / 1000).toFixed(1)}K`;
+        return amount.toString();
+    };
+
+    const handleApplyFilters = () => {
+        // Filters are already applied in real-time through the `filtered` computed value
+        // This function just shows feedback to the user
+        const activeFilterCount = [
+            selectedBranch !== 'all' ? 1 : 0,
+            filterStatus !== 'all' ? 1 : 0,
+            filterRank !== 'all' ? 1 : 0,
+            q.trim() !== '' ? 1 : 0
+        ].reduce((a, b) => a + b, 0);
+
+        notifications.generic.success(
+            `Đã áp dụng bộ lọc! Tìm thấy ${filtered.length} hội viên${activeFilterCount > 0 ? ` với ${activeFilterCount} bộ lọc` : ''}`
+        );
+    };
+
+    const handleClearFilters = () => {
+        setSelectedBranch('all');
+        setFilterStatus('all');
+        setFilterRank('all');
+        setQ('');
+        notifications.generic.info('Đã xóa bộ lọc! Hiển thị tất cả hội viên.');
+    };
+
+    const hasActiveFilters = () => {
+        return selectedBranch !== 'all' || filterStatus !== 'all' || filterRank !== 'all' || q.trim() !== '';
+    };
+
+    // Helper function để lấy tên chi nhánh
+    const getBranchName = (maChiNhanh?: string) => {
+        if (!maChiNhanh) return 'Chưa có chi nhánh';
+        const branch = branches.find(b => b._id === maChiNhanh);
+        return branch ? branch.tenChiNhanh : 'Chưa có chi nhánh';
+    };
+
+    // Helper function để render sort icon
+    const renderSortIcon = (columnKey: string) => {
+        const isActive = sortConfig && sortConfig.key === columnKey;
+        const direction = isActive ? sortConfig.direction : null;
+
+        return (
+            <span
+                className="sort-icon"
+                style={{
+                    marginLeft: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    opacity: isActive ? 1 : 0.3,
+                    color: isActive ? '#6366F1' : '#9CA3AF',
+                    fontSize: '12px',
+                    fontWeight: isActive ? 600 : 400,
+                    transition: 'all 0.2s ease'
+                }}
+            >
+                {direction === 'asc' ? '↑' : direction === 'desc' ? '↓' : '⇅'}
+            </span>
+        );
+    };
+
     return (
-        <Card className="panel">
-            <div className="toolbar">
-                <div className="toolbar-left"><h2>Quản lý hội viên</h2></div>
-                <div className="toolbar-right">
-                    <input
-                        className="input"
-                        placeholder="Tìm tên/điện thoại/email"
-                        value={q}
-                        onChange={e => setQ(e.target.value)}
-                        onKeyPress={e => {
-                            if (e.key === 'Enter') {
-                                handleSearch(q);
-                            }
-                        }}
-                    />
-                    <Button variant="secondary" onClick={() => handleSearch(q)}>Tìm kiếm</Button>
-                    <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
-                    <div className="table-navigation-controls">
-                        <button
-                            className="table-nav-btn table-nav-left"
-                            onClick={() => {
-                                const container = document.querySelector('.table-container');
-                                if (container) {
-                                    container.scrollBy({ left: -200, behavior: 'smooth' });
-                                }
-                            }}
-                            title="Di chuyển sang trái"
-                        >
-                            ‹
-                        </button>
-                        <button
-                            className="table-nav-btn table-nav-right"
-                            onClick={() => {
-                                const container = document.querySelector('.table-container');
-                                if (container) {
-                                    container.scrollBy({ left: 200, behavior: 'smooth' });
-                                }
-                            }}
-                            title="Di chuyển sang phải"
-                        >
-                            ›
-                        </button>
-                    </div>
+        <div className="members-management-page">
+            {/* Page Header */}
+            <div className="members-page-header">
+                <div className="members-page-header-content">
+                    <h1 className="members-page-title">Quản lý hội viên</h1>
+                    <p className="members-page-description">
+                        Theo dõi thông tin, trạng thái, gói tập và chi nhánh của tất cả hội viên Billions Fitness & Gym.
+                    </p>
                 </div>
             </div>
-            <div className="table-container">
-                <table className="table">
+
+            {/* Filter Toolbar */}
+            <div className="members-filter-toolbar">
+                <button
+                    className="members-filter-icon-btn"
+                    onClick={() => setShowFilterMenu(!showFilterMenu)}
+                >
+                    🔽
+                </button>
+                <select
+                    className="members-filter-dropdown"
+                    value={selectedBranch}
+                    onChange={e => setSelectedBranch(e.target.value)}
+                >
+                    <option value="all">CHI NHÁNH</option>
+                    {branches.map(branch => (
+                        <option key={branch._id} value={branch._id}>
+                            {branch.tenChiNhanh}
+                        </option>
+                    ))}
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterStatus}
+                    onChange={e => setFilterStatus(e.target.value)}
+                >
+                    <option value="all">TRẠNG THÁI</option>
+                    <option value="DANG_HOAT_DONG">Đang hoạt động</option>
+                    <option value="TAM_NGUNG">Tạm ngưng</option>
+                    <option value="HET_HAN">Hết hạn</option>
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterRank}
+                    onChange={e => setFilterRank(e.target.value)}
+                >
+                    <option value="all">HẠNG</option>
+                    <option value="BRONZE">Bronze</option>
+                    <option value="SILVER">Silver</option>
+                    <option value="GOLD">Gold</option>
+                    <option value="PLATINUM">Platinum</option>
+                    <option value="DIAMOND">Diamond</option>
+                </select>
+                <input
+                    className="members-filter-search"
+                    type="text"
+                    placeholder="Tìm theo tên, SĐT, email..."
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                />
+                <button className="members-filter-apply-btn" onClick={handleApplyFilters}>
+                    APPLY
+                </button>
+                <button className="members-filter-clear-btn" onClick={handleClearFilters}>
+                    CLEAR
+                </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="members-page-actions">
+                <button className="members-add-btn" onClick={() => setShow(true)}>
+                    <span>+</span> Thêm hội viên
+                </button>
+            </div>
+
+            {/* Table Wrapper */}
+            <div className="members-table-wrapper">
+                <table className="members-table">
                     <thead>
                         <tr>
-                            <SortableHeader
-                                sortKey="hoTen"
-                                currentSort={sortConfig}
-                                onSort={handleSort}
+                            <th style={{ width: '50px' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedMembers.length === filtered.length && filtered.length > 0}
+                                    onChange={toggleSelectAll}
+                                />
+                            </th>
+                            <th
+                                style={{ width: '250px', cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('hoTen');
+                                }}
+                                className="sortable-header"
                             >
-                                Họ tên
-                            </SortableHeader>
-                            <th>Email</th>
-                            <th>SĐT</th>
-                            <th>Giới tính</th>
-                            <th>Ngày sinh</th>
-                            <SortableHeader
-                                sortKey="ngayThamGia"
-                                currentSort={sortConfig}
-                                onSort={handleSort}
+                                User name {renderSortIcon('hoTen')}
+                            </th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('sdt');
+                                }}
+                                className="sortable-header"
                             >
-                                Ngày tham gia
-                            </SortableHeader>
-                            <th>Trạng thái</th>
-                            <th>Hành động</th>
+                                Contact {renderSortIcon('sdt')}
+                            </th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('maChiNhanh');
+                                }}
+                                className="sortable-header"
+                            >
+                                Chi nhánh {renderSortIcon('maChiNhanh')}
+                            </th>
+                            <th>Rank</th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('trangThaiHoiVien');
+                                }}
+                                className="sortable-header"
+                            >
+                                Status {renderSortIcon('trangThaiHoiVien')}
+                            </th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('soTienTichLuy');
+                                }}
+                                className="sortable-header"
+                            >
+                                Total spent {renderSortIcon('soTienTichLuy')}
+                            </th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('soBuoiTapDaTap');
+                                }}
+                                className="sortable-header"
+                            >
+                                Workouts {renderSortIcon('soBuoiTapDaTap')}
+                            </th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('ngayThamGia');
+                                }}
+                                className="sortable-header"
+                            >
+                                Joined date {renderSortIcon('ngayThamGia')}
+                            </th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('ngayHetHan');
+                                }}
+                                className="sortable-header"
+                            >
+                                Expire date {renderSortIcon('ngayHetHan')}
+                            </th>
+                            <th style={{ width: '60px' }}></th>
                         </tr>
                     </thead>
                     <tbody>
                         {filtered.map(r => (
-                            <tr key={r._id}>
+                            <tr key={r._id} onClick={() => handleViewDetail(r)} style={{ cursor: 'pointer' }}>
+                                <td onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedMembers.includes(r._id)}
+                                        onChange={() => toggleSelectMember(r._id)}
+                                    />
+                                </td>
                                 <td>
-                                    <div className="user-info">
-                                        <div>
-                                            <div className="user-name">{r.hoTen}</div>
+                                    <div className="members-user-cell">
+                                        <img
+                                            className="members-avatar"
+                                            src={r.anhDaiDien || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.hoTen)}&background=3b82f6&color=fff`}
+                                            alt={r.hoTen}
+                                        />
+                                        <div className="members-user-info">
+                                            <div className="members-user-name">{r.hoTen}</div>
+                                            <div className="members-user-email">{r.email || 'N/A'}</div>
                                         </div>
                                     </div>
                                 </td>
-                                <td>{r.email ? r.email : 'N/A'}
-                                </td>
-                                <td>{r.sdt}</td>
-                                <td>{r.gioiTinh === 'Nam' ? 'Nam' : 'Nữ'}</td>
-                                <td>{r.ngaySinh ? new Date(r.ngaySinh).toLocaleDateString('vi-VN', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric'
-                                }) : 'N/A'}</td>
-                                <td>{r.ngayThamGia ? new Date(r.ngayThamGia).toLocaleDateString('vi-VN', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric'
-                                }) : 'N/A'}</td>
                                 <td>
-                                    <span className={`badge ${!r.taiKhoan?._id ? 'warning' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'success' : 'danger'}`}>
-                                        {!r.taiKhoan?._id ? 'CHƯA CÓ TÀI KHOẢN' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' : 'ĐÃ KHÓA'}
+                                    <div className="members-contact-cell">
+                                        <span className="members-contact-phone">{r.sdt}</span>
+                                        <span className="members-contact-email">{r.email || 'N/A'}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span className="members-branch-display">
+                                        {getBranchName(r.maChiNhanh)}
                                     </span>
                                 </td>
                                 <td>
-                                    <div className="action-buttons">
-                                        <button className="btn-icon btn-view" onClick={() => handleViewDetail(r)}>
-                                            👁️ Chi tiết
-                                        </button>
-                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
-                                            ✏️ Sửa
-                                        </button>
+                                    <span className={`members-rank-badge bronze`}>
+                                        Bronze
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className={`members-status-badge ${getStatusClass(r.trangThaiHoiVien)}`}>
+                                        {r.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'Đang hoạt động' :
+                                            r.trangThaiHoiVien === 'TAM_NGUNG' ? 'Tạm ngưng' : 'Hết hạn'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="members-metric-display compact">
+                                        {formatCurrency(r.soTienTichLuy || 0)}₫
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="members-metric-display compact">
+                                        {r.soBuoiTapDaTap || 0}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="members-date-display">
+                                        {r.ngayThamGia ? new Date(r.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="members-date-display">
+                                        {r.ngayHetHan ? new Date(r.ngayHetHan).toLocaleDateString('vi-VN') : 'N/A'}
+                                    </span>
+                                </td>
+                                <td onClick={(e) => e.stopPropagation()}>
+                                    <div className="members-actions-wrapper">
                                         <button
-                                            className="status-select"
-                                            onClick={() => {
-                                                const currentStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
-                                                const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
-                                                handleChangeAccountStatus(r._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
-                                            }}
-                                            disabled={isChangingStatus === r._id || !r.taiKhoan?._id}
-                                            style={{
-                                                background: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' :
-                                                    'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                boxShadow: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '0 2px 8px rgba(239, 68, 68, 0.3)' :
-                                                    '0 2px 8px rgba(16, 185, 129, 0.3)',
-                                                opacity: !r.taiKhoan?._id ? 0.5 : 1
-                                            }}
+                                            className="members-actions-btn"
+                                            onClick={() => setOpenMenuId(openMenuId === r._id ? null : r._id)}
                                         >
-                                            {r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '🔒 Vô hiệu hóa' : '🔓 Kích hoạt'}
+                                            ⋯
                                         </button>
-                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
-                                            🗑️ Xóa
-                                        </button>
+                                        {openMenuId === r._id && (
+                                            <div className="members-actions-menu">
+                                                <div className="members-actions-menu-item" onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleViewDetail(r);
+                                                    setOpenMenuId(null);
+                                                }}>
+                                                    👁️ Xem chi tiết
+                                                </div>
+                                                <div className="members-actions-menu-item" onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingItem(r);
+                                                    setOpenMenuId(null);
+                                                }}>
+                                                    ✏️ Sửa
+                                                </div>
+                                                <div className="members-actions-menu-item danger" onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setDeleteConfirm({ show: true, item: r });
+                                                    setOpenMenuId(null);
+                                                }}>
+                                                    🗑️ Xóa
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -2091,6 +2442,27 @@ const MembersPage = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination */}
+            {filtered.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px', gap: '8px' }}>
+                    {[1, 2, 3, 4, 5].map(page => (
+                        <button
+                            key={page}
+                            style={{
+                                padding: '8px 12px',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '6px',
+                                background: page === 1 ? '#EF4444' : 'white',
+                                color: page === 1 ? 'white' : '#1e293b',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                </div>
+            )}
             {(show || editingItem) && (
                 <EntityForm
                     title="Hội Viên"
@@ -2216,7 +2588,7 @@ const MembersPage = () => {
                 />
             )}
             {isLoading && <Loading overlay text="Đang tải hội viên..." />}
-        </Card>
+        </div>
     );
 };
 
@@ -2943,6 +3315,16 @@ const PTPage = () => {
     const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
     const [chiNhanhs, setChiNhanhs] = useState<ChiNhanh[]>([]);
+    const [selectedBranch, setSelectedBranch] = useState<string>('all');
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [filterChuyenMon, setFilterChuyenMon] = useState<string>('all');
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
+    const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set());
+    const [selectedPTs, setSelectedPTs] = useState<Set<string>>(new Set());
+    const [showChangeBranchModal, setShowChangeBranchModal] = useState(false);
+    const [newBranchId, setNewBranchId] = useState<string>('');
+    const [isUpdatingBranch, setIsUpdatingBranch] = useState(false);
+    const [branchSortConfig, setBranchSortConfig] = useState<{ key: 'count'; direction: 'asc' | 'desc' } | null>(null);
 
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -3140,172 +3522,506 @@ const PTPage = () => {
         return () => { mounted = false; };
     }, [refreshTrigger]);
 
-    // Filter sorted rows based on search query for PT page
+    // Filter sorted rows based on search query, branch, status, and chuyenMon
     const filtered = sortedRows.filter(r => {
-        if (!q.trim()) return true;
-        const searchTerm = q.toLowerCase().trim();
-        return (
-            (r.hoTen && r.hoTen.toLowerCase().includes(searchTerm)) ||
-            (r.email && r.email.toLowerCase().includes(searchTerm)) ||
-            (r.sdt && r.sdt.toLowerCase().includes(searchTerm)) ||
-            (r.chuyenMon && r.chuyenMon.toLowerCase().includes(searchTerm)) ||
-            (r.bangCapChungChi && r.bangCapChungChi.toLowerCase().includes(searchTerm))
-        );
+        // Search filter
+        if (q.trim()) {
+            const searchTerm = q.toLowerCase().trim();
+            const matchesSearch = (
+                (r.hoTen && r.hoTen.toLowerCase().includes(searchTerm)) ||
+                (r.email && r.email.toLowerCase().includes(searchTerm)) ||
+                (r.sdt && r.sdt.toLowerCase().includes(searchTerm)) ||
+                (r.chuyenMon && r.chuyenMon.toLowerCase().includes(searchTerm)) ||
+                (r.bangCapChungChi && r.bangCapChungChi.toLowerCase().includes(searchTerm))
+            );
+            if (!matchesSearch) return false;
+        }
+
+        // Branch filter
+        if (selectedBranch !== 'all') {
+            const ptBranchId = r.chinhanh ? String(r.chinhanh) : null;
+            const selectedBranchId = String(selectedBranch);
+            if (!ptBranchId || ptBranchId !== selectedBranchId) return false;
+        }
+
+        // Status filter
+        if (filterStatus !== 'all') {
+            const ptStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
+            if (filterStatus === 'DANG_HOAT_DONG' && ptStatus !== 'DANG_HOAT_DONG') return false;
+            if (filterStatus === 'DA_KHOA' && ptStatus !== 'DA_KHOA') return false;
+            if (filterStatus === 'NGUNG_LAM_VIEC' && r.trangThaiPT !== 'NGUNG_LAM_VIEC') return false;
+        }
+
+        // Chuyên môn filter
+        if (filterChuyenMon !== 'all') {
+            if (!r.chuyenMon || !r.chuyenMon.toLowerCase().includes(filterChuyenMon.toLowerCase())) return false;
+        }
+
+        return true;
     });
 
+    // Group PTs by branch
+    const groupedByBranch = React.useMemo(() => {
+        const grouped: { [key: string]: PT[] } = {};
+
+        filtered.forEach(pt => {
+            const branchId = pt.chinhanh ? String(pt.chinhanh) : 'no-branch';
+            if (!grouped[branchId]) {
+                grouped[branchId] = [];
+            }
+            grouped[branchId].push(pt);
+        });
+
+        return grouped;
+    }, [filtered]);
+
+    // Toggle branch expansion
+    const toggleBranch = (branchId: string) => {
+        setExpandedBranches(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(branchId)) {
+                newSet.delete(branchId);
+            } else {
+                newSet.add(branchId);
+            }
+            return newSet;
+        });
+    };
+
+    // Get branch name
+    const getBranchName = (branchId: string) => {
+        if (branchId === 'no-branch') return 'Chưa có chi nhánh';
+        const branch = chiNhanhs.find(b => b._id === branchId);
+        return branch ? branch.tenChiNhanh : 'Chưa có chi nhánh';
+    };
+
+    // Get all unique chuyen mon values for filter
+    const chuyenMonOptions = React.useMemo(() => {
+        const chuyenMonSet = new Set<string>();
+        rows.forEach(pt => {
+            if (pt.chuyenMon) {
+                // Split by comma and add each specialty
+                pt.chuyenMon.split(',').forEach(cm => {
+                    const trimmed = cm.trim().toLowerCase();
+                    if (trimmed) chuyenMonSet.add(cm.trim());
+                });
+            }
+        });
+        return Array.from(chuyenMonSet).sort();
+    }, [rows]);
+
+    // Handle apply filters
+    const handleApplyFilters = () => {
+        // Filters are already applied via state, this is for UI consistency
+        setShowFilterMenu(false);
+    };
+
+    // Handle clear filters
+    const handleClearFilters = () => {
+        setSelectedBranch('all');
+        setFilterStatus('all');
+        setFilterChuyenMon('all');
+        setQ('');
+        setSortConfig(null);
+        setBranchSortConfig(null);
+        setShowFilterMenu(false);
+    };
+
+    // Toggle select PT
+    const toggleSelectPT = (ptId: string) => {
+        setSelectedPTs(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(ptId)) {
+                newSet.delete(ptId);
+            } else {
+                newSet.add(ptId);
+            }
+            return newSet;
+        });
+    };
+
+    // Toggle select all PTs in a branch
+    const toggleSelectAllPTsInBranch = (branchId: string) => {
+        const ptsInBranch = groupedByBranch[branchId] || [];
+        const allSelected = ptsInBranch.every(pt => selectedPTs.has(pt._id));
+
+        setSelectedPTs(prev => {
+            const newSet = new Set(prev);
+            if (allSelected) {
+                // Deselect all
+                ptsInBranch.forEach(pt => newSet.delete(pt._id));
+            } else {
+                // Select all
+                ptsInBranch.forEach(pt => newSet.add(pt._id));
+            }
+            return newSet;
+        });
+    };
+
+    // Check if all PTs in branch are selected
+    const areAllPTsInBranchSelected = (branchId: string) => {
+        const ptsInBranch = groupedByBranch[branchId] || [];
+        return ptsInBranch.length > 0 && ptsInBranch.every(pt => selectedPTs.has(pt._id));
+    };
+
+    // Check if some PTs in branch are selected
+    const areSomePTsInBranchSelected = (branchId: string) => {
+        const ptsInBranch = groupedByBranch[branchId] || [];
+        return ptsInBranch.some(pt => selectedPTs.has(pt._id));
+    };
+
+    // Handle change branch for selected PTs
+    const handleChangeBranchForSelected = async () => {
+        if (selectedPTs.size === 0 || !newBranchId) {
+            notifications.generic.error('Lỗi', 'Vui lòng chọn ít nhất một PT và một chi nhánh mới!');
+            return;
+        }
+
+        setIsUpdatingBranch(true);
+        try {
+            const ptIds = Array.from(selectedPTs);
+            const updatePromises = ptIds.map(ptId =>
+                api.put(`/api/user/pt/${ptId}`, { chinhanh: newBranchId })
+            );
+
+            await Promise.all(updatePromises);
+
+            // Update local state
+            setRows(rows.map(pt =>
+                selectedPTs.has(pt._id)
+                    ? { ...pt, chinhanh: newBranchId }
+                    : pt
+            ));
+
+            // Clear selection and close modal
+            setSelectedPTs(new Set());
+            setShowChangeBranchModal(false);
+            setNewBranchId('');
+            setRefreshTrigger(prev => prev + 1);
+
+            notifications.generic.success('Thành công', `Đã cập nhật chi nhánh cho ${ptIds.length} huấn luyện viên!`);
+        } catch (error) {
+            console.error('Error updating branch for PTs:', error);
+            notifications.generic.error('Lỗi', 'Không thể cập nhật chi nhánh cho các PT đã chọn!');
+        } finally {
+            setIsUpdatingBranch(false);
+        }
+    };
+
     return (
-        <Card className="panel">
-            <div className="toolbar">
-                <div className="toolbar-left"><h2>Quản lý huấn luyện viên</h2></div>
-                <div className="toolbar-right">
-                    <input
-                        className="input"
-                        placeholder="Tìm tên/điện thoại/email"
-                        value={q}
-                        onChange={e => setQ(e.target.value)}
-                        onKeyPress={e => {
-                            if (e.key === 'Enter') {
-                                handleSearch(q);
-                            }
-                        }}
-                    />
-                    <Button variant="secondary" onClick={() => handleSearch(q)}>Tìm kiếm</Button>
-                    <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
-                    <div className="table-navigation-controls">
-                        <button
-                            className="table-nav-btn table-nav-left"
-                            onClick={() => {
-                                const container = document.querySelector('.table-container');
-                                if (container) {
-                                    container.scrollBy({ left: -200, behavior: 'smooth' });
-                                }
-                            }}
-                            title="Di chuyển sang trái"
-                        >
-                            ‹
-                        </button>
-                        <button
-                            className="table-nav-btn table-nav-right"
-                            onClick={() => {
-                                const container = document.querySelector('.table-container');
-                                if (container) {
-                                    container.scrollBy({ left: 200, behavior: 'smooth' });
-                                }
-                            }}
-                            title="Di chuyển sang phải"
-                        >
-                            ›
-                        </button>
-                    </div>
+        <div className="members-management-page">
+            {/* Page Header */}
+            <div className="members-page-header">
+                <div className="members-page-header-content">
+                    <h1 className="members-page-title">Quản lý huấn luyện viên</h1>
+                    <p className="members-page-description">
+                        Theo dõi thông tin, trạng thái và chi nhánh của tất cả huấn luyện viên Billions Fitness & Gym.
+                    </p>
                 </div>
             </div>
-            <div className="pt-cards-container">
-                <div className="pt-cards-grid">
-                    {filtered.map(r => (
-                        <div key={r._id} className="pt-card">
-                            <div className="pt-card-header">
-                                <div className="pt-avatar">
-                                    {r.anhDaiDien ? (
-                                        <img src={r.anhDaiDien} alt={r.hoTen} className="pt-avatar-img" />
-                                    ) : (
-                                        <div className="pt-avatar-placeholder">
-                                            {r.hoTen.charAt(0).toUpperCase()}
+
+            {/* Filter Toolbar */}
+            <div className="members-filter-toolbar">
+                <button
+                    className="members-filter-icon-btn"
+                    onClick={() => setShowFilterMenu(!showFilterMenu)}
+                >
+                    🔽
+                </button>
+                <select
+                    className="members-filter-dropdown"
+                    value={selectedBranch}
+                    onChange={e => setSelectedBranch(e.target.value)}
+                >
+                    <option value="all">CHI NHÁNH</option>
+                    {chiNhanhs.map(branch => (
+                        <option key={branch._id} value={branch._id}>
+                            {branch.tenChiNhanh}
+                        </option>
+                    ))}
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterStatus}
+                    onChange={e => setFilterStatus(e.target.value)}
+                >
+                    <option value="all">TRẠNG THÁI</option>
+                    <option value="DANG_HOAT_DONG">Đang hoạt động</option>
+                    <option value="DA_KHOA">Đã khóa</option>
+                    <option value="NGUNG_LAM_VIEC">Ngừng làm việc</option>
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterChuyenMon}
+                    onChange={e => setFilterChuyenMon(e.target.value)}
+                >
+                    <option value="all">CHUYÊN MÔN</option>
+                    {chuyenMonOptions.map(cm => (
+                        <option key={cm} value={cm}>{cm}</option>
+                    ))}
+                </select>
+                <input
+                    className="members-filter-search"
+                    type="text"
+                    placeholder="Tìm theo tên, SĐT, email..."
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                />
+                <select
+                    className="members-filter-dropdown"
+                    value={
+                        branchSortConfig
+                            ? `branch-count-${branchSortConfig.direction}`
+                            : (sortConfig ? `${sortConfig.key}-${sortConfig.direction}` : 'none')
+                    }
+                    onChange={e => {
+                        const value = e.target.value;
+                        if (value === 'none') {
+                            setSortConfig(null);
+                            setBranchSortConfig(null);
+                        } else if (value.startsWith('branch-count-')) {
+                            const direction = value.split('-')[2] as 'asc' | 'desc';
+                            setBranchSortConfig({ key: 'count', direction });
+                            setSortConfig(null);
+                        } else {
+                            const [key, direction] = value.split('-');
+                            setSortConfig({ key, direction: direction as 'asc' | 'desc' });
+                            setBranchSortConfig(null);
+                        }
+                    }}
+                >
+                    <option value="none">SẮP XẾP</option>
+                    <option value="branch-count-desc">Số lượng PT: Nhiều nhất</option>
+                    <option value="branch-count-asc">Số lượng PT: Ít nhất</option>
+                    <option value="hoTen-asc">Tên: A → Z</option>
+                    <option value="hoTen-desc">Tên: Z → A</option>
+                    <option value="ngayVaoLam-desc">Ngày vào làm: Mới nhất</option>
+                    <option value="ngayVaoLam-asc">Ngày vào làm: Cũ nhất</option>
+                    <option value="kinhNghiem-desc">Kinh nghiệm: Cao nhất</option>
+                    <option value="kinhNghiem-asc">Kinh nghiệm: Thấp nhất</option>
+                    <option value="danhGia-desc">Đánh giá: Cao nhất</option>
+                    <option value="danhGia-asc">Đánh giá: Thấp nhất</option>
+                </select>
+                <button className="members-filter-apply-btn" onClick={handleApplyFilters}>
+                    APPLY
+                </button>
+                <button className="members-filter-clear-btn" onClick={handleClearFilters}>
+                    CLEAR
+                </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="members-page-actions">
+                {selectedPTs.size > 0 && (
+                    <button
+                        className="members-change-branch-btn"
+                        onClick={() => setShowChangeBranchModal(true)}
+                    >
+                        <span>📍</span> Thay đổi chi nhánh ({selectedPTs.size})
+                    </button>
+                )}
+                <button className="members-add-btn" onClick={() => setShow(true)}>
+                    <span>+</span> Thêm huấn luyện viên
+                </button>
+            </div>
+
+            {/* Branch Sections with PT Cards */}
+            <div className="pt-branches-container">
+                {Object.keys(groupedByBranch).length === 0 ? (
+                    <div className="pt-empty-state">
+                        <p>Không tìm thấy huấn luyện viên nào.</p>
+                    </div>
+                ) : (
+                    Object.keys(groupedByBranch)
+                        .sort((a, b) => {
+                            // If sorting by PT count
+                            if (branchSortConfig) {
+                                const countA = groupedByBranch[a]?.length || 0;
+                                const countB = groupedByBranch[b]?.length || 0;
+
+                                // Always put no-branch last
+                                if (a === 'no-branch') return 1;
+                                if (b === 'no-branch') return -1;
+
+                                // Sort by count
+                                if (branchSortConfig.direction === 'desc') {
+                                    return countB - countA; // Descending: more PTs first
+                                } else {
+                                    return countA - countB; // Ascending: fewer PTs first
+                                }
+                            }
+
+                            // Default sort: no-branch last, then alphabetically
+                            if (a === 'no-branch') return 1;
+                            if (b === 'no-branch') return -1;
+                            return getBranchName(a).localeCompare(getBranchName(b));
+                        })
+                        .map(branchId => {
+                            const ptsInBranch = groupedByBranch[branchId];
+                            const isExpanded = expandedBranches.has(branchId);
+                            const branchName = getBranchName(branchId);
+
+                            return (
+                                <div key={branchId} className="pt-branch-section">
+                                    <div
+                                        className="pt-branch-header"
+                                    >
+                                        <div className="pt-branch-header-left" onClick={() => toggleBranch(branchId)}>
+                                            <span className="pt-branch-icon">{isExpanded ? '▼' : '▶'}</span>
+                                            <h3 className="pt-branch-name">{branchName}</h3>
+                                            <span className="pt-branch-count">({ptsInBranch.length})</span>
+                                        </div>
+                                        {isExpanded && (
+                                            <div className="pt-branch-header-right" onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={areAllPTsInBranchSelected(branchId)}
+                                                    ref={(input) => {
+                                                        if (input) input.indeterminate = areSomePTsInBranchSelected(branchId) && !areAllPTsInBranchSelected(branchId);
+                                                    }}
+                                                    onChange={() => toggleSelectAllPTsInBranch(branchId)}
+                                                    className="pt-branch-checkbox"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {isExpanded && (
+                                        <div className="pt-branch-cards-wrapper">
+                                            <div className="pt-cards-grid">
+                                                {ptsInBranch.map(pt => (
+                                                    <div key={pt._id} className="pt-card">
+                                                        <div className="pt-card-checkbox-wrapper">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedPTs.has(pt._id)}
+                                                                onChange={() => toggleSelectPT(pt._id)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="pt-card-checkbox"
+                                                            />
+                                                        </div>
+                                                        <div className="pt-card-header">
+                                                            <div className="pt-avatar">
+                                                                {pt.anhDaiDien ? (
+                                                                    <img src={pt.anhDaiDien} alt={pt.hoTen} className="pt-avatar-img" />
+                                                                ) : (
+                                                                    <div className="pt-avatar-placeholder">
+                                                                        {pt.hoTen.charAt(0).toUpperCase()}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="pt-info">
+                                                                <h3 className="pt-name">{pt.hoTen}</h3>
+                                                                <p className="pt-phone">{pt.sdt}</p>
+                                                            </div>
+                                                            <div className="pt-menu">
+                                                                <button
+                                                                    className="pt-menu-btn"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        // Đóng tất cả menu khác trước
+                                                                        document.querySelectorAll('.pt-menu-dropdown.show').forEach(dropdown => {
+                                                                            dropdown.classList.remove('show');
+                                                                        });
+
+                                                                        const menu = e.currentTarget.nextElementSibling;
+                                                                        if (menu) {
+                                                                            menu.classList.toggle('show');
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    ⋯
+                                                                </button>
+                                                                <div className="pt-menu-dropdown">
+                                                                    <button
+                                                                        className="pt-menu-item"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleViewDetail(pt);
+                                                                        }}
+                                                                    >
+                                                                        👁️ Xem chi tiết
+                                                                    </button>
+                                                                    <button
+                                                                        className="pt-menu-item"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setEditingItem(pt);
+                                                                        }}
+                                                                    >
+                                                                        ✏️ Sửa
+                                                                    </button>
+                                                                    <button
+                                                                        className="pt-menu-item pt-menu-delete"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setDeleteConfirm({ show: true, item: pt });
+                                                                        }}
+                                                                    >
+                                                                        🗑️ Xóa
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="pt-card-divider"></div>
+
+                                                        <div className="pt-card-details">
+                                                            <div className="pt-detail-item">
+                                                                <span className="pt-detail-label">Chuyên môn:</span>
+                                                                <span className="pt-detail-value">{pt.chuyenMon}</span>
+                                                            </div>
+                                                            <div className="pt-detail-item">
+                                                                <span className="pt-detail-label">Kinh nghiệm:</span>
+                                                                <span className="pt-detail-value">{pt.kinhNghiem} năm</span>
+                                                            </div>
+                                                            <div className="pt-detail-item">
+                                                                <span className="pt-detail-label">Đánh giá:</span>
+                                                                <span className="pt-detail-value">
+                                                                    <Rating
+                                                                        rating={pt.danhGia || 0}
+                                                                        size="small"
+                                                                        readonly={true}
+                                                                    />
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="pt-card-divider"></div>
+
+                                                        <div className="pt-card-actions">
+                                                            <button
+                                                                className="pt-action-btn pt-action-disable"
+                                                                data-status={pt.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG'}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const currentStatus = pt.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
+                                                                    const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
+                                                                    handleChangeAccountStatus(pt._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
+                                                                }}
+                                                                disabled={isChangingStatus === pt._id || !pt.taiKhoan?._id}
+                                                            >
+                                                                {pt.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                                                            </button>
+                                                            <button
+                                                                className="pt-action-btn pt-action-view"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleViewDetail(pt);
+                                                                }}
+                                                            >
+                                                                Xem hồ sơ
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                                <div className="pt-info">
-                                    <h3 className="pt-name">{r.hoTen}</h3>
-                                    <p className="pt-phone">{r.sdt}</p>
-                                </div>
-                                <div className="pt-menu">
-                                    <button
-                                        className="pt-menu-btn"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            // Đóng tất cả menu khác trước
-                                            document.querySelectorAll('.pt-menu-dropdown.show').forEach(dropdown => {
-                                                dropdown.classList.remove('show');
-                                            });
-
-                                            const menu = e.currentTarget.nextElementSibling;
-                                            if (menu) {
-                                                menu.classList.toggle('show');
-                                            }
-                                        }}
-                                    >
-                                        ⋯
-                                    </button>
-                                    <div className="pt-menu-dropdown">
-                                        <button
-                                            className="pt-menu-item"
-                                            onClick={() => setEditingItem(r)}
-                                        >
-                                            ✏️ Sửa
-                                        </button>
-                                        <button
-                                            className="pt-menu-item pt-menu-delete"
-                                            onClick={() => setDeleteConfirm({ show: true, item: r })}
-                                        >
-                                            🗑️ Xóa
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="pt-card-divider"></div>
-
-                            <div className="pt-card-details">
-                                <div className="pt-detail-item">
-                                    <span className="pt-detail-label">Chuyên môn:</span>
-                                    <span className="pt-detail-value">{r.chuyenMon}</span>
-                                </div>
-                                <div className="pt-detail-item">
-                                    <span className="pt-detail-label">Chi nhánh:</span>
-                                    <span className="pt-detail-value">
-                                        {chiNhanhs.find(cn => cn._id === r.chinhanh)?.tenChiNhanh || 'Chưa xác định'}
-                                    </span>
-                                </div>
-                                <div className="pt-detail-item">
-                                    <span className="pt-detail-label">Kinh nghiệm:</span>
-                                    <span className="pt-detail-value">{r.kinhNghiem} năm</span>
-                                </div>
-                                <div className="pt-detail-item">
-                                    <span className="pt-detail-label">Đánh giá:</span>
-                                    <span className="pt-detail-value">
-                                        <Rating
-                                            rating={r.danhGia || 0}
-                                            size="small"
-                                            readonly={true}
-                                        />
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="pt-card-divider"></div>
-
-                            <div className="pt-card-actions">
-                                <button
-                                    className="pt-action-btn pt-action-disable"
-                                    data-status={r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG'}
-                                    onClick={() => {
-                                        const currentStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
-                                        const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
-                                        handleChangeAccountStatus(r._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
-                                    }}
-                                    disabled={isChangingStatus === r._id || !r.taiKhoan?._id}
-                                >
-                                    {r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'Vô hiệu hóa' : 'Kích hoạt'}
-                                </button>
-                                <button
-                                    className="pt-action-btn pt-action-view"
-                                    onClick={() => handleViewDetail(r)}
-                                >
-                                    Xem hồ sơ
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                            );
+                        })
+                )}
             </div>
             {(show || editingItem) && <EntityForm
                 title="Huấn luyện viên"
@@ -3409,6 +4125,55 @@ const PTPage = () => {
                 }}
                 onCancel={() => setDeleteConfirm({ show: false, item: null })}
             />}
+            {showChangeBranchModal && (
+                <div className="modal-overlay" onClick={() => setShowChangeBranchModal(false)}>
+                    <div className="change-branch-modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Thay đổi chi nhánh</h2>
+                            <button className="modal-close" onClick={() => setShowChangeBranchModal(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <p className="change-branch-info">
+                                Bạn đã chọn <strong>{selectedPTs.size}</strong> huấn luyện viên. Vui lòng chọn chi nhánh mới:
+                            </p>
+                            <div className="form-group">
+                                <label>Chi nhánh mới</label>
+                                <select
+                                    className="form-select"
+                                    value={newBranchId}
+                                    onChange={e => setNewBranchId(e.target.value)}
+                                >
+                                    <option value="">-- Chọn chi nhánh --</option>
+                                    {chiNhanhs.map(branch => (
+                                        <option key={branch._id} value={branch._id}>
+                                            {branch.tenChiNhanh}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => {
+                                    setShowChangeBranchModal(false);
+                                    setNewBranchId('');
+                                }}
+                                disabled={isUpdatingBranch}
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleChangeBranchForSelected}
+                                disabled={isUpdatingBranch || !newBranchId}
+                            >
+                                {isUpdatingBranch ? 'Đang cập nhật...' : 'Xác nhận'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {viewingDetail && (
                 <PTDetailModal
                     pt={viewingDetail}
@@ -3417,7 +4182,7 @@ const PTPage = () => {
                 />
             )}
             {isLoading && <Loading overlay text="Đang tải PT..." />}
-        </Card>
+        </div>
     );
 };
 
@@ -3429,109 +4194,536 @@ const SessionsPage = () => {
     const [isCopying, setIsCopying] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: BuoiTap | null }>({ show: false, item: null });
     const [isLoading, setIsLoading] = useState(false);
-    const [rows, setRows] = useState<any[]>([]);
+    const [rows, setRows] = useState<BuoiTap[]>([]);
+    const [chiNhanhs, setChiNhanhs] = useState<ChiNhanh[]>([]);
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+    const [selectedBranch, setSelectedBranch] = useState<string>('all');
+    const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set());
+    const notifications = useCrudNotifications();
+
+    // Fetch chi nhánh
+    const fetchChiNhanhs = async () => {
+        try {
+            const response = await api.get<{ success: boolean; data: ChiNhanh[] }>('/api/chinhanh');
+            if (response.success && Array.isArray(response.data)) {
+                setChiNhanhs(response.data);
+            }
+        } catch (e) {
+            console.error('Error fetching chi nhánh:', e);
+        }
+    };
+
+    // Fetch buổi tập
+    const fetchBuoiTap = async () => {
+        try {
+            setIsLoading(true);
+            const data = await api.get<BuoiTap[]>('/api/buoitap');
+            if (Array.isArray(data)) {
+                setRows(data);
+            }
+        } catch (e) {
+            console.error('Error fetching sessions:', e);
+            setRows([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
         let mounted = true;
         (async () => {
-            try {
-                setIsLoading(true);
-                const data = await api.get('/api/buoitap');
-                if (mounted && Array.isArray(data)) setRows(data);
-            } catch (e) {
-                console.error('Error fetching sessions:', e);
-                // Fallback mock data when API is not available
-                const mockSessions = [
-                    {
-                        _id: 'session_1',
-                        ngayTap: new Date('2024-01-15'),
-                        pt: 'PT Minh',
-                        cacBaiTap: ['Push-up', 'Squat', 'Plank'],
-                        trangThaiTap: 'DA_HOAN_THANH'
-                    },
-                    {
-                        _id: 'session_2',
-                        ngayTap: new Date('2024-01-17'),
-                        pt: 'PT Lan',
-                        cacBaiTap: ['Deadlift', 'Pull-up'],
-                        trangThaiTap: 'CHUA_HOAN_THANH'
-                    },
-                    {
-                        _id: 'session_3',
-                        ngayTap: new Date('2024-01-20'),
-                        pt: 'PT Tuấn',
-                        cacBaiTap: ['Bench Press', 'Shoulder Press', 'Bicep Curl', 'Tricep Dip'],
-                        trangThaiTap: 'DA_HOAN_THANH'
-                    }
-                ];
-                if (mounted) setRows(mockSessions);
-            } finally {
-                if (mounted) setIsLoading(false);
-            }
+            await Promise.all([fetchBuoiTap(), fetchChiNhanhs()]);
         })();
         return () => { mounted = false; };
     }, []);
+
+    // Helper functions
+    const getPTName = (session: BuoiTap): string => {
+        if (typeof session.ptPhuTrach === 'object') {
+            return session.ptPhuTrach?.hoTen || 'N/A';
+        }
+        if (session.ptPhuTrach) {
+            return session.ptPhuTrach;
+        }
+        return 'N/A';
+    };
+
+    const getBranchName = (session: BuoiTap): string => {
+        if (typeof session.chiNhanh === 'object') {
+            return session.chiNhanh?.tenChiNhanh || 'Chưa có chi nhánh';
+        }
+        if (session.chiNhanh) {
+            const branch = chiNhanhs.find(cn => cn._id === session.chiNhanh);
+            return branch?.tenChiNhanh || 'Chưa có chi nhánh';
+        }
+        return 'Chưa có chi nhánh';
+    };
+
+    const getBranchId = (session: BuoiTap): string => {
+        if (typeof session.chiNhanh === 'object') {
+            return session.chiNhanh?._id || 'no-branch';
+        }
+        return session.chiNhanh || 'no-branch';
+    };
+
+    const getSoBaiTap = (session: BuoiTap): number => {
+        if (!session.cacBaiTap) return 0;
+        if (Array.isArray(session.cacBaiTap)) {
+            return session.cacBaiTap.length;
+        }
+        return 0;
+    };
+
+    const getTrangThaiDisplay = (session: BuoiTap): { text: string; class: string } => {
+        if (session.trangThai === 'HOAN_THANH') {
+            return { text: 'HOÀN THÀNH', class: 'completed' };
+        }
+        if (session.trangThai === 'HUY') {
+            return { text: 'ĐÃ HỦY', class: 'cancelled' };
+        }
+        if (session.trangThai === 'DANG_DIEN_RA') {
+            return { text: 'ĐANG DIỄN RA', class: 'in-progress' };
+        }
+        if (session.trangThaiTap === 'DA_HOAN_THANH') {
+            return { text: 'HOÀN THÀNH', class: 'completed' };
+        }
+        return { text: 'CHƯA HOÀN THÀNH', class: 'pending' };
+    };
+
+    const formatNgayTap = (ngayTap: Date | string | undefined): string => {
+        if (!ngayTap) return 'N/A';
+        try {
+            const date = typeof ngayTap === 'string' ? new Date(ngayTap) : ngayTap;
+            return date.toLocaleDateString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        } catch {
+            return 'N/A';
+        }
+    };
+
+    // Filter sessions
     const filtered = rows.filter(r => {
-        const ptName = typeof r.pt === 'object' ? r.pt?.hoTen || '' : r.pt || '';
-        return ptName.toLowerCase().includes(q.toLowerCase());
+        // Search filter
+        if (q.trim()) {
+            const searchTerm = q.toLowerCase().trim();
+            const ptName = getPTName(r).toLowerCase();
+            const branchName = getBranchName(r).toLowerCase();
+            const tenBuoiTap = (r.tenBuoiTap || '').toLowerCase();
+            if (!ptName.includes(searchTerm) && !branchName.includes(searchTerm) && !tenBuoiTap.includes(searchTerm)) {
+                return false;
+            }
+        }
+
+        // Branch filter
+        if (selectedBranch !== 'all') {
+            const branchId = getBranchId(r);
+            if (String(branchId) !== String(selectedBranch)) return false;
+        }
+
+        return true;
     });
 
+    // Group sessions by branch
+    const groupedByBranch = React.useMemo(() => {
+        const grouped: { [key: string]: BuoiTap[] } = {};
+
+        filtered.forEach(session => {
+            const branchId = getBranchId(session);
+            if (!grouped[branchId]) {
+                grouped[branchId] = [];
+            }
+            grouped[branchId].push(session);
+        });
+
+        return grouped;
+    }, [filtered, chiNhanhs]);
+
+    // Toggle branch expansion
+    const toggleBranch = (branchId: string) => {
+        setExpandedBranches(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(branchId)) {
+                newSet.delete(branchId);
+            } else {
+                newSet.add(branchId);
+            }
+            return newSet;
+        });
+    };
+
+    // Get branch name for display
+    const getBranchDisplayName = (branchId: string) => {
+        if (branchId === 'no-branch') return 'Chưa có chi nhánh';
+        const branch = chiNhanhs.find(b => b._id === branchId);
+        return branch ? branch.tenChiNhanh : 'Chưa có chi nhánh';
+    };
+
+    // Calendar functions
+    const weekDays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+    const getDaysInMonth = () => {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const startDate = new Date(firstDay);
+        startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+        const days = [];
+        for (let i = 0; i < 42; i++) {
+            const day = new Date(startDate);
+            day.setDate(startDate.getDate() + i);
+            days.push(day);
+        }
+        return days;
+    };
+
+    const isToday = (date: Date) => {
+        const today = new Date();
+        return date.toDateString() === today.toDateString();
+    };
+
+    const isSameDate = (date1: Date, date2: Date) => {
+        return date1.toDateString() === date2.toDateString();
+    };
+
+    const hasSessionsOnDate = (date: Date) => {
+        return filtered.some(session => {
+            const sessionDate = new Date(session.ngayTap);
+            return isSameDate(sessionDate, date);
+        });
+    };
+
+    const getSessionsForDate = (date: Date) => {
+        return filtered.filter(session => {
+            const sessionDate = new Date(session.ngayTap);
+            return isSameDate(sessionDate, date);
+        });
+    };
+
+    const formatTime = (timeString?: string) => {
+        if (!timeString) return '';
+        if (typeof timeString === 'string' && timeString.includes(':')) {
+            return timeString;
+        }
+        try {
+            return new Date(timeString).toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch {
+            return timeString;
+        }
+    };
+
     return (
-        <Card className="panel">
-            <div className="toolbar">
-                <div className="toolbar-left"><h2>Quản lý buổi tập</h2></div>
-                <div className="toolbar-right">
-                    <input className="input" placeholder="Tìm PT" value={q} onChange={e => setQ(e.target.value)} />
-                    <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
+        <div className="sessions-management-page">
+            {/* Page Header */}
+            <div className="sessions-page-header">
+                <div className="sessions-page-header-content">
+                    <h1 className="sessions-page-title">Quản lý buổi tập</h1>
+                    <p className="sessions-page-description">
+                        Theo dõi và quản lý các buổi tập từ tất cả chi nhánh của Billions Fitness & Gym.
+                    </p>
+                </div>
+                <div className="sessions-page-actions">
+                    <button className="sessions-search-pt-btn" onClick={() => {
+                        const searchInput = document.querySelector('.sessions-search-input') as HTMLInputElement;
+                        if (searchInput) searchInput.focus();
+                    }}>
+                        Tìm PT
+                    </button>
+                    <button className="sessions-create-btn" onClick={() => setShow(true)}>
+                        Tạo mới
+                    </button>
                 </div>
             </div>
-            <div className="table-enhanced">
-                <table className="table">
-                    <thead>
-                        <tr>
-                            <th>Ngày tập</th>
-                            <th>PT</th>
-                            <th>Số bài tập</th>
-                            <th>Trạng thái</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.map(r => (
-                            <tr key={r._id}>
-                                <td>{r.ngayTap ? new Date(r.ngayTap).toLocaleDateString('vi-VN') : 'N/A'}</td>
-                                <td>{typeof r.pt === 'object' ? r.pt?.hoTen || 'N/A' : r.pt || 'N/A'}</td>
-                                <td>{Array.isArray(r.cacBaiTap) ? r.cacBaiTap.length : 0}</td>
-                                <td>
-                                    <span className={`status-badge ${r.trangThaiTap === 'DA_HOAN_THANH' ? 'completed' : 'pending'}`}>
-                                        {r.trangThaiTap === 'DA_HOAN_THANH' ? '✓ Hoàn thành' : '⏳ Chưa hoàn thành'}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div className="action-buttons">
-                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
-                                            ✏️ Sửa
-                                        </button>
-                                        <button className="btn-icon btn-copy" onClick={() => { const copyData = { ...r }; delete (copyData as any)._id; setEditingItem(copyData); setIsCopying(true); setShow(true); }}>
-                                            📋 Sao chép
-                                        </button>
-                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
-                                            🗑️ Xóa
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+
+            {/* Filter Toolbar */}
+            <div className="members-filter-toolbar">
+                <select
+                    className="members-filter-dropdown"
+                    value={selectedBranch}
+                    onChange={e => setSelectedBranch(e.target.value)}
+                >
+                    <option value="all">CHI NHÁNH</option>
+                    {chiNhanhs.map(branch => (
+                        <option key={branch._id} value={branch._id}>
+                            {branch.tenChiNhanh}
+                        </option>
+                    ))}
+                </select>
+                <input
+                    className="members-filter-search"
+                    type="text"
+                    placeholder="Tìm theo tên PT, chi nhánh, tên buổi tập..."
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                />
             </div>
-            {rows.length === 0 && !isLoading && (
-                <div className="empty-state">
-                    <div className="empty-state-icon">📅</div>
-                    <div className="empty-state-title">Chưa có lịch tập nào</div>
-                    <div className="empty-state-description">Tạo lịch tập đầu tiên cho hội viên của bạn</div>
+
+            {/* Calendar and Sessions Layout */}
+            <div className="sessions-main-layout">
+                {/* Calendar Sidebar */}
+                <div className="sessions-calendar-sidebar">
+                    <div className="mini-calendar">
+                        <div className="calendar-header">
+                            <button
+                                onClick={() => {
+                                    const newMonth = new Date(currentMonth);
+                                    newMonth.setMonth(currentMonth.getMonth() - 1);
+                                    setCurrentMonth(newMonth);
+                                }}
+                                className="nav-button"
+                            >
+                                ‹
+                            </button>
+                            <h3>{currentMonth.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}</h3>
+                            <button
+                                onClick={() => {
+                                    const newMonth = new Date(currentMonth);
+                                    newMonth.setMonth(currentMonth.getMonth() + 1);
+                                    setCurrentMonth(newMonth);
+                                }}
+                                className="nav-button"
+                            >
+                                ›
+                            </button>
+                        </div>
+                        <div className="weekdays-header">
+                            {weekDays.map(day => (
+                                <div key={day} className="weekday">{day}</div>
+                            ))}
+                        </div>
+                        <div className="calendar-grid">
+                            {getDaysInMonth().map((day, index) => {
+                                const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
+                                const isSelected = isSameDate(day, selectedDate);
+                                const isCurrentDay = isToday(day);
+                                const hasSessions = hasSessionsOnDate(day);
+
+                                return (
+                                    <button
+                                        key={index}
+                                        onClick={() => setSelectedDate(day)}
+                                        className={`
+                                            calendar-day
+                                            ${isCurrentMonth ? 'current-month' : 'other-month'}
+                                            ${isSelected ? 'selected' : ''}
+                                            ${isCurrentDay ? 'today' : ''}
+                                            ${hasSessions ? 'has-sessions' : ''}
+                                        `}
+                                    >
+                                        {day.getDate()}
+                                        {hasSessions && <div className="session-indicator"></div>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Date Navigation */}
+                    <div className="date-navigation">
+                        <button
+                            className="nav-btn"
+                            onClick={() => {
+                                const newDate = new Date(selectedDate);
+                                newDate.setDate(selectedDate.getDate() - 1);
+                                setSelectedDate(newDate);
+                            }}
+                        >
+                            ← Ngày trước
+                        </button>
+                        <button
+                            className="today-btn"
+                            onClick={() => setSelectedDate(new Date())}
+                            disabled={isToday(selectedDate)}
+                        >
+                            Hôm nay
+                        </button>
+                        <button
+                            className="nav-btn"
+                            onClick={() => {
+                                const newDate = new Date(selectedDate);
+                                newDate.setDate(selectedDate.getDate() + 1);
+                                setSelectedDate(newDate);
+                            }}
+                        >
+                            Ngày sau →
+                        </button>
+                    </div>
                 </div>
-            )}
+
+                {/* Sessions Content */}
+                <div className="sessions-content-area">
+                    {/* Selected Date Header */}
+                    <div className="sessions-date-header">
+                        <h2>
+                            {selectedDate.toLocaleDateString('vi-VN', {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                            })}
+                        </h2>
+                        <span className="sessions-count">
+                            {getSessionsForDate(selectedDate).length} buổi tập
+                        </span>
+                    </div>
+
+                    {/* Branch Sections */}
+                    <div className="sessions-branches-container">
+                        {isLoading ? (
+                            <div className="sessions-loading">
+                                <div className="loading-spinner"></div>
+                                <p>Đang tải buổi tập...</p>
+                            </div>
+                        ) : Object.keys(groupedByBranch).length === 0 ? (
+                            <div className="sessions-empty-state">
+                                <div className="empty-state-icon">📅</div>
+                                <div className="empty-state-title">Không có buổi tập nào</div>
+                                <div className="empty-state-description">Tạo buổi tập đầu tiên cho hội viên của bạn</div>
+                            </div>
+                        ) : (
+                            Object.keys(groupedByBranch)
+                                .sort((a, b) => {
+                                    if (a === 'no-branch') return 1;
+                                    if (b === 'no-branch') return -1;
+                                    return getBranchDisplayName(a).localeCompare(getBranchDisplayName(b));
+                                })
+                                .map(branchId => {
+                                    const sessionsInBranch = groupedByBranch[branchId];
+                                    // Filter sessions by selected date
+                                    const sessionsForDate = sessionsInBranch.filter(session => {
+                                        const sessionDate = new Date(session.ngayTap);
+                                        return isSameDate(sessionDate, selectedDate);
+                                    });
+
+                                    if (sessionsForDate.length === 0) return null;
+
+                                    const isExpanded = expandedBranches.has(branchId);
+                                    const branchName = getBranchDisplayName(branchId);
+
+                                    return (
+                                        <div key={branchId} className="sessions-branch-section">
+                                            <div
+                                                className="sessions-branch-header"
+                                                onClick={() => toggleBranch(branchId)}
+                                            >
+                                                <div className="sessions-branch-header-left">
+                                                    <span className="sessions-branch-icon">{isExpanded ? '▼' : '▶'}</span>
+                                                    <h3 className="sessions-branch-name">{branchName}</h3>
+                                                    <span className="sessions-branch-count">({sessionsForDate.length})</span>
+                                                </div>
+                                            </div>
+
+                                            {isExpanded && (
+                                                <div className="sessions-branch-cards-wrapper">
+                                                    <div className="sessions-cards-grid">
+                                                        {sessionsForDate
+                                                            .sort((a, b) => {
+                                                                const timeA = formatTime(a.gioBatDau) || '00:00';
+                                                                const timeB = formatTime(b.gioBatDau) || '00:00';
+                                                                return timeA.localeCompare(timeB);
+                                                            })
+                                                            .map(session => {
+                                                                const statusInfo = getTrangThaiDisplay(session);
+                                                                const ptName = getPTName(session);
+                                                                const soBaiTap = getSoBaiTap(session);
+
+                                                                return (
+                                                                    <div key={session._id} className="session-card">
+                                                                        <div className="session-card-header">
+                                                                            <div className="session-time">
+                                                                                {formatTime(session.gioBatDau)} - {formatTime(session.gioKetThuc)}
+                                                                            </div>
+                                                                            <div className="session-menu">
+                                                                                <button
+                                                                                    className="session-menu-btn"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        const menu = e.currentTarget.nextElementSibling;
+                                                                                        if (menu) {
+                                                                                            document.querySelectorAll('.session-menu-dropdown.show').forEach(d => d.classList.remove('show'));
+                                                                                            menu.classList.toggle('show');
+                                                                                        }
+                                                                                    }}
+                                                                                >
+                                                                                    ⋯
+                                                                                </button>
+                                                                                <div className="session-menu-dropdown">
+                                                                                    <button
+                                                                                        className="session-menu-item"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            setEditingItem(session);
+                                                                                        }}
+                                                                                    >
+                                                                                        ✏️ Sửa
+                                                                                    </button>
+                                                                                    <button
+                                                                                        className="session-menu-item"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            const copyData = { ...session };
+                                                                                            delete (copyData as any)._id;
+                                                                                            setEditingItem(copyData);
+                                                                                            setIsCopying(true);
+                                                                                            setShow(true);
+                                                                                        }}
+                                                                                    >
+                                                                                        📋 Sao chép
+                                                                                    </button>
+                                                                                    <button
+                                                                                        className="session-menu-item session-menu-delete"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            setDeleteConfirm({ show: true, item: session });
+                                                                                        }}
+                                                                                    >
+                                                                                        🗑️ Xóa
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="session-card-body">
+                                                                            <div className="session-title">
+                                                                                {session.tenBuoiTap || 'Buổi tập'}
+                                                                            </div>
+                                                                            <div className="session-details">
+                                                                                <div className="session-detail-item">
+                                                                                    <span className="session-detail-label">PT:</span>
+                                                                                    <span className="session-detail-value">{ptName}</span>
+                                                                                </div>
+                                                                                <div className="session-detail-item">
+                                                                                    <span className="session-detail-label">Số bài tập:</span>
+                                                                                    <span className="session-detail-value">{soBaiTap}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="session-status-wrapper">
+                                                                                <span className={`session-status-badge ${statusInfo.class}`}>
+                                                                                    {statusInfo.class === 'completed' ? '✓' : statusInfo.class === 'cancelled' ? '✕' : '⏳'} {statusInfo.text}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                        )}
+                    </div>
+                </div>
+            </div>
             {(show || editingItem) && <EntityForm
                 title="Buổi tập"
                 initialData={editingItem || undefined}
@@ -3545,16 +4737,26 @@ const SessionsPage = () => {
                 onSave={async (val) => {
                     try {
                         if (editingItem && !isCopying) {
-                            // Update existing PT
-                            const updated = await api.put(`/api/buoitap/${editingItem._id}`, val);
-                            setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
+                            // Update existing session
+                            await api.put(`/api/buoitap/${editingItem._id}`, val);
                         } else {
-                            // Create new PT (including when copying)
-                            const created = await api.post('/api/buoitap', val);
-                            setRows([created, ...rows]);
+                            // Create new session (including when copying)
+                            await api.post('/api/buoitap', val);
+                        }
+                        // Refresh data
+                        await fetchBuoiTap();
+                        if (isCopying || !editingItem) {
+                            notifications.schedule.createSuccess();
+                        } else {
+                            notifications.schedule.updateSuccess();
                         }
                     } catch (error) {
                         console.error('Error saving session:', error);
+                        if (editingItem) {
+                            notifications.schedule.updateError();
+                        } else {
+                            notifications.schedule.createError();
+                        }
                     }
                     setShow(false);
                     setEditingItem(null);
@@ -3570,16 +4772,19 @@ const SessionsPage = () => {
                 onConfirm={async () => {
                     try {
                         await api.delete(`/api/buoitap/${deleteConfirm.item!._id}`);
-                        setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
+                        // Refresh data
+                        await fetchBuoiTap();
+                        notifications.schedule.deleteSuccess();
                     } catch (error) {
                         console.error('Error deleting session:', error);
+                        notifications.schedule.deleteError();
                     }
                     setDeleteConfirm({ show: false, item: null });
                 }}
                 onCancel={() => setDeleteConfirm({ show: false, item: null })}
             />}
             {isLoading && <Loading overlay text="Đang tải buổi tập..." />}
-        </Card>
+        </div>
     );
 };
 

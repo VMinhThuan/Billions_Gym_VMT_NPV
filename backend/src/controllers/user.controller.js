@@ -198,13 +198,18 @@ exports.createPT = async (req, res) => {
 
 exports.getAllPT = async (req, res) => {
     try {
-        const { q } = req.query;
+        const { q, branchId, highlight, limit } = req.query;
         let pts;
+
+        // If search query provided, delegate to searchPT
         if (q) {
             pts = await userService.searchPT(q);
         } else {
-            pts = await userService.getAllPT();
+            // Pass options to service for smarter querying
+            pts = await userService.getAllPT({ branchId, highlight: highlight === 'true' || highlight === true, limit, q });
         }
+
+        // Return as-is (service returns array). Keep old callers compatibility.
         res.json(pts);
     } catch (err) {
         res.status(500).json({ message: 'Lỗi server', error: err.message });

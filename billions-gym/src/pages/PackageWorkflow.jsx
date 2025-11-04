@@ -22,8 +22,14 @@ const PackageWorkflow = () => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        fetchWorkflowStatus();
-        fetchBranches();
+        const init = async () => {
+            const response = await fetchWorkflowStatus();
+            // If workflow is completed, don't load branches
+            if (response?.data?.currentStep !== 'completed') {
+                fetchBranches();
+            }
+        };
+        init();
     }, [registrationId]);
 
     const fetchWorkflowStatus = async () => {
@@ -33,6 +39,14 @@ const PackageWorkflow = () => {
 
             if (response.success) {
                 setWorkflowData(response.data);
+
+                // If workflow is completed, stop here and don't update step
+                if (response.data.currentStep === 'completed' ||
+                    response.data.workflowSteps?.completed?.status === 'completed') {
+                    setCurrentStep(getStepIndex('completed', response.data.isOwner));
+                    return response;
+                }
+
                 // Force stay at step 0 for owners until explicitly confirmed in this session
                 if (response.data.isOwner && !hasConfirmedBranch) {
                     setCurrentStep(0);
@@ -42,9 +56,11 @@ const PackageWorkflow = () => {
             } else {
                 setError(response.message || 'Không thể tải thông tin workflow');
             }
+            return response;
         } catch (err) {
             console.error('Error fetching workflow status:', err);
             setError('Lỗi khi tải thông tin workflow');
+            throw err;
         } finally {
             setLoading(false);
         }
@@ -111,41 +127,147 @@ const PackageWorkflow = () => {
     const handleCreateSchedule = async (scheduleData) => {
         try {
             console.log('🎯 Parent handleCreateSchedule called with:', scheduleData);
-            const response = await api.post('/lich-tap/create-schedule', scheduleData);
+            setLoading(true);
+            setError(null);
 
-            if (response.success) {
-                console.log('✅ Schedule created successfully, refreshing workflow status...');
-                // Refresh workflow status
-                await fetchWorkflowStatus();
-                // Chuyển sang bước tiếp theo
-                setCurrentStep(prev => prev + 1);
-                console.log('🚀 Moved to next step');
-            } else {
-                setError(response.message || 'Lỗi khi tạo lịch tập');
+            // Tạo lịch tập mới
+            const response = await api.post('/package-workflow/generate-schedule/' + registrationId, {
+                ...scheduleData,
+                registrationId
+            });
+
+            if (!response.success) {
+                throw new Error(response.message || 'Lỗi khi tạo lịch tập');
             }
+
+            // Đợi 1 giây để backend xử lý
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Lấy trạng thái mới nhất
+            const statusCheck = await api.get(`/package-workflow/workflow-status/${registrationId}`);
+            console.log('🔍 Status after creating schedule:', statusCheck.data);
+
+            // Kiểm tra trạng thái
+            if (statusCheck?.data?.registration?.lichTapDuocTao ||
+                statusCheck?.data?.registration?.trangThai === 'DA_TAO_LICH') {
+                console.log('✅ Schedule creation confirmed');
+                setCurrentStep(prev => prev + 1);
+            } else {
+                throw new Error('Vui lòng thử lại sau vài giây. Hệ thống đang xử lý.');
+            }
+
         } catch (err) {
             console.error('Error creating schedule:', err);
-            setError('Lỗi khi tạo lịch tập');
+
+            if (err.response?.status === 409) {
+                // Lịch tập đã tồn tại, chuyển sang bước tiếp theo
+                setCurrentStep(prev => prev + 1);
+                return;
+            }
+
+            setError(err.message || 'Lỗi khi tạo lịch tập. Vui lòng thử lại.');
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleCompleteWorkflow = async () => {
         try {
+            setLoading(true);
+
+            // Kiểm tra trạng thái trước khi hoàn thành
+            const statusCheck = await api.get(`/package-workflow/workflow-status/${registrationId}`);
+            console.log('🔍 Kiểm tra trạng thái trước khi hoàn thành:', statusCheck.data);
+
+            // Kiểm tra các điều kiện cần thiết
+            if (!statusCheck.data?.registration) {
+                throw new Error('Không tìm thấy thông tin đăng ký.');
+            }
+
+            if (!statusCheck.data.registration.lichTapDuocTao) {
+                throw new Error('Lịch tập chưa được tạo. Vui lòng tạo lịch tập trước.');
+            }
+
+            if (statusCheck.data.registration.trangThaiDangKy === 'HOAN_THANH' ||
+                statusCheck.data.registration.trangThai === 'HOAN_THANH' ||
+                statusCheck.data.currentStep === 'completed') {
+                // Nếu đã hoàn thành, chuyển hướng về trang chủ
+                navigate('/', {
+                    state: {
+                        completedWorkflow: true,
+                        message: 'Gói tập đã được đăng ký thành công trước đó.'
+                    }
+                });
+                return;
+            }
+
+            // Đảm bảo đã lưu lịch tập
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Gọi API hoàn thành workflow
             const response = await api.post(`/package-workflow/complete-workflow/${registrationId}`);
 
             if (response.success) {
-                // Refresh workflow status
-                await fetchWorkflowStatus();
+                console.log('✅ Workflow completed successfully');
+
+                // Đợi backend cập nhật trạng thái
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Kiểm tra lại trạng thái cuối cùng
+                const finalStatus = await api.get(`/package-workflow/workflow-status/${registrationId}`);
+
+                console.log('🔍 Final status check:', {
+                    trangThaiDangKy: finalStatus.data?.registration?.trangThaiDangKy,
+                    trangThai: finalStatus.data?.registration?.trangThai,
+                    lichTapDuocTao: finalStatus.data?.registration?.lichTapDuocTao,
+                    currentStep: finalStatus.data?.currentStep
+                });
+
+                // Kiểm tra cả trangThaiDangKy và currentStep
+                if (finalStatus.data?.registration?.trangThaiDangKy === 'HOAN_THANH' ||
+                    finalStatus.data?.currentStep === 'completed' ||
+                    finalStatus.data?.registration?.trangThai === 'HOAN_THANH') {
+                    // Cập nhật workflow status và chuyển hướng
+                    await fetchWorkflowStatus();
+                    navigate('/', {
+                        state: {
+                            completedWorkflow: true,
+                            message: 'Đăng ký gói tập thành công! Bạn có thể bắt đầu tập luyện ngay.'
+                        }
+                    });
+                } else {
+                    console.error('❌ Workflow not completed:', {
+                        trangThaiDangKy: finalStatus.data?.registration?.trangThaiDangKy,
+                        trangThai: finalStatus.data?.registration?.trangThai,
+                        currentStep: finalStatus.data?.currentStep
+                    });
+                    throw new Error('Không thể hoàn thành workflow. Vui lòng thử lại.');
+                }
             } else {
-                setError(response.message || 'Lỗi khi hoàn thành workflow');
+                throw new Error(response.message || 'Lỗi khi hoàn thành workflow');
             }
         } catch (err) {
             console.error('Error completing workflow:', err);
-            setError('Lỗi khi hoàn thành workflow');
-        }
-    };
 
-    const getStepTitle = (stepIndex, isOwner) => {
+            // Xử lý các trường hợp lỗi cụ thể
+            if (err.response?.status === 400) {
+                if (err.response?.data?.message?.includes('completed')) {
+                    navigate('/', {
+                        state: {
+                            completedWorkflow: true,
+                            message: 'Gói tập đã được đăng ký thành công trước đó.'
+                        }
+                    });
+                } else {
+                    setError(err.response?.data?.message || 'Lỗi khi hoàn thành workflow. Vui lòng thử lại.');
+                }
+            } else {
+                setError(err.message || 'Lỗi kết nối. Vui lòng thử lại sau.');
+            }
+        } finally {
+            setLoading(false);
+        }
+    }; const getStepTitle = (stepIndex, isOwner) => {
         const steps = isOwner
             ? ['Chọn chi nhánh', 'Chọn PT + lịch', 'Tạo lịch tập', 'Hoàn thành']
             : ['Chọn PT + lịch', 'Tạo lịch tập', 'Hoàn thành'];
@@ -157,6 +279,25 @@ const PackageWorkflow = () => {
         if (!workflowData) return null;
 
         const { registration, isOwner, isPartner } = workflowData;
+
+        // Check if workflow is already completed
+        if (workflowData.currentStep === 'completed' || workflowData.workflowSteps?.completed?.status === 'completed') {
+            return (
+                <div className="completed-message text-center p-8">
+                    <div className="text-6xl mb-4">🎉</div>
+                    <h2 className="text-2xl font-bold text-green-500 mb-4">Đăng ký gói tập đã hoàn tất!</h2>
+                    <p className="text-gray-400 mb-6">
+                        Gói tập của bạn đã được kích hoạt và sẵn sàng sử dụng.
+                    </p>
+                    <button
+                        onClick={() => navigate('/')}
+                        className="btn-primary"
+                    >
+                        Về trang chủ
+                    </button>
+                </div>
+            );
+        }
 
         switch (currentStep) {
             case 0: // Chọn chi nhánh (chỉ owner) hoặc Chọn PT (partner)

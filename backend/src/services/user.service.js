@@ -1,5 +1,7 @@
 const { HoiVien, PT } = require('../models/NguoiDung');
 const TaiKhoan = require('../models/TaiKhoan');
+const ChiTietGoiTap = require('../models/ChiTietGoiTap');
+const LichTap = require('../models/LichTap');
 const { hashPassword } = require('../utils/hashPassword');
 
 function toVNTime(date) {
@@ -73,7 +75,174 @@ const createHoiVien = async (data) => {
 };
 
 const getAllHoiVien = async () => {
-    return HoiVien.find();
+    // Aggregation để lấy chi nhánh và tổng tiền tích lũy từ ChiTietGoiTap
+    const hoiViens = await HoiVien.aggregate([
+        {
+            // Lookup ChiTietGoiTap để lấy thông tin gói tập
+            $lookup: {
+                from: 'chitietgoitaps',
+                localField: '_id',
+                foreignField: 'nguoiDungId',
+                as: 'cacGoiTap'
+            }
+        },
+        {
+            // Lookup LichTap để lấy chi nhánh từ lịch tập (nếu có)
+            $lookup: {
+                from: 'lichtaps',
+                localField: '_id',
+                foreignField: 'hoiVien',
+                as: 'cacLichTap'
+            }
+        },
+        {
+            $addFields: {
+                // Lấy chi nhánh từ gói mới nhất đã thanh toán (ưu tiên branchId trong ChiTietGoiTap)
+                // Nếu không có thì lấy từ LichTap
+                maChiNhanh: {
+                    $let: {
+                        vars: {
+                            // Lấy các gói đã thanh toán và sắp xếp theo thời gian đăng ký giảm dần
+                            sortedPackages: {
+                                $sortArray: {
+                                    input: {
+                                        $filter: {
+                                            input: '$cacGoiTap',
+                                            as: 'goi',
+                                            cond: { $eq: ['$$goi.trangThaiThanhToan', 'DA_THANH_TOAN'] }
+                                        }
+                                    },
+                                    sortBy: { thoiGianDangKy: -1 }
+                                }
+                            }
+                        },
+                        in: {
+                            $cond: {
+                                if: { $gt: [{ $size: '$$sortedPackages' }, 0] },
+                                then: {
+                                    // Lấy branchId từ gói mới nhất
+                                    $ifNull: [
+                                        { $arrayElemAt: ['$$sortedPackages.branchId', 0] },
+                                        // Nếu gói không có branchId, lấy từ LichTap tương ứng
+                                        {
+                                            $let: {
+                                                vars: {
+                                                    latestLichTap: {
+                                                        $arrayElemAt: [
+                                                            {
+                                                                $sortArray: {
+                                                                    input: '$cacLichTap',
+                                                                    sortBy: { createdAt: -1 }
+                                                                }
+                                                            },
+                                                            0
+                                                        ]
+                                                    }
+                                                },
+                                                in: {
+                                                    $ifNull: ['$$latestLichTap.chiNhanh', null]
+                                                }
+                                            }
+                                        }
+                                    ]
+                                },
+                                else: {
+                                    // Nếu không có gói đã thanh toán, lấy từ LichTap mới nhất
+                                    $let: {
+                                        vars: {
+                                            latestLichTap: {
+                                                $arrayElemAt: [
+                                                    {
+                                                        $sortArray: {
+                                                            input: '$cacLichTap',
+                                                            sortBy: { createdAt: -1 }
+                                                        }
+                                                    },
+                                                    0
+                                                ]
+                                            }
+                                        },
+                                        in: {
+                                            $ifNull: ['$$latestLichTap.chiNhanh', null]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                // Tính tổng tiền tích lũy từ các gói đã thanh toán
+                // Tổng = sum(soTienThanhToan) hoặc sum(giaGoiTapGoc + soTienBu) nếu không có soTienThanhToan
+                soTienTichLuy: {
+                    $sum: {
+                        $map: {
+                            input: {
+                                $filter: {
+                                    input: '$cacGoiTap',
+                                    as: 'goi',
+                                    cond: { $eq: ['$$goi.trangThaiThanhToan', 'DA_THANH_TOAN'] }
+                                }
+                            },
+                            as: 'goiDaThanhToan',
+                            in: {
+                                // Ưu tiên dùng soTienThanhToan, nếu không có thì tính giaGoiTapGoc + soTienBu
+                                $ifNull: [
+                                    '$$goiDaThanhToan.soTienThanhToan',
+                                    {
+                                        $add: [
+                                            { $ifNull: ['$$goiDaThanhToan.giaGoiTapGoc', 0] },
+                                            { $ifNull: ['$$goiDaThanhToan.soTienBu', 0] }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            // Populate hangHoiVien
+            $lookup: {
+                from: 'hanghoiviens',
+                localField: 'hangHoiVien',
+                foreignField: '_id',
+                as: 'hangHoiVienInfo'
+            }
+        },
+        {
+            $addFields: {
+                hangHoiVien: {
+                    $cond: {
+                        if: { $gt: [{ $size: '$hangHoiVienInfo' }, 0] },
+                        then: { $arrayElemAt: ['$hangHoiVienInfo', 0] },
+                        else: null
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                'cacGoiTap': 0,
+                'cacLichTap': 0,
+                'hangHoiVienInfo': 0
+            }
+        }
+    ]);
+
+    // Convert ObjectId về string để trả về JSON
+    return hoiViens.map(hv => ({
+        ...hv,
+        _id: hv._id.toString(),
+        maChiNhanh: hv.maChiNhanh ? hv.maChiNhanh.toString() : null,
+        hangHoiVien: hv.hangHoiVien ? {
+            _id: hv.hangHoiVien._id ? hv.hangHoiVien._id.toString() : null,
+            tenHienThi: hv.hangHoiVien.tenHienThi,
+            tenHang: hv.hangHoiVien.tenHang,
+            mauSac: hv.hangHoiVien.mauSac
+        } : null,
+        soTienTichLuy: hv.soTienTichLuy || 0
+    }));
 };
 
 const searchHoiVien = async (query) => {
@@ -320,7 +489,42 @@ const createPT = async (data) => {
     return pt;
 };
 
-const getAllPT = async () => {
+/**
+ * Get PTs with optional filters.
+ * options: { branchId, highlight, limit, q }
+ */
+const getAllPT = async (options = {}) => {
+    const { branchId, highlight, limit, q } = options || {};
+
+    // If there's a search query, delegate to searchPT
+    if (q) return searchPT(q);
+
+    // Highlight mode: return top-rated PTs across branches
+    if (highlight) {
+        const lim = parseInt(limit, 10) || 5;
+        let pts = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG' })
+            .sort({ danhGia: -1, kinhNghiem: -1 })
+            .limit(lim);
+
+        // Fallback to base model if no results
+        if (!pts || pts.length === 0) {
+            pts = await require('../models/NguoiDung').NguoiDung.find({ vaiTro: 'PT' })
+                .sort({ danhGia: -1, kinhNghiem: -1 })
+                .limit(lim);
+        }
+        return pts;
+    }
+
+    // Branch-specific PTs
+    if (branchId) {
+        let pts = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG', chinhanh: branchId });
+        if (!pts || pts.length === 0) {
+            pts = await require('../models/NguoiDung').NguoiDung.find({ vaiTro: 'PT', chinhanh: branchId });
+        }
+        return pts;
+    }
+
+    // Default: return all PTs
     return PT.find();
 };
 

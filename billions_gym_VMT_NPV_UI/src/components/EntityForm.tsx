@@ -311,7 +311,7 @@ const EntityForm = ({ title, fields, initialData, onClose, onSave, onFieldChange
     const modalContent = (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e?.stopPropagation()}>
-                <div className="modal-header" style={{ background: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
+                <div className="modal-header">
                     <div className="modal-title-section">
                         <h2 className="modal-title">{title}</h2>
                     </div>

@@ -6,13 +6,15 @@ const createBuoiTap = async (data) => {
     const buoiTap = new BuoiTap(data);
     await buoiTap.save();
     return await BuoiTap.findById(buoiTap._id)
-        .populate('pt', 'hoTen sdt')
+        .populate('ptPhuTrach', 'hoTen sdt')
+        .populate('chiNhanh', 'tenChiNhanh')
         .populate('cacBaiTap.baiTap');
 };
 
 const getBuoiTapById = async (id) => {
     return await BuoiTap.findById(id)
-        .populate('pt', 'hoTen sdt chuyenMon')
+        .populate('ptPhuTrach', 'hoTen sdt chuyenMon')
+        .populate('chiNhanh', 'tenChiNhanh diaChi')
         .populate('cacBaiTap.baiTap');
 };
 
@@ -23,8 +25,8 @@ const getBuoiTapByHoiVien = async (maHoiVien, trangThai = null) => {
     }
 
     const buoiTaps = await BuoiTap.find(query)
-        .populate('pt', 'hoTen sdt chuyenMon')
-        .populate('hoiVien', 'hoTen')
+        .populate('ptPhuTrach', 'hoTen sdt chuyenMon')
+        .populate('chiNhanh', 'tenChiNhanh')
         .populate('cacBaiTap.baiTap')
         .sort({ ngayTap: -1 });
 
@@ -36,7 +38,8 @@ const getBuoiTapByHoiVien = async (maHoiVien, trangThai = null) => {
         .populate({
             path: 'cacBuoiTap',
             populate: [
-                { path: 'pt', select: 'hoTen sdt chuyenMon' },
+                { path: 'ptPhuTrach', select: 'hoTen sdt chuyenMon' },
+                { path: 'chiNhanh', select: 'tenChiNhanh' },
                 { path: 'cacBaiTap.baiTap' }
             ],
             match: trangThai ? { trangThaiTap: trangThai } : {}
@@ -56,15 +59,16 @@ const getAllBuoiTap = async (trangThai = null) => {
     }
 
     return await BuoiTap.find(query)
-        .populate('pt', 'hoTen sdt chuyenMon')
-        .populate('hoiVien', 'hoTen')
+        .populate('ptPhuTrach', 'hoTen sdt chuyenMon')
+        .populate('chiNhanh', 'tenChiNhanh diaChi')
         .populate('cacBaiTap.baiTap')
         .sort({ ngayTap: -1 });
 };
 
 const updateBuoiTap = async (id, data) => {
     return await BuoiTap.findByIdAndUpdate(id, data, { new: true, runValidators: true })
-        .populate('pt', 'hoTen sdt')
+        .populate('ptPhuTrach', 'hoTen sdt')
+        .populate('chiNhanh', 'tenChiNhanh')
         .populate('cacBaiTap.baiTap');
 };
 
@@ -89,7 +93,7 @@ const hoanThanhBuoiTap = async (buoiTapId, maHoiVien) => {
             thoiGianKetThuc: new Date()
         },
         { new: true }
-    ).populate('pt', 'hoTen sdt').populate('hoiVien', 'hoTen').populate('cacBaiTap.baiTap');
+    ).populate('ptPhuTrach', 'hoTen sdt').populate('chiNhanh', 'tenChiNhanh').populate('cacBaiTap.baiTap');
 };
 
 const deleteBuoiTap = async (id) => {
@@ -120,7 +124,8 @@ const addBaiTapToBuoiTap = async (buoiTapId, baiTapData) => {
     await buoiTap.save();
 
     return await BuoiTap.findById(buoiTapId)
-        .populate('pt', 'hoTen sdt')
+        .populate('ptPhuTrach', 'hoTen sdt')
+        .populate('chiNhanh', 'tenChiNhanh')
         .populate('cacBaiTap.baiTap');
 };
 
@@ -158,8 +163,8 @@ const removeBaiTapFromBuoiTap = async (buoiTapId, baiTapId) => {
     await buoiTap.save();
 
     return await BuoiTap.findById(buoiTapId)
-        .populate('pt', 'hoTen sdt')
-        .populate('hoiVien', 'hoTen')
+        .populate('ptPhuTrach', 'hoTen sdt')
+        .populate('chiNhanh', 'tenChiNhanh')
         .populate('cacBaiTap.baiTap');
 };
 

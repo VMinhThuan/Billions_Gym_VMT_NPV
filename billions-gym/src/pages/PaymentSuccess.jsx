@@ -4,6 +4,11 @@ import SimpleLayout from '../components/layout/SimpleLayout';
 import ToastNotification from '../components/ToastNotification';
 import { api } from '../services/api';
 import './PaymentSuccess.css';
+import successIcon from '../assets/icons/success.svg';
+import failureIcon from '../assets/icons/failed.svg';
+import pendingIcon from '../assets/icons/pending.svg';
+import liftingIcon from '../assets/icons/lifting-weights.svg';
+import supportIcon from '../assets/icons/support-online-center.svg';
 
 const PaymentSuccess = () => {
     const navigate = useNavigate();
@@ -160,7 +165,7 @@ const PaymentSuccess = () => {
     };
 
     const handleViewOrders = () => {
-        navigate('/my-orders');
+        navigate('/active-package');
     };
 
     if (loading) {
@@ -206,9 +211,9 @@ const PaymentSuccess = () => {
                         <div className="success-header">
                             {/* Status Icon */}
                             <div className={`status-icon ${isSuccess ? 'success' : isPending ? 'pending' : 'failed'}`}>
-                                {isSuccess && '✅'}
-                                {isPending && '⏳'}
-                                {isFailed && '❌'}
+                                {isSuccess && <img src={successIcon} alt="success" className="w-10 h-10" />}
+                                {isPending && <img src={pendingIcon} alt="pending" className="w-10 h-10" />}
+                                {isFailed && <img src={failureIcon} alt="failed" className="w-10 h-10" />}
                             </div>
 
                             {/* Status Title */}
@@ -264,7 +269,7 @@ const PaymentSuccess = () => {
                                         <button className="btn-primary" onClick={handleViewOrders}>
                                             Xem gói tập của tôi
                                         </button>
-                                        <button className="btn-secondary" onClick={handleContinue}>
+                                        <button className="bg-white rounded-[8px] cursor-pointer hover:bg-[#da2128] hover:text-white hover:border-none border-gray-400 border text-[#141414] font-bold px-3" onClick={handleContinue}>
                                             Tiếp tục mua sắm
                                         </button>
                                     </>
@@ -302,7 +307,9 @@ const PaymentSuccess = () => {
                                     <h3>🎉 Chào mừng bạn đến với Billions Fitness & Gym!</h3>
                                     <div className="info-grid">
                                         <div className="info-item">
-                                            <div className="info-icon">🏋️</div>
+                                            <div className="info-icon">
+                                                <img src={liftingIcon} alt="lifting" className="w-8 h-8" />
+                                            </div>
                                             <div className="info-text">
                                                 <h4>Bắt đầu tập luyện</h4>
                                                 <p>Gói tập của bạn đã được kích hoạt. Hãy đến phòng gym để bắt đầu hành trình fitness!</p>
@@ -316,7 +323,9 @@ const PaymentSuccess = () => {
                                             </div>
                                         </div>
                                         <div className="info-item">
-                                            <div className="info-icon">💪</div>
+                                            <div className="info-icon">
+                                                <img src={supportIcon} alt="support" className="w-8 h-8" />
+                                            </div>
                                             <div className="info-text">
                                                 <h4>Hỗ trợ 24/7</h4>
                                                 <p>Đội ngũ PT và nhân viên luôn sẵn sàng hỗ trợ bạn trong suốt quá trình tập luyện.</p>

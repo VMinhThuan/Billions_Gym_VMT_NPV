@@ -48,15 +48,15 @@ exports.getAvailableSessions = async (req, res) => {
 
             // Debug: Check branch ID format and existence
             console.log('🏢 Branch ID being searched:', chiNhanhId);
-            
+
             // Check if this branch ID exists and what branches are available
             const allBranches = await ChiNhanh.find({}, '_id tenChiNhanh').limit(5);
             console.log('🏢 Available branches:', allBranches.map(b => ({ id: b._id, name: b.tenChiNhanh })));
-            
+
             // Check what branch IDs exist in BuoiTap collection
             const distinctBranchIds = await BuoiTap.distinct('chiNhanh');
             console.log('🏢 Branch IDs in BuoiTap collection:', distinctBranchIds);
-            
+
             // Query BuoiTap collection with correct field names
             const query = {
                 chiNhanh: chiNhanhId,
@@ -85,7 +85,7 @@ exports.getAvailableSessions = async (req, res) => {
                 .sort({ ngayTap: 1, gioBatDau: 1 });
 
             console.log(`📊 Found ${sessions.length} sessions in database after filtering`);
-            
+
             // Debug: Log first few sessions if any found
             if (sessions.length > 0) {
                 console.log('🔍 First session sample:', {
@@ -98,7 +98,7 @@ exports.getAvailableSessions = async (req, res) => {
                 // Check if there are any sessions for this branch at all
                 const totalSessions = await BuoiTap.countDocuments({ chiNhanh: chiNhanhId });
                 console.log(`⚠️ No sessions found for date range, but branch has ${totalSessions} total sessions`);
-                
+
                 // Check sessions in different date ranges
                 const sampleSessions = await BuoiTap.find({ chiNhanh: chiNhanhId }).limit(3);
                 console.log('📅 Sample sessions:', sampleSessions.map(s => ({ _id: s._id, tenBuoiTap: s.tenBuoiTap, trangThai: s.trangThai })));
@@ -420,7 +420,7 @@ exports.getAllSchedules = async (req, res) => {
         const userRole = req.user.role;
 
         let query = {};
-        
+
         // Nếu là hội viên, chỉ lấy lịch tập của họ
         if (userRole === 'HoiVien') {
             query.hoiVien = userId;

@@ -259,7 +259,7 @@
 
 .time-slot-label {
     font-size: 0.875rem;
-    color: #4a5568;
+    color: white;
 }
 
 .trainers-section {
@@ -335,12 +335,14 @@
     left: 0;
     width: 100%;
     height: 100%;
-    display: none; /* Hidden by default */
+    display: none;
+    /* Hidden by default */
     z-index: 0;
 }
 
 .trainer-avatar:not(:has(img[src])) .avatar-placeholder {
-    display: flex; /* Show when no image */
+    display: flex;
+    /* Show when no image */
 }
 
 .trainer-name {
@@ -569,11 +571,26 @@
     margin-bottom: 2rem;
 }
 
+/* Use CSS variable --rows (set from JSX) to force identical rows per column.
+   --row-height controls each row height; default is 100px. */
+.week-schedule {
+    --rows: 8;
+    /* fallback */
+    --row-height: 100px;
+    align-items: start;
+}
+
 .day-column {
     background: #1a1a1a;
     border: 1px solid #262626;
     border-radius: 8px;
     overflow: hidden;
+}
+
+/* Make day column a vertical flex container so header stays on top */
+.day-column {
+    display: flex;
+    flex-direction: column;
 }
 
 .day-header {
@@ -585,7 +602,7 @@
 
 .day-name {
     font-weight: 600;
-    color: #f2f2f2;
+    color: #f2f2f2 !important;
     font-size: 0.875rem;
 }
 
@@ -789,6 +806,12 @@
     margin-bottom: 1rem;
 }
 
+/* Specific override: when the h3 explicitly has the `text-white` class,
+   make its color white without changing other .complete-header h3 rules */
+.complete-header h3.text-white {
+    color: #ffffff;
+}
+
 .complete-header p {
     color: #4a5568;
     font-size: 1.125rem;
@@ -862,34 +885,205 @@
     text-align: center;
 }
 
-.steps-list {
+/* Steps Carousel */
+.steps-carousel {
+    position: relative;
+    margin: 0 auto;
+    max-width: 100%;
+    user-select: none;
+}
+
+.carousel-container {
+    overflow: hidden;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    padding: 1rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+}
+
+.carousel-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.carousel-track {
+    display: flex;
+    transition: transform 0.5s ease-in-out;
+    width: 300%;
+    /* 3 slides */
+}
+
+.step-card {
+    flex: 0 0 33.333%;
+    /* Each slide takes 1/3 of the width */
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    align-items: center;
+    text-align: center;
+    min-height: 200px;
+    justify-content: center;
+    margin: 0 0.5rem;
+    position: relative;
+    overflow: hidden;
 }
 
-.step-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
+.step-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transition: left 0.5s;
 }
 
+.step-card:hover::before {
+    left: 100%;
+}
+
+/* Ensure all step icons occupy the same horizontal space so step-content aligns */
 .step-icon {
-    font-size: 1.5rem;
-    flex-shrink: 0;
+    width: 56px;
+    min-width: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.step-content h5 {
-    font-size: 1rem;
+.step-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15);
+    border-color: #667eea;
+}
+
+.step-card .step-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.step-card .step-content h5 {
+    font-size: 1.125rem;
     font-weight: 700;
     color: #1a202c;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
 }
 
-.step-content p {
+.step-card .step-content p {
     color: #4a5568;
     font-size: 0.875rem;
     line-height: 1.5;
+    margin: 0;
+}
+
+.carousel-dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding: 0.5rem;
+}
+
+.dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #cbd5e0;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dot::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border-radius: 50%;
+    background: transparent;
+    transition: all 0.3s ease;
+}
+
+.dot.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    transform: scale(1.3);
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+}
+
+.dot.active::before {
+    background: rgba(102, 126, 234, 0.2);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.dot:hover {
+    background: #a0aec0;
+    transform: scale(1.1);
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.7;
+    }
+
+    50% {
+        transform: scale(1.2);
+        opacity: 0.3;
+    }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .carousel-track {
+        width: 300%;
+        /* Still 3 slides on mobile */
+    }
+
+    .step-card {
+        flex: 0 0 33.333%;
+        /* Each slide takes 1/3 of the width */
+        min-height: 160px;
+        padding: 1.25rem;
+        margin: 0 0.25rem;
+    }
+
+    .step-card .step-icon {
+        font-size: 2rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .step-card .step-content h5 {
+        font-size: 1rem;
+    }
+
+    .step-card .step-content p {
+        font-size: 0.8rem;
+    }
+
+    .carousel-container {
+        padding: 0.75rem;
+    }
 }
 
 .complete-actions {
@@ -1462,19 +1656,36 @@
     min-height: 400px;
 }
 
+/* Convert time slots container into a grid with fixed rows so slots align across columns */
+.time-slots-container {
+    display: grid;
+    /* repeat number of rows equal to --rows and each row has fixed height --row-height */
+    grid-template-rows: repeat(var(--rows), var(--row-height));
+    gap: 12px;
+    padding: 12px;
+    box-sizing: border-box;
+}
+
 /* Time Slot Cards */
 .time-slot-card {
     background: #141414;
     border: 1px solid #2a2a2a;
     border-radius: 8px;
-    padding: 0.75rem;
+    padding: 12px 16px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.18s ease;
     position: relative;
-    min-height: 60px;
+    /* fill the grid row so every slot has identical height */
+    height: 100%;
+    min-height: auto;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    box-sizing: border-box;
+    /* Ensure perfect centering */
+    width: 100%;
 }
 
 .time-slot-card:hover {
@@ -1483,10 +1694,19 @@
     transform: translateY(-1px);
 }
 
+/* Hover effect with subtle gradient glow */
+.time-slot-card:hover {
+    box-shadow: 0 8px 20px rgba(96, 119, 255, 0.06), 0 2px 6px rgba(102, 126, 234, 0.06) inset;
+    border-color: rgba(102, 126, 234, 0.45);
+}
+
 .time-slot-card.past {
-    opacity: 0.4;
+    /* Past slots appear darker and muted */
+    opacity: 1;
     cursor: not-allowed;
-    background: #0f0f0f;
+    background: #1F2937;
+    /* user requested darker background */
+    border-color: #111827;
 }
 
 .time-slot-card.past:hover {
@@ -1506,31 +1726,88 @@
 
 .time-slot-card.available {
     border-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.05);
+    background: #0b1220;
+    /* darker background for contrast */
 }
 
 .time-slot-card.available:hover {
     border-color: #2563eb;
-    background: rgba(59, 130, 246, 0.1);
+    background: #111827;
+    /* slightly brighter on hover but still dark */
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
+.time-slot-card.available .time-slot-time {
+    color: #ffffff;
+    /* high contrast on blue-tinted background */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Improve contrast for helper text inside available slots */
+.time-slot-card.available .status-text {
+    color: #e5f0ff;
+}
+
+.time-slot-card.selected .time-slot-time {
+    color: #10b981;
+}
+
 .time-slot-card.selected {
-    border-color: #10b981;
-    background: rgba(16, 185, 129, 0.1);
-    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3);
+    /* Selected slot visual — dark base for max contrast */
+    border-color: #22c55e;
+    background: #064e3b;
+    /* deep teal */
+    color: #ffffff;
+    box-shadow: 0 8px 24px rgba(34, 197, 94, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .time-slot-card.selected:hover {
-    border-color: #059669;
-    background: rgba(16, 185, 129, 0.15);
+    border-color: #16a34a;
+    background: #065f46;
 }
 
 .time-slot-time {
     font-weight: 600;
-    color: #f2f2f2;
+    color: #f9fafb;
     font-size: 0.875rem;
     margin-bottom: 0.25rem;
+    text-align: center;
+    width: 100%;
+}
+
+/* Make time text wrap and scale slightly if longer */
+.time-slot-time {
+    white-space: normal;
+    word-break: break-word;
+    font-size: 0.95rem;
+}
+
+.status-text,
+.selected-trainer {
+    font-size: 0.75rem;
+    line-height: 1.1;
+    color: #a3a3a3;
+    text-align: center;
+    width: 100%;
+}
+
+/* Past slot text muted 50% */
+.time-slot-card.past .time-slot-time,
+.time-slot-card.past .status-text {
+    color: rgba(242, 242, 242, 0.5);
+}
+
+/* Ensure internal text doesn't overflow */
+.time-slot-card * {
+    overflow-wrap: anywhere;
+}
+
+/* Responsive: reduce row height on small screens */
+@media (max-width: 768px) {
+    .time-slots-container {
+        grid-template-rows: repeat(var(--rows), calc(var(--row-height, 100px) * 0.75));
+        gap: 8px;
+    }
 }
 
 .time-slot-status {
@@ -1570,6 +1847,12 @@
     font-size: 0.625rem;
     color: #a3a3a3;
     font-weight: 400;
+    /* Truncate long trainer names with ellipsis */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 100%;
 }
 
 /* Session Selection Modal */
@@ -1840,11 +2123,18 @@
     justify-content: flex-end;
 }
 
+/* Make btn-secondary text white on hover only inside the session selection modal
+   so other .btn-secondary styles across the app are unaffected */
+.session-modal .btn-secondary:hover {
+    color: #ffffff;
+}
+
 /* Animations */
 @keyframes fadeIn {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -1855,6 +2145,7 @@
         opacity: 0;
         transform: translateY(-20px) scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
@@ -1897,6 +2188,7 @@
     from {
         transform: translateY(100%);
     }
+
     to {
         transform: translateY(0);
     }
@@ -2347,15 +2639,15 @@
         grid-template-columns: repeat(2, 1fr);
         gap: 0.5rem;
     }
-    
+
     .capacity-item:last-child {
         grid-column: 1 / -1;
     }
-    
+
     .session-name {
         font-size: 1.1rem;
     }
-    
+
     .trainer-info-compact {
         gap: 0.5rem;
     }
@@ -2373,7 +2665,7 @@
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    box-shadow: 
+    box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.4),
         0 0 0 1px rgba(255, 255, 255, 0.1);
     margin-bottom: 24px;
@@ -2381,20 +2673,18 @@
 
 .villa-workout-card:hover {
     transform: translateY(-8px) scale(1.02);
-    box-shadow: 
+    box-shadow:
         0 16px 48px rgba(0, 0, 0, 0.5),
         0 0 0 1px rgba(0, 255, 198, 0.3),
         0 0 40px rgba(0, 255, 198, 0.2);
 }
 
 .villa-workout-card:hover .villa-card-overlay {
-    background: linear-gradient(
-        180deg,
-        rgba(0, 0, 0, 0.1) 0%,
-        rgba(0, 0, 0, 0.3) 40%,
-        rgba(0, 0, 0, 0.7) 70%,
-        rgba(0, 0, 0, 0.9) 100%
-    );
+    background: linear-gradient(180deg,
+            rgba(0, 0, 0, 0.1) 0%,
+            rgba(0, 0, 0, 0.3) 40%,
+            rgba(0, 0, 0, 0.7) 70%,
+            rgba(0, 0, 0, 0.9) 100%);
 }
 
 /* Background Overlay */
@@ -2404,13 +2694,11 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(
-        180deg,
-        rgba(0, 0, 0, 0.2) 0%,
-        rgba(0, 0, 0, 0.4) 40%,
-        rgba(0, 0, 0, 0.8) 70%,
-        rgba(0, 0, 0, 0.95) 100%
-    );
+    background: linear-gradient(180deg,
+            rgba(0, 0, 0, 0.2) 0%,
+            rgba(0, 0, 0, 0.4) 40%,
+            rgba(0, 0, 0, 0.8) 70%,
+            rgba(0, 0, 0, 0.95) 100%);
     transition: all 0.4s ease;
 }
 
@@ -2449,8 +2737,15 @@
 }
 
 @keyframes ongoingPulse {
-    0%, 100% { box-shadow: 0 0 20px rgba(255, 145, 77, 0.4); }
-    50% { box-shadow: 0 0 30px rgba(255, 145, 77, 0.6); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 20px rgba(255, 145, 77, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 30px rgba(255, 145, 77, 0.6);
+    }
 }
 
 .status-icon {
@@ -2605,8 +2900,13 @@
 }
 
 @keyframes criticalGlow {
-    0% { box-shadow: 0 0 20px rgba(255, 107, 107, 0.3); }
-    100% { box-shadow: 0 0 30px rgba(255, 107, 107, 0.5); }
+    0% {
+        box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+    }
+
+    100% {
+        box-shadow: 0 0 30px rgba(255, 107, 107, 0.5);
+    }
 }
 
 .countdown-content {
@@ -2650,8 +2950,16 @@
 }
 
 @keyframes secondsPulse {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0.7; }
+
+    0%,
+    50% {
+        opacity: 1;
+    }
+
+    51%,
+    100% {
+        opacity: 0.7;
+    }
 }
 
 .time-label {
@@ -2678,8 +2986,15 @@
 }
 
 @keyframes ongoingFlash {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.8; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
 }
 
 /* Action Button */
@@ -2742,8 +3057,15 @@
 }
 
 @keyframes selectionGlow {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+
+    0%,
+    100% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
 }
 
 /* Critical Session Pulse */
@@ -2761,8 +3083,15 @@
 }
 
 @keyframes criticalPulse {
-    0% { transform: scale(1); opacity: 1; }
-    100% { transform: scale(1.05); opacity: 0; }
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1.05);
+        opacity: 0;
+    }
 }
 
 /* Disabled State */
