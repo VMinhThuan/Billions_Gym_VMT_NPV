@@ -6,6 +6,7 @@ import AdminDashboard from './pages/admin.tsx';
 import LoginPage from './pages/login';
 import { auth } from './services/api';
 import { NotificationProvider, useNotification } from './contexts/NotificationContext';
+import BubbleChat from './components/BubbleChat';
 
 const rootEl = document.getElementById('root')!;
 const root = createRoot(rootEl);
@@ -56,6 +57,7 @@ function render() {
         <NotificationProvider>
             <TokenExpirationHandler />
             <AppWithNotifications />
+            <BubbleChat isAuthenticated={auth.isAuthenticated()} />
         </NotificationProvider>
     );
 }

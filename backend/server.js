@@ -96,6 +96,7 @@ const exerciseRouter = require('./src/routes/exercise.route');
 const sessionPlaylistRouter = require('./src/routes/sessionPlaylist.route');
 const chiNhanhRouter = require('./src/routes/chinhanh.route');
 const notificationRouter = require('./src/routes/notification.route');
+const aiRouter = require('./src/routes/ai.route');
 
 app.use('/api/auth', authRouter);
 // app.use('/api/users', userRouter);
@@ -126,6 +127,7 @@ app.use('/api/session-templates', sessionTemplateRouter);
 app.use('/api/exercises', exerciseRouter);
 app.use('/api/chinhanh', chiNhanhRouter);
 app.use('/api/notifications', notificationRouter);
+app.use('/api/ai', aiRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

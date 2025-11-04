@@ -2,7 +2,6 @@ import Header from "../components/header";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import Loading from "../components/Loading";
-import ChatBot from "../components/ChatBot";
 import "./home.css";
 import { useState, useEffect } from "react";
 import banner1 from "../assets/images/banner/banner-1.webp";
@@ -18,7 +17,6 @@ import React from "react";
 const HomePage = () => {
     const [currentBanner, setCurrentBanner] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
-    const [isChatBotOpen, setIsChatBotOpen] = useState(false);
 
     // Banner data với real images
     const banners = [
@@ -437,20 +435,6 @@ const HomePage = () => {
                 </section>
             </main>
 
-            {/* ChatBot Button */}
-            <button
-                className="chatbot-toggle-btn"
-                onClick={() => setIsChatBotOpen(true)}
-                title="Chat với AI Assistant"
-            >
-                💬
-            </button>
-
-            {/* ChatBot */}
-            <ChatBot
-                isOpen={isChatBotOpen}
-                onClose={() => setIsChatBotOpen(false)}
-            />
 
             {/* Loading Overlay */}
             {isLoading && <Loading overlay text="Đang chuyển hướng..." />}
