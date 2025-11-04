@@ -1,6 +1,6 @@
 const SessionPlaylistItem = require('../models/SessionPlaylistItem');
 const Session = require('../models/Session');
-const Exercise = require('../models/Exercise');
+const Exercise = require('../models/BaiTap'); // BaiTap (alias cho Exercise)
 
 const getSessionPlaylist = async (sessionId) => {
     // Kiểm tra session tồn tại

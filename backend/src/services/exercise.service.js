@@ -1,4 +1,4 @@
-const Exercise = require('../models/Exercise');
+const Exercise = require('../models/BaiTap'); // BaiTap (alias cho Exercise)
 const SessionPlaylistItem = require('../models/SessionPlaylistItem');
 
 const createExercise = async (data) => {

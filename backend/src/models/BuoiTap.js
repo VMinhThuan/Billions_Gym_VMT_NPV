@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const BaiTapTrongBuoiSchema = new mongoose.Schema({
-    baiTap: { type: mongoose.Schema.Types.ObjectId, ref: 'Exercise', required: true }, // Changed from 'BaiTap' to 'Exercise'
+    baiTap: { type: mongoose.Schema.Types.ObjectId, ref: 'BaiTap', required: true },
     soLanLap: { type: Number, default: 0 },
     soSet: { type: Number, default: 1 },
     kyThuat: { type: String, default: '' },

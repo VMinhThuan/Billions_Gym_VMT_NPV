@@ -1,5 +1,5 @@
 // Sử dụng Exercise model (đã merge với BaiTap)
-const BaiTap = require('../models/Exercise');
+const BaiTap = require('../models/BaiTap');
 
 const createBaiTap = async (data) => {
     const baiTap = new BaiTap(data);

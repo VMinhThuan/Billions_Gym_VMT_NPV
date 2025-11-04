@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 
 // Import models
-const Exercise = require('../src/models/Exercise');
+const Exercise = require('../src/models/BaiTap'); // BaiTap (alias cho Exercise)
 const TemplateBuoiTap = require('../src/models/TemplateBuoiTap');
 
 // Connect to MongoDB

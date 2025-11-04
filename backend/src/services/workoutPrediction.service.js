@@ -4,7 +4,7 @@ const { HoiVien } = require('../models/NguoiDung');
 const LichSuTap = require('../models/LichSuTap');
 const { BuoiTap } = require('../models/BuoiTap');
 // Sử dụng Exercise model (đã merge với BaiTap)
-const Exercise = require('../models/Exercise');
+const Exercise = require('../models/BaiTap'); // BaiTap (alias cho Exercise)
 const BaiTap = Exercise; // Alias cho backward compatibility
 
 // Phân tích lịch sử tập luyện

@@ -6,7 +6,7 @@ const Session = require('../src/models/Session');
 const SessionPlaylistItem = require('../src/models/SessionPlaylistItem');
 const TemplateBuoiTap = require('../src/models/TemplateBuoiTap');
 const SessionOption = require('../src/models/SessionOption');
-const Exercise = require('../src/models/Exercise'); // Cần import để populate hoạt động
+const Exercise = require('../src/models/BaiTap'); // BaiTap (alias cho Exercise) - Cần import để populate hoạt động
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)

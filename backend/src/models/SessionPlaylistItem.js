@@ -10,7 +10,7 @@ const SessionPlaylistItemSchema = new Schema({
     },
     exercise_id: {
         type: Types.ObjectId,
-        ref: 'Exercise',
+        ref: 'BaiTap',
         required: true,
         index: true
     },
