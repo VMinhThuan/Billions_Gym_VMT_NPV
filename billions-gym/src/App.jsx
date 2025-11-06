@@ -17,6 +17,7 @@ import ProfileScreen from './pages/Profile'
 import ProfileEdit from './pages/ProfileEdit'
 import ActivePackage from './pages/ActivePackage'
 import Schedule from './pages/Schedule'
+import Workout from './pages/Workout'
 
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -110,6 +111,7 @@ const AppContent = () => {
             <Route path='/profile/edit' element={<ProfileEdit />} />
             <Route path='/active-package' element={<ActivePackage />} />
             <Route path='/schedule' element={<Schedule />} />
+            <Route path='/workouts' element={<Workout />} />
           </Routes>
         </div>
       )}

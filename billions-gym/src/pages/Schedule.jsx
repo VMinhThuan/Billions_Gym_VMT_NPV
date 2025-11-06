@@ -64,9 +64,10 @@ const Schedule = () => {
 
         try {
             const response = await api.get(`/lich-tap/member/${userId}`);
+            console.log('API response:', response.data);
 
-            const responseData = response.data?.success ? response.data.data : response.data;
-
+            const responseData = response.data?.success ? response.data : response.data;
+            console.log('Transformed response data:', responseData);
             if (responseData && Array.isArray(responseData)) {
                 const transformedData = transformScheduleData(responseData);
                 setScheduleData(transformedData);
