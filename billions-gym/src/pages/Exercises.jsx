@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from '../services/api';
-import './Workout.css';
+import './Exercises.css';
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
 
@@ -79,14 +79,9 @@ const Workout = () => {
             <div className={`min-h-screen bg-[#0a0a0a] workout-page ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'} pb-10`}>
                 {/* Loading state: show spinner until data loads */}
                 {loading ? (
-                    <div className="w-full flex items-center justify-center py-24">
-                        <div role="status" className="flex flex-col items-center">
-                            <svg className="animate-spin h-6 w-6" style={{ color: '#da2128' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="#da2128" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="#da2128" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                            </svg>
-                            <span className="mt-3 text-[#da2128] text-sm">Đang tải dữ liệu...</span>
-                        </div>
+                    <div className="exercises-loading">
+                        <div className="loading-spinner" aria-hidden="true"></div>
+                        <p className="text-[#da2128] mt-3">Đang tải dữ liệu...</p>
                     </div>
                 ) : null}
                 {/* Use a flex-based card so image is a flex item and won't be clipped. On small screens it stacks column-wise. */}

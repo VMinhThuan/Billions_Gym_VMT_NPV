@@ -82,6 +82,29 @@ body {
     object-position: center;
 }
 
+/* Loading spinner styles (match Schedule page) */
+.exercises-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 0;
+    gap: 12px;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #374151;
+    border-top-color: #da2128;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 @media (max-width: 640px) {
     /* On small screens the card stacks (flex-column) so center the image and reduce size */
     .image-circle {
