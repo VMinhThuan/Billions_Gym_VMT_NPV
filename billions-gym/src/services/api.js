@@ -76,9 +76,14 @@ export const apiRequest = async (endpoint, options = {}) => {
         }
         if (!response.ok) {
             if (response.status === 401) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                throw new Error('Session expired. Please login again.');
+                // If the request required auth, treat 401 as session expiration and clear local session
+                if (requireAuth) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    throw new Error('Session expired. Please login again.');
+                }
+                // If the request did not require auth (e.g. login), propagate backend message if present
+                throw new Error((data && data.message) ? data.message : 'Unauthorized');
             }
             if (response.status === 403) {
                 throw new Error('Access denied. You do not have permission to perform this action.');
@@ -107,30 +112,35 @@ export const authAPI = {
         return apiRequest(API_ENDPOINTS.LOGIN, {
             method: 'POST',
             body: JSON.stringify(credentials),
+            requireAuth: false,
             headers: getAuthHeaders(false),
         });
     },
     register: async (userData) => {
         return apiRequest(API_ENDPOINTS.REGISTER, {
             method: 'POST',
+            requireAuth: false,
             body: JSON.stringify(userData),
         });
     },
     forgotPassword: async (phone) => {
         return apiRequest(API_ENDPOINTS.FORGOT_PASSWORD, {
             method: 'POST',
+            requireAuth: false,
             body: JSON.stringify({ sdt: phone }),
         });
     },
     verifyOtp: async (phone, otp) => {
         return apiRequest(API_ENDPOINTS.VERIFY_OTP, {
             method: 'POST',
+            requireAuth: false,
             body: JSON.stringify({ sdt: phone, otp }),
         });
     },
     resetPassword: async (phone, otp, newPassword) => {
         return apiRequest(API_ENDPOINTS.RESET_PASSWORD, {
             method: 'POST',
+            requireAuth: false,
             body: JSON.stringify({ sdt: phone, otp, matKhauMoi: newPassword }),
         });
     },
