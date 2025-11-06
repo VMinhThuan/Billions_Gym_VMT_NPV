@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { authUtils } from '../utils/auth';
 import { api } from '../services/api';
 import Header from '../components/layout/Header';
@@ -12,73 +12,116 @@ const Schedule = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [currentTime, setCurrentTime] = useState(new Date());
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [viewMode, setViewMode] = useState('month'); // 'month', 'week', 'day'
+    const [selectedSession, setSelectedSession] = useState(null);
+    const [showSessionDetail, setShowSessionDetail] = useState(false);
+    const [currentTime, setCurrentTime] = useState(new Date());
 
     const user = authUtils.getUser();
     const userId = authUtils.getUserId();
 
-    const weekDays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-    const sessionColors = {
-        'Yoga': '#34D399',
-        'Cardio': '#3B82F6',
-        'Strength': '#EF4444',
-        'HIIT': '#F59E0B',
-        'Pilates': '#8B5CF6',
-        'Boxing': '#FF6B6B',
-    }
+    const weekDaysShort = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+        'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
 
-    useEffect(() => {
-        // Update clock every second for real-time countdowns
-        const timer = setInterval(() => {
-            setCurrentTime(new Date());
-        }, 1000);
+    const sessionColors = [
+        '#FFB6C1',
+        '#B0E0E6',
+        '#DDA0DD',
+        '#F0E68C',
+        '#FFE4B5',
+        '#98FB98',
+        '#FFD700',
+        '#FFA07A',
+        '#87CEEB',
+        '#DEB887'
+    ];
 
-        return () => clearInterval(timer);
-    }, []);
+    const getSessionColor = (index) => {
+        return sessionColors[index % sessionColors.length];
+    };
 
-    // Listen to sidebar toggle events
+    const handleSessionClick = (session) => {
+        setSelectedSession(session);
+        setShowSessionDetail(true);
+    };
+
+    const closeSessionDetail = () => {
+        setShowSessionDetail(false);
+        setSelectedSession(null);
+    };
+
+    const getStatusText = (status) => {
+        const statusMap = {
+            'DA_DANG_KY': 'Đã đăng ký',
+            'DA_THAM_GIA': 'Đã tham gia',
+            'VANG_MAT': 'Vắng mặt',
+            'HUY': 'Đã hủy'
+        };
+        return statusMap[status] || status;
+    };
+
+    const getStatusColor = (status) => {
+        const colorMap = {
+            'DA_DANG_KY': '#3b82f6',
+            'DA_THAM_GIA': '#10b981',
+            'VANG_MAT': '#f59e0b',
+            'HUY': '#ef4444'
+        };
+        return colorMap[status] || '#6b7280';
+    };
+
     useEffect(() => {
         const handleSidebarToggle = (event) => {
             setSidebarCollapsed(event.detail.collapsed);
         };
-
         window.addEventListener('sidebar:toggle', handleSidebarToggle);
-
-        return () => {
-            window.removeEventListener('sidebar:toggle', handleSidebarToggle);
-        };
+        return () => window.removeEventListener('sidebar:toggle', handleSidebarToggle);
     }, []);
 
     useEffect(() => {
-        if (userId) {
-            fetchScheduleData();
-        }
-    }, [userId, selectedDate]);
+        if (userId) fetchScheduleData();
+    }, [userId, selectedDate, currentMonth]);
+
+    // update current time every minute for timeline position
+    useEffect(() => {
+        const tick = () => setCurrentTime(new Date());
+        // align to the next minute boundary
+        const msToNextMinute = (60 - new Date().getSeconds()) * 1000;
+        const timeoutId = setTimeout(() => {
+            tick();
+            const intervalId = setInterval(tick, 60 * 1000);
+            // store interval id on window so cleanup below can reference it via closure
+            // but we'll return cleanup that clears both
+            (window.__scheduleTimelineInterval = intervalId);
+        }, msToNextMinute);
+
+        return () => {
+            clearTimeout(timeoutId);
+            if (window.__scheduleTimelineInterval) {
+                clearInterval(window.__scheduleTimelineInterval);
+                window.__scheduleTimelineInterval = null;
+            }
+        };
+    }, []);
 
     const fetchScheduleData = async () => {
         if (!userId) return;
-
         setLoading(true);
         setError(null);
 
         try {
-            const response = await api.get(`/lich-tap/member/${userId}`);
-            console.log('API response:', response.data);
+            const response = await api.get(`/lichtap/member/${userId}`);
 
-            const responseData = response.data?.success ? response.data : response.data;
-            console.log('Transformed response data:', responseData);
-            if (responseData && Array.isArray(responseData)) {
-                const transformedData = transformScheduleData(responseData);
+            if (response && response.data) {
+                const transformedData = transformScheduleData(response.data);
                 setScheduleData(transformedData);
             } else {
-                console.error('API response error - unexpected format:', response.data);
-                setError('Không thể tải lịch tập. Vui lòng thử lại.');
                 setScheduleData([]);
             }
         } catch (err) {
             console.error('Error fetching schedule:', err);
-            setError('Không thể tải lịch tập. Vui lòng thử lại.');
             setScheduleData([]);
         } finally {
             setLoading(false);
@@ -87,29 +130,26 @@ const Schedule = () => {
 
     const transformScheduleData = (lichTaps) => {
         const sessions = [];
+        let colorIndex = 0;
 
         lichTaps.forEach(lichTap => {
             if (lichTap.danhSachBuoiTap && Array.isArray(lichTap.danhSachBuoiTap)) {
-                lichTap.danhSachBuoiTap.forEach(buoiTap => {
+                lichTap.danhSachBuoiTap.forEach(buoi => {
+                    const buoiTapInfo = buoi.buoiTap || {};
                     sessions.push({
-                        _id: buoiTap._id || buoiTap.buoiTap?._id,
-                        ngayBatDau: buoiTap.ngayTap,
-                        gioBatDau: buoiTap.gioBatDau,
-                        gioKetThuc: buoiTap.gioKetThuc,
-                        tenBuoiTap: buoiTap.tenBuoiTap || buoiTap.buoiTap?.tenBuoiTap || lichTap.goiTap?.tenGoiTap || 'Buổi tập',
-                        goiTap: {
-                            tenGoiTap: lichTap.goiTap?.tenGoiTap || buoiTap.buoiTap?.tenBuoiTap || 'Buổi tập'
-                        },
-                        pt: {
-                            hoTen: buoiTap.ptPhuTrach?.hoTen || lichTap.pt?.hoTen || 'Chưa phân công'
-                        },
-                        trangThai: buoiTap.trangThai,
-                        chiNhanh: lichTap.chiNhanh?.tenChiNhanh || 'Chi nhánh'
+                        id: buoi._id || buoiTapInfo._id,
+                        tenBuoiTap: buoiTapInfo.tenBuoiTap || 'Buổi tập',
+                        date: new Date(buoi.ngayTap),
+                        gioBatDau: buoi.gioBatDau,
+                        gioKetThuc: buoi.gioKetThuc,
+                        ptPhuTrach: buoi.ptPhuTrach?.hoTen || 'Chưa có PT',
+                        chiNhanh: lichTap.chiNhanh?.tenChiNhanh || 'Chưa có chi nhánh',
+                        trangThai: buoi.trangThai || 'DA_DANG_KY',
+                        color: getSessionColor(colorIndex++)
                     });
                 });
             }
         });
-
         return sessions;
     };
 
@@ -123,199 +163,379 @@ const Schedule = () => {
 
         const days = [];
         for (let i = 0; i < 42; i++) {
-            const day = new Date(startDate);
-            day.setDate(startDate.getDate() + i);
-            days.push(day);
+            const date = new Date(startDate);
+            date.setDate(startDate.getDate() + i);
+            days.push(date);
         }
         return days;
     };
 
-    const isToday = (date) => {
-        const today = new Date();
-        return date.toDateString() === today.toDateString();
+    const isSameDay = (d1, d2) => {
+        return (
+            d1.getFullYear() === d2.getFullYear() &&
+            d1.getMonth() === d2.getMonth() &&
+            d1.getDate() === d2.getDate()
+        );
     };
 
-    const isSameDate = (date1, date2) => {
-        return date1.toDateString() === date2.toDateString();
+    const timeStringToMinutes = (t) => {
+        if (!t) return null;
+        const parts = t.split(':');
+        const h = parseInt(parts[0], 10) || 0;
+        const m = parseInt(parts[1], 10) || 0;
+        return h * 60 + m;
     };
 
-    const formatTime = (timeString) => {
-        if (!timeString) return '';
+    const isNowDuringEvent = (event, now) => {
+        if (!event.gioBatDau) return false;
+        // if event has gioKetThuc use it, otherwise assume 60 minutes duration
+        const start = timeStringToMinutes(event.gioBatDau);
+        let end = timeStringToMinutes(event.gioKetThuc);
+        if (end == null || isNaN(end)) end = start + 60;
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        return nowMinutes >= start && nowMinutes < end;
+    };
 
-        if (typeof timeString === 'string' && timeString.includes(':')) {
-            return timeString;
+    const getWeekDays = () => {
+        const start = new Date(selectedDate);
+        start.setDate(selectedDate.getDate() - selectedDate.getDay());
+        const days = [];
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(start);
+            date.setDate(start.getDate() + i);
+            days.push(date);
         }
-
-        try {
-            return new Date(timeString).toLocaleTimeString('vi-VN', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        } catch {
-            return timeString;
-        }
+        return days;
     };
 
-    const getSessionColor = (sessionType) => {
-        const type = sessionType?.toLowerCase() || '';
-
-        for (const [key, color] of Object.entries(sessionColors)) {
-            if (type.includes(key.toLowerCase())) {
-                return color;
-            }
-        }
-
-        return '#999999';
+    const getEventsForDate = (date) => {
+        return scheduleData.filter(event =>
+            event.date.toDateString() === date.toDateString()
+        );
     };
 
-    const getCountdown = (session) => {
-        try {
-            // Combine selected date with session start time for accurate comparison today
-            const start = new Date(session.ngayBatDau);
-            // If gioBatDau is HH:mm, set hours and minutes
-            if (session.gioBatDau && session.gioBatDau.includes(':')) {
-                const [h, m] = session.gioBatDau.split(':').map(Number);
-                start.setHours(h || 0, m || 0, 0, 0);
-            }
-
-            const diffMs = start.getTime() - currentTime.getTime();
-            if (diffMs <= 0) return null; // Already started or passed
-
-            const totalSeconds = Math.floor(diffMs / 1000);
-            const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
-            const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
-            const seconds = String(totalSeconds % 60).padStart(2, '0');
-
-            return `${hours}:${minutes}:${seconds}`;
-        } catch {
-            return null;
+    const goToPrevious = () => {
+        if (viewMode === 'month') {
+            const newMonth = new Date(currentMonth);
+            newMonth.setMonth(currentMonth.getMonth() - 1);
+            setCurrentMonth(newMonth);
+        } else if (viewMode === 'week') {
+            const newDate = new Date(selectedDate);
+            newDate.setDate(selectedDate.getDate() - 7);
+            setSelectedDate(newDate);
+        } else {
+            const newDate = new Date(selectedDate);
+            newDate.setDate(selectedDate.getDate() - 1);
+            setSelectedDate(newDate);
         }
     };
 
-    const renderCalendarDays = () => {
-        const days = getDaysInMonth();
-        return days.map((day, index) => {
-            const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
-            const isSelected = isSameDate(day, selectedDate);
-            const isCurrentDay = isToday(day);
+    const goToNext = () => {
+        if (viewMode === 'month') {
+            const newMonth = new Date(currentMonth);
+            newMonth.setMonth(currentMonth.getMonth() + 1);
+            setCurrentMonth(newMonth);
+        } else if (viewMode === 'week') {
+            const newDate = new Date(selectedDate);
+            newDate.setDate(selectedDate.getDate() + 7);
+            setSelectedDate(newDate);
+        } else {
+            const newDate = new Date(selectedDate);
+            newDate.setDate(selectedDate.getDate() + 1);
+            setSelectedDate(newDate);
+        }
+    };
 
-            const hasSessions = scheduleData.some(session => {
-                const sessionDate = new Date(session.ngayBatDau);
-                return isSameDate(sessionDate, day);
-            });
+    const getDisplayTitle = () => {
+        if (viewMode === 'month') {
+            return `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+        } else if (viewMode === 'week') {
+            const weekDays = getWeekDays();
+            const start = weekDays[0];
+            const end = weekDays[6];
+            return `${start.getDate()} – ${end.getDate()} Tháng ${start.getMonth() + 1}, ${start.getFullYear()}`;
+        } else {
+            return `${selectedDate.getDate()} ${monthNames[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+        }
+    };
 
-            return (
-                <button
-                    key={index}
-                    onClick={() => setSelectedDate(day)}
-                    className={`
-                        calendar-day
-                        ${isCurrentMonth ? 'current-month' : 'other-month'}
-                        ${isSelected ? 'selected' : ''}
-                        ${isCurrentDay ? 'today' : ''}
-                        ${hasSessions ? 'has-sessions' : ''}
-                    `}
-                >
-                    {day.getDate()}
-                    {hasSessions && <div className="session-indicator"></div>}
-                </button>
+    const renderTimeSlots = () => {
+        const slots = [];
+        for (let hour = 0; hour < 24; hour++) {
+            const time = `${hour.toString().padStart(2, '0')}:00`;
+            slots.push(
+                <div key={hour} className="time-slot">
+                    <span className="time-label">{time}</span>
+                </div>
             );
-        });
+        }
+        return slots;
     };
 
-    const getSelectedDaySchedule = () => {
-        const daySchedule = scheduleData.filter(session => {
-            const sessionDate = new Date(session.ngayBatDau);
-            return isSameDate(sessionDate, selectedDate);
-        });
+    const renderMonthView = () => {
+        const days = getDaysInMonth();
+        const isOtherMonth = (date) => date.getMonth() !== currentMonth.getMonth();
 
-        return daySchedule.sort((a, b) => {
-            const timeA = a.gioBatDau || '00:00';
-            const timeB = b.gioBatDau || '00:00';
-            return timeA.localeCompare(timeB);
-        });
+        return (
+            <div className="calendar-month-view">
+                <button className="nav-arrow-btn nav-prev" onClick={goToPrevious}>‹</button>
+                <button className="nav-arrow-btn nav-next" onClick={goToNext}>›</button>
+                <div className="calendar-weekdays">
+                    {weekDaysShort.map(day => (
+                        <div key={day} className="weekday-header">{day}</div>
+                    ))}
+                </div>
+                <div className="calendar-grid-month">
+                    {days.map((date, index) => {
+                        const events = getEventsForDate(date);
+                        return (
+                            <div
+                                key={index}
+                                className={`calendar-day-cell ${isOtherMonth(date) ? 'other-month' : ''} ${isSameDay(date, new Date()) ? 'today' : ''}`}
+                                onClick={() => setSelectedDate(date)}
+                            >
+                                <div className="day-number">{date.getDate()}</div>
+                                <div className="day-events">
+                                    {events.slice(0, 3).map((event, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="event-item"
+                                            style={{ backgroundColor: event.color }}
+                                            title={`${event.gioBatDau} - ${event.tenBuoiTap}\nPT: ${event.ptPhuTrach}\nChi nhánh: ${event.chiNhanh}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleSessionClick(event);
+                                            }}
+                                        >
+                                            <div className="event-time">{event.gioBatDau}</div>
+                                            <div className="event-title">{event.tenBuoiTap}</div>
+                                        </div>
+                                    ))}
+                                    {events.length > 3 && (
+                                        <div className="more-events">+{events.length - 3} buổi tập</div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
+    const renderWeekView = () => {
+        const weekDays = getWeekDays();
+
+        return (
+            <div className="calendar-week-view">
+                <div className="week-header-row">
+                    <button className="nav-arrow-btn nav-prev" onClick={goToPrevious}>‹</button>
+                    <div className="time-column-header"></div>
+                    {weekDays.map((date, index) => (
+                        <div key={index} className="week-day-header">
+                            <div className="day-name">{weekDaysShort[date.getDay()]}</div>
+                            <div className="day-date">{date.getDate()}/{date.getMonth() + 1}</div>
+                        </div>
+                    ))}
+                    <button className="nav-arrow-btn nav-next" onClick={goToNext}>›</button>
+                </div>
+                <div className="week-grid">
+                    <div className="time-column">
+                        <div className="all-day-label">Cả ngày</div>
+                        {renderTimeSlots()}
+                    </div>
+                    {weekDays.map((date, dayIndex) => {
+                        const events = getEventsForDate(date);
+                        const isTodayCol = isSameDay(date, new Date());
+                        // timeline position: account for all-day cell (40px) + hour cells (60px each)
+                        const ALL_DAY_HEIGHT = 40; // matches .all-day-cell height
+                        const HOUR_HEIGHT = 60; // matches .hour-cell height
+                        const totalMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+                        const topPx = ALL_DAY_HEIGHT + (totalMinutes * (HOUR_HEIGHT / 60));
+
+                        return (
+                            <div key={dayIndex} className={`week-day-column ${isTodayCol ? 'today' : ''}`}>
+                                <div className="all-day-cell">
+                                    {events.filter(e => !e.gioBatDau).map((event, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="event-block all-day-event"
+                                            style={{ backgroundColor: event.color }}
+                                        >
+                                            {event.tenBuoiTap}
+                                        </div>
+                                    ))}
+                                </div>
+                                {isTodayCol && (() => {
+                                    const hasOverlap = events.some(ev => isNowDuringEvent(ev, currentTime));
+                                    return (
+                                        <>
+                                            {!hasOverlap && (
+                                                <div
+                                                    className="current-timeline"
+                                                    style={{ top: `${topPx}px` }}
+                                                    aria-hidden="true"
+                                                />
+                                            )}
+                                            <div
+                                                className="current-time-label"
+                                                style={{ top: `${topPx - 20}px` }}
+                                                aria-hidden="true"
+                                            >
+                                                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        </>
+                                    );
+                                })()}
+                                {Array.from({ length: 24 }).map((_, hour) => {
+                                    const hourEvents = events.filter(e => {
+                                        if (!e.gioBatDau) return false;
+                                        const eventHour = parseInt(e.gioBatDau.split(':')[0]);
+                                        return eventHour === hour;
+                                    });
+                                    return (
+                                        <div key={hour} className="hour-cell">
+                                            {hourEvents.map((event, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className="event-block"
+                                                    style={{ backgroundColor: event.color }}
+                                                    title={`PT: ${event.ptPhuTrach}\nChi nhánh: ${event.chiNhanh}`}
+                                                    onClick={() => handleSessionClick(event)}
+                                                >
+                                                    <div className="event-time">{event.gioBatDau}</div>
+                                                    <div className="event-title-small">{event.tenBuoiTap}</div>
+                                                    <div className="event-pt">PT: {event.ptPhuTrach}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
+    const renderDayView = () => {
+        const events = getEventsForDate(selectedDate);
+        const dayName = weekDaysShort[selectedDate.getDay()];
+        const isTodaySelected = isSameDay(selectedDate, new Date());
+        const ALL_DAY_HEIGHT = 40;
+        const HOUR_HEIGHT = 60;
+        const totalMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+        const topPx = ALL_DAY_HEIGHT + (totalMinutes * (HOUR_HEIGHT / 60));
+
+        return (
+            <div className="calendar-day-view">
+                <div className="day-header-row">
+                    <button className="nav-arrow-btn nav-prev" onClick={goToPrevious}>‹</button>
+                    <div className="time-column-header"></div>
+                    <div className="single-day-header">
+                        <div className="day-name">{dayName}</div>
+                        <div className="day-date">{selectedDate.getDate()}/{selectedDate.getMonth() + 1}</div>
+                    </div>
+                    <button className="nav-arrow-btn nav-next" onClick={goToNext}>›</button>
+                </div>
+                <div className="day-grid">
+                    <div className="time-column">
+                        <div className="all-day-label">Cả ngày</div>
+                        {renderTimeSlots()}
+                    </div>
+                    <div className="day-content-column">
+                        {isTodaySelected && (() => {
+                            const hasOverlap = events.some(ev => isNowDuringEvent(ev, currentTime));
+                            return (
+                                <>
+                                    {!hasOverlap && (
+                                        <div className="current-timeline" style={{ top: `${topPx}px` }} aria-hidden="true" />
+                                    )}
+                                    <div className="current-time-label" style={{ top: `${topPx - 20}px` }} aria-hidden="true">
+                                        {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                </>
+                            );
+                        })()}
+                        <div className="all-day-cell">
+                            {events.filter(e => !e.gioBatDau).map((event, idx) => (
+                                <div
+                                    key={idx}
+                                    className="event-block all-day-event"
+                                    style={{ backgroundColor: event.color }}
+                                >
+                                    {event.tenBuoiTap}
+                                </div>
+                            ))}
+                        </div>
+                        {Array.from({ length: 24 }).map((_, hour) => {
+                            const hourEvents = events.filter(e => {
+                                if (!e.gioBatDau) return false;
+                                const eventHour = parseInt(e.gioBatDau.split(':')[0]);
+                                return eventHour === hour;
+                            });
+                            return (
+                                <div key={hour} className="hour-cell">
+                                    {hourEvents.map((event, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="event-block"
+                                            style={{ backgroundColor: event.color }}
+                                            title={`Chi nhánh: ${event.chiNhanh}`}
+                                            onClick={() => handleSessionClick(event)}
+                                        >
+                                            <div className="event-time">{event.gioBatDau} - {event.gioKetThuc}</div>
+                                            <div className="event-title-small">{event.tenBuoiTap}</div>
+                                            <div className="event-pt">PT: {event.ptPhuTrach}</div>
+                                            <div className="event-branch">{event.chiNhanh}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     return (
         <>
             <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-            <div className={`min-h-screen bg-[#0a0a0a] schedule-page ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
-                {/* Sidebar */}
-                <div className="schedule-sidebar">
-
-                    {/* Mini Calendar */}
-                    <div className="mini-calendar">
-                        <div className="calendar-header">
+            <div className={`calendar-container ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
+                <div className="calendar-wrapper">
+                    {/* Top Navigation Bar */}
+                    <div className="calendar-top-bar">
+                        <div className="calendar-nav-left">
+                            <button className="add-event-btn">Thêm sự kiện +</button>
+                        </div>
+                        <div className="calendar-title">{getDisplayTitle()}</div>
+                        <div className="view-mode-toggle">
                             <button
-                                onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))}
-                                className="nav-button"
+                                className={`view-btn ${viewMode === 'month' ? 'active' : ''}`}
+                                onClick={() => setViewMode('month')}
                             >
-                                ‹
+                                Tháng
                             </button>
-                            <h3>{currentMonth.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}</h3>
                             <button
-                                onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))}
-                                className="nav-button"
+                                className={`view-btn ${viewMode === 'week' ? 'active' : ''}`}
+                                onClick={() => setViewMode('week')}
                             >
-                                ›
+                                Tuần
+                            </button>
+                            <button
+                                className={`view-btn ${viewMode === 'day' ? 'active' : ''}`}
+                                onClick={() => setViewMode('day')}
+                            >
+                                Ngày
                             </button>
                         </div>
-                        <div className="weekdays-header">
-                            {weekDays.map(day => (
-                                <div key={day} className="weekday">{day}</div>
-                            ))}
-                        </div>
-                        <div className="calendar-grid">
-                            {renderCalendarDays()}
-                        </div>
                     </div>
 
-                    {/* Calendar Details */}
-                    {/* <div className="calendar-details">
-                        <h4>Chi tiết lịch</h4>
-                        <div className="session-colors">
-                            {Object.entries(sessionColors).map(([type, color]) => (
-                                <div key={type} className="color-item">
-                                    <div className="color-dot" style={{ backgroundColor: color }}></div>
-                                    <span>{type}</span>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="schedule-stats">
-                            <div className="stat-item">
-                                <span className="stat-label">Tổng buổi tập:</span>
-                                <span className="stat-value">{scheduleData.length}</span>
-                            </div>
-                            <div className="stat-item">
-                                <span className="stat-label">Hôm nay:</span>
-                                <span className="stat-value">
-                                    {getSelectedDaySchedule().length}
-                                </span>
-                            </div>
-                        </div>
-                    </div> */}
-                </div>
-
-                {/* Main Content */}
-                <div className="schedule-main">
-                    <div className="schedule-header">
-                        <h1>Lịch tập</h1>
-                    </div>
-
-                    <div className="schedule-subheading">
-                        <h2 className="week-range">
-                            {selectedDate.toLocaleDateString('vi-VN', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                            })}
-                        </h2>
-                    </div>
-
-                    <div className="schedule-container">
+                    {/* Main Calendar Content */}
+                    <div className="calendar-main-content">
                         {loading ? (
                             <div className="schedule-loading">
                                 <div className="loading-spinner"></div>
@@ -330,103 +550,73 @@ const Schedule = () => {
                             </div>
                         ) : (
                             <>
-                                {/* Date Navigation */}
-                                <div className="date-navigation">
-                                    <button
-                                        className="nav-btn"
-                                        onClick={() => {
-                                            const newDate = new Date(selectedDate);
-                                            newDate.setDate(selectedDate.getDate() - 1);
-                                            setSelectedDate(newDate);
-                                        }}
-                                    >
-                                        ← Ngày trước
-                                    </button>
-
-                                    <button
-                                        className="today-btn"
-                                        onClick={() => setSelectedDate(new Date())}
-                                        disabled={isToday(selectedDate)}
-                                    >
-                                        Hôm nay
-                                    </button>
-
-                                    <button
-                                        className="nav-btn"
-                                        onClick={() => {
-                                            const newDate = new Date(selectedDate);
-                                            newDate.setDate(selectedDate.getDate() + 1);
-                                            setSelectedDate(newDate);
-                                        }}
-                                    >
-                                        Ngày sau →
-                                    </button>
-                                </div>
-
-                                {/* Schedule for Selected Day */}
-                                <div className="selected-day-schedule">
-                                    {isToday(selectedDate) && (
-                                        <div className="current-time-indicator">
-                                            <div className="time-indicator-dot"></div>
-                                            <span className="time-indicator-text">
-                                                {currentTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    <div className="session-list">
-                                        {getSelectedDaySchedule().length > 0 ? (
-                                            getSelectedDaySchedule().map(session => {
-                                                const sessionType = session.tenBuoiTap || session.goiTap?.tenGoiTap || 'Khác';
-                                                const color = getSessionColor(sessionType);
-                                                const countdown = isToday(selectedDate) ? getCountdown(session) : null;
-
-                                                return (
-                                                    <div
-                                                        key={session._id}
-                                                        className={`session-card ${session.trangThai?.toLowerCase()}`}
-                                                        style={{
-                                                            backgroundColor: color + '20',
-                                                            borderLeftColor: color
-                                                        }}
-                                                        title={`${sessionType} - ${session.pt?.hoTen}`}
-                                                    >
-                                                        <div className="session-time">
-                                                            {formatTime(session.gioBatDau)} - {formatTime(session.gioKetThuc)}
-                                                        </div>
-                                                        <div className="session-title">{sessionType}</div>
-                                                        <div className="session-trainer">
-                                                            PT: {session.pt?.hoTen || 'Chưa phân công'}
-                                                        </div>
-                                                        {session.chiNhanh && (
-                                                            <div className="session-branch">
-                                                                📍 {session.chiNhanh}
-                                                            </div>
-                                                        )}
-                                                        {countdown && (
-                                                            <div className="countdown-badge" style={{ borderColor: color, color }}>
-                                                                Bắt đầu sau {countdown}
-                                                            </div>
-                                                        )}
-                                                        <div className="session-status">
-                                                            {session.trangThai === 'DA_THAM_GIA' && '✓ Đã tham gia'}
-                                                            {session.trangThai === 'VANG_MAT' && '❌ Vắng mặt'}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })
-                                        ) : (
-                                            <div className="no-sessions">
-                                                <p className='text-[#f2f2f2]'>Không có buổi tập trong ngày này</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+                                {viewMode === 'month' && renderMonthView()}
+                                {viewMode === 'week' && renderWeekView()}
+                                {viewMode === 'day' && renderDayView()}
                             </>
                         )}
                     </div>
                 </div>
             </div>
+
+            {/* Session Detail Modal */}
+            {showSessionDetail && selectedSession && (
+                <div className="modal-overlay" onClick={closeSessionDetail}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Chi tiết buổi tập</h2>
+                            <button className="modal-close" onClick={closeSessionDetail}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="detail-row">
+                                <div className="detail-label">Tên buổi tập:</div>
+                                <div className="detail-value">{selectedSession.tenBuoiTap}</div>
+                            </div>
+                            <div className="detail-row">
+                                <div className="detail-label">Ngày tập:</div>
+                                <div className="detail-value">
+                                    {selectedSession.date.toLocaleDateString('vi-VN', {
+                                        weekday: 'long',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                    })}
+                                </div>
+                            </div>
+                            <div className="detail-row">
+                                <div className="detail-label">Thời gian:</div>
+                                <div className="detail-value">
+                                    {selectedSession.gioBatDau} - {selectedSession.gioKetThuc}
+                                </div>
+                            </div>
+                            <div className="detail-row">
+                                <div className="detail-label">PT phụ trách:</div>
+                                <div className="detail-value">{selectedSession.ptPhuTrach}</div>
+                            </div>
+                            <div className="detail-row">
+                                <div className="detail-label">Chi nhánh:</div>
+                                <div className="detail-value">{selectedSession.chiNhanh}</div>
+                            </div>
+                            <div className="detail-row">
+                                <div className="detail-label">Trạng thái:</div>
+                                <div className="detail-value">
+                                    <span
+                                        className="status-badge"
+                                        style={{ backgroundColor: getStatusColor(selectedSession.trangThai) }}
+                                    >
+                                        {getStatusText(selectedSession.trangThai)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn-close-modal" onClick={closeSessionDetail}>
+                                Đóng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };
