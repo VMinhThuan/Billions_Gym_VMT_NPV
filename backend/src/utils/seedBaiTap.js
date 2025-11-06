@@ -1,3 +1,4 @@
+// Sử dụng Exercise model (đã merge với BaiTap)
 const BaiTap = require('../models/BaiTap');
 const mongoose = require('mongoose');
 

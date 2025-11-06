@@ -19,7 +19,7 @@ import '../components/PackageRegistrationManager.css';
 
 type Stat = { label: string; value: string; trend?: 'up' | 'down'; sub?: string };
 
-type SectionKey = 'overview' | 'members' | 'pt' | 'packages' | 'schedules' | 'sessions' | 'exercises' | 'body_metrics' | 'nutrition' | 'payments' | 'notifications' | 'feedback' | 'reports' | 'ai_suggestions' | 'appointments' | 'package_workflow' | 'trainer_availability' | 'package_registrations';
+type SectionKey = 'overview' | 'members' | 'pt' | 'packages' | 'schedules' | 'sessions' | 'exercises' | 'body_metrics' | 'nutrition' | 'payments' | 'notifications' | 'feedback' | 'reports' | 'ai_suggestions' | 'appointments' | 'package_workflow' | 'trainer_availability' | 'package_registrations' | 'templates';
 
 interface HoiVien {
     _id: string;
@@ -35,6 +35,15 @@ interface HoiVien {
     ngayHetHan: Date;
     trangThaiHoiVien: 'DANG_HOAT_DONG' | 'TAM_NGUNG' | 'HET_HAN';
     cacChiSoCoThe: string[];
+    soTienTichLuy?: number;
+    soBuoiTapDaTap?: number;
+    maChiNhanh?: string; // Chi nhánh hội viên thuộc về
+    hangHoiVien?: {
+        _id?: string;
+        tenHienThi?: string;
+        tenHang?: string;
+        mauSac?: string;
+    };
     taiKhoan?: {
         _id?: string | null;
         trangThaiTK: 'DANG_HOAT_DONG' | 'DA_KHOA';
@@ -114,24 +123,71 @@ interface LichTap {
 
 interface BuoiTap {
     _id: string;
-    ngayTap: Date;
-    pt: string;
-    cacBaiTap: string[];
-    trangThaiTap: 'DA_HOAN_THANH' | 'CHUA_HOAN_THANH';
-    createdAt: Date;
-    updatedAt: Date;
+    tenBuoiTap?: string;
+    chiNhanh?: string | { _id?: string; tenChiNhanh?: string; };
+    ptPhuTrach?: string | { _id?: string; hoTen?: string; sdt?: string; chuyenMon?: string; };
+    ngayTap: Date | string;
+    gioBatDau?: string;
+    gioKetThuc?: string;
+    cacBaiTap?: Array<{
+        _id?: string;
+        baiTap?: string | { _id?: string; tenBaiTap?: string; };
+        soLanLap?: number;
+        soSet?: number;
+    }>;
+    trangThai?: 'CHUAN_BI' | 'DANG_DIEN_RA' | 'HOAN_THANH' | 'HUY';
+    trangThaiTap?: 'DA_HOAN_THANH' | 'CHUA_HOAN_THANH';
+    soLuongToiDa?: number;
+    soLuongHienTai?: number;
+    danhSachHoiVien?: Array<{
+        hoiVien?: string | { _id?: string; hoTen?: string; };
+        trangThai?: string;
+    }>;
+    moTa?: string;
+    ghiChu?: string;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
 }
 
 interface BaiTap {
     _id: string;
-    tenBaiTap: string;
-    moTa: string;
-    hinhAnh: string;
-    videoHuongDan: string;
-    nhomCo: string;
-    hinhAnhMinhHoa: string;
-    createdAt: Date;
-    updatedAt: Date;
+    tenBaiTap?: string;
+    title?: string;
+    moTa?: string;
+    description?: string;
+    hinhAnh?: string;
+    videoHuongDan?: string;
+    source_url?: string;
+    nhomCo?: string;
+    hinhAnhMinhHoa?: string[];
+    mucDoKho?: string;
+    difficulty?: 'beginner' | 'intermediate' | 'advanced';
+    thietBiSuDung?: string;
+    soHiepvaSoLanLap?: number;
+    mucTieuBaiTap?: string;
+    duration_sec?: number;
+    thoiGian?: number;
+    kcal?: number;
+    type?: 'video_file' | 'doc_file' | 'external_link';
+    status?: 'active' | 'inactive';
+    ratings?: {
+        averageRating: number;
+        totalRatings: number;
+    };
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
+interface TemplateBuoiTap {
+    _id: string;
+    ten: string;
+    moTa?: string;
+    loai?: string;
+    doKho?: 'DE' | 'TRUNG_BINH' | 'KHO';
+    hinhAnh?: string;
+    baiTap?: BaiTap[] | string[]; // Array of exercise IDs or populated exercises
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 
 interface ChiSoCoThe {
@@ -535,6 +591,10 @@ const AdminDashboard = () => {
                         <DumbbellIcon className="nav-icon" />
                         <span>Bài tập</span>
                     </a>
+                    <a className={`nav-item ${section === 'templates' ? 'active' : ''}`} href="#/admin/templates" aria-label="Template buổi tập">
+                        <ActivityIcon className="nav-icon" />
+                        <span>Template buổi tập</span>
+                    </a>
                     <a className={`nav-item ${section === 'body_metrics' ? 'active' : ''}`} href="#/admin/body_metrics" aria-label="Chỉ số cơ thể">
                         <ScaleIcon className="nav-icon" />
                         <span>Chỉ số cơ thể</span>
@@ -667,6 +727,7 @@ const AdminDashboard = () => {
                     {section === 'schedules' && <SchedulesPage />}
                     {section === 'sessions' && <SessionsPage />}
                     {section === 'exercises' && <ExercisesPage />}
+                    {section === 'templates' && <TemplatesPage />}
                     {section === 'body_metrics' && <BodyMetricsPage />}
                     {section === 'nutrition' && <NutritionPage />}
                     {section === 'payments' && <PaymentsPage />}
@@ -1481,6 +1542,12 @@ const PTDetailModal: React.FC<PTDetailModalProps> = ({ pt, chiNhanhs, onClose })
                                         <span className='user-info-form-content-item-value'>{pt.chuyenMon}</span>
                                     </div>
                                     <div className='user-info-form-content-item'>
+                                        <label className='user-info-form-content-item-label'>Chi Nhánh</label>
+                                        <span className='user-info-form-content-item-value'>
+                                            {pt.chinhanh ? (chiNhanhs.find(cn => cn._id === pt.chinhanh)?.tenChiNhanh || 'Chưa xác định') : 'Chưa có chi nhánh'}
+                                        </span>
+                                    </div>
+                                    <div className='user-info-form-content-item'>
                                         <label className='user-info-form-content-item-label'>Bằng Cấp/Chứng Chỉ</label>
                                         <span className='user-info-form-content-item-value'>{pt.bangCapChungChi}</span>
                                     </div>
@@ -1745,6 +1812,13 @@ const MembersPage = () => {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+    const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const [selectedBranch, setSelectedBranch] = useState<string>('all');
+    const [branches, setBranches] = useState<ChiNhanh[]>([]);
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [filterRank, setFilterRank] = useState<string>('all');
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
     const notifications = useCrudNotifications();
 
     const handleSort = (key: string) => {
@@ -1769,9 +1843,37 @@ const MembersPage = () => {
                     aValue = a.hoTen?.toLowerCase() || '';
                     bValue = b.hoTen?.toLowerCase() || '';
                     break;
+                case 'sdt':
+                    aValue = a.sdt || '';
+                    bValue = b.sdt || '';
+                    break;
+                case 'email':
+                    aValue = a.email?.toLowerCase() || '';
+                    bValue = b.email?.toLowerCase() || '';
+                    break;
+                case 'maChiNhanh':
+                    aValue = a.maChiNhanh || '';
+                    bValue = b.maChiNhanh || '';
+                    break;
+                case 'soTienTichLuy':
+                    aValue = a.soTienTichLuy || 0;
+                    bValue = b.soTienTichLuy || 0;
+                    break;
+                case 'soBuoiTapDaTap':
+                    aValue = a.soBuoiTapDaTap || 0;
+                    bValue = b.soBuoiTapDaTap || 0;
+                    break;
                 case 'ngayThamGia':
                     aValue = new Date(a.ngayThamGia || 0).getTime();
                     bValue = new Date(b.ngayThamGia || 0).getTime();
+                    break;
+                case 'ngayHetHan':
+                    aValue = new Date(a.ngayHetHan || 0).getTime();
+                    bValue = new Date(b.ngayHetHan || 0).getTime();
+                    break;
+                case 'trangThaiHoiVien':
+                    aValue = a.trangThaiHoiVien || '';
+                    bValue = b.trangThaiHoiVien || '';
                     break;
                 default:
                     return 0;
@@ -1865,17 +1967,59 @@ const MembersPage = () => {
         return () => { mounted = false; };
     }, [refreshTrigger]);
 
-    // Filter sorted rows based on search query
+    // Fetch chi nhánh
+    useEffect(() => {
+        const fetchBranches = async () => {
+            try {
+                const response = await api.get<{ success: boolean; data: ChiNhanh[] }>('/api/chinhanh');
+                if (response.success && Array.isArray(response.data)) {
+                    setBranches(response.data);
+                }
+            } catch (e) {
+                console.error('Error fetching branches:', e);
+                setBranches([]);
+            }
+        };
+        fetchBranches();
+    }, []);
+
+    // Filter sorted rows based on search query, branch, status, and rank
     const filtered = sortedRows.filter(r => {
-        if (!q.trim()) return true;
-        const searchTerm = q.toLowerCase().trim();
-        return (
-            (r.hoTen && r.hoTen.toLowerCase().includes(searchTerm)) ||
-            (r.email && r.email.toLowerCase().includes(searchTerm)) ||
-            (r.sdt && r.sdt.toLowerCase().includes(searchTerm)) ||
-            (r.soCCCD && r.soCCCD.toLowerCase().includes(searchTerm)) ||
-            (r.diaChi && r.diaChi.toLowerCase().includes(searchTerm))
-        );
+        // Search filter
+        if (q.trim()) {
+            const searchTerm = q.toLowerCase().trim();
+            const matchesSearch = (
+                (r.hoTen && r.hoTen.toLowerCase().includes(searchTerm)) ||
+                (r.email && r.email.toLowerCase().includes(searchTerm)) ||
+                (r.sdt && r.sdt.toLowerCase().includes(searchTerm)) ||
+                (r.soCCCD && r.soCCCD.toLowerCase().includes(searchTerm)) ||
+                (r.diaChi && r.diaChi.toLowerCase().includes(searchTerm))
+            );
+            if (!matchesSearch) return false;
+        }
+
+        // Branch filter
+        if (selectedBranch !== 'all') {
+            // Chỉ hiển thị hội viên có maChiNhanh khớp với selectedBranch
+            // Nếu hội viên không có maChiNhanh hoặc không khớp, loại bỏ
+            const memberBranchId = r.maChiNhanh ? String(r.maChiNhanh) : null;
+            const selectedBranchId = String(selectedBranch);
+            if (!memberBranchId || memberBranchId !== selectedBranchId) return false;
+        }
+
+        // Status filter
+        if (filterStatus !== 'all') {
+            if (r.trangThaiHoiVien !== filterStatus) return false;
+        }
+
+        // Rank filter
+        if (filterRank !== 'all') {
+            // Chỉ hiển thị hội viên có hangHoiVien khớp với filterRank
+            // Nếu hội viên không có hangHoiVien hoặc không khớp, loại bỏ
+            if (!r.hangHoiVien || !r.hangHoiVien.tenHang || r.hangHoiVien.tenHang !== filterRank) return false;
+        }
+
+        return true;
     });
 
     // Hàm để thay đổi trạng thái tài khoản
@@ -1954,136 +2098,377 @@ const MembersPage = () => {
         }
     };
 
+    // Close menu khi click outside
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Element;
+            if (!target.closest('.members-actions-wrapper')) {
+                setOpenMenuId(null);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
+
+    const toggleSelectMember = (id: string) => {
+        setSelectedMembers(prev =>
+            prev.includes(id)
+                ? prev.filter(m => m !== id)
+                : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedMembers.length === filtered.length) {
+            setSelectedMembers([]);
+        } else {
+            setSelectedMembers(filtered.map(r => r._id));
+        }
+    };
+
+    const getStatusClass = (status: string) => {
+        switch (status) {
+            case 'DANG_HOAT_DONG': return 'dang-hoat-dong';
+            case 'TAM_NGUNG': return 'tam-ngung';
+            case 'HET_HAN': return 'het-han';
+            default: return 'dang-hoat-dong';
+        }
+    };
+
+    const formatCurrency = (amount: number) => {
+        if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+        if (amount >= 1000) return `${(amount / 1000).toFixed(1)}K`;
+        return amount.toString();
+    };
+
+    const handleApplyFilters = () => {
+        // Filters are already applied in real-time through the `filtered` computed value
+        // This function just shows feedback to the user
+        const activeFilterCount = [
+            selectedBranch !== 'all' ? 1 : 0,
+            filterStatus !== 'all' ? 1 : 0,
+            filterRank !== 'all' ? 1 : 0,
+            q.trim() !== '' ? 1 : 0
+        ].reduce((a, b) => a + b, 0);
+
+        notifications.generic.success(
+            `Đã áp dụng bộ lọc! Tìm thấy ${filtered.length} hội viên${activeFilterCount > 0 ? ` với ${activeFilterCount} bộ lọc` : ''}`
+        );
+    };
+
+    const handleClearFilters = () => {
+        setSelectedBranch('all');
+        setFilterStatus('all');
+        setFilterRank('all');
+        setQ('');
+        notifications.generic.info('Đã xóa bộ lọc! Hiển thị tất cả hội viên.');
+    };
+
+    const hasActiveFilters = () => {
+        return selectedBranch !== 'all' || filterStatus !== 'all' || filterRank !== 'all' || q.trim() !== '';
+    };
+
+    // Helper function để lấy tên chi nhánh
+    const getBranchName = (maChiNhanh?: string) => {
+        if (!maChiNhanh) return 'Chưa có chi nhánh';
+        const branch = branches.find(b => b._id === maChiNhanh);
+        return branch ? branch.tenChiNhanh : 'Chưa có chi nhánh';
+    };
+
+    // Helper function để render sort icon
+    const renderSortIcon = (columnKey: string) => {
+        const isActive = sortConfig && sortConfig.key === columnKey;
+        const direction = isActive ? sortConfig.direction : null;
+
+        return (
+            <span
+                className="sort-icon"
+                style={{
+                    marginLeft: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    opacity: isActive ? 1 : 0.3,
+                    color: isActive ? '#6366F1' : '#9CA3AF',
+                    fontSize: '12px',
+                    fontWeight: isActive ? 600 : 400,
+                    transition: 'all 0.2s ease'
+                }}
+            >
+                {direction === 'asc' ? '↑' : direction === 'desc' ? '↓' : '⇅'}
+            </span>
+        );
+    };
+
     return (
-        <Card className="panel">
-            <div className="toolbar">
-                <div className="toolbar-left"><h2>Quản lý hội viên</h2></div>
-                <div className="toolbar-right">
-                    <input
-                        className="input"
-                        placeholder="Tìm tên/điện thoại/email"
-                        value={q}
-                        onChange={e => setQ(e.target.value)}
-                        onKeyPress={e => {
-                            if (e.key === 'Enter') {
-                                handleSearch(q);
-                            }
-                        }}
-                    />
-                    <Button variant="secondary" onClick={() => handleSearch(q)}>Tìm kiếm</Button>
-                    <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
-                    <div className="table-navigation-controls">
-                        <button
-                            className="table-nav-btn table-nav-left"
-                            onClick={() => {
-                                const container = document.querySelector('.table-container');
-                                if (container) {
-                                    container.scrollBy({ left: -200, behavior: 'smooth' });
-                                }
-                            }}
-                            title="Di chuyển sang trái"
-                        >
-                            ‹
-                        </button>
-                        <button
-                            className="table-nav-btn table-nav-right"
-                            onClick={() => {
-                                const container = document.querySelector('.table-container');
-                                if (container) {
-                                    container.scrollBy({ left: 200, behavior: 'smooth' });
-                                }
-                            }}
-                            title="Di chuyển sang phải"
-                        >
-                            ›
-                        </button>
-                    </div>
+        <div className="members-management-page">
+            {/* Page Header */}
+            <div className="members-page-header">
+                <div className="members-page-header-content">
+                    <h1 className="members-page-title">Quản lý hội viên</h1>
+                    <p className="members-page-description">
+                        Theo dõi thông tin, trạng thái, gói tập và chi nhánh của tất cả hội viên Billions Fitness & Gym.
+                    </p>
                 </div>
             </div>
-            <div className="table-container">
-                <table className="table">
+
+            {/* Filter Toolbar */}
+            <div className="members-filter-toolbar">
+                <button
+                    className="members-filter-icon-btn"
+                    onClick={() => setShowFilterMenu(!showFilterMenu)}
+                >
+                    🔽
+                </button>
+                <select
+                    className="members-filter-dropdown"
+                    value={selectedBranch}
+                    onChange={e => setSelectedBranch(e.target.value)}
+                >
+                    <option value="all">CHI NHÁNH</option>
+                    {branches.map(branch => (
+                        <option key={branch._id} value={branch._id}>
+                            {branch.tenChiNhanh}
+                        </option>
+                    ))}
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterStatus}
+                    onChange={e => setFilterStatus(e.target.value)}
+                >
+                    <option value="all">TRẠNG THÁI</option>
+                    <option value="DANG_HOAT_DONG">Đang hoạt động</option>
+                    <option value="TAM_NGUNG">Tạm ngưng</option>
+                    <option value="HET_HAN">Hết hạn</option>
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterRank}
+                    onChange={e => setFilterRank(e.target.value)}
+                >
+                    <option value="all">HẠNG</option>
+                    <option value="BRONZE">Bronze</option>
+                    <option value="SILVER">Silver</option>
+                    <option value="GOLD">Gold</option>
+                    <option value="PLATINUM">Platinum</option>
+                    <option value="DIAMOND">Diamond</option>
+                </select>
+                <input
+                    className="members-filter-search"
+                    type="text"
+                    placeholder="Tìm theo tên, SĐT, email..."
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                />
+                <button className="members-filter-apply-btn" onClick={handleApplyFilters}>
+                    APPLY
+                </button>
+                <button className="members-filter-clear-btn" onClick={handleClearFilters}>
+                    CLEAR
+                </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="members-page-actions">
+                <button className="members-add-btn" onClick={() => setShow(true)}>
+                    <span>+</span> Thêm hội viên
+                </button>
+            </div>
+
+            {/* Table Wrapper */}
+            <div className="members-table-wrapper">
+                <table className="members-table">
                     <thead>
                         <tr>
-                            <SortableHeader
-                                sortKey="hoTen"
-                                currentSort={sortConfig}
-                                onSort={handleSort}
+                            <th style={{ width: '50px' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedMembers.length === filtered.length && filtered.length > 0}
+                                    onChange={toggleSelectAll}
+                                />
+                            </th>
+                            <th
+                                style={{ width: '250px', cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('hoTen');
+                                }}
+                                className="sortable-header"
                             >
-                                Họ tên
-                            </SortableHeader>
-                            <th>Email</th>
-                            <th>SĐT</th>
-                            <th>Giới tính</th>
-                            <th>Ngày sinh</th>
-                            <SortableHeader
-                                sortKey="ngayThamGia"
-                                currentSort={sortConfig}
-                                onSort={handleSort}
+                                User name {renderSortIcon('hoTen')}
+                            </th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('sdt');
+                                }}
+                                className="sortable-header"
                             >
-                                Ngày tham gia
-                            </SortableHeader>
-                            <th>Trạng thái</th>
-                            <th>Hành động</th>
+                                Contact {renderSortIcon('sdt')}
+                            </th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('maChiNhanh');
+                                }}
+                                className="sortable-header"
+                            >
+                                Chi nhánh {renderSortIcon('maChiNhanh')}
+                            </th>
+                            <th>Rank</th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('trangThaiHoiVien');
+                                }}
+                                className="sortable-header"
+                            >
+                                Status {renderSortIcon('trangThaiHoiVien')}
+                            </th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('soTienTichLuy');
+                                }}
+                                className="sortable-header"
+                            >
+                                Total spent {renderSortIcon('soTienTichLuy')}
+                            </th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('soBuoiTapDaTap');
+                                }}
+                                className="sortable-header"
+                            >
+                                Workouts {renderSortIcon('soBuoiTapDaTap')}
+                            </th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('ngayThamGia');
+                                }}
+                                className="sortable-header"
+                            >
+                                Joined date {renderSortIcon('ngayThamGia')}
+                            </th>
+                            <th
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSort('ngayHetHan');
+                                }}
+                                className="sortable-header"
+                            >
+                                Expire date {renderSortIcon('ngayHetHan')}
+                            </th>
+                            <th style={{ width: '60px' }}></th>
                         </tr>
                     </thead>
                     <tbody>
                         {filtered.map(r => (
-                            <tr key={r._id}>
+                            <tr key={r._id} onClick={() => handleViewDetail(r)} style={{ cursor: 'pointer' }}>
+                                <td onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedMembers.includes(r._id)}
+                                        onChange={() => toggleSelectMember(r._id)}
+                                    />
+                                </td>
                                 <td>
-                                    <div className="user-info">
-                                        <div>
-                                            <div className="user-name">{r.hoTen}</div>
+                                    <div className="members-user-cell">
+                                        <img
+                                            className="members-avatar"
+                                            src={r.anhDaiDien || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.hoTen)}&background=3b82f6&color=fff`}
+                                            alt={r.hoTen}
+                                        />
+                                        <div className="members-user-info">
+                                            <div className="members-user-name">{r.hoTen}</div>
+                                            <div className="members-user-email">{r.email || 'N/A'}</div>
                                         </div>
                                     </div>
                                 </td>
-                                <td>{r.email ? r.email : 'N/A'}
-                                </td>
-                                <td>{r.sdt}</td>
-                                <td>{r.gioiTinh === 'Nam' ? 'Nam' : 'Nữ'}</td>
-                                <td>{r.ngaySinh ? new Date(r.ngaySinh).toLocaleDateString('vi-VN', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric'
-                                }) : 'N/A'}</td>
-                                <td>{r.ngayThamGia ? new Date(r.ngayThamGia).toLocaleDateString('vi-VN', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric'
-                                }) : 'N/A'}</td>
                                 <td>
-                                    <span className={`badge ${!r.taiKhoan?._id ? 'warning' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'success' : 'danger'}`}>
-                                        {!r.taiKhoan?._id ? 'CHƯA CÓ TÀI KHOẢN' : r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'ĐANG HOẠT ĐỘNG' : 'ĐÃ KHÓA'}
+                                    <div className="members-contact-cell">
+                                        <span className="members-contact-phone">{r.sdt}</span>
+                                        <span className="members-contact-email">{r.email || 'N/A'}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span className="members-branch-display">
+                                        {getBranchName(r.maChiNhanh)}
                                     </span>
                                 </td>
                                 <td>
-                                    <div className="action-buttons">
-                                        <button className="btn-icon btn-view" onClick={() => handleViewDetail(r)}>
-                                            👁️ Chi tiết
-                                        </button>
-                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
-                                            ✏️ Sửa
-                                        </button>
+                                    <span className={`members-rank-badge bronze`}>
+                                        Bronze
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className={`members-status-badge ${getStatusClass(r.trangThaiHoiVien)}`}>
+                                        {r.trangThaiHoiVien === 'DANG_HOAT_DONG' ? 'Đang hoạt động' :
+                                            r.trangThaiHoiVien === 'TAM_NGUNG' ? 'Tạm ngưng' : 'Hết hạn'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="members-metric-display compact">
+                                        {formatCurrency(r.soTienTichLuy || 0)}₫
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="members-metric-display compact">
+                                        {r.soBuoiTapDaTap || 0}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="members-date-display">
+                                        {r.ngayThamGia ? new Date(r.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span className="members-date-display">
+                                        {r.ngayHetHan ? new Date(r.ngayHetHan).toLocaleDateString('vi-VN') : 'N/A'}
+                                    </span>
+                                </td>
+                                <td onClick={(e) => e.stopPropagation()}>
+                                    <div className="members-actions-wrapper">
                                         <button
-                                            className="status-select"
-                                            onClick={() => {
-                                                const currentStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
-                                                const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
-                                                handleChangeAccountStatus(r._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
-                                            }}
-                                            disabled={isChangingStatus === r._id || !r.taiKhoan?._id}
-                                            style={{
-                                                background: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' :
-                                                    'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                boxShadow: r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '0 2px 8px rgba(239, 68, 68, 0.3)' :
-                                                    '0 2px 8px rgba(16, 185, 129, 0.3)',
-                                                opacity: !r.taiKhoan?._id ? 0.5 : 1
-                                            }}
+                                            className="members-actions-btn"
+                                            onClick={() => setOpenMenuId(openMenuId === r._id ? null : r._id)}
                                         >
-                                            {r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? '🔒 Vô hiệu hóa' : '🔓 Kích hoạt'}
+                                            ⋯
                                         </button>
-                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
-                                            🗑️ Xóa
-                                        </button>
+                                        {openMenuId === r._id && (
+                                            <div className="members-actions-menu">
+                                                <div className="members-actions-menu-item" onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleViewDetail(r);
+                                                    setOpenMenuId(null);
+                                                }}>
+                                                    👁️ Xem chi tiết
+                                                </div>
+                                                <div className="members-actions-menu-item" onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingItem(r);
+                                                    setOpenMenuId(null);
+                                                }}>
+                                                    ✏️ Sửa
+                                                </div>
+                                                <div className="members-actions-menu-item danger" onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setDeleteConfirm({ show: true, item: r });
+                                                    setOpenMenuId(null);
+                                                }}>
+                                                    🗑️ Xóa
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -2091,6 +2476,27 @@ const MembersPage = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination */}
+            {filtered.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px', gap: '8px' }}>
+                    {[1, 2, 3, 4, 5].map(page => (
+                        <button
+                            key={page}
+                            style={{
+                                padding: '8px 12px',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '6px',
+                                background: page === 1 ? '#EF4444' : 'white',
+                                color: page === 1 ? 'white' : '#1e293b',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                </div>
+            )}
             {(show || editingItem) && (
                 <EntityForm
                     title="Hội Viên"
@@ -2216,7 +2622,7 @@ const MembersPage = () => {
                 />
             )}
             {isLoading && <Loading overlay text="Đang tải hội viên..." />}
-        </Card>
+        </div>
     );
 };
 
@@ -2943,6 +3349,16 @@ const PTPage = () => {
     const [isChangingStatus, setIsChangingStatus] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
     const [chiNhanhs, setChiNhanhs] = useState<ChiNhanh[]>([]);
+    const [selectedBranch, setSelectedBranch] = useState<string>('all');
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [filterChuyenMon, setFilterChuyenMon] = useState<string>('all');
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
+    const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set());
+    const [selectedPTs, setSelectedPTs] = useState<Set<string>>(new Set());
+    const [showChangeBranchModal, setShowChangeBranchModal] = useState(false);
+    const [newBranchId, setNewBranchId] = useState<string>('');
+    const [isUpdatingBranch, setIsUpdatingBranch] = useState(false);
+    const [branchSortConfig, setBranchSortConfig] = useState<{ key: 'count'; direction: 'asc' | 'desc' } | null>(null);
 
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -3140,172 +3556,506 @@ const PTPage = () => {
         return () => { mounted = false; };
     }, [refreshTrigger]);
 
-    // Filter sorted rows based on search query for PT page
+    // Filter sorted rows based on search query, branch, status, and chuyenMon
     const filtered = sortedRows.filter(r => {
-        if (!q.trim()) return true;
-        const searchTerm = q.toLowerCase().trim();
-        return (
-            (r.hoTen && r.hoTen.toLowerCase().includes(searchTerm)) ||
-            (r.email && r.email.toLowerCase().includes(searchTerm)) ||
-            (r.sdt && r.sdt.toLowerCase().includes(searchTerm)) ||
-            (r.chuyenMon && r.chuyenMon.toLowerCase().includes(searchTerm)) ||
-            (r.bangCapChungChi && r.bangCapChungChi.toLowerCase().includes(searchTerm))
-        );
+        // Search filter
+        if (q.trim()) {
+            const searchTerm = q.toLowerCase().trim();
+            const matchesSearch = (
+                (r.hoTen && r.hoTen.toLowerCase().includes(searchTerm)) ||
+                (r.email && r.email.toLowerCase().includes(searchTerm)) ||
+                (r.sdt && r.sdt.toLowerCase().includes(searchTerm)) ||
+                (r.chuyenMon && r.chuyenMon.toLowerCase().includes(searchTerm)) ||
+                (r.bangCapChungChi && r.bangCapChungChi.toLowerCase().includes(searchTerm))
+            );
+            if (!matchesSearch) return false;
+        }
+
+        // Branch filter
+        if (selectedBranch !== 'all') {
+            const ptBranchId = r.chinhanh ? String(r.chinhanh) : null;
+            const selectedBranchId = String(selectedBranch);
+            if (!ptBranchId || ptBranchId !== selectedBranchId) return false;
+        }
+
+        // Status filter
+        if (filterStatus !== 'all') {
+            const ptStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
+            if (filterStatus === 'DANG_HOAT_DONG' && ptStatus !== 'DANG_HOAT_DONG') return false;
+            if (filterStatus === 'DA_KHOA' && ptStatus !== 'DA_KHOA') return false;
+            if (filterStatus === 'NGUNG_LAM_VIEC' && r.trangThaiPT !== 'NGUNG_LAM_VIEC') return false;
+        }
+
+        // Chuyên môn filter
+        if (filterChuyenMon !== 'all') {
+            if (!r.chuyenMon || !r.chuyenMon.toLowerCase().includes(filterChuyenMon.toLowerCase())) return false;
+        }
+
+        return true;
     });
 
+    // Group PTs by branch
+    const groupedByBranch = React.useMemo(() => {
+        const grouped: { [key: string]: PT[] } = {};
+
+        filtered.forEach(pt => {
+            const branchId = pt.chinhanh ? String(pt.chinhanh) : 'no-branch';
+            if (!grouped[branchId]) {
+                grouped[branchId] = [];
+            }
+            grouped[branchId].push(pt);
+        });
+
+        return grouped;
+    }, [filtered]);
+
+    // Toggle branch expansion
+    const toggleBranch = (branchId: string) => {
+        setExpandedBranches(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(branchId)) {
+                newSet.delete(branchId);
+            } else {
+                newSet.add(branchId);
+            }
+            return newSet;
+        });
+    };
+
+    // Get branch name
+    const getBranchName = (branchId: string) => {
+        if (branchId === 'no-branch') return 'Chưa có chi nhánh';
+        const branch = chiNhanhs.find(b => b._id === branchId);
+        return branch ? branch.tenChiNhanh : 'Chưa có chi nhánh';
+    };
+
+    // Get all unique chuyen mon values for filter
+    const chuyenMonOptions = React.useMemo(() => {
+        const chuyenMonSet = new Set<string>();
+        rows.forEach(pt => {
+            if (pt.chuyenMon) {
+                // Split by comma and add each specialty
+                pt.chuyenMon.split(',').forEach(cm => {
+                    const trimmed = cm.trim().toLowerCase();
+                    if (trimmed) chuyenMonSet.add(cm.trim());
+                });
+            }
+        });
+        return Array.from(chuyenMonSet).sort();
+    }, [rows]);
+
+    // Handle apply filters
+    const handleApplyFilters = () => {
+        // Filters are already applied via state, this is for UI consistency
+        setShowFilterMenu(false);
+    };
+
+    // Handle clear filters
+    const handleClearFilters = () => {
+        setSelectedBranch('all');
+        setFilterStatus('all');
+        setFilterChuyenMon('all');
+        setQ('');
+        setSortConfig(null);
+        setBranchSortConfig(null);
+        setShowFilterMenu(false);
+    };
+
+    // Toggle select PT
+    const toggleSelectPT = (ptId: string) => {
+        setSelectedPTs(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(ptId)) {
+                newSet.delete(ptId);
+            } else {
+                newSet.add(ptId);
+            }
+            return newSet;
+        });
+    };
+
+    // Toggle select all PTs in a branch
+    const toggleSelectAllPTsInBranch = (branchId: string) => {
+        const ptsInBranch = groupedByBranch[branchId] || [];
+        const allSelected = ptsInBranch.every(pt => selectedPTs.has(pt._id));
+
+        setSelectedPTs(prev => {
+            const newSet = new Set(prev);
+            if (allSelected) {
+                // Deselect all
+                ptsInBranch.forEach(pt => newSet.delete(pt._id));
+            } else {
+                // Select all
+                ptsInBranch.forEach(pt => newSet.add(pt._id));
+            }
+            return newSet;
+        });
+    };
+
+    // Check if all PTs in branch are selected
+    const areAllPTsInBranchSelected = (branchId: string) => {
+        const ptsInBranch = groupedByBranch[branchId] || [];
+        return ptsInBranch.length > 0 && ptsInBranch.every(pt => selectedPTs.has(pt._id));
+    };
+
+    // Check if some PTs in branch are selected
+    const areSomePTsInBranchSelected = (branchId: string) => {
+        const ptsInBranch = groupedByBranch[branchId] || [];
+        return ptsInBranch.some(pt => selectedPTs.has(pt._id));
+    };
+
+    // Handle change branch for selected PTs
+    const handleChangeBranchForSelected = async () => {
+        if (selectedPTs.size === 0 || !newBranchId) {
+            notifications.generic.error('Lỗi', 'Vui lòng chọn ít nhất một PT và một chi nhánh mới!');
+            return;
+        }
+
+        setIsUpdatingBranch(true);
+        try {
+            const ptIds = Array.from(selectedPTs);
+            const updatePromises = ptIds.map(ptId =>
+                api.put(`/api/user/pt/${ptId}`, { chinhanh: newBranchId })
+            );
+
+            await Promise.all(updatePromises);
+
+            // Update local state
+            setRows(rows.map(pt =>
+                selectedPTs.has(pt._id)
+                    ? { ...pt, chinhanh: newBranchId }
+                    : pt
+            ));
+
+            // Clear selection and close modal
+            setSelectedPTs(new Set());
+            setShowChangeBranchModal(false);
+            setNewBranchId('');
+            setRefreshTrigger(prev => prev + 1);
+
+            notifications.generic.success('Thành công', `Đã cập nhật chi nhánh cho ${ptIds.length} huấn luyện viên!`);
+        } catch (error) {
+            console.error('Error updating branch for PTs:', error);
+            notifications.generic.error('Lỗi', 'Không thể cập nhật chi nhánh cho các PT đã chọn!');
+        } finally {
+            setIsUpdatingBranch(false);
+        }
+    };
+
     return (
-        <Card className="panel">
-            <div className="toolbar">
-                <div className="toolbar-left"><h2>Quản lý huấn luyện viên</h2></div>
-                <div className="toolbar-right">
-                    <input
-                        className="input"
-                        placeholder="Tìm tên/điện thoại/email"
-                        value={q}
-                        onChange={e => setQ(e.target.value)}
-                        onKeyPress={e => {
-                            if (e.key === 'Enter') {
-                                handleSearch(q);
-                            }
-                        }}
-                    />
-                    <Button variant="secondary" onClick={() => handleSearch(q)}>Tìm kiếm</Button>
-                    <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
-                    <div className="table-navigation-controls">
-                        <button
-                            className="table-nav-btn table-nav-left"
-                            onClick={() => {
-                                const container = document.querySelector('.table-container');
-                                if (container) {
-                                    container.scrollBy({ left: -200, behavior: 'smooth' });
-                                }
-                            }}
-                            title="Di chuyển sang trái"
-                        >
-                            ‹
-                        </button>
-                        <button
-                            className="table-nav-btn table-nav-right"
-                            onClick={() => {
-                                const container = document.querySelector('.table-container');
-                                if (container) {
-                                    container.scrollBy({ left: 200, behavior: 'smooth' });
-                                }
-                            }}
-                            title="Di chuyển sang phải"
-                        >
-                            ›
-                        </button>
-                    </div>
+        <div className="members-management-page">
+            {/* Page Header */}
+            <div className="members-page-header">
+                <div className="members-page-header-content">
+                    <h1 className="members-page-title">Quản lý huấn luyện viên</h1>
+                    <p className="members-page-description">
+                        Theo dõi thông tin, trạng thái và chi nhánh của tất cả huấn luyện viên Billions Fitness & Gym.
+                    </p>
                 </div>
             </div>
-            <div className="pt-cards-container">
-                <div className="pt-cards-grid">
-                    {filtered.map(r => (
-                        <div key={r._id} className="pt-card">
-                            <div className="pt-card-header">
-                                <div className="pt-avatar">
-                                    {r.anhDaiDien ? (
-                                        <img src={r.anhDaiDien} alt={r.hoTen} className="pt-avatar-img" />
-                                    ) : (
-                                        <div className="pt-avatar-placeholder">
-                                            {r.hoTen.charAt(0).toUpperCase()}
+
+            {/* Filter Toolbar */}
+            <div className="members-filter-toolbar">
+                <button
+                    className="members-filter-icon-btn"
+                    onClick={() => setShowFilterMenu(!showFilterMenu)}
+                >
+                    🔽
+                </button>
+                <select
+                    className="members-filter-dropdown"
+                    value={selectedBranch}
+                    onChange={e => setSelectedBranch(e.target.value)}
+                >
+                    <option value="all">CHI NHÁNH</option>
+                    {chiNhanhs.map(branch => (
+                        <option key={branch._id} value={branch._id}>
+                            {branch.tenChiNhanh}
+                        </option>
+                    ))}
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterStatus}
+                    onChange={e => setFilterStatus(e.target.value)}
+                >
+                    <option value="all">TRẠNG THÁI</option>
+                    <option value="DANG_HOAT_DONG">Đang hoạt động</option>
+                    <option value="DA_KHOA">Đã khóa</option>
+                    <option value="NGUNG_LAM_VIEC">Ngừng làm việc</option>
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterChuyenMon}
+                    onChange={e => setFilterChuyenMon(e.target.value)}
+                >
+                    <option value="all">CHUYÊN MÔN</option>
+                    {chuyenMonOptions.map(cm => (
+                        <option key={cm} value={cm}>{cm}</option>
+                    ))}
+                </select>
+                <input
+                    className="members-filter-search"
+                    type="text"
+                    placeholder="Tìm theo tên, SĐT, email..."
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                />
+                <select
+                    className="members-filter-dropdown"
+                    value={
+                        branchSortConfig
+                            ? `branch-count-${branchSortConfig.direction}`
+                            : (sortConfig ? `${sortConfig.key}-${sortConfig.direction}` : 'none')
+                    }
+                    onChange={e => {
+                        const value = e.target.value;
+                        if (value === 'none') {
+                            setSortConfig(null);
+                            setBranchSortConfig(null);
+                        } else if (value.startsWith('branch-count-')) {
+                            const direction = value.split('-')[2] as 'asc' | 'desc';
+                            setBranchSortConfig({ key: 'count', direction });
+                            setSortConfig(null);
+                        } else {
+                            const [key, direction] = value.split('-');
+                            setSortConfig({ key, direction: direction as 'asc' | 'desc' });
+                            setBranchSortConfig(null);
+                        }
+                    }}
+                >
+                    <option value="none">SẮP XẾP</option>
+                    <option value="branch-count-desc">Số lượng PT: Nhiều nhất</option>
+                    <option value="branch-count-asc">Số lượng PT: Ít nhất</option>
+                    <option value="hoTen-asc">Tên: A → Z</option>
+                    <option value="hoTen-desc">Tên: Z → A</option>
+                    <option value="ngayVaoLam-desc">Ngày vào làm: Mới nhất</option>
+                    <option value="ngayVaoLam-asc">Ngày vào làm: Cũ nhất</option>
+                    <option value="kinhNghiem-desc">Kinh nghiệm: Cao nhất</option>
+                    <option value="kinhNghiem-asc">Kinh nghiệm: Thấp nhất</option>
+                    <option value="danhGia-desc">Đánh giá: Cao nhất</option>
+                    <option value="danhGia-asc">Đánh giá: Thấp nhất</option>
+                </select>
+                <button className="members-filter-apply-btn" onClick={handleApplyFilters}>
+                    APPLY
+                </button>
+                <button className="members-filter-clear-btn" onClick={handleClearFilters}>
+                    CLEAR
+                </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="members-page-actions">
+                {selectedPTs.size > 0 && (
+                    <button
+                        className="members-change-branch-btn"
+                        onClick={() => setShowChangeBranchModal(true)}
+                    >
+                        <span>📍</span> Thay đổi chi nhánh ({selectedPTs.size})
+                    </button>
+                )}
+                <button className="members-add-btn" onClick={() => setShow(true)}>
+                    <span>+</span> Thêm huấn luyện viên
+                </button>
+            </div>
+
+            {/* Branch Sections with PT Cards */}
+            <div className="pt-branches-container">
+                {Object.keys(groupedByBranch).length === 0 ? (
+                    <div className="pt-empty-state">
+                        <p>Không tìm thấy huấn luyện viên nào.</p>
+                    </div>
+                ) : (
+                    Object.keys(groupedByBranch)
+                        .sort((a, b) => {
+                            // If sorting by PT count
+                            if (branchSortConfig) {
+                                const countA = groupedByBranch[a]?.length || 0;
+                                const countB = groupedByBranch[b]?.length || 0;
+
+                                // Always put no-branch last
+                                if (a === 'no-branch') return 1;
+                                if (b === 'no-branch') return -1;
+
+                                // Sort by count
+                                if (branchSortConfig.direction === 'desc') {
+                                    return countB - countA; // Descending: more PTs first
+                                } else {
+                                    return countA - countB; // Ascending: fewer PTs first
+                                }
+                            }
+
+                            // Default sort: no-branch last, then alphabetically
+                            if (a === 'no-branch') return 1;
+                            if (b === 'no-branch') return -1;
+                            return getBranchName(a).localeCompare(getBranchName(b));
+                        })
+                        .map(branchId => {
+                            const ptsInBranch = groupedByBranch[branchId];
+                            const isExpanded = expandedBranches.has(branchId);
+                            const branchName = getBranchName(branchId);
+
+                            return (
+                                <div key={branchId} className="pt-branch-section">
+                                    <div
+                                        className="pt-branch-header"
+                                    >
+                                        <div className="pt-branch-header-left" onClick={() => toggleBranch(branchId)}>
+                                            <span className="pt-branch-icon">{isExpanded ? '▼' : '▶'}</span>
+                                            <h3 className="pt-branch-name">{branchName}</h3>
+                                            <span className="pt-branch-count">({ptsInBranch.length})</span>
+                                        </div>
+                                        {isExpanded && (
+                                            <div className="pt-branch-header-right" onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={areAllPTsInBranchSelected(branchId)}
+                                                    ref={(input) => {
+                                                        if (input) input.indeterminate = areSomePTsInBranchSelected(branchId) && !areAllPTsInBranchSelected(branchId);
+                                                    }}
+                                                    onChange={() => toggleSelectAllPTsInBranch(branchId)}
+                                                    className="pt-branch-checkbox"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {isExpanded && (
+                                        <div className="pt-branch-cards-wrapper">
+                                            <div className="pt-cards-grid">
+                                                {ptsInBranch.map(pt => (
+                                                    <div key={pt._id} className="pt-card">
+                                                        <div className="pt-card-checkbox-wrapper">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedPTs.has(pt._id)}
+                                                                onChange={() => toggleSelectPT(pt._id)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="pt-card-checkbox"
+                                                            />
+                                                        </div>
+                                                        <div className="pt-card-header">
+                                                            <div className="pt-avatar">
+                                                                {pt.anhDaiDien ? (
+                                                                    <img src={pt.anhDaiDien} alt={pt.hoTen} className="pt-avatar-img" />
+                                                                ) : (
+                                                                    <div className="pt-avatar-placeholder">
+                                                                        {pt.hoTen.charAt(0).toUpperCase()}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="pt-info">
+                                                                <h3 className="pt-name">{pt.hoTen}</h3>
+                                                                <p className="pt-phone">{pt.sdt}</p>
+                                                            </div>
+                                                            <div className="pt-menu">
+                                                                <button
+                                                                    className="pt-menu-btn"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        // Đóng tất cả menu khác trước
+                                                                        document.querySelectorAll('.pt-menu-dropdown.show').forEach(dropdown => {
+                                                                            dropdown.classList.remove('show');
+                                                                        });
+
+                                                                        const menu = e.currentTarget.nextElementSibling;
+                                                                        if (menu) {
+                                                                            menu.classList.toggle('show');
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    ⋯
+                                                                </button>
+                                                                <div className="pt-menu-dropdown">
+                                                                    <button
+                                                                        className="pt-menu-item"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleViewDetail(pt);
+                                                                        }}
+                                                                    >
+                                                                        👁️ Xem chi tiết
+                                                                    </button>
+                                                                    <button
+                                                                        className="pt-menu-item"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setEditingItem(pt);
+                                                                        }}
+                                                                    >
+                                                                        ✏️ Sửa
+                                                                    </button>
+                                                                    <button
+                                                                        className="pt-menu-item pt-menu-delete"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setDeleteConfirm({ show: true, item: pt });
+                                                                        }}
+                                                                    >
+                                                                        🗑️ Xóa
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="pt-card-divider"></div>
+
+                                                        <div className="pt-card-details">
+                                                            <div className="pt-detail-item">
+                                                                <span className="pt-detail-label">Chuyên môn:</span>
+                                                                <span className="pt-detail-value">{pt.chuyenMon}</span>
+                                                            </div>
+                                                            <div className="pt-detail-item">
+                                                                <span className="pt-detail-label">Kinh nghiệm:</span>
+                                                                <span className="pt-detail-value">{pt.kinhNghiem} năm</span>
+                                                            </div>
+                                                            <div className="pt-detail-item">
+                                                                <span className="pt-detail-label">Đánh giá:</span>
+                                                                <span className="pt-detail-value">
+                                                                    <Rating
+                                                                        rating={pt.danhGia || 0}
+                                                                        size="small"
+                                                                        readonly={true}
+                                                                    />
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="pt-card-divider"></div>
+
+                                                        <div className="pt-card-actions">
+                                                            <button
+                                                                className="pt-action-btn pt-action-disable"
+                                                                data-status={pt.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG'}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const currentStatus = pt.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
+                                                                    const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
+                                                                    handleChangeAccountStatus(pt._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
+                                                                }}
+                                                                disabled={isChangingStatus === pt._id || !pt.taiKhoan?._id}
+                                                            >
+                                                                {pt.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                                                            </button>
+                                                            <button
+                                                                className="pt-action-btn pt-action-view"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleViewDetail(pt);
+                                                                }}
+                                                            >
+                                                                Xem hồ sơ
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                                <div className="pt-info">
-                                    <h3 className="pt-name">{r.hoTen}</h3>
-                                    <p className="pt-phone">{r.sdt}</p>
-                                </div>
-                                <div className="pt-menu">
-                                    <button
-                                        className="pt-menu-btn"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            // Đóng tất cả menu khác trước
-                                            document.querySelectorAll('.pt-menu-dropdown.show').forEach(dropdown => {
-                                                dropdown.classList.remove('show');
-                                            });
-
-                                            const menu = e.currentTarget.nextElementSibling;
-                                            if (menu) {
-                                                menu.classList.toggle('show');
-                                            }
-                                        }}
-                                    >
-                                        ⋯
-                                    </button>
-                                    <div className="pt-menu-dropdown">
-                                        <button
-                                            className="pt-menu-item"
-                                            onClick={() => setEditingItem(r)}
-                                        >
-                                            ✏️ Sửa
-                                        </button>
-                                        <button
-                                            className="pt-menu-item pt-menu-delete"
-                                            onClick={() => setDeleteConfirm({ show: true, item: r })}
-                                        >
-                                            🗑️ Xóa
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="pt-card-divider"></div>
-
-                            <div className="pt-card-details">
-                                <div className="pt-detail-item">
-                                    <span className="pt-detail-label">Chuyên môn:</span>
-                                    <span className="pt-detail-value">{r.chuyenMon}</span>
-                                </div>
-                                <div className="pt-detail-item">
-                                    <span className="pt-detail-label">Chi nhánh:</span>
-                                    <span className="pt-detail-value">
-                                        {chiNhanhs.find(cn => cn._id === r.chinhanh)?.tenChiNhanh || 'Chưa xác định'}
-                                    </span>
-                                </div>
-                                <div className="pt-detail-item">
-                                    <span className="pt-detail-label">Kinh nghiệm:</span>
-                                    <span className="pt-detail-value">{r.kinhNghiem} năm</span>
-                                </div>
-                                <div className="pt-detail-item">
-                                    <span className="pt-detail-label">Đánh giá:</span>
-                                    <span className="pt-detail-value">
-                                        <Rating
-                                            rating={r.danhGia || 0}
-                                            size="small"
-                                            readonly={true}
-                                        />
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="pt-card-divider"></div>
-
-                            <div className="pt-card-actions">
-                                <button
-                                    className="pt-action-btn pt-action-disable"
-                                    data-status={r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG'}
-                                    onClick={() => {
-                                        const currentStatus = r.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG';
-                                        const newStatus = currentStatus === 'DANG_HOAT_DONG' ? 'DA_KHOA' : 'DANG_HOAT_DONG';
-                                        handleChangeAccountStatus(r._id, newStatus as 'DANG_HOAT_DONG' | 'DA_KHOA');
-                                    }}
-                                    disabled={isChangingStatus === r._id || !r.taiKhoan?._id}
-                                >
-                                    {r.taiKhoan?.trangThaiTK === 'DANG_HOAT_DONG' ? 'Vô hiệu hóa' : 'Kích hoạt'}
-                                </button>
-                                <button
-                                    className="pt-action-btn pt-action-view"
-                                    onClick={() => handleViewDetail(r)}
-                                >
-                                    Xem hồ sơ
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                            );
+                        })
+                )}
             </div>
             {(show || editingItem) && <EntityForm
                 title="Huấn luyện viên"
@@ -3409,6 +4159,55 @@ const PTPage = () => {
                 }}
                 onCancel={() => setDeleteConfirm({ show: false, item: null })}
             />}
+            {showChangeBranchModal && (
+                <div className="modal-overlay" onClick={() => setShowChangeBranchModal(false)}>
+                    <div className="change-branch-modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Thay đổi chi nhánh</h2>
+                            <button className="modal-close" onClick={() => setShowChangeBranchModal(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <p className="change-branch-info">
+                                Bạn đã chọn <strong>{selectedPTs.size}</strong> huấn luyện viên. Vui lòng chọn chi nhánh mới:
+                            </p>
+                            <div className="form-group">
+                                <label>Chi nhánh mới</label>
+                                <select
+                                    className="form-select"
+                                    value={newBranchId}
+                                    onChange={e => setNewBranchId(e.target.value)}
+                                >
+                                    <option value="">-- Chọn chi nhánh --</option>
+                                    {chiNhanhs.map(branch => (
+                                        <option key={branch._id} value={branch._id}>
+                                            {branch.tenChiNhanh}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => {
+                                    setShowChangeBranchModal(false);
+                                    setNewBranchId('');
+                                }}
+                                disabled={isUpdatingBranch}
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleChangeBranchForSelected}
+                                disabled={isUpdatingBranch || !newBranchId}
+                            >
+                                {isUpdatingBranch ? 'Đang cập nhật...' : 'Xác nhận'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {viewingDetail && (
                 <PTDetailModal
                     pt={viewingDetail}
@@ -3417,7 +4216,7 @@ const PTPage = () => {
                 />
             )}
             {isLoading && <Loading overlay text="Đang tải PT..." />}
-        </Card>
+        </div>
     );
 };
 
@@ -3429,109 +4228,536 @@ const SessionsPage = () => {
     const [isCopying, setIsCopying] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: BuoiTap | null }>({ show: false, item: null });
     const [isLoading, setIsLoading] = useState(false);
-    const [rows, setRows] = useState<any[]>([]);
+    const [rows, setRows] = useState<BuoiTap[]>([]);
+    const [chiNhanhs, setChiNhanhs] = useState<ChiNhanh[]>([]);
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+    const [selectedBranch, setSelectedBranch] = useState<string>('all');
+    const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set());
+    const notifications = useCrudNotifications();
+
+    // Fetch chi nhánh
+    const fetchChiNhanhs = async () => {
+        try {
+            const response = await api.get<{ success: boolean; data: ChiNhanh[] }>('/api/chinhanh');
+            if (response.success && Array.isArray(response.data)) {
+                setChiNhanhs(response.data);
+            }
+        } catch (e) {
+            console.error('Error fetching chi nhánh:', e);
+        }
+    };
+
+    // Fetch buổi tập
+    const fetchBuoiTap = async () => {
+        try {
+            setIsLoading(true);
+            const data = await api.get<BuoiTap[]>('/api/buoitap');
+            if (Array.isArray(data)) {
+                setRows(data);
+            }
+        } catch (e) {
+            console.error('Error fetching sessions:', e);
+            setRows([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
         let mounted = true;
         (async () => {
-            try {
-                setIsLoading(true);
-                const data = await api.get('/api/buoitap');
-                if (mounted && Array.isArray(data)) setRows(data);
-            } catch (e) {
-                console.error('Error fetching sessions:', e);
-                // Fallback mock data when API is not available
-                const mockSessions = [
-                    {
-                        _id: 'session_1',
-                        ngayTap: new Date('2024-01-15'),
-                        pt: 'PT Minh',
-                        cacBaiTap: ['Push-up', 'Squat', 'Plank'],
-                        trangThaiTap: 'DA_HOAN_THANH'
-                    },
-                    {
-                        _id: 'session_2',
-                        ngayTap: new Date('2024-01-17'),
-                        pt: 'PT Lan',
-                        cacBaiTap: ['Deadlift', 'Pull-up'],
-                        trangThaiTap: 'CHUA_HOAN_THANH'
-                    },
-                    {
-                        _id: 'session_3',
-                        ngayTap: new Date('2024-01-20'),
-                        pt: 'PT Tuấn',
-                        cacBaiTap: ['Bench Press', 'Shoulder Press', 'Bicep Curl', 'Tricep Dip'],
-                        trangThaiTap: 'DA_HOAN_THANH'
-                    }
-                ];
-                if (mounted) setRows(mockSessions);
-            } finally {
-                if (mounted) setIsLoading(false);
-            }
+            await Promise.all([fetchBuoiTap(), fetchChiNhanhs()]);
         })();
         return () => { mounted = false; };
     }, []);
+
+    // Helper functions
+    const getPTName = (session: BuoiTap): string => {
+        if (typeof session.ptPhuTrach === 'object') {
+            return session.ptPhuTrach?.hoTen || 'N/A';
+        }
+        if (session.ptPhuTrach) {
+            return session.ptPhuTrach;
+        }
+        return 'N/A';
+    };
+
+    const getBranchName = (session: BuoiTap): string => {
+        if (typeof session.chiNhanh === 'object') {
+            return session.chiNhanh?.tenChiNhanh || 'Chưa có chi nhánh';
+        }
+        if (session.chiNhanh) {
+            const branch = chiNhanhs.find(cn => cn._id === session.chiNhanh);
+            return branch?.tenChiNhanh || 'Chưa có chi nhánh';
+        }
+        return 'Chưa có chi nhánh';
+    };
+
+    const getBranchId = (session: BuoiTap): string => {
+        if (typeof session.chiNhanh === 'object') {
+            return session.chiNhanh?._id || 'no-branch';
+        }
+        return session.chiNhanh || 'no-branch';
+    };
+
+    const getSoBaiTap = (session: BuoiTap): number => {
+        if (!session.cacBaiTap) return 0;
+        if (Array.isArray(session.cacBaiTap)) {
+            return session.cacBaiTap.length;
+        }
+        return 0;
+    };
+
+    const getTrangThaiDisplay = (session: BuoiTap): { text: string; class: string } => {
+        if (session.trangThai === 'HOAN_THANH') {
+            return { text: 'HOÀN THÀNH', class: 'completed' };
+        }
+        if (session.trangThai === 'HUY') {
+            return { text: 'ĐÃ HỦY', class: 'cancelled' };
+        }
+        if (session.trangThai === 'DANG_DIEN_RA') {
+            return { text: 'ĐANG DIỄN RA', class: 'in-progress' };
+        }
+        if (session.trangThaiTap === 'DA_HOAN_THANH') {
+            return { text: 'HOÀN THÀNH', class: 'completed' };
+        }
+        return { text: 'CHƯA HOÀN THÀNH', class: 'pending' };
+    };
+
+    const formatNgayTap = (ngayTap: Date | string | undefined): string => {
+        if (!ngayTap) return 'N/A';
+        try {
+            const date = typeof ngayTap === 'string' ? new Date(ngayTap) : ngayTap;
+            return date.toLocaleDateString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        } catch {
+            return 'N/A';
+        }
+    };
+
+    // Filter sessions
     const filtered = rows.filter(r => {
-        const ptName = typeof r.pt === 'object' ? r.pt?.hoTen || '' : r.pt || '';
-        return ptName.toLowerCase().includes(q.toLowerCase());
+        // Search filter
+        if (q.trim()) {
+            const searchTerm = q.toLowerCase().trim();
+            const ptName = getPTName(r).toLowerCase();
+            const branchName = getBranchName(r).toLowerCase();
+            const tenBuoiTap = (r.tenBuoiTap || '').toLowerCase();
+            if (!ptName.includes(searchTerm) && !branchName.includes(searchTerm) && !tenBuoiTap.includes(searchTerm)) {
+                return false;
+            }
+        }
+
+        // Branch filter
+        if (selectedBranch !== 'all') {
+            const branchId = getBranchId(r);
+            if (String(branchId) !== String(selectedBranch)) return false;
+        }
+
+        return true;
     });
 
+    // Group sessions by branch
+    const groupedByBranch = React.useMemo(() => {
+        const grouped: { [key: string]: BuoiTap[] } = {};
+
+        filtered.forEach(session => {
+            const branchId = getBranchId(session);
+            if (!grouped[branchId]) {
+                grouped[branchId] = [];
+            }
+            grouped[branchId].push(session);
+        });
+
+        return grouped;
+    }, [filtered, chiNhanhs]);
+
+    // Toggle branch expansion
+    const toggleBranch = (branchId: string) => {
+        setExpandedBranches(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(branchId)) {
+                newSet.delete(branchId);
+            } else {
+                newSet.add(branchId);
+            }
+            return newSet;
+        });
+    };
+
+    // Get branch name for display
+    const getBranchDisplayName = (branchId: string) => {
+        if (branchId === 'no-branch') return 'Chưa có chi nhánh';
+        const branch = chiNhanhs.find(b => b._id === branchId);
+        return branch ? branch.tenChiNhanh : 'Chưa có chi nhánh';
+    };
+
+    // Calendar functions
+    const weekDays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+    const getDaysInMonth = () => {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const startDate = new Date(firstDay);
+        startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+        const days = [];
+        for (let i = 0; i < 42; i++) {
+            const day = new Date(startDate);
+            day.setDate(startDate.getDate() + i);
+            days.push(day);
+        }
+        return days;
+    };
+
+    const isToday = (date: Date) => {
+        const today = new Date();
+        return date.toDateString() === today.toDateString();
+    };
+
+    const isSameDate = (date1: Date, date2: Date) => {
+        return date1.toDateString() === date2.toDateString();
+    };
+
+    const hasSessionsOnDate = (date: Date) => {
+        return filtered.some(session => {
+            const sessionDate = new Date(session.ngayTap);
+            return isSameDate(sessionDate, date);
+        });
+    };
+
+    const getSessionsForDate = (date: Date) => {
+        return filtered.filter(session => {
+            const sessionDate = new Date(session.ngayTap);
+            return isSameDate(sessionDate, date);
+        });
+    };
+
+    const formatTime = (timeString?: string) => {
+        if (!timeString) return '';
+        if (typeof timeString === 'string' && timeString.includes(':')) {
+            return timeString;
+        }
+        try {
+            return new Date(timeString).toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch {
+            return timeString;
+        }
+    };
+
     return (
-        <Card className="panel">
-            <div className="toolbar">
-                <div className="toolbar-left"><h2>Quản lý buổi tập</h2></div>
-                <div className="toolbar-right">
-                    <input className="input" placeholder="Tìm PT" value={q} onChange={e => setQ(e.target.value)} />
-                    <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
+        <div className="sessions-management-page">
+            {/* Page Header */}
+            <div className="sessions-page-header">
+                <div className="sessions-page-header-content">
+                    <h1 className="sessions-page-title">Quản lý buổi tập</h1>
+                    <p className="sessions-page-description">
+                        Theo dõi và quản lý các buổi tập từ tất cả chi nhánh của Billions Fitness & Gym.
+                    </p>
+                </div>
+                <div className="sessions-page-actions">
+                    <button className="sessions-search-pt-btn" onClick={() => {
+                        const searchInput = document.querySelector('.sessions-search-input') as HTMLInputElement;
+                        if (searchInput) searchInput.focus();
+                    }}>
+                        Tìm PT
+                    </button>
+                    <button className="sessions-create-btn" onClick={() => setShow(true)}>
+                        Tạo mới
+                    </button>
                 </div>
             </div>
-            <div className="table-enhanced">
-                <table className="table">
-                    <thead>
-                        <tr>
-                            <th>Ngày tập</th>
-                            <th>PT</th>
-                            <th>Số bài tập</th>
-                            <th>Trạng thái</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.map(r => (
-                            <tr key={r._id}>
-                                <td>{r.ngayTap ? new Date(r.ngayTap).toLocaleDateString('vi-VN') : 'N/A'}</td>
-                                <td>{typeof r.pt === 'object' ? r.pt?.hoTen || 'N/A' : r.pt || 'N/A'}</td>
-                                <td>{Array.isArray(r.cacBaiTap) ? r.cacBaiTap.length : 0}</td>
-                                <td>
-                                    <span className={`status-badge ${r.trangThaiTap === 'DA_HOAN_THANH' ? 'completed' : 'pending'}`}>
-                                        {r.trangThaiTap === 'DA_HOAN_THANH' ? '✓ Hoàn thành' : '⏳ Chưa hoàn thành'}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div className="action-buttons">
-                                        <button className="btn-icon btn-edit" onClick={() => setEditingItem(r)}>
-                                            ✏️ Sửa
-                                        </button>
-                                        <button className="btn-icon btn-copy" onClick={() => { const copyData = { ...r }; delete (copyData as any)._id; setEditingItem(copyData); setIsCopying(true); setShow(true); }}>
-                                            📋 Sao chép
-                                        </button>
-                                        <button className="btn-icon btn-delete" onClick={() => setDeleteConfirm({ show: true, item: r })}>
-                                            🗑️ Xóa
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+
+            {/* Filter Toolbar */}
+            <div className="members-filter-toolbar">
+                <select
+                    className="members-filter-dropdown"
+                    value={selectedBranch}
+                    onChange={e => setSelectedBranch(e.target.value)}
+                >
+                    <option value="all">CHI NHÁNH</option>
+                    {chiNhanhs.map(branch => (
+                        <option key={branch._id} value={branch._id}>
+                            {branch.tenChiNhanh}
+                        </option>
+                    ))}
+                </select>
+                <input
+                    className="members-filter-search"
+                    type="text"
+                    placeholder="Tìm theo tên PT, chi nhánh, tên buổi tập..."
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                />
             </div>
-            {rows.length === 0 && !isLoading && (
-                <div className="empty-state">
-                    <div className="empty-state-icon">📅</div>
-                    <div className="empty-state-title">Chưa có lịch tập nào</div>
-                    <div className="empty-state-description">Tạo lịch tập đầu tiên cho hội viên của bạn</div>
+
+            {/* Calendar and Sessions Layout */}
+            <div className="sessions-main-layout">
+                {/* Calendar Sidebar */}
+                <div className="sessions-calendar-sidebar">
+                    <div className="mini-calendar">
+                        <div className="calendar-header">
+                            <button
+                                onClick={() => {
+                                    const newMonth = new Date(currentMonth);
+                                    newMonth.setMonth(currentMonth.getMonth() - 1);
+                                    setCurrentMonth(newMonth);
+                                }}
+                                className="nav-button"
+                            >
+                                ‹
+                            </button>
+                            <h3>{currentMonth.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}</h3>
+                            <button
+                                onClick={() => {
+                                    const newMonth = new Date(currentMonth);
+                                    newMonth.setMonth(currentMonth.getMonth() + 1);
+                                    setCurrentMonth(newMonth);
+                                }}
+                                className="nav-button"
+                            >
+                                ›
+                            </button>
+                        </div>
+                        <div className="weekdays-header">
+                            {weekDays.map(day => (
+                                <div key={day} className="weekday">{day}</div>
+                            ))}
+                        </div>
+                        <div className="calendar-grid">
+                            {getDaysInMonth().map((day, index) => {
+                                const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
+                                const isSelected = isSameDate(day, selectedDate);
+                                const isCurrentDay = isToday(day);
+                                const hasSessions = hasSessionsOnDate(day);
+
+                                return (
+                                    <button
+                                        key={index}
+                                        onClick={() => setSelectedDate(day)}
+                                        className={`
+                                            calendar-day
+                                            ${isCurrentMonth ? 'current-month' : 'other-month'}
+                                            ${isSelected ? 'selected' : ''}
+                                            ${isCurrentDay ? 'today' : ''}
+                                            ${hasSessions ? 'has-sessions' : ''}
+                                        `}
+                                    >
+                                        {day.getDate()}
+                                        {hasSessions && <div className="session-indicator"></div>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Date Navigation */}
+                    <div className="date-navigation">
+                        <button
+                            className="nav-btn"
+                            onClick={() => {
+                                const newDate = new Date(selectedDate);
+                                newDate.setDate(selectedDate.getDate() - 1);
+                                setSelectedDate(newDate);
+                            }}
+                        >
+                            ← Ngày trước
+                        </button>
+                        <button
+                            className="today-btn"
+                            onClick={() => setSelectedDate(new Date())}
+                            disabled={isToday(selectedDate)}
+                        >
+                            Hôm nay
+                        </button>
+                        <button
+                            className="nav-btn"
+                            onClick={() => {
+                                const newDate = new Date(selectedDate);
+                                newDate.setDate(selectedDate.getDate() + 1);
+                                setSelectedDate(newDate);
+                            }}
+                        >
+                            Ngày sau →
+                        </button>
+                    </div>
                 </div>
-            )}
+
+                {/* Sessions Content */}
+                <div className="sessions-content-area">
+                    {/* Selected Date Header */}
+                    <div className="sessions-date-header">
+                        <h2>
+                            {selectedDate.toLocaleDateString('vi-VN', {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                            })}
+                        </h2>
+                        <span className="sessions-count">
+                            {getSessionsForDate(selectedDate).length} buổi tập
+                        </span>
+                    </div>
+
+                    {/* Branch Sections */}
+                    <div className="sessions-branches-container">
+                        {isLoading ? (
+                            <div className="sessions-loading">
+                                <div className="loading-spinner"></div>
+                                <p>Đang tải buổi tập...</p>
+                            </div>
+                        ) : Object.keys(groupedByBranch).length === 0 ? (
+                            <div className="sessions-empty-state">
+                                <div className="empty-state-icon">📅</div>
+                                <div className="empty-state-title">Không có buổi tập nào</div>
+                                <div className="empty-state-description">Tạo buổi tập đầu tiên cho hội viên của bạn</div>
+                            </div>
+                        ) : (
+                            Object.keys(groupedByBranch)
+                                .sort((a, b) => {
+                                    if (a === 'no-branch') return 1;
+                                    if (b === 'no-branch') return -1;
+                                    return getBranchDisplayName(a).localeCompare(getBranchDisplayName(b));
+                                })
+                                .map(branchId => {
+                                    const sessionsInBranch = groupedByBranch[branchId];
+                                    // Filter sessions by selected date
+                                    const sessionsForDate = sessionsInBranch.filter(session => {
+                                        const sessionDate = new Date(session.ngayTap);
+                                        return isSameDate(sessionDate, selectedDate);
+                                    });
+
+                                    if (sessionsForDate.length === 0) return null;
+
+                                    const isExpanded = expandedBranches.has(branchId);
+                                    const branchName = getBranchDisplayName(branchId);
+
+                                    return (
+                                        <div key={branchId} className="sessions-branch-section">
+                                            <div
+                                                className="sessions-branch-header"
+                                                onClick={() => toggleBranch(branchId)}
+                                            >
+                                                <div className="sessions-branch-header-left">
+                                                    <span className="sessions-branch-icon">{isExpanded ? '▼' : '▶'}</span>
+                                                    <h3 className="sessions-branch-name">{branchName}</h3>
+                                                    <span className="sessions-branch-count">({sessionsForDate.length})</span>
+                                                </div>
+                                            </div>
+
+                                            {isExpanded && (
+                                                <div className="sessions-branch-cards-wrapper">
+                                                    <div className="sessions-cards-grid">
+                                                        {sessionsForDate
+                                                            .sort((a, b) => {
+                                                                const timeA = formatTime(a.gioBatDau) || '00:00';
+                                                                const timeB = formatTime(b.gioBatDau) || '00:00';
+                                                                return timeA.localeCompare(timeB);
+                                                            })
+                                                            .map(session => {
+                                                                const statusInfo = getTrangThaiDisplay(session);
+                                                                const ptName = getPTName(session);
+                                                                const soBaiTap = getSoBaiTap(session);
+
+                                                                return (
+                                                                    <div key={session._id} className="session-card">
+                                                                        <div className="session-card-header">
+                                                                            <div className="session-time">
+                                                                                {formatTime(session.gioBatDau)} - {formatTime(session.gioKetThuc)}
+                                                                            </div>
+                                                                            <div className="session-menu">
+                                                                                <button
+                                                                                    className="session-menu-btn"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        const menu = e.currentTarget.nextElementSibling;
+                                                                                        if (menu) {
+                                                                                            document.querySelectorAll('.session-menu-dropdown.show').forEach(d => d.classList.remove('show'));
+                                                                                            menu.classList.toggle('show');
+                                                                                        }
+                                                                                    }}
+                                                                                >
+                                                                                    ⋯
+                                                                                </button>
+                                                                                <div className="session-menu-dropdown">
+                                                                                    <button
+                                                                                        className="session-menu-item"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            setEditingItem(session);
+                                                                                        }}
+                                                                                    >
+                                                                                        ✏️ Sửa
+                                                                                    </button>
+                                                                                    <button
+                                                                                        className="session-menu-item"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            const copyData = { ...session };
+                                                                                            delete (copyData as any)._id;
+                                                                                            setEditingItem(copyData);
+                                                                                            setIsCopying(true);
+                                                                                            setShow(true);
+                                                                                        }}
+                                                                                    >
+                                                                                        📋 Sao chép
+                                                                                    </button>
+                                                                                    <button
+                                                                                        className="session-menu-item session-menu-delete"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            setDeleteConfirm({ show: true, item: session });
+                                                                                        }}
+                                                                                    >
+                                                                                        🗑️ Xóa
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="session-card-body">
+                                                                            <div className="session-title">
+                                                                                {session.tenBuoiTap || 'Buổi tập'}
+                                                                            </div>
+                                                                            <div className="session-details">
+                                                                                <div className="session-detail-item">
+                                                                                    <span className="session-detail-label">PT:</span>
+                                                                                    <span className="session-detail-value">{ptName}</span>
+                                                                                </div>
+                                                                                <div className="session-detail-item">
+                                                                                    <span className="session-detail-label">Số bài tập:</span>
+                                                                                    <span className="session-detail-value">{soBaiTap}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="session-status-wrapper">
+                                                                                <span className={`session-status-badge ${statusInfo.class}`}>
+                                                                                    {statusInfo.class === 'completed' ? '✓' : statusInfo.class === 'cancelled' ? '✕' : '⏳'} {statusInfo.text}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                        )}
+                    </div>
+                </div>
+            </div>
             {(show || editingItem) && <EntityForm
                 title="Buổi tập"
                 initialData={editingItem || undefined}
@@ -3545,16 +4771,26 @@ const SessionsPage = () => {
                 onSave={async (val) => {
                     try {
                         if (editingItem && !isCopying) {
-                            // Update existing PT
-                            const updated = await api.put(`/api/buoitap/${editingItem._id}`, val);
-                            setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
+                            // Update existing session
+                            await api.put(`/api/buoitap/${editingItem._id}`, val);
                         } else {
-                            // Create new PT (including when copying)
-                            const created = await api.post('/api/buoitap', val);
-                            setRows([created, ...rows]);
+                            // Create new session (including when copying)
+                            await api.post('/api/buoitap', val);
+                        }
+                        // Refresh data
+                        await fetchBuoiTap();
+                        if (isCopying || !editingItem) {
+                            notifications.schedule.createSuccess();
+                        } else {
+                            notifications.schedule.updateSuccess();
                         }
                     } catch (error) {
                         console.error('Error saving session:', error);
+                        if (editingItem) {
+                            notifications.schedule.updateError();
+                        } else {
+                            notifications.schedule.createError();
+                        }
                     }
                     setShow(false);
                     setEditingItem(null);
@@ -3570,16 +4806,19 @@ const SessionsPage = () => {
                 onConfirm={async () => {
                     try {
                         await api.delete(`/api/buoitap/${deleteConfirm.item!._id}`);
-                        setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
+                        // Refresh data
+                        await fetchBuoiTap();
+                        notifications.schedule.deleteSuccess();
                     } catch (error) {
                         console.error('Error deleting session:', error);
+                        notifications.schedule.deleteError();
                     }
                     setDeleteConfirm({ show: false, item: null });
                 }}
                 onCancel={() => setDeleteConfirm({ show: false, item: null })}
             />}
             {isLoading && <Loading overlay text="Đang tải buổi tập..." />}
-        </Card>
+        </div>
     );
 };
 
@@ -3588,66 +4827,402 @@ const ExercisesPage = () => {
     const [show, setShow] = useState(false);
     const [editingItem, setEditingItem] = useState<BaiTap | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: BaiTap | null }>({ show: false, item: null });
-    const [sortBy, setSortBy] = useState<'name' | 'price' | 'duration'>('name');
-    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [isLoading, setIsLoading] = useState(false);
-    const [rows, setRows] = useState<any[]>([]);
+    const [rows, setRows] = useState<BaiTap[]>([]);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const notifications = useCrudNotifications();
+    const [filterNhomCo, setFilterNhomCo] = useState<string>('all');
+    const [filterMucDoKho, setFilterMucDoKho] = useState<string>('all');
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+    // Fetch exercises
+    const fetchExercises = async () => {
+        try {
+            setIsLoading(true);
+            const data = await api.get('/api/baitap');
+            if (Array.isArray(data)) {
+                setRows(data);
+            } else {
+                setRows([]);
+            }
+        } catch (e) {
+            console.error('Error fetching exercises:', e);
+            setRows([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
-        let mounted = true;
-        (async () => {
-            try {
-                setIsLoading(true);
-                const data = await api.get('/api/baitap');
-                if (mounted && Array.isArray(data)) setRows(data);
-            } catch (e) {
-                console.error('Error fetching exercises:', e);
-                setRows([]);
-            } finally {
-                if (mounted) setIsLoading(false);
+        fetchExercises();
+    }, [refreshTrigger]);
+
+    // Get unique nhomCo values for filter
+    const nhomCoOptions = React.useMemo(() => {
+        const nhomCoSet = new Set<string>();
+        rows.forEach(ex => {
+            if (ex.nhomCo) {
+                ex.nhomCo.split(',').forEach(nc => {
+                    const trimmed = nc.trim();
+                    if (trimmed) nhomCoSet.add(trimmed);
+                });
             }
-        })();
-        return () => { mounted = false; };
-    }, []);
-    const filtered = rows.filter(r => {
-        if (!q.trim()) return true;
-        const searchTerm = q.toLowerCase().trim();
-        return (
-            (r.tenBaiTap && typeof r.tenBaiTap === 'string' && r.tenBaiTap.toLowerCase().includes(searchTerm)) ||
-            (r.nhomCo && typeof r.nhomCo === 'string' && r.nhomCo.toLowerCase().includes(searchTerm)) ||
-            (r.moTa && typeof r.moTa === 'string' && r.moTa.toLowerCase().includes(searchTerm))
-        );
+        });
+        return Array.from(nhomCoSet).sort();
+    }, [rows]);
+
+    // Sort exercises
+    const sortedRows = React.useMemo(() => {
+        if (!sortConfig) return rows;
+
+        return [...rows].sort((a, b) => {
+            let aValue: any, bValue: any;
+
+            switch (sortConfig.key) {
+                case 'tenBaiTap':
+                    aValue = (a.tenBaiTap || a.title || '').toLowerCase();
+                    bValue = (b.tenBaiTap || b.title || '').toLowerCase();
+                    break;
+                case 'nhomCo':
+                    aValue = (a.nhomCo || '').toLowerCase();
+                    bValue = (b.nhomCo || '').toLowerCase();
+                    break;
+                case 'difficulty':
+                    const difficultyOrder = { 'beginner': 1, 'intermediate': 2, 'advanced': 3 };
+                    aValue = difficultyOrder[a.difficulty || 'beginner'] || 0;
+                    bValue = difficultyOrder[b.difficulty || 'beginner'] || 0;
+                    break;
+                case 'kcal':
+                    aValue = a.kcal || 0;
+                    bValue = b.kcal || 0;
+                    break;
+                case 'createdAt':
+                    aValue = new Date(a.createdAt || 0).getTime();
+                    bValue = new Date(b.createdAt || 0).getTime();
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [rows, sortConfig]);
+
+    // Filter exercises
+    const filtered = sortedRows.filter(r => {
+        // Search filter
+        if (q.trim()) {
+            const searchTerm = q.toLowerCase().trim();
+            const matchesSearch = (
+                ((r.tenBaiTap || r.title) && (r.tenBaiTap || r.title || '').toLowerCase().includes(searchTerm)) ||
+                ((r.moTa || r.description) && (r.moTa || r.description || '').toLowerCase().includes(searchTerm)) ||
+                (r.nhomCo && r.nhomCo.toLowerCase().includes(searchTerm)) ||
+                (r.mucTieuBaiTap && r.mucTieuBaiTap.toLowerCase().includes(searchTerm))
+            );
+            if (!matchesSearch) return false;
+        }
+
+        // Nhóm cơ filter
+        if (filterNhomCo !== 'all') {
+            if (!r.nhomCo || !r.nhomCo.toLowerCase().includes(filterNhomCo.toLowerCase())) return false;
+        }
+
+        // Mức độ khó filter
+        if (filterMucDoKho !== 'all') {
+            const exerciseDifficulty = r.difficulty || (r.mucDoKho === 'DE' ? 'beginner' : r.mucDoKho === 'TRUNG_BINH' ? 'intermediate' : r.mucDoKho === 'KHO' ? 'advanced' : 'beginner');
+            if (filterMucDoKho === 'beginner' && exerciseDifficulty !== 'beginner') return false;
+            if (filterMucDoKho === 'intermediate' && exerciseDifficulty !== 'intermediate') return false;
+            if (filterMucDoKho === 'advanced' && exerciseDifficulty !== 'advanced') return false;
+        }
+
+        // Status filter
+        if (filterStatus !== 'all') {
+            const exerciseStatus = r.status || 'active';
+            if (filterStatus !== exerciseStatus) return false;
+        }
+
+        return true;
     });
 
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        } else if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
+            setSortConfig(null);
+            return;
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const handleClearFilters = () => {
+        setFilterNhomCo('all');
+        setFilterMucDoKho('all');
+        setFilterStatus('all');
+        setQ('');
+        setSortConfig(null);
+    };
+
+    const getDifficultyLabel = (exercise: BaiTap) => {
+        if (exercise.difficulty === 'beginner') return 'Cơ bản';
+        if (exercise.difficulty === 'intermediate') return 'Trung bình';
+        if (exercise.difficulty === 'advanced') return 'Nâng cao';
+        if (exercise.mucDoKho === 'DE') return 'Cơ bản';
+        if (exercise.mucDoKho === 'TRUNG_BINH') return 'Trung bình';
+        if (exercise.mucDoKho === 'KHO') return 'Nâng cao';
+        return 'Cơ bản';
+    };
+
+    const getDifficultyColor = (exercise: BaiTap) => {
+        const difficulty = exercise.difficulty || (exercise.mucDoKho === 'DE' ? 'beginner' : exercise.mucDoKho === 'TRUNG_BINH' ? 'intermediate' : exercise.mucDoKho === 'KHO' ? 'advanced' : 'beginner');
+        if (difficulty === 'beginner') return '#22c55e';
+        if (difficulty === 'intermediate') return '#f59e0b';
+        if (difficulty === 'advanced') return '#ef4444';
+        return '#6b7280';
+    };
+
     return (
-        <Card className="panel">
-            <div className="toolbar">
-                <div className="toolbar-left"><h2>Quản lý bài tập</h2></div>
-                <div className="toolbar-right">
-                    <input className="input" placeholder="Tìm bài tập" value={q} onChange={e => setQ(e.target.value)} />
-                    <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
+        <div className="members-management-page">
+            {/* Page Header */}
+            <div className="members-page-header">
+                <div className="members-page-header-content">
+                    <h1 className="members-page-title">Quản lý bài tập</h1>
+                    <p className="members-page-description">
+                        Quản lý tất cả bài tập, video hướng dẫn và tài liệu tập luyện của Billions Fitness & Gym.
+                    </p>
                 </div>
             </div>
-            <div className="exercises-grid">
-                {filtered.map(exercise => (
-                    <Card key={exercise._id} className="exercise-card" hover>
-                        <img src={exercise.hinhAnh} alt={exercise.tenBaiTap} className="exercise-image" />
-                        <div className="exercise-content">
-                            <h3 className="exercise-title">{exercise.tenBaiTap}</h3>
-                            <p className="exercise-description">{exercise.moTa}</p>
-                            <div className="exercise-muscle-group">
-                                <span className="muscle-tag">{exercise.nhomCo}</span>
-                            </div>
-                            <div className="exercise-actions">
-                                <Button variant="ghost" size="small" onClick={() => setEditingItem(exercise)}>Sửa</Button>
-                                <Button variant="ghost" size="small" onClick={() => { const copyData = { ...exercise }; delete (copyData as any)._id; setEditingItem(copyData); setShow(true); }}>Sao chép</Button>
-                                <Button variant="ghost" size="small" onClick={() => setDeleteConfirm({ show: true, item: exercise })}>Xóa</Button>
-                            </div>
-                        </div>
-                    </Card>
-                ))}
 
+            {/* Filter Toolbar */}
+            <div className="members-filter-toolbar">
+                <input
+                    className="members-filter-search"
+                    type="text"
+                    placeholder="Tìm theo tên, mô tả, nhóm cơ..."
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                />
+                <select
+                    className="members-filter-dropdown"
+                    value={filterNhomCo}
+                    onChange={e => setFilterNhomCo(e.target.value)}
+                >
+                    <option value="all">NHÓM CƠ</option>
+                    {nhomCoOptions.map(nc => (
+                        <option key={nc} value={nc}>{nc}</option>
+                    ))}
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterMucDoKho}
+                    onChange={e => setFilterMucDoKho(e.target.value)}
+                >
+                    <option value="all">MỨC ĐỘ KHÓ</option>
+                    <option value="beginner">Cơ bản</option>
+                    <option value="intermediate">Trung bình</option>
+                    <option value="advanced">Nâng cao</option>
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterStatus}
+                    onChange={e => setFilterStatus(e.target.value)}
+                >
+                    <option value="all">TRẠNG THÁI</option>
+                    <option value="active">Đang hoạt động</option>
+                    <option value="inactive">Ngừng hoạt động</option>
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={sortConfig ? `${sortConfig.key}-${sortConfig.direction}` : 'none'}
+                    onChange={e => {
+                        const value = e.target.value;
+                        if (value === 'none') {
+                            setSortConfig(null);
+                        } else {
+                            const [key, direction] = value.split('-');
+                            setSortConfig({ key, direction: direction as 'asc' | 'desc' });
+                        }
+                    }}
+                >
+                    <option value="none">SẮP XẾP</option>
+                    <option value="tenBaiTap-asc">Tên: A → Z</option>
+                    <option value="tenBaiTap-desc">Tên: Z → A</option>
+                    <option value="nhomCo-asc">Nhóm cơ: A → Z</option>
+                    <option value="difficulty-asc">Độ khó: Dễ → Khó</option>
+                    <option value="difficulty-desc">Độ khó: Khó → Dễ</option>
+                    <option value="kcal-desc">Calo: Cao nhất</option>
+                    <option value="kcal-asc">Calo: Thấp nhất</option>
+                    <option value="createdAt-desc">Ngày tạo: Mới nhất</option>
+                    <option value="createdAt-asc">Ngày tạo: Cũ nhất</option>
+                </select>
+                <button className="members-filter-clear-btn" onClick={handleClearFilters}>
+                    CLEAR
+                </button>
             </div>
+
+            {/* Action Buttons */}
+            <div className="members-page-actions">
+                <button className="members-add-btn" onClick={() => setShow(true)}>
+                    <span>+</span> Thêm bài tập
+                </button>
+            </div>
+
+            {/* Exercises Grid */}
+            <div className="pt-branches-container">
+                {isLoading ? (
+                    <Loading text="Đang tải bài tập..." />
+                ) : filtered.length === 0 ? (
+                    <div className="pt-empty-state">
+                        <p>Không tìm thấy bài tập nào.</p>
+                    </div>
+                ) : (
+                    <div className="pt-cards-grid">
+                        {filtered.map(exercise => (
+                            <div key={exercise._id} className="pt-card exercise-card">
+                                <div className="pt-card-header">
+                                    <div className="pt-avatar">
+                                        {exercise.hinhAnh ? (
+                                            <img src={exercise.hinhAnh} alt={exercise.tenBaiTap || exercise.title} className="pt-avatar-img" />
+                                        ) : (
+                                            <div className="pt-avatar-placeholder">
+                                                {(exercise.tenBaiTap || exercise.title || 'B').charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="pt-info">
+                                        <h3 className="pt-name">{exercise.tenBaiTap || exercise.title || 'Bài tập'}</h3>
+                                        <p className="pt-phone">
+                                            <span style={{ color: getDifficultyColor(exercise), fontWeight: 'bold' }}>
+                                                {getDifficultyLabel(exercise)}
+                                            </span>
+                                            {exercise.kcal && ` • ${exercise.kcal} kcal`}
+                                        </p>
+                                    </div>
+                                    <div className="pt-menu">
+                                        <button
+                                            className="pt-menu-btn"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                document.querySelectorAll('.pt-menu-dropdown.show').forEach(dropdown => {
+                                                    dropdown.classList.remove('show');
+                                                });
+                                                const menu = e.currentTarget.nextElementSibling;
+                                                if (menu) {
+                                                    menu.classList.toggle('show');
+                                                }
+                                            }}
+                                        >
+                                            ⋯
+                                        </button>
+                                        <div className="pt-menu-dropdown">
+                                            <button
+                                                className="pt-menu-item"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingItem(exercise);
+                                                }}
+                                            >
+                                                ✏️ Sửa
+                                            </button>
+                                            <button
+                                                className="pt-menu-item"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const copyData = { ...exercise };
+                                                    delete (copyData as any)._id;
+                                                    delete (copyData as any).createdAt;
+                                                    delete (copyData as any).updatedAt;
+                                                    setEditingItem(copyData);
+                                                    setShow(true);
+                                                }}
+                                            >
+                                                📋 Sao chép
+                                            </button>
+                                            <button
+                                                className="pt-menu-item pt-menu-delete"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setDeleteConfirm({ show: true, item: exercise });
+                                                }}
+                                            >
+                                                🗑️ Xóa
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-card-divider"></div>
+
+                                <div className="pt-card-details">
+                                    {exercise.nhomCo && (
+                                        <div className="pt-detail-item">
+                                            <span className="pt-detail-label">Nhóm cơ:</span>
+                                            <span className="pt-detail-value">{exercise.nhomCo}</span>
+                                        </div>
+                                    )}
+                                    {exercise.thietBiSuDung && (
+                                        <div className="pt-detail-item">
+                                            <span className="pt-detail-label">Thiết bị:</span>
+                                            <span className="pt-detail-value">{exercise.thietBiSuDung}</span>
+                                        </div>
+                                    )}
+                                    {exercise.soHiepvaSoLanLap && exercise.soHiepvaSoLanLap > 0 && (
+                                        <div className="pt-detail-item">
+                                            <span className="pt-detail-label">Hiệp/Lần lặp:</span>
+                                            <span className="pt-detail-value">{exercise.soHiepvaSoLanLap}</span>
+                                        </div>
+                                    )}
+                                    {exercise.mucTieuBaiTap && (
+                                        <div className="pt-detail-item">
+                                            <span className="pt-detail-label">Mục tiêu:</span>
+                                            <span className="pt-detail-value" style={{ fontSize: '0.85em' }}>
+                                                {exercise.mucTieuBaiTap}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {(exercise.duration_sec || exercise.thoiGian) && (
+                                        <div className="pt-detail-item">
+                                            <span className="pt-detail-label">Thời lượng:</span>
+                                            <span className="pt-detail-value">
+                                                {Math.floor((exercise.duration_sec || exercise.thoiGian || 0) / 60)} phút
+                                            </span>
+                                        </div>
+                                    )}
+                                    {exercise.ratings && exercise.ratings.totalRatings > 0 && (
+                                        <div className="pt-detail-item">
+                                            <span className="pt-detail-label">Đánh giá:</span>
+                                            <span className="pt-detail-value">
+                                                ⭐ {exercise.ratings.averageRating.toFixed(1)} ({exercise.ratings.totalRatings})
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {(exercise.videoHuongDan || exercise.source_url) && (
+                                    <>
+                                        <div className="pt-card-divider"></div>
+                                        <div className="pt-card-actions">
+                                            <button
+                                                className="pt-action-btn pt-action-view"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    window.open(exercise.videoHuongDan || exercise.source_url, '_blank');
+                                                }}
+                                            >
+                                                📺 Xem video
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             {(show || editingItem) && <EntityForm
                 title="Bài tập"
                 initialData={editingItem || undefined}
@@ -3656,21 +5231,51 @@ const ExercisesPage = () => {
                     { name: 'tenBaiTap', label: 'Tên bài tập', validation: { required: true, pattern: /^[\p{L}\d\s\-_]+$/u, message: 'Tên bài tập không được chứa ký tự đặc biệt' } },
                     { name: 'moTa', label: 'Mô tả', type: 'textarea', validation: { required: true } },
                     { name: 'nhomCo', label: 'Nhóm cơ', validation: { required: true } },
+                    {
+                        name: 'mucDoKho', label: 'Mức độ khó', type: 'select', options: [
+                            { value: 'DE', label: 'Dễ' },
+                            { value: 'TRUNG_BINH', label: 'Trung bình' },
+                            { value: 'KHO', label: 'Khó' }
+                        ]
+                    },
+                    {
+                        name: 'difficulty', label: 'Độ khó (mới)', type: 'select', options: [
+                            { value: 'beginner', label: 'Cơ bản' },
+                            { value: 'intermediate', label: 'Trung bình' },
+                            { value: 'advanced', label: 'Nâng cao' }
+                        ]
+                    },
+                    { name: 'thietBiSuDung', label: 'Thiết bị sử dụng' },
+                    { name: 'soHiepvaSoLanLap', label: 'Số hiệp và số lần lặp', type: 'number' },
+                    { name: 'mucTieuBaiTap', label: 'Mục tiêu bài tập', type: 'textarea' },
                     { name: 'videoHuongDan', label: 'Video hướng dẫn (URL)', validation: { pattern: /^https?:\/\/.+/, message: 'URL video không hợp lệ' } },
-                    { name: 'hinhAnhMinhHoa', label: 'Hình ảnh minh họa (URL)', validation: { pattern: /^https?:\/\/.+/, message: 'URL hình ảnh không hợp lệ' } }
+                    { name: 'source_url', label: 'Link nguồn (YouTube/Vimeo)', validation: { pattern: /^https?:\/\/.+/, message: 'URL không hợp lệ' } },
+                    { name: 'hinhAnhMinhHoa', label: 'Hình ảnh minh họa (URL, cách nhau bởi dấu phẩy)', validation: { pattern: /^https?:\/\/.+/, message: 'URL hình ảnh không hợp lệ' } },
+                    { name: 'duration_sec', label: 'Thời lượng (giây)', type: 'number' },
+                    { name: 'kcal', label: 'Calo (kcal)', type: 'number' },
+                    {
+                        name: 'status', label: 'Trạng thái', type: 'select', options: [
+                            { value: 'active', label: 'Đang hoạt động' },
+                            { value: 'inactive', label: 'Ngừng hoạt động' }
+                        ]
+                    }
                 ]}
                 onClose={() => { setShow(false); setEditingItem(null); }}
                 onSave={async (val) => {
                     try {
-                        if (editingItem) {
+                        if (editingItem && editingItem._id) {
                             const updated = await api.put(`/api/baitap/${editingItem._id}`, val);
                             setRows(rows.map(r => r._id === editingItem._id ? { ...r, ...updated } : r));
+                            notifications.generic.success('Cập nhật bài tập thành công!');
                         } else {
                             const created = await api.post('/api/baitap', val);
                             setRows([created, ...rows]);
+                            notifications.generic.success('Tạo bài tập thành công!');
                         }
+                        setRefreshTrigger(prev => prev + 1);
                     } catch (error) {
                         console.error('Error saving exercise:', error);
+                        notifications.generic.error('Có lỗi xảy ra khi lưu bài tập!');
                     }
                     setShow(false);
                     setEditingItem(null);
@@ -3678,7 +5283,7 @@ const ExercisesPage = () => {
             />}
             {deleteConfirm.show && deleteConfirm.item && <ConfirmModal
                 title="Xác nhận xóa bài tập"
-                message={`Bạn có chắc chắn muốn xóa bài tập "${deleteConfirm.item.tenBaiTap}"? Hành động này không thể hoàn tác.`}
+                message={`Bạn có chắc chắn muốn xóa bài tập "${deleteConfirm.item.tenBaiTap || deleteConfirm.item.title || 'này'}"? Hành động này không thể hoàn tác.`}
                 type="danger"
                 confirmText="Xóa"
                 cancelText="Hủy"
@@ -3686,15 +5291,1199 @@ const ExercisesPage = () => {
                     try {
                         await api.delete(`/api/baitap/${deleteConfirm.item!._id}`);
                         setRows(rows.filter(r => r._id !== deleteConfirm.item!._id));
+                        notifications.generic.success('Xóa bài tập thành công!');
                     } catch (error) {
                         console.error('Error deleting exercise:', error);
+                        notifications.generic.error('Có lỗi xảy ra khi xóa bài tập!');
                     }
                     setDeleteConfirm({ show: false, item: null });
                 }}
                 onCancel={() => setDeleteConfirm({ show: false, item: null })}
             />}
             {isLoading && <Loading overlay text="Đang tải bài tập..." />}
-        </Card>
+        </div>
+    );
+};
+
+// Templates Page - Hiển thị 20 template với playlist bài tập (giống PTPage chia theo chi nhánh)
+const TemplatesPage = () => {
+    const [isLoading, setIsLoading] = useState(false);
+    const [templates, setTemplates] = useState<TemplateBuoiTap[]>([]);
+    const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set()); // Mặc định tất cả đều đóng
+    const [filterLoai, setFilterLoai] = useState<string>('all');
+    const [filterDoKho, setFilterDoKho] = useState<string>('all');
+    const [q, setQ] = useState('');
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+    const [templateSortConfig, setTemplateSortConfig] = useState<{ key: 'count'; direction: 'asc' | 'desc' } | null>(null);
+    // Sort config riêng cho từng template (templateId -> sortConfig)
+    const [templateExerciseSortConfigs, setTemplateExerciseSortConfigs] = useState<{ [templateId: string]: { key: string; direction: 'asc' | 'desc' } | null }>({});
+    // Selected exercises cho bulk edit
+    const [selectedExercises, setSelectedExercises] = useState<Set<string>>(new Set());
+    const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+    const [bulkEditData, setBulkEditData] = useState<any>({});
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const [bulkUpdateProgress, setBulkUpdateProgress] = useState<{ current: number; total: number } | null>(null);
+    const notifications = useCrudNotifications();
+
+    // Fetch templates (KHÔNG populate bài tập để load nhanh hơn)
+    const fetchTemplates = async () => {
+        try {
+            setIsLoading(true);
+            // Không populate exercises để load nhanh hơn, sẽ lazy load khi expand
+            const cacheBuster = `?_t=${Date.now()}`;
+            const data = await api.get(`/api/session-templates${cacheBuster}`);
+            if (Array.isArray(data)) {
+                console.log(`📋 Loaded ${data.length} templates from backend (without exercises for faster loading)`);
+                // Templates chỉ có baiTap IDs, không có full exercise data
+                setTemplates(data);
+            } else {
+                setTemplates([]);
+            }
+        } catch (e) {
+            console.error('Error fetching templates:', e);
+            setTemplates([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Fetch exercises cho một template cụ thể (lazy load khi expand)
+    const fetchExercisesForTemplate = async (templateId: string) => {
+        try {
+            // Kiểm tra xem đã load chưa
+            if (loadedExercises[templateId] && loadedExercises[templateId].length > 0) {
+                return loadedExercises[templateId];
+            }
+
+            const template = templates.find(t => t._id === templateId);
+            if (!template) return [];
+
+            // Nếu đã có exercises trong template (đã populated từ trước)
+            if (template.baiTap && Array.isArray(template.baiTap)) {
+                const firstItem = template.baiTap[0];
+                // Nếu là object (đã populated), return luôn
+                if (firstItem && typeof firstItem === 'object' && firstItem._id) {
+                    const exercises = template.baiTap.filter((bt: any): bt is BaiTap =>
+                        bt && typeof bt === 'object' && bt._id
+                    );
+                    // Lưu vào loadedExercises
+                    setLoadedExercises(prev => ({
+                        ...prev,
+                        [templateId]: exercises
+                    }));
+                    return exercises;
+                }
+            }
+
+            // Nếu chưa có, fetch từ template detail với populate
+            const templateDetail = await api.get(`/api/session-templates/${templateId}?populateExercises=true`);
+            if (templateDetail && templateDetail.baiTap && Array.isArray(templateDetail.baiTap)) {
+                const exercises = templateDetail.baiTap.filter((bt: any): bt is BaiTap =>
+                    bt && typeof bt === 'object' && bt._id
+                );
+
+                // Lưu vào loadedExercises
+                setLoadedExercises(prev => ({
+                    ...prev,
+                    [templateId]: exercises
+                }));
+
+                return exercises;
+            }
+            return [];
+        } catch (error) {
+            console.error(`Error fetching exercises for template ${templateId}:`, error);
+            return [];
+        }
+    };
+
+    useEffect(() => {
+        fetchTemplates();
+    }, []);
+
+    // Filter templates (chỉ lọc template, không lọc bài tập bên trong)
+    const filteredTemplates = templates.filter(t => {
+        // Search filter
+        if (q.trim()) {
+            const searchTerm = q.toLowerCase().trim();
+            const matchesSearch = (
+                (t.ten && t.ten.toLowerCase().includes(searchTerm)) ||
+                (t.moTa && t.moTa.toLowerCase().includes(searchTerm)) ||
+                (t.loai && t.loai.toLowerCase().includes(searchTerm))
+            );
+            if (!matchesSearch) return false;
+        }
+
+        // Loai filter
+        if (filterLoai !== 'all') {
+            if (t.loai !== filterLoai) return false;
+        }
+
+        // DoKho filter
+        if (filterDoKho !== 'all') {
+            if (t.doKho !== filterDoKho) return false;
+        }
+
+        return true;
+    });
+
+    // State để lưu exercises đã được load cho từng template
+    const [loadedExercises, setLoadedExercises] = useState<{ [templateId: string]: BaiTap[] }>({});
+
+    // Group exercises by template (sử dụng loadedExercises thay vì template.baiTap)
+    const groupedByTemplate = React.useMemo(() => {
+        const grouped: { [key: string]: BaiTap[] } = {};
+
+        filteredTemplates.forEach(template => {
+            const templateId = template._id;
+            // Lấy từ loadedExercises nếu có, nếu không thì empty array
+            grouped[templateId] = loadedExercises[templateId] || [];
+        });
+
+        return grouped;
+    }, [filteredTemplates, loadedExercises]);
+
+    // Get unique loai values
+    const loaiOptions = React.useMemo(() => {
+        const loaiSet = new Set<string>();
+        templates.forEach(t => {
+            if (t.loai) loaiSet.add(t.loai);
+        });
+        return Array.from(loaiSet).sort();
+    }, [templates]);
+
+    // Toggle template expansion và lazy load exercises khi expand
+    const toggleTemplate = (templateId: string) => {
+        const isCurrentlyExpanded = expandedTemplates.has(templateId);
+
+        // Toggle expansion state trước
+        setExpandedTemplates(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(templateId)) {
+                newSet.delete(templateId);
+                return newSet;
+            } else {
+                newSet.add(templateId);
+
+                // Nếu đang mở và chưa load exercises, thì load
+                if (!loadedExercises[templateId]) {
+                    fetchExercisesForTemplate(templateId).then(exercises => {
+                        setLoadedExercises(prev => ({
+                            ...prev,
+                            [templateId]: exercises
+                        }));
+                    }).catch(err => {
+                        console.error(`Error loading exercises for template ${templateId}:`, err);
+                    });
+                }
+
+                return newSet;
+            }
+        });
+    };
+
+    // Get template name
+    const getTemplateName = (templateId: string) => {
+        const template = templates.find(t => t._id === templateId);
+        return template ? template.ten : 'Không xác định';
+    };
+
+    const getDoKhoLabel = (doKho?: string) => {
+        if (doKho === 'DE') return 'Dễ';
+        if (doKho === 'TRUNG_BINH') return 'Trung bình';
+        if (doKho === 'KHO') return 'Khó';
+        return 'Trung bình';
+    };
+
+    const getDoKhoColor = (doKho?: string) => {
+        if (doKho === 'DE') return '#22c55e';
+        if (doKho === 'TRUNG_BINH') return '#f59e0b';
+        if (doKho === 'KHO') return '#ef4444';
+        return '#6b7280';
+    };
+
+    const handleClearFilters = () => {
+        setFilterLoai('all');
+        setFilterDoKho('all');
+        setQ('');
+        setSortConfig(null);
+        setTemplateSortConfig(null);
+        setTemplateExerciseSortConfigs({});
+        setSelectedExercises(new Set());
+    };
+
+    // Toggle select exercise
+    const toggleSelectExercise = (exerciseId: string) => {
+        setSelectedExercises(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(exerciseId)) {
+                newSet.delete(exerciseId);
+            } else {
+                newSet.add(exerciseId);
+            }
+            return newSet;
+        });
+    };
+
+    // Toggle select all exercises in a template
+    const toggleSelectAllExercisesInTemplate = (templateId: string) => {
+        // Sử dụng loadedExercises để lấy exercises
+        const exercisesInTemplate = loadedExercises[templateId] || [];
+        const allSelected = exercisesInTemplate.length > 0 && exercisesInTemplate.every(ex => selectedExercises.has(ex._id));
+
+        setSelectedExercises(prev => {
+            const newSet = new Set(prev);
+            if (allSelected) {
+                // Deselect all
+                exercisesInTemplate.forEach(ex => newSet.delete(ex._id));
+            } else {
+                // Select all
+                exercisesInTemplate.forEach(ex => newSet.add(ex._id));
+            }
+            return newSet;
+        });
+    };
+
+    // Check if all exercises in template are selected
+    const areAllExercisesInTemplateSelected = (templateId: string) => {
+        const exercisesInTemplate = loadedExercises[templateId] || [];
+        return exercisesInTemplate.length > 0 && exercisesInTemplate.every(ex => selectedExercises.has(ex._id));
+    };
+
+    // Check if some exercises in template are selected
+    const areSomeExercisesInTemplateSelected = (templateId: string) => {
+        const exercisesInTemplate = loadedExercises[templateId] || [];
+        return exercisesInTemplate.some(ex => selectedExercises.has(ex._id));
+    };
+
+    // Compress image function (tương tự EntityForm)
+    const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.8): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        reject(new Error('Cannot get canvas context'));
+                        return;
+                    }
+
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(compressedDataUrl);
+                };
+                img.onerror = reject;
+                img.src = e.target?.result as string;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    };
+
+    // Handle file upload for bulk edit
+    const handleBulkImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            notifications.generic.error('Kích thước file không được vượt quá 5MB');
+            return;
+        }
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            notifications.generic.error('File phải là hình ảnh');
+            return;
+        }
+
+        try {
+            // Compress image
+            const compressedImage = await compressImage(file, 800, 0.8);
+            setPreviewImage(compressedImage);
+            setBulkEditData({ ...bulkEditData, hinhAnh: compressedImage });
+        } catch (error) {
+            console.error('Error processing image:', error);
+            notifications.generic.error('Lỗi khi xử lý hình ảnh');
+        }
+    };
+
+    // Handle bulk edit - Tối ưu với batch processing và progress
+    const handleBulkEdit = async () => {
+        if (selectedExercises.size === 0) {
+            notifications.generic.error('Vui lòng chọn ít nhất một bài tập!');
+            return;
+        }
+
+        // Chỉ lấy các trường có giá trị (loại bỏ undefined và empty string)
+        const updateData: any = {};
+        Object.keys(bulkEditData).forEach(key => {
+            const value = bulkEditData[key];
+            if (value !== undefined && value !== '' && value !== null) {
+                updateData[key] = value;
+            }
+        });
+
+        if (Object.keys(updateData).length === 0) {
+            notifications.generic.error('Vui lòng điền ít nhất một trường để cập nhật!');
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const exerciseIds = Array.from(selectedExercises);
+            const total = exerciseIds.length;
+            setBulkUpdateProgress({ current: 0, total });
+
+            // Batch processing: xử lý từng batch nhỏ để tránh overload
+            const BATCH_SIZE = 5; // Xử lý 5 bài tập mỗi lần
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 0; i < exerciseIds.length; i += BATCH_SIZE) {
+                const batch = exerciseIds.slice(i, i + BATCH_SIZE);
+                const batchPromises = batch.map(async (exerciseId) => {
+                    try {
+                        await api.put(`/api/baitap/${exerciseId}`, updateData);
+                        successCount++;
+                        return { success: true, id: exerciseId };
+                    } catch (error) {
+                        console.error(`Error updating exercise ${exerciseId}:`, error);
+                        errorCount++;
+                        return { success: false, id: exerciseId, error };
+                    }
+                });
+
+                await Promise.all(batchPromises);
+                setBulkUpdateProgress({ current: Math.min(i + BATCH_SIZE, total), total });
+
+                // Delay nhỏ giữa các batch để tránh overload server
+                if (i + BATCH_SIZE < exerciseIds.length) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+
+            // Hiển thị thông báo trước
+            if (errorCount === 0) {
+                notifications.generic.success(`Đã cập nhật ${successCount} bài tập thành công!`);
+            } else {
+                notifications.generic.success(`Đã cập nhật ${successCount} bài tập thành công. ${errorCount} bài tập gặp lỗi.`);
+            }
+
+            // Refresh templates và reload exercises cho các template đã expanded
+            try {
+                await fetchTemplates();
+                // Reload exercises cho các template đã được expand
+                const expandedIds = Array.from(expandedTemplates);
+                const reloadPromises = expandedIds.map(async (templateId) => {
+                    const exercises = await fetchExercisesForTemplate(templateId);
+                    setLoadedExercises(prev => ({
+                        ...prev,
+                        [templateId]: exercises
+                    }));
+                });
+                await Promise.all(reloadPromises);
+            } catch (err) {
+                console.error('Error refreshing templates:', err);
+                // Vẫn tiếp tục đóng modal dù có lỗi refresh
+            }
+
+            // Đóng modal và clear data sau khi refresh xong
+            setSelectedExercises(new Set());
+            setShowBulkEditModal(false);
+            setBulkEditData({});
+            setPreviewImage(null);
+            setBulkUpdateProgress(null);
+
+            // Reset file input
+            const fileInput = document.getElementById('bulk-edit-image-input') as HTMLInputElement;
+            if (fileInput) fileInput.value = '';
+        } catch (error) {
+            console.error('Error bulk updating exercises:', error);
+            notifications.generic.error('Có lỗi xảy ra khi cập nhật bài tập!');
+            // Đóng modal ngay cả khi có lỗi
+            setShowBulkEditModal(false);
+            setBulkEditData({});
+            setPreviewImage(null);
+            setBulkUpdateProgress(null);
+            // Reset file input
+            const fileInput = document.getElementById('bulk-edit-image-input') as HTMLInputElement;
+            if (fileInput) fileInput.value = '';
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Handle sort cho exercises trong một template cụ thể
+    const handleTemplateExerciseSort = (templateId: string, sortValue: string) => {
+        if (sortValue === 'none') {
+            setTemplateExerciseSortConfigs(prev => {
+                const newConfigs = { ...prev };
+                delete newConfigs[templateId];
+                return newConfigs;
+            });
+        } else {
+            const [key, direction] = sortValue.split('-');
+            setTemplateExerciseSortConfigs(prev => ({
+                ...prev,
+                [templateId]: { key, direction: direction as 'asc' | 'desc' }
+            }));
+        }
+    };
+
+    // Sort exercises trong một template
+    const getSortedExercisesForTemplate = (templateId: string, exercises: BaiTap[]): BaiTap[] => {
+        const sortConfig = templateExerciseSortConfigs[templateId];
+        if (!sortConfig) return exercises;
+
+        return [...exercises].sort((a, b) => {
+            let aValue: any, bValue: any;
+
+            switch (sortConfig.key) {
+                case 'tenBaiTap':
+                    aValue = (a.tenBaiTap || a.title || '').toLowerCase();
+                    bValue = (b.tenBaiTap || b.title || '').toLowerCase();
+                    break;
+                case 'difficulty':
+                    const difficultyOrder = { 'beginner': 1, 'intermediate': 2, 'advanced': 3 };
+                    const aDiff = a.difficulty || (a.mucDoKho === 'DE' ? 'beginner' : a.mucDoKho === 'TRUNG_BINH' ? 'intermediate' : a.mucDoKho === 'KHO' ? 'advanced' : 'beginner');
+                    const bDiff = b.difficulty || (b.mucDoKho === 'DE' ? 'beginner' : b.mucDoKho === 'TRUNG_BINH' ? 'intermediate' : b.mucDoKho === 'KHO' ? 'advanced' : 'beginner');
+                    aValue = difficultyOrder[aDiff as keyof typeof difficultyOrder] || 0;
+                    bValue = difficultyOrder[bDiff as keyof typeof difficultyOrder] || 0;
+                    break;
+                case 'kcal':
+                    aValue = a.kcal || 0;
+                    bValue = b.kcal || 0;
+                    break;
+                case 'ratings':
+                    aValue = a.ratings?.averageRating || 0;
+                    bValue = b.ratings?.averageRating || 0;
+                    break;
+                case 'duration':
+                    aValue = a.duration_sec || a.thoiGian || 0;
+                    bValue = b.duration_sec || b.thoiGian || 0;
+                    break;
+                case 'nhomCo':
+                    aValue = (a.nhomCo || '').toLowerCase();
+                    bValue = (b.nhomCo || '').toLowerCase();
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    };
+
+    return (
+        <div className="members-management-page">
+            {/* Page Header */}
+            <div className="members-page-header">
+                <div className="members-page-header-content">
+                    <h1 className="members-page-title">Quản lý Template Buổi tập</h1>
+                    <p className="members-page-description">
+                        Quản lý các template buổi tập và playlist bài tập của Billions Fitness & Gym. Mỗi template chứa 20 bài tập phù hợp.
+                    </p>
+                </div>
+            </div>
+
+            {/* Filter Toolbar */}
+            <div className="members-filter-toolbar">
+                <input
+                    className="members-filter-search"
+                    type="text"
+                    placeholder="Tìm theo tên, mô tả, loại..."
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                />
+                <select
+                    className="members-filter-dropdown"
+                    value={filterLoai}
+                    onChange={e => setFilterLoai(e.target.value)}
+                >
+                    <option value="all">LOẠI</option>
+                    {loaiOptions.map(loai => (
+                        <option key={loai} value={loai}>{loai}</option>
+                    ))}
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={filterDoKho}
+                    onChange={e => setFilterDoKho(e.target.value)}
+                >
+                    <option value="all">MỨC ĐỘ KHÓ</option>
+                    <option value="DE">Dễ</option>
+                    <option value="TRUNG_BINH">Trung bình</option>
+                    <option value="KHO">Khó</option>
+                </select>
+                <select
+                    className="members-filter-dropdown"
+                    value={
+                        templateSortConfig
+                            ? `template-count-${templateSortConfig.direction}`
+                            : (sortConfig ? `${sortConfig.key}-${sortConfig.direction}` : 'none')
+                    }
+                    onChange={e => {
+                        const value = e.target.value;
+                        if (value === 'none') {
+                            setSortConfig(null);
+                            setTemplateSortConfig(null);
+                        } else if (value.startsWith('template-count-')) {
+                            const direction = value.split('-')[2] as 'asc' | 'desc';
+                            setTemplateSortConfig({ key: 'count', direction });
+                            setSortConfig(null);
+                        } else {
+                            const [key, direction] = value.split('-');
+                            setSortConfig({ key, direction: direction as 'asc' | 'desc' });
+                            setTemplateSortConfig(null);
+                        }
+                    }}
+                >
+                    <option value="none">SẮP XẾP</option>
+                    <option value="template-count-desc">Số lượng bài tập: Nhiều nhất</option>
+                    <option value="template-count-asc">Số lượng bài tập: Ít nhất</option>
+                    <option value="ten-asc">Tên template: A → Z</option>
+                    <option value="ten-desc">Tên template: Z → A</option>
+                </select>
+                <button className="members-filter-clear-btn" onClick={handleClearFilters}>
+                    CLEAR
+                </button>
+            </div>
+
+            {/* Template Sections with Exercise Cards - Giống PTPage chia theo chi nhánh */}
+            <div className="pt-branches-container">
+                {isLoading ? (
+                    <Loading text="Đang tải templates..." />
+                ) : Object.keys(groupedByTemplate).length === 0 ? (
+                    <div className="pt-empty-state">
+                        <p>Không tìm thấy template nào.</p>
+                    </div>
+                ) : (
+                    Object.keys(groupedByTemplate)
+                        .sort((a, b) => {
+                            // If sorting by exercise count
+                            if (templateSortConfig) {
+                                const countA = groupedByTemplate[a]?.length || 0;
+                                const countB = groupedByTemplate[b]?.length || 0;
+
+                                // Sort by count
+                                if (templateSortConfig.direction === 'desc') {
+                                    return countB - countA; // Descending: more exercises first
+                                } else {
+                                    return countA - countB; // Ascending: fewer exercises first
+                                }
+                            }
+
+                            // Default sort: alphabetically by template name
+                            return getTemplateName(a).localeCompare(getTemplateName(b));
+                        })
+                        .map(templateId => {
+                            const exercisesInTemplate = groupedByTemplate[templateId];
+                            const isExpanded = expandedTemplates.has(templateId);
+                            const template = templates.find(t => t._id === templateId);
+                            const templateName = template ? template.ten : 'Không xác định';
+                            // Lấy số lượng bài tập từ template.baiTap (array of IDs) hoặc từ loaded exercises
+                            const exerciseCount = template?.baiTap && Array.isArray(template.baiTap)
+                                ? (typeof template.baiTap[0] === 'object'
+                                    ? template.baiTap.length
+                                    : template.baiTap.length)
+                                : exercisesInTemplate.length;
+
+                            return (
+                                <div key={templateId} className="pt-branch-section">
+                                    <div className="pt-branch-header">
+                                        <div className="pt-branch-header-left" onClick={() => toggleTemplate(templateId)}>
+                                            <span className="pt-branch-icon">{isExpanded ? '▼' : '▶'}</span>
+                                            <h3 className="pt-branch-name">{templateName}</h3>
+                                            <span className="pt-branch-count">({exerciseCount})</span>
+                                        </div>
+                                        {isExpanded && (
+                                            <div className="pt-branch-header-right" onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={areAllExercisesInTemplateSelected(templateId)}
+                                                    ref={(input) => {
+                                                        if (input) input.indeterminate = areSomeExercisesInTemplateSelected(templateId) && !areAllExercisesInTemplateSelected(templateId);
+                                                    }}
+                                                    onChange={() => toggleSelectAllExercisesInTemplate(templateId)}
+                                                    className="pt-branch-checkbox"
+                                                    title="Chọn tất cả bài tập trong template này"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {isExpanded && (
+                                        <div className="pt-branch-cards-wrapper">
+                                            {/* Loading state khi đang fetch exercises */}
+                                            {!loadedExercises[templateId] && exercisesInTemplate.length === 0 && (
+                                                <div style={{ textAlign: 'center', padding: '20px' }}>
+                                                    <Loading text="Đang tải bài tập..." />
+                                                </div>
+                                            )}
+
+                                            {/* Template Info & Sort Toolbar */}
+                                            {exercisesInTemplate.length > 0 && (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    marginBottom: '16px',
+                                                    gap: '16px',
+                                                    flexWrap: 'wrap'
+                                                }}>
+                                                    {/* Template Info */}
+                                                    {template?.moTa && (
+                                                        <div style={{
+                                                            padding: '16px',
+                                                            background: '#f9fafb',
+                                                            borderRadius: '8px',
+                                                            flex: 1,
+                                                            minWidth: '300px'
+                                                        }}>
+                                                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '8px' }}>
+                                                                {template.loai && (
+                                                                    <span style={{
+                                                                        padding: '4px 8px',
+                                                                        background: '#e0e7ff',
+                                                                        color: '#4f46e5',
+                                                                        borderRadius: '4px',
+                                                                        fontSize: '0.85em',
+                                                                        fontWeight: 'bold'
+                                                                    }}>
+                                                                        {template.loai}
+                                                                    </span>
+                                                                )}
+                                                                <span style={{
+                                                                    padding: '4px 8px',
+                                                                    background: getDoKhoColor(template.doKho) + '20',
+                                                                    color: getDoKhoColor(template.doKho),
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '0.85em',
+                                                                    fontWeight: 'bold'
+                                                                }}>
+                                                                    {getDoKhoLabel(template.doKho)}
+                                                                </span>
+                                                            </div>
+                                                            <p style={{ margin: 0, color: '#6b7280' }}>{template.moTa}</p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Sort Dropdown cho template này */}
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        minWidth: '200px'
+                                                    }}>
+                                                        <label style={{
+                                                            fontSize: '0.9em',
+                                                            fontWeight: 'bold',
+                                                            color: '#6b7280',
+                                                            whiteSpace: 'nowrap'
+                                                        }}>
+                                                            Sắp xếp:
+                                                        </label>
+                                                        <select
+                                                            className="members-filter-dropdown"
+                                                            style={{
+                                                                flex: 1,
+                                                                minWidth: '180px',
+                                                                fontSize: '0.9em'
+                                                            }}
+                                                            value={
+                                                                templateExerciseSortConfigs[templateId]
+                                                                    ? `${templateExerciseSortConfigs[templateId]!.key}-${templateExerciseSortConfigs[templateId]!.direction}`
+                                                                    : 'none'
+                                                            }
+                                                            onChange={e => handleTemplateExerciseSort(templateId, e.target.value)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <option value="none">Mặc định</option>
+                                                            <option value="tenBaiTap-asc">Tên: A → Z</option>
+                                                            <option value="tenBaiTap-desc">Tên: Z → A</option>
+                                                            <option value="difficulty-asc">Độ khó: Dễ → Khó</option>
+                                                            <option value="difficulty-desc">Độ khó: Khó → Dễ</option>
+                                                            <option value="kcal-desc">Kcal: Cao nhất</option>
+                                                            <option value="kcal-asc">Kcal: Thấp nhất</option>
+                                                            <option value="ratings-desc">Đánh giá: Cao nhất</option>
+                                                            <option value="ratings-asc">Đánh giá: Thấp nhất</option>
+                                                            <option value="duration-asc">Thời lượng: Ngắn nhất</option>
+                                                            <option value="duration-desc">Thời lượng: Dài nhất</option>
+                                                            <option value="nhomCo-asc">Nhóm cơ: A → Z</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Bulk Edit Button */}
+                                            {exercisesInTemplate.length > 0 && selectedExercises.size > 0 && (
+                                                <div style={{
+                                                    marginBottom: '16px',
+                                                    padding: '12px 16px',
+                                                    background: '#f0f9ff',
+                                                    border: '1px solid #3b82f6',
+                                                    borderRadius: '8px',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center'
+                                                }}>
+                                                    <span style={{ fontWeight: 'bold', color: '#3b82f6' }}>
+                                                        Đã chọn: {selectedExercises.size} bài tập
+                                                    </span>
+                                                    <button
+                                                        className="members-add-btn"
+                                                        style={{
+                                                            background: '#3b82f6',
+                                                            color: 'white',
+                                                            padding: '8px 16px',
+                                                            fontSize: '0.9em'
+                                                        }}
+                                                        onClick={() => setShowBulkEditModal(true)}
+                                                    >
+                                                        ✏️ Chỉnh sửa hàng loạt
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* Exercises Grid - Giống trang Bài tập */}
+                                            {exercisesInTemplate.length === 0 ? (
+                                                <div className="pt-empty-state">
+                                                    <p>Template này chưa có bài tập nào.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="pt-cards-grid">
+                                                    {getSortedExercisesForTemplate(templateId, exercisesInTemplate).map((exercise: BaiTap, index: number) => (
+                                                        <div key={exercise._id || index} className="pt-card exercise-card">
+                                                            <div className="pt-card-checkbox-wrapper">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedExercises.has(exercise._id)}
+                                                                    onChange={() => toggleSelectExercise(exercise._id)}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="pt-card-checkbox"
+                                                                />
+                                                            </div>
+                                                            <div className="pt-card-header">
+                                                                <div className="pt-avatar">
+                                                                    {exercise.hinhAnh ? (
+                                                                        <img src={exercise.hinhAnh} alt={exercise.tenBaiTap || exercise.title} className="pt-avatar-img" />
+                                                                    ) : (
+                                                                        <div className="pt-avatar-placeholder">
+                                                                            {(exercise.tenBaiTap || exercise.title || 'B').charAt(0).toUpperCase()}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="pt-info">
+                                                                    <h3 className="pt-name">{exercise.tenBaiTap || exercise.title || 'Bài tập'}</h3>
+                                                                    <p className="pt-phone">
+                                                                        <span style={{
+                                                                            color: exercise.difficulty === 'beginner' ? '#22c55e' :
+                                                                                exercise.difficulty === 'intermediate' ? '#f59e0b' :
+                                                                                    exercise.difficulty === 'advanced' ? '#ef4444' : '#6b7280',
+                                                                            fontWeight: 'bold'
+                                                                        }}>
+                                                                            {exercise.difficulty === 'beginner' ? 'Cơ bản' :
+                                                                                exercise.difficulty === 'intermediate' ? 'Trung bình' :
+                                                                                    exercise.difficulty === 'advanced' ? 'Nâng cao' :
+                                                                                        exercise.mucDoKho === 'DE' ? 'Dễ' :
+                                                                                            exercise.mucDoKho === 'TRUNG_BINH' ? 'Trung bình' :
+                                                                                                exercise.mucDoKho === 'KHO' ? 'Khó' : 'Cơ bản'}
+                                                                        </span>
+                                                                        {exercise.kcal && ` • ${exercise.kcal} kcal`}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="pt-menu">
+                                                                    <button
+                                                                        className="pt-menu-btn"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            document.querySelectorAll('.pt-menu-dropdown.show').forEach(dropdown => {
+                                                                                dropdown.classList.remove('show');
+                                                                            });
+                                                                            const menu = e.currentTarget.nextElementSibling;
+                                                                            if (menu) {
+                                                                                menu.classList.toggle('show');
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        ⋯
+                                                                    </button>
+                                                                    <div className="pt-menu-dropdown">
+                                                                        <button
+                                                                            className="pt-menu-item"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                window.open(exercise.videoHuongDan || exercise.source_url, '_blank');
+                                                                            }}
+                                                                        >
+                                                                            📺 Xem video
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="pt-card-divider"></div>
+
+                                                            <div className="pt-card-details">
+                                                                {exercise.nhomCo && (
+                                                                    <div className="pt-detail-item">
+                                                                        <span className="pt-detail-label">Nhóm cơ:</span>
+                                                                        <span className="pt-detail-value">{exercise.nhomCo}</span>
+                                                                    </div>
+                                                                )}
+                                                                {exercise.thietBiSuDung && (
+                                                                    <div className="pt-detail-item">
+                                                                        <span className="pt-detail-label">Thiết bị:</span>
+                                                                        <span className="pt-detail-value">{exercise.thietBiSuDung}</span>
+                                                                    </div>
+                                                                )}
+                                                                {exercise.soHiepvaSoLanLap && exercise.soHiepvaSoLanLap > 0 && (
+                                                                    <div className="pt-detail-item">
+                                                                        <span className="pt-detail-label">Hiệp/Lần lặp:</span>
+                                                                        <span className="pt-detail-value">{exercise.soHiepvaSoLanLap}</span>
+                                                                    </div>
+                                                                )}
+                                                                {exercise.mucTieuBaiTap && (
+                                                                    <div className="pt-detail-item">
+                                                                        <span className="pt-detail-label">Mục tiêu:</span>
+                                                                        <span className="pt-detail-value" style={{ fontSize: '0.85em' }}>
+                                                                            {exercise.mucTieuBaiTap}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {(exercise.duration_sec || exercise.thoiGian) && (
+                                                                    <div className="pt-detail-item">
+                                                                        <span className="pt-detail-label">Thời lượng:</span>
+                                                                        <span className="pt-detail-value">
+                                                                            {Math.floor((exercise.duration_sec || exercise.thoiGian || 0) / 60)} phút
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {exercise.ratings && exercise.ratings.totalRatings > 0 && (
+                                                                    <div className="pt-detail-item">
+                                                                        <span className="pt-detail-label">Đánh giá:</span>
+                                                                        <span className="pt-detail-value">
+                                                                            ⭐ {exercise.ratings.averageRating.toFixed(1)} ({exercise.ratings.totalRatings})
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {(exercise.videoHuongDan || exercise.source_url) && (
+                                                                <>
+                                                                    <div className="pt-card-divider"></div>
+                                                                    <div className="pt-card-actions">
+                                                                        <button
+                                                                            className="pt-action-btn pt-action-view"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                window.open(exercise.videoHuongDan || exercise.source_url, '_blank');
+                                                                            }}
+                                                                        >
+                                                                            📺 Xem video
+                                                                        </button>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                )}
+            </div>
+
+            {isLoading && <Loading overlay text="Đang tải templates..." />}
+
+            {/* Bulk Edit Modal */}
+            {showBulkEditModal && (
+                <div className="modal-overlay" onClick={() => setShowBulkEditModal(false)}>
+                    <div className="change-branch-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+                        <div className="modal-header">
+                            <h2>Chỉnh sửa hàng loạt {selectedExercises.size} bài tập</h2>
+                            <button className="modal-close" onClick={() => setShowBulkEditModal(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ marginBottom: '16px', color: '#6b7280' }}>
+                                Điền các trường bạn muốn cập nhật cho tất cả bài tập đã chọn. Các trường để trống sẽ không thay đổi.
+                            </p>
+
+                            {/* Progress Bar */}
+                            {bulkUpdateProgress && (
+                                <div style={{
+                                    marginBottom: '16px',
+                                    padding: '12px',
+                                    background: '#f0f9ff',
+                                    border: '1px solid #3b82f6',
+                                    borderRadius: '8px'
+                                }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        marginBottom: '8px'
+                                    }}>
+                                        <span style={{ fontSize: '0.9em', fontWeight: 'bold', color: '#3b82f6' }}>
+                                            Đang cập nhật...
+                                        </span>
+                                        <span style={{ fontSize: '0.9em', color: '#6b7280' }}>
+                                            {bulkUpdateProgress.current} / {bulkUpdateProgress.total}
+                                        </span>
+                                    </div>
+                                    <div style={{
+                                        width: '100%',
+                                        height: '8px',
+                                        background: '#e5e7eb',
+                                        borderRadius: '4px',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <div style={{
+                                            width: `${(bulkUpdateProgress.current / bulkUpdateProgress.total) * 100}%`,
+                                            height: '100%',
+                                            background: '#3b82f6',
+                                            transition: 'width 0.3s ease'
+                                        }}></div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Hình ảnh upload */}
+                            <div className="form-group">
+                                <label>Hình ảnh bài tập</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleBulkImageUpload}
+                                    className="file-input"
+                                    id="bulk-edit-image-input"
+                                    style={{ display: 'none' }}
+                                />
+                                <label
+                                    htmlFor="bulk-edit-image-input"
+                                    className="file-upload-label"
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '10px',
+                                        padding: '18px 20px',
+                                        border: '2px dashed #cbd5e1',
+                                        borderRadius: '12px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s ease',
+                                        backgroundColor: previewImage ? '#f0f9ff' : '#f9fafb',
+                                        borderColor: previewImage ? '#3b82f6' : '#cbd5e1'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!previewImage) {
+                                            e.currentTarget.style.borderColor = '#3b82f6';
+                                            e.currentTarget.style.backgroundColor = '#f0f9ff';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!previewImage) {
+                                            e.currentTarget.style.borderColor = '#cbd5e1';
+                                            e.currentTarget.style.backgroundColor = '#f9fafb';
+                                        }
+                                    }}
+                                >
+                                    {previewImage ? (
+                                        <>
+                                            <span>📷</span>
+                                            <span>Hình ảnh đã chọn (click để đổi)</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>📤</span>
+                                            <span>Chọn hình ảnh (tối đa 5MB)</span>
+                                        </>
+                                    )}
+                                </label>
+                                {previewImage && (
+                                    <div style={{
+                                        position: 'relative',
+                                        marginTop: '12px',
+                                        borderRadius: '8px',
+                                        overflow: 'hidden',
+                                        maxWidth: '200px',
+                                        border: '2px solid #3b82f6'
+                                    }}>
+                                        <img
+                                            src={previewImage}
+                                            alt="Preview"
+                                            style={{
+                                                width: '100%',
+                                                height: '120px',
+                                                objectFit: 'cover',
+                                                display: 'block'
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                setPreviewImage(null);
+                                                setBulkEditData({ ...bulkEditData, hinhAnh: undefined });
+                                                // Reset file input
+                                                const fileInput = document.getElementById('bulk-edit-image-input') as HTMLInputElement;
+                                                if (fileInput) fileInput.value = '';
+                                            }}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '8px',
+                                                right: '8px',
+                                                width: '28px',
+                                                height: '28px',
+                                                borderRadius: '50%',
+                                                background: 'rgba(239, 68, 68, 0.9)',
+                                                color: 'white',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '16px',
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                )}
+                                <p className="file-size-hint">Tối đa 5MB. Hình ảnh sẽ được tự động nén.</p>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Mức độ khó (mới)</label>
+                                <select
+                                    className="form-select"
+                                    value={bulkEditData.difficulty || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, difficulty: e.target.value || undefined })}
+                                >
+                                    <option value="">-- Giữ nguyên --</option>
+                                    <option value="beginner">Cơ bản</option>
+                                    <option value="intermediate">Trung bình</option>
+                                    <option value="advanced">Nâng cao</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Mức độ khó (cũ)</label>
+                                <select
+                                    className="form-select"
+                                    value={bulkEditData.mucDoKho || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, mucDoKho: e.target.value || undefined })}
+                                >
+                                    <option value="">-- Giữ nguyên --</option>
+                                    <option value="DE">Dễ</option>
+                                    <option value="TRUNG_BINH">Trung bình</option>
+                                    <option value="KHO">Khó</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Nhóm cơ</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={bulkEditData.nhomCo || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, nhomCo: e.target.value || undefined })}
+                                    placeholder="Giữ nguyên nếu để trống"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Thiết bị sử dụng</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={bulkEditData.thietBiSuDung || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, thietBiSuDung: e.target.value || undefined })}
+                                    placeholder="Giữ nguyên nếu để trống"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Calo (kcal)</label>
+                                <input
+                                    type="number"
+                                    className="form-input"
+                                    value={bulkEditData.kcal || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, kcal: e.target.value ? parseInt(e.target.value) : undefined })}
+                                    placeholder="Giữ nguyên nếu để trống"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Thời lượng (giây)</label>
+                                <input
+                                    type="number"
+                                    className="form-input"
+                                    value={bulkEditData.duration_sec || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, duration_sec: e.target.value ? parseInt(e.target.value) : undefined })}
+                                    placeholder="Giữ nguyên nếu để trống"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Trạng thái</label>
+                                <select
+                                    className="form-select"
+                                    value={bulkEditData.status || ''}
+                                    onChange={e => setBulkEditData({ ...bulkEditData, status: e.target.value || undefined })}
+                                >
+                                    <option value="">-- Giữ nguyên --</option>
+                                    <option value="active">Đang hoạt động</option>
+                                    <option value="inactive">Ngừng hoạt động</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => {
+                                    setShowBulkEditModal(false);
+                                    setBulkEditData({});
+                                    setPreviewImage(null);
+                                    // Reset file input
+                                    const fileInput = document.getElementById('bulk-edit-image-input') as HTMLInputElement;
+                                    if (fileInput) fileInput.value = '';
+                                }}
+                                disabled={isLoading}
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleBulkEdit}
+                                disabled={isLoading}
+                            >
+                                {isLoading
+                                    ? (bulkUpdateProgress
+                                        ? `Đang cập nhật ${bulkUpdateProgress.current}/${bulkUpdateProgress.total}...`
+                                        : 'Đang cập nhật...')
+                                    : `Cập nhật ${selectedExercises.size} bài tập`
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 

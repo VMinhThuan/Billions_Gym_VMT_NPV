@@ -1,0 +1,1073 @@
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { HoiVien, PT, OngChu } = require('../models/NguoiDung');
+const GoiTap = require('../models/GoiTap');
+const ChiTietGoiTap = require('../models/ChiTietGoiTap');
+const LichTap = require('../models/LichTap');
+const BuoiTap = require('../models/BuoiTap');
+const LichSuTap = require('../models/LichSuTap');
+const ChiSoCoThe = require('../models/ChiSoCoThe');
+const ThanhToan = require('../models/ThanhToan');
+const Session = require('../models/Session');
+const ChiNhanh = require('../models/ChiNhanh');
+const Exercise = require('../models/BaiTap'); // BaiTap collection (alias cho Exercise)
+const DinhDuong = require('../models/DinhDuong');
+const ThucDon = require('../models/ThucDon');
+const Review = require('../models/Review');
+const HangHoiVien = require('../models/HangHoiVien');
+const LichHenPT = require('../models/LichHenPT');
+const TemplateBuoiTap = require('../models/TemplateBuoiTap');
+const SessionOption = require('../models/SessionOption');
+const BaoCao = require('../models/BaoCao');
+const ThongBao = require('../models/ThongBao');
+const PackageRegistration = require('../models/PackageRegistration');
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyDy_5Xo6Ob5rKjC8D-LvqxZliok0yFGUjo';
+
+if (!GEMINI_API_KEY) {
+    console.warn('⚠️ GEMINI_API_KEY không được cấu hình trong .env');
+}
+
+const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
+// Sử dụng gemini-2.5-flash (model mới nhất, nhanh và hiệu quả) hoặc gemini-2.5-pro (mạnh hơn, chậm hơn)
+const model = genAI ? genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }) : null;
+
+/**
+ * Lấy context người dùng (profile, roles, branch_id)
+ */
+const getUserContext = async (userId, vaiTro) => {
+    try {
+        let userData = {};
+
+        if (vaiTro === 'HoiVien') {
+            const hoiVien = await HoiVien.findById(userId).populate('hangHoiVien');
+            const chiSoCoThe = await ChiSoCoThe.findOne({ hoiVien: userId }).sort({ ngayDo: -1 });
+            const chiTietGoiTap = await ChiTietGoiTap.findOne({
+                nguoiDungId: userId,
+                trangThaiSuDung: { $in: ['DANG_HOAT_DONG', 'DANG_SU_DUNG'] }
+            }).populate('goiTapId').populate('branchId');
+
+            userData = {
+                userId: userId.toString(),
+                vaiTro: 'HoiVien',
+                hoTen: hoiVien?.hoTen,
+                sdt: hoiVien?.sdt,
+                email: hoiVien?.email,
+                branchId: chiTietGoiTap?.branchId?._id?.toString(),
+                branchName: chiTietGoiTap?.branchId?.tenChiNhanh,
+                goiTap: chiTietGoiTap?.goiTapId ? {
+                    tenGoiTap: chiTietGoiTap.goiTapId.tenGoiTap,
+                    ngayBatDau: chiTietGoiTap.ngayBatDau,
+                    ngayKetThuc: chiTietGoiTap.ngayKetThuc || chiTietGoiTap.ngayKetThuc,
+                    trangThai: chiTietGoiTap.trangThaiSuDung
+                } : null,
+                chiSoCoThe: chiSoCoThe ? {
+                    canNang: chiSoCoThe.canNang,
+                    chieuCao: chiSoCoThe.chieuCao,
+                    BMI: chiSoCoThe.BMI,
+                    mucTieu: chiSoCoThe.mucTieu
+                } : null,
+                hangHoiVien: hoiVien?.hangHoiVien ? {
+                    tenHang: hoiVien.hangHoiVien.tenHang,
+                    uuDai: hoiVien.hangHoiVien.uuDai
+                } : null
+            };
+        } else if (vaiTro === 'PT') {
+            const pt = await PT.findById(userId).populate('chinhanh');
+            userData = {
+                userId: userId.toString(),
+                vaiTro: 'PT',
+                hoTen: pt?.hoTen,
+                sdt: pt?.sdt,
+                email: pt?.email,
+                branchId: pt?.chinhanh?._id?.toString(),
+                branchName: pt?.chinhanh?.tenChiNhanh,
+                chuyenMon: pt?.chuyenMon,
+                kinhNghiem: pt?.kinhNghiem
+            };
+        } else if (vaiTro === 'OngChu') {
+            const ongChu = await require('../models/NguoiDung').OngChu.findById(userId);
+            userData = {
+                userId: userId.toString(),
+                vaiTro: 'OngChu',
+                hoTen: ongChu?.hoTen,
+                sdt: ongChu?.sdt,
+                email: ongChu?.email,
+                branchId: null, // Admin có thể xem tất cả
+                branchName: null
+            };
+        }
+
+        return userData;
+    } catch (error) {
+        console.error('Error getting user context:', error);
+        return { userId: userId.toString(), vaiTro };
+    }
+};
+
+/**
+ * Tạo system prompt cho Gemini
+ */
+const createSystemPrompt = (userContext) => {
+    return `Bạn là trợ lý Chat AI nhúng dưới dạng "bubble chat" xuất hiện trên mọi trang của ứng dụng quản lý phòng gym Billions Fitness & Gym.
+
+NGỮ CẢNH NGƯỜI DÙNG:
+- User ID: ${userContext.userId}
+- Vai trò: ${userContext.vaiTro}
+- Họ tên: ${userContext.hoTen || 'Chưa có'}
+- Số điện thoại: ${userContext.sdt || 'Chưa có'}
+${userContext.branchId ? `- Chi nhánh: ${userContext.branchName} (ID: ${userContext.branchId})` : ''}
+${userContext.goiTap ? `- Gói tập hiện tại: ${userContext.goiTap.tenGoiTap}, Trạng thái: ${userContext.goiTap.trangThai}` : ''}
+
+NHIỆM VỤ:
+1. Trả lời tự nhiên bằng tiếng Việt
+2. Giúp hội viên tra cứu mọi thông tin có trong hệ thống (database và các API nội bộ)
+3. Giải thích ngắn gọn, có bước-làm khi phù hợp, và cung cấp đường dẫn/đi tới màn hình liên quan nếu có
+4. Bảo đảm quyền riêng tư: chỉ hiển thị dữ liệu mà hội viên hiện tại được phép xem
+
+NGUỒN DỮ LIỆU:
+Bạn KHÔNG TRUY CẬP DB trực tiếp. Backend sẽ TỰ ĐỘNG query database và cung cấp dữ liệu cho bạn dựa trên câu hỏi.
+
+CÁC RESOURCE CÓ SẴN TRONG DATABASE (TẤT CẢ CÁC BẢNG):
+1. **goitap** / **packages** - Gói tập (tenGoiTap, giaTien, thoiGian, moTa, trangThai)
+2. **chitietgoitap** / **membership** - Chi tiết đăng ký gói tập (nguoiDungId, goiTapId, ngayBatDau, ngayKetThuc, trangThaiSuDung)
+3. **lichtap** / **schedule** - Lịch tập (hoiVien, pt, ngay, gioBatDau, gioKetThuc, trangThai)
+4. **buoitap** / **sessions** - Buổi tập (ngayTap, gioBatDau, gioKetThuc, cacBaiTap, trangThai)
+5. **lichsutap** / **history** - Lịch sử tập (hoiVien, ngayTap, baiTap, ghiChu, trangThai)
+6. **chisocothe** / **body_metrics** - Chỉ số cơ thể (hoiVien, canNang, chieuCao, BMI, ngayDo, mucTieu)
+7. **thanhtoan** / **payments** - Thanh toán (maHoiVien, soTien, ngayThanhToan, phuongThuc, trangThai)
+8. **chinhanh** / **branch** / **branches** - Chi nhánh (tenChiNhanh, diaChi, sdt)
+9. **exercise** / **baitap** / **exercises** - Bài tập (title/tenBaiTap, type, source_url, duration_sec, difficulty, ratings)
+10. **session** / **sessions_new** - Phiên tập (chiNhanh, ptPhuTrach, goiTap, ngay, gioBatDau, gioKetThuc, doKho, trangThai)
+11. **templatebuoitap** / **templates** - Template buổi tập (tenTemplate, loai, doKho, baiTap)
+12. **dinhduong** / **nutrition** - Dinh dưỡng (các chỉ số dinh dưỡng)
+13. **thucdon** / **menu** / **meals** - Thực đơn (các bữa ăn, calories, protein, carbs, fat)
+14. **review** / **reviews** / **danhgia** - Đánh giá (hoiVien, noiDung, diemSo, ngayTao)
+15. **hanghoivien** / **membership_tier** / **tier** - Hạng hội viên (tenHang, uuDai, dieuKien)
+16. **lichhenpt** / **pt_appointment** / **appointment** - Lịch hẹn PT (hoiVien, pt, ngayHen, gioHen, trangThai)
+17. **baocao** / **report** / **reports** - Báo cáo (chỉ admin/PT xem được)
+18. **thongbao** / **notification** / **notifications** - Thông báo (tieuDe, noiDung, ngayTao, nguoiNhan)
+19. **hoivien** / **members** / **member** - Hội viên (hoTen, sdt, email, trangThaiHoiVien, hangHoiVien) - CHỈ ADMIN
+20. **pt** / **trainer** / **trainers** - Huấn luyện viên (hoTen, sdt, email, chinhanh, chuyenMon) - CHỈ ADMIN
+21. **packageregistration** / **dangkygoitap** - Đăng ký gói tập (hoiVien, goiTap, ngayDangKy, trangThai) - CHỈ ADMIN/PT
+
+KHI TRẢ LỜI:
+- Nếu câu hỏi liên quan đến dữ liệu ở trên, backend sẽ TỰ ĐỘNG query và cung cấp dữ liệu cho bạn trong context.
+- Bạn chỉ cần phân tích và trả lời dựa trên dữ liệu đã được cung cấp.
+- Nếu thiếu dữ liệu, bạn có thể đề xuất người dùng cập nhật hoặc liên hệ admin.
+
+KIỂM SOÁT TRUY CẬP:
+- Nếu yêu cầu vượt quyền, hãy: (1) nói rõ cần quyền gì, (2) gợi ý người dùng liên hệ quản trị viên, (3) đề xuất thông tin thay thế không nhạy cảm
+
+PHONG CÁCH TRẢ LỜI:
+- Ưu tiên ngắn gọn, có headline 1 câu + gạch đầu dòng
+- Khi kết quả dài, tóm tắt trước, sau đó cung cấp nút "Xem chi tiết"
+- Đưa link điều hướng nội bộ (deep link) khi có, ví dụ: /home, /schedule
+- Nếu thiếu dữ liệu: nêu rõ thiếu gì và đề xuất câu hỏi/bước kế tiếp
+
+ĐỊNH DẠNG ĐẦU RA:
+Sử dụng Markdown cơ bản (tiêu đề ngắn, danh sách) + trả về JSON với field "actions" đính kèm cho UI render nút bấm.
+
+Ví dụ format response:
+\`\`\`json
+{
+  "text": "Nội dung trả lời bằng markdown...",
+  "actions": [
+    {"type": "link", "label": "Xem lịch tập", "href": "/schedule"},
+    {"type": "run_query", "label": "Lọc lịch hôm nay", "endpoint": "/api/ai/query", "payload": {"resource":"schedule","filters":{"date":"today"}}}
+  ]
+}
+\`\`\`
+
+GIỚI HẠN & AN TOÀN:
+- Không trả về dữ liệu nhạy cảm (số thẻ, mật khẩu, token)
+- Không phỏng đoán khi thiếu dữ liệu; hãy hỏi lại 1 câu ngắn gọn để làm rõ
+- Ghi chú nguồn: "(dữ liệu từ hệ thống nội bộ, thời điểm ${new Date().toLocaleString('vi-VN')})"
+
+Hãy luôn trả về response dưới dạng JSON với format trên.`;
+};
+
+/**
+ * Xử lý query để lấy dữ liệu từ database
+ */
+const processQuery = async (queryPayload, userContext) => {
+    try {
+        const { resource, filters, sort, limit = 10, skip = 0 } = queryPayload;
+
+        let result = [];
+
+        // Đảm bảo filters không null
+        if (!filters) {
+            filters = {};
+        }
+
+        // Kiểm tra quyền truy cập
+        if (userContext.vaiTro === 'HoiVien') {
+            // Hội viên chỉ được xem dữ liệu của mình
+            if (filters.userId && filters.userId !== userContext.userId) {
+                throw new Error('Không có quyền truy cập dữ liệu của người dùng khác');
+            }
+        }
+
+        switch (resource) {
+            case 'goitap':
+            case 'packages':
+                // Nếu có filter _id (tìm gói cụ thể), query theo đó
+                // Nếu không, query tất cả hoặc theo filters khác
+                const goiTapQuery = filters || {};
+
+                // Nếu không có filter cụ thể, query tất cả (để AI có thể list)
+                result = await GoiTap.find(goiTapQuery)
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || { createdAt: -1 });
+                break;
+
+            case 'chitietgoitap':
+            case 'membership':
+                const query = filters || {};
+                if (userContext.vaiTro === 'HoiVien') {
+                    query.nguoiDungId = userContext.userId;
+                }
+                result = await ChiTietGoiTap.find(query)
+                    .populate('goiTapId')
+                    .populate('nguoiDungId', 'hoTen sdt')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || { ngayDangKy: -1 });
+                break;
+
+            case 'lichtap':
+            case 'schedule':
+                const lichQuery = filters || {};
+                if (userContext.vaiTro === 'HoiVien') {
+                    lichQuery.hoiVien = userContext.userId;
+                }
+                result = await LichTap.find(lichQuery)
+                    .populate('hoiVien', 'hoTen')
+                    .populate('pt', 'hoTen')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || {});
+                break;
+
+            case 'buoitap':
+            case 'sessions':
+                const buoiQuery = { ...filters };
+                // Xóa các filter không thuộc BuoiTap model
+                delete buoiQuery.ngay; // BuoiTap dùng 'ngayTap', không phải 'ngay'
+
+                if (userContext.vaiTro === 'HoiVien') {
+                    // Lấy buổi tập từ lịch tập của họ
+                    const lichTap = await LichTap.findOne({ hoiVien: userContext.userId });
+                    if (lichTap) {
+                        buoiQuery._id = { $in: lichTap.cacBuoiTap };
+                    } else {
+                        buoiQuery._id = { $in: [] }; // Không có buổi tập nào
+                    }
+                }
+                result = await BuoiTap.find(buoiQuery)
+                    .populate('chiNhanh', 'tenChiNhanh diaChi')
+                    .populate('ptPhuTrach', 'hoTen sdt')
+                    .populate('cacBaiTap.baiTap')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || { ngayTap: -1 });
+                break;
+
+            case 'lichsutap':
+            case 'history':
+                const historyQuery = filters || {};
+                if (userContext.vaiTro === 'HoiVien') {
+                    historyQuery.hoiVien = userContext.userId;
+                }
+                result = await LichSuTap.find(historyQuery)
+                    .populate('hoiVien', 'hoTen')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || { ngayTap: -1 });
+                break;
+
+            case 'chisocothe':
+            case 'body_metrics':
+                const chiSoQuery = filters || {};
+                if (userContext.vaiTro === 'HoiVien') {
+                    chiSoQuery.hoiVien = userContext.userId;
+                }
+                result = await ChiSoCoThe.find(chiSoQuery)
+                    .populate('hoiVien', 'hoTen')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || { ngayDo: -1 });
+                break;
+
+            case 'thanhtoan':
+            case 'payments':
+                const thanhToanQuery = filters || {};
+                if (userContext.vaiTro === 'HoiVien') {
+                    // Lấy từ ChiTietGoiTap
+                    const chiTietGoiTap = await ChiTietGoiTap.find({ nguoiDungId: userContext.userId });
+                    const thanhToanIds = chiTietGoiTap.map(ct => ct.maThanhToan).filter(Boolean);
+                    if (thanhToanIds.length > 0) {
+                        thanhToanQuery._id = { $in: thanhToanIds };
+                    } else {
+                        thanhToanQuery._id = { $in: [] };
+                    }
+                }
+                result = await ThanhToan.find(thanhToanQuery)
+                    .populate('maHoiVien', 'hoTen')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || { ngayThanhToan: -1 });
+                break;
+
+            case 'chinhanh':
+            case 'branch':
+            case 'branches':
+                result = await ChiNhanh.find(filters || {}).limit(limit).skip(skip).sort(sort || {});
+                break;
+
+            case 'exercise':
+            case 'baitap':
+            case 'exercises':
+                result = await Exercise.find(filters || {}).limit(limit).skip(skip).sort(sort || {});
+                break;
+
+            case 'session':
+            case 'sessions_new':
+                // Session model (khác với buoitap)
+                const sessionQuery = { ...filters };
+                // Xóa các filter không thuộc Session model
+                delete sessionQuery.ngayTap; // Session dùng 'ngay', không phải 'ngayTap'
+
+                if (userContext.vaiTro === 'HoiVien') {
+                    // Session có thể filter theo goiTap hoặc pt
+                    // Không có trường hoiVien trực tiếp
+                }
+                result = await Session.find(sessionQuery)
+                    .populate('chiNhanh', 'tenChiNhanh diaChi')
+                    .populate('ptPhuTrach', 'hoTen sdt')
+                    .populate('goiTap', 'tenGoiTap')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || { ngay: -1 });
+                break;
+
+            case 'templatebuoitap':
+            case 'templates':
+            case 'template':
+                result = await TemplateBuoiTap.find(filters || {})
+                    .populate('baiTap')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || {});
+                break;
+
+            case 'dinhduong':
+            case 'nutrition':
+                const dinhDuongQuery = filters || {};
+                if (userContext.vaiTro === 'HoiVien') {
+                    // Có thể filter theo hoiVien nếu có
+                }
+                result = await DinhDuong.find(dinhDuongQuery).limit(limit).skip(skip).sort(sort || {});
+                break;
+
+            case 'thucdon':
+            case 'menu':
+            case 'meals':
+                result = await ThucDon.find(filters || {}).limit(limit).skip(skip).sort(sort || {});
+                break;
+
+            case 'review':
+            case 'reviews':
+            case 'danhgia':
+                const reviewQuery = filters || {};
+                result = await Review.find(reviewQuery)
+                    .populate('hoiVien', 'hoTen')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || { ngayTao: -1 });
+                break;
+
+            case 'hanghoivien':
+            case 'membership_tier':
+            case 'tier':
+                result = await HangHoiVien.find(filters || {}).limit(limit).skip(skip).sort(sort || {});
+                break;
+
+            case 'lichhenpt':
+            case 'pt_appointment':
+            case 'appointment':
+                const lichHenQuery = filters || {};
+                if (userContext.vaiTro === 'HoiVien') {
+                    lichHenQuery.hoiVien = userContext.userId;
+                }
+                result = await LichHenPT.find(lichHenQuery)
+                    .populate('hoiVien', 'hoTen')
+                    .populate('pt', 'hoTen')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || { ngayHen: -1 });
+                break;
+
+            case 'baocao':
+            case 'report':
+            case 'reports':
+                // Admin/OngChu mới có quyền xem báo cáo
+                if (userContext.vaiTro !== 'OngChu' && userContext.vaiTro !== 'PT') {
+                    throw new Error('Chỉ quản trị viên mới có quyền xem báo cáo');
+                }
+                result = await BaoCao.find(filters || {}).limit(limit).skip(skip).sort(sort || { ngayTao: -1 });
+                break;
+
+            case 'thongbao':
+            case 'notification':
+            case 'notifications':
+                const thongBaoQuery = filters || {};
+                if (userContext.vaiTro === 'HoiVien') {
+                    // Có thể filter theo nguoiNhan
+                }
+                result = await ThongBao.find(thongBaoQuery).limit(limit).skip(skip).sort(sort || { ngayTao: -1 });
+                break;
+
+            case 'hoivien':
+            case 'members':
+            case 'member':
+                // Admin/PT mới có quyền xem danh sách hội viên
+                if (userContext.vaiTro !== 'OngChu' && userContext.vaiTro !== 'PT') {
+                    throw new Error('Chỉ quản trị viên mới có quyền xem danh sách hội viên');
+                }
+                result = await HoiVien.find(filters || {})
+                    .populate('hangHoiVien')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || {});
+                break;
+
+            case 'pt':
+            case 'trainer':
+            case 'trainers':
+                // Admin mới có quyền xem danh sách PT
+                if (userContext.vaiTro !== 'OngChu') {
+                    throw new Error('Chỉ quản trị viên mới có quyền xem danh sách huấn luyện viên');
+                }
+                result = await PT.find(filters || {})
+                    .populate('chinhanh')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || {});
+                break;
+
+            case 'packageregistration':
+            case 'dangkygoitap':
+                // Admin/PT mới có quyền xem
+                if (userContext.vaiTro !== 'OngChu' && userContext.vaiTro !== 'PT') {
+                    throw new Error('Chỉ quản trị viên mới có quyền xem đăng ký gói tập');
+                }
+                result = await PackageRegistration.find(filters || {})
+                    .populate('hoiVien', 'hoTen')
+                    .populate('goiTap', 'tenGoiTap')
+                    .limit(limit)
+                    .skip(skip)
+                    .sort(sort || { ngayDangKy: -1 });
+                break;
+
+            default:
+                throw new Error(`Resource không hỗ trợ: ${resource}. Các resource có sẵn: goitap, chitietgoitap, lichtap, buoitap, lichsutap, chisocothe, thanhtoan, chinhanh, exercise, session, templatebuoitap, dinhduong, thucdon, review, hanghoivien, lichhenpt, baocao, thongbao, hoivien, pt, packageregistration`);
+        }
+
+        return {
+            success: true,
+            data: result,
+            total: result.length,
+            limit,
+            skip
+        };
+    } catch (error) {
+        console.error('Error processing query:', error);
+        throw error;
+    }
+};
+
+/**
+ * Tìm kiếm full-text qua các resources
+ */
+const search = async (query, userContext) => {
+    try {
+        const searchTerm = query.toLowerCase();
+        const results = {
+            goitap: [],
+            chitietgoitap: [],
+            lichtap: [],
+            lichsutap: []
+        };
+
+        if (userContext.vaiTro === 'HoiVien') {
+            // Tìm trong gói tập của họ
+            const chiTietGoiTap = await ChiTietGoiTap.find({ nguoiDungId: userContext.userId })
+                .populate('goiTapId')
+                .limit(5);
+            results.chitietgoitap = chiTietGoiTap.filter(ct =>
+                ct.goiTapId?.tenGoiTap?.toLowerCase().includes(searchTerm)
+            );
+
+            // Tìm trong lịch tập
+            const lichTap = await LichTap.findOne({ hoiVien: userContext.userId })
+                .populate('hoiVien', 'hoTen')
+                .populate('pt', 'hoTen');
+            if (lichTap) {
+                results.lichtap = [lichTap];
+            }
+
+            // Tìm trong lịch sử tập
+            const lichSuTap = await LichSuTap.find({ hoiVien: userContext.userId })
+                .populate('hoiVien', 'hoTen')
+                .limit(10)
+                .sort({ ngayTap: -1 });
+            results.lichsutap = lichSuTap.filter(ls =>
+                ls.ghiChu?.toLowerCase().includes(searchTerm) ||
+                ls.baiTap?.toLowerCase().includes(searchTerm)
+            );
+        } else {
+            // Admin/PT có thể tìm tất cả
+            results.goitap = await GoiTap.find({
+                $or: [
+                    { tenGoiTap: { $regex: searchTerm, $options: 'i' } },
+                    { moTa: { $regex: searchTerm, $options: 'i' } }
+                ]
+            }).limit(10);
+        }
+
+        return {
+            success: true,
+            query,
+            results
+        };
+    } catch (error) {
+        console.error('Error in search:', error);
+        throw error;
+    }
+};
+
+/**
+ * Parse filters từ câu hỏi (date, branch name, package name, etc.)
+ */
+const parseFiltersFromMessage = async (message, detectedResource) => {
+    const msg = message.toLowerCase();
+    const filters = {};
+
+    // Parse package name: "Weekend Gym", "gói tập X", etc.
+    if (detectedResource === 'goitap' || detectedResource === 'packages') {
+        // Tìm tên gói tập trong câu hỏi - CẢI THIỆN LOGIC
+        let packageName = null;
+
+        // 1. Tìm trong dấu ngoặc kép/đơn
+        const quotedMatch = message.match(/["']([^"']+)["']/);
+        if (quotedMatch) {
+            packageName = quotedMatch[1].trim();
+        }
+
+        // 2. Tìm sau "gói tập" hoặc "package"
+        if (!packageName) {
+            const afterKeywordMatch = message.match(/(?:gói tập|goi tap|package|packages)\s+["']?([^"',.\n]+)["']?/i);
+            if (afterKeywordMatch) {
+                packageName = afterKeywordMatch[1].trim();
+            }
+        }
+
+        // 3. Tìm các từ viết hoa (có thể là tên gói tập như "Weekend Gym")
+        if (!packageName) {
+            const capitalizedWords = message.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/);
+            if (capitalizedWords) {
+                packageName = capitalizedWords[0].trim();
+            }
+        }
+
+        // 4. Tìm bất kỳ từ khóa nào có thể là tên gói tập (loại bỏ các từ thông thường)
+        if (!packageName) {
+            const commonWords = ['gói', 'tập', 'package', 'goi', 'tap', 'của', 'cua', 'cho', 'về', 've', 'với', 'voi', 'theo', 'từ', 'tu', 'có', 'co', 'là', 'la', 'được', 'duoc', 'trong', 'này', 'nay', 'nào', 'nao', 'nếu', 'neu', 'không', 'khong', 'có', 'co', 'tất', 'tat', 'cả', 'ca', 'hiện', 'hien', 'tại', 'tai'];
+            const words = message.split(/\s+/).filter(w => w.length > 2 && !commonWords.includes(w.toLowerCase()));
+            if (words.length > 0) {
+                // Thử tìm với từ đầu tiên, hoặc kết hợp 2-3 từ đầu
+                for (let i = 1; i <= Math.min(3, words.length); i++) {
+                    const candidate = words.slice(0, i).join(' ');
+                    try {
+                        const packageFound = await GoiTap.findOne({
+                            tenGoiTap: { $regex: candidate, $options: 'i' }
+                        });
+                        if (packageFound) {
+                            packageName = candidate;
+                            filters._id = packageFound._id;
+                            console.log(`✅ Found package by candidate "${candidate}": ${packageFound.tenGoiTap}`);
+                            break;
+                        }
+                    } catch (err) {
+                        // Continue
+                    }
+                }
+            }
+        }
+
+        // 5. Nếu đã có packageName nhưng chưa tìm thấy, search trong database
+        if (packageName && !filters._id) {
+            try {
+                const packageFound = await GoiTap.findOne({
+                    tenGoiTap: { $regex: packageName.replace(/\s+/g, '\\s*'), $options: 'i' }
+                });
+                if (packageFound) {
+                    filters._id = packageFound._id;
+                    console.log(`✅ Found package: ${packageFound.tenGoiTap} (${packageFound._id})`);
+                } else {
+                    console.log(`⚠️ Package name "${packageName}" not found, will query all packages`);
+                }
+            } catch (err) {
+                console.warn('Error finding package:', err.message);
+            }
+        }
+
+        // LƯU Ý: Nếu không tìm thấy với filter, sẽ query tất cả để AI có thể tìm trong danh sách
+    }
+
+    // Parse date: "hôm nay", "ngày mai", "hôm qua", "hôm nay", specific date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (msg.includes('hôm nay') || msg.includes('hom nay') || msg.includes('today')) {
+        filters.ngay = { $gte: today, $lt: tomorrow };
+        filters.ngayTap = { $gte: today, $lt: tomorrow };
+    } else if (msg.includes('ngày mai') || msg.includes('ngay mai') || msg.includes('tomorrow')) {
+        filters.ngay = { $gte: tomorrow };
+        filters.ngayTap = { $gte: tomorrow };
+    } else if (msg.includes('hôm qua') || msg.includes('hom qua') || msg.includes('yesterday')) {
+        filters.ngay = { $gte: yesterday, $lt: today };
+        filters.ngayTap = { $gte: yesterday, $lt: today };
+    }
+
+    // Parse branch name: "Quận 3", "Quan 3", "chi nhánh X"
+    if (msg.includes('quận') || msg.includes('quan')) {
+        // Tìm tên chi nhánh trong câu hỏi
+        const branchMatch = msg.match(/qu[ậa]n\s*(\d+)/i);
+        if (branchMatch) {
+            const branchName = `Quận ${branchMatch[1]}`;
+            // Tìm chi nhánh trong database
+            try {
+                const branch = await ChiNhanh.findOne({ tenChiNhanh: { $regex: branchName, $options: 'i' } });
+                if (branch) {
+                    filters.chiNhanh = branch._id;
+                    console.log(`✅ Found branch: ${branch.tenChiNhanh} (${branch._id})`);
+                }
+            } catch (err) {
+                console.warn('Error finding branch:', err.message);
+            }
+        }
+    }
+
+    // Parse branch name variations
+    if (msg.includes('chi nhánh') || msg.includes('branch')) {
+        // Tìm tên chi nhánh sau "chi nhánh"
+        const branchNameMatch = msg.match(/chi nh[áa]nh\s+([^,\s]+)/i) || msg.match(/branch\s+([^,\s]+)/i);
+        if (branchNameMatch) {
+            const branchName = branchNameMatch[1].trim();
+            try {
+                const branch = await ChiNhanh.findOne({ tenChiNhanh: { $regex: branchName, $options: 'i' } });
+                if (branch) {
+                    filters.chiNhanh = branch._id;
+                    console.log(`✅ Found branch: ${branch.tenChiNhanh} (${branch._id})`);
+                }
+            } catch (err) {
+                console.warn('Error finding branch:', err.message);
+            }
+        }
+    }
+
+    return filters;
+};
+
+/**
+ * Phát hiện resource cần query từ câu hỏi (có thể nhiều resources)
+ */
+const detectResourcesFromMessage = (message) => {
+    const msg = message.toLowerCase();
+    const resources = [];
+    const resourceMap = {
+        // Gói tập
+        'gói tập': 'goitap',
+        'goi tap': 'goitap',
+        'package': 'goitap',
+        'packages': 'goitap',
+        'đăng ký gói': 'chitietgoitap',
+        'gói của tôi': 'chitietgoitap',
+        'membership': 'chitietgoitap',
+        // Lịch tập
+        'lịch tập': 'lichtap',
+        'schedule': 'lichtap',
+        'lịch hôm nay': 'lichtap',
+        // Buổi tập
+        'buổi tập': 'buoitap',
+        'session': 'buoitap',
+        'sessions': 'buoitap',
+        // Lịch sử
+        'lịch sử tập': 'lichsutap',
+        'history': 'lichsutap',
+        // Chỉ số cơ thể
+        'chỉ số cơ thể': 'chisocothe',
+        'body metrics': 'chisocothe',
+        'cân nặng': 'chisocothe',
+        'bmi': 'chisocothe',
+        'chiều cao': 'chisocothe',
+        // Thanh toán
+        'thanh toán': 'thanhtoan',
+        'payment': 'thanhtoan',
+        'payments': 'thanhtoan',
+        'hóa đơn': 'thanhtoan',
+        // Chi nhánh
+        'chi nhánh': 'chinhanh',
+        'branch': 'chinhanh',
+        'branches': 'chinhanh',
+        // Bài tập
+        'bài tập': 'exercise',
+        'baitap': 'exercise',
+        'exercise': 'exercise',
+        'exercises': 'exercise',
+        // Session (phiên tập mới)
+        'session new': 'session',
+        'sessions_new': 'session',
+        'phiên tập': 'session',
+        // Template
+        'template': 'templatebuoitap',
+        'templates': 'templatebuoitap',
+        'mẫu buổi tập': 'templatebuoitap',
+        // Dinh dưỡng
+        'dinh dưỡng': 'dinhduong',
+        'nutrition': 'dinhduong',
+        // Thực đơn
+        'thực đơn': 'thucdon',
+        'menu': 'thucdon',
+        'meals': 'thucdon',
+        'bữa ăn': 'thucdon',
+        // Đánh giá
+        'review': 'review',
+        'reviews': 'review',
+        'đánh giá': 'review',
+        'danh gia': 'review',
+        // Hạng hội viên
+        'hạng hội viên': 'hanghoivien',
+        'membership tier': 'hanghoivien',
+        'tier': 'hanghoivien',
+        // Lịch hẹn PT
+        'lịch hẹn pt': 'lichhenpt',
+        'pt appointment': 'lichhenpt',
+        'appointment': 'lichhenpt',
+        // Báo cáo
+        'báo cáo': 'baocao',
+        'report': 'baocao',
+        'reports': 'baocao',
+        // Thông báo
+        'thông báo': 'thongbao',
+        'notification': 'thongbao',
+        'notifications': 'thongbao',
+        // Hội viên (admin only)
+        'hội viên': 'hoivien',
+        'members': 'hoivien',
+        'member': 'hoivien',
+        // PT (admin only)
+        'huấn luyện viên': 'pt',
+        'trainer': 'pt',
+        'trainers': 'pt',
+        'pt': 'pt'
+    };
+
+    for (const [keyword, resource] of Object.entries(resourceMap)) {
+        if (msg.includes(keyword)) {
+            if (!resources.includes(resource)) {
+                resources.push(resource);
+            }
+        }
+    }
+
+    // Nếu không tìm thấy resource cụ thể, nhưng có từ khóa về buổi tập/session
+    if (resources.length === 0) {
+        if (msg.includes('buổi') || msg.includes('buoi') || msg.includes('session')) {
+            // Thử cả session và buoitap
+            resources.push('session');
+            resources.push('buoitap');
+        }
+    }
+
+    return resources.length > 0 ? resources : null;
+};
+
+/**
+ * Xử lý chat message với Gemini
+ */
+const processChatMessage = async (message, userContext, conversationHistory = []) => {
+    try {
+        if (!genAI) {
+            throw new Error('Gemini API không được khởi tạo. Vui lòng kiểm tra API key.');
+        }
+
+        if (!model) {
+            throw new Error('Gemini model không được khởi tạo. Vui lòng kiểm tra model name.');
+        }
+
+        // Tự động query database nếu cần - QUERY THÔNG MINH HƠN
+        let databaseData = [];
+        let detectedResources = detectResourcesFromMessage(message);
+
+        // LUÔN query nếu có từ khóa về gói tập, dù có detect được resource hay không
+        const msg = message.toLowerCase();
+        const hasGoiTapKeywords = msg.includes('gói tập') || msg.includes('goi tap') || msg.includes('package') ||
+            msg.includes('packages') || msg.includes('gói') || msg.includes('goi');
+
+        if (hasGoiTapKeywords) {
+            if (!detectedResources || !detectedResources.includes('goitap')) {
+                if (!detectedResources) {
+                    detectedResources = ['goitap'];
+                } else {
+                    detectedResources.push('goitap');
+                }
+            }
+        }
+
+        if (detectedResources && detectedResources.length > 0) {
+            // Query từng resource với filters thông minh
+            for (const resource of detectedResources) {
+                try {
+                    // Parse filters từ câu hỏi
+                    const filters = await parseFiltersFromMessage(message, resource);
+
+                    // Query dữ liệu từ database với filters
+                    const queryResult = await processQuery({
+                        resource: resource,
+                        filters: filters,
+                        limit: 50, // Tăng limit để có đủ dữ liệu (đặc biệt cho goitap)
+                        skip: 0
+                    }, userContext);
+
+                    if (queryResult.success && queryResult.data && queryResult.data.length > 0) {
+                        // Đặc biệt cho goitap: Nếu có filter _id nhưng không tìm thấy, query tất cả
+                        if (resource === 'goitap' && filters._id && queryResult.data.length === 0) {
+                            console.log(`⚠️ Package not found with _id filter, querying all packages...`);
+                            const fallbackResult = await processQuery({
+                                resource: resource,
+                                filters: {},
+                                limit: 100,
+                                skip: 0
+                            }, userContext);
+
+                            if (fallbackResult.success && fallbackResult.data && fallbackResult.data.length > 0) {
+                                databaseData.push({
+                                    resource: resource,
+                                    count: fallbackResult.data.length,
+                                    total: fallbackResult.total || fallbackResult.data.length,
+                                    data: fallbackResult.data,
+                                    note: 'Query tất cả gói tập - AI cần tìm trong danh sách này'
+                                });
+                                console.log(`✅ Fallback query all packages: ${fallbackResult.data.length} records`);
+                            }
+                        } else {
+                            // Format dữ liệu để đưa vào context
+                            databaseData.push({
+                                resource: resource,
+                                count: queryResult.data.length,
+                                total: queryResult.total || queryResult.data.length,
+                                data: queryResult.data // Lấy tất cả dữ liệu
+                            });
+                            console.log(`✅ Auto-queried ${resource}: ${queryResult.data.length} records with filters:`, JSON.stringify(filters));
+                        }
+                    } else {
+                        // Nếu không tìm thấy với filters, thử query tất cả (để AI có thể list)
+                        if (Object.keys(filters).length > 0 || resource === 'goitap') {
+                            console.log(`⚠️ No data found for ${resource} with filters, trying without filters...`);
+                            const fallbackResult = await processQuery({
+                                resource: resource,
+                                filters: {},
+                                limit: resource === 'goitap' ? 100 : 50, // Tăng limit cho goitap
+                                skip: 0
+                            }, userContext);
+
+                            if (fallbackResult.success && fallbackResult.data && fallbackResult.data.length > 0) {
+                                databaseData.push({
+                                    resource: resource,
+                                    count: fallbackResult.data.length,
+                                    total: fallbackResult.total || fallbackResult.data.length,
+                                    data: fallbackResult.data,
+                                    note: resource === 'goitap' ? 'Danh sách TẤT CẢ gói tập - AI PHẢI tìm trong danh sách này' : 'Query tất cả vì không tìm thấy với filters cụ thể'
+                                });
+                                console.log(`✅ Fallback query ${resource}: ${fallbackResult.data.length} records`);
+                            }
+                        } else {
+                            console.log(`⚠️ No data found for ${resource}`);
+                        }
+                    }
+                } catch (queryError) {
+                    console.warn(`Auto-query failed for ${resource}:`, queryError.message);
+                    // Không fail toàn bộ request, chỉ log warning
+                }
+            }
+        } else {
+            // Nếu không detect được resource, thử query session/buoitap nếu có từ khóa về buổi tập
+            const msg = message.toLowerCase();
+            if (msg.includes('buổi') || msg.includes('buoi') || msg.includes('session') || msg.includes('hôm nay') || msg.includes('today')) {
+                try {
+                    const filters = await parseFiltersFromMessage(message, 'session');
+                    // Thử query cả session và buoitap
+                    for (const resource of ['session', 'buoitap']) {
+                        try {
+                            const queryResult = await processQuery({
+                                resource: resource,
+                                filters: filters,
+                                limit: 20,
+                                skip: 0
+                            }, userContext);
+
+                            if (queryResult.success && queryResult.data && queryResult.data.length > 0) {
+                                databaseData.push({
+                                    resource: resource,
+                                    count: queryResult.data.length,
+                                    total: queryResult.total || queryResult.data.length,
+                                    data: queryResult.data
+                                });
+                                console.log(`✅ Auto-queried ${resource} (fallback): ${queryResult.data.length} records`);
+                            }
+                        } catch (err) {
+                            console.warn(`Fallback query failed for ${resource}:`, err.message);
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Fallback query failed:', err.message);
+                }
+            }
+        }
+
+        const systemPrompt = createSystemPrompt(userContext);
+
+        // Thêm database data vào context nếu có - FORMAT RÕ RÀNG HƠN
+        let dataContext = '';
+        if (databaseData && databaseData.length > 0) {
+            dataContext = `\n\n📊 DỮ LIỆU TỪ DATABASE (ĐÃ QUERY TỰ ĐỘNG):\n`;
+            for (const data of databaseData) {
+                dataContext += `\n**${data.resource.toUpperCase()}**: Tìm thấy ${data.count} bản ghi (tổng: ${data.total || data.count})\n`;
+                if (data.note) {
+                    dataContext += `📌 ${data.note}\n`;
+                }
+                dataContext += `Dữ liệu chi tiết:\n${JSON.stringify(data.data, null, 2)}\n`;
+            }
+            dataContext += `\n\n⚠️⚠️⚠️ QUAN TRỌNG - BẠN PHẢI LÀM THEO:\n`;
+            dataContext += `1. Bạn PHẢI sử dụng dữ liệu trên để trả lời. KHÔNG được dùng placeholder như [số_lượng_buổi_tập] hay [số_lượng].\n`;
+            dataContext += `2. Hãy sử dụng SỐ THỰC TẾ từ dữ liệu đã query.\n`;
+            dataContext += `3. Nếu người dùng hỏi về một gói tập cụ thể (ví dụ "Weekend Gym"), BẠN PHẢI TÌM trong danh sách data trên.`;
+            dataContext += `   - Tìm trong mảng data, so sánh trường "tenGoiTap" với tên người dùng hỏi (case-insensitive, partial match OK)\n`;
+            dataContext += `   - Nếu tìm thấy, trả về thông tin chi tiết của gói tập đó\n`;
+            dataContext += `   - Nếu KHÔNG tìm thấy trong danh sách, mới nói "không tìm thấy"\n`;
+            dataContext += `4. Nếu count = 0, nói rõ "không tìm thấy" hoặc "không có dữ liệu"\n`;
+            dataContext += `5. Nếu có dữ liệu, liệt kê chi tiết từ các trường trong data (tenGoiTap, donGia, thoiHan, moTa, etc.)\n`;
+            dataContext += `6. Sử dụng số thực tế: count, các trường như ngay, gioBatDau, tenChiNhanh, etc.\n`;
+            dataContext += `7. KHÔNG BAO GIỜ nói "không tìm thấy" nếu chưa kiểm tra kỹ trong danh sách data đã được cung cấp!`;
+        } else {
+            dataContext = `\n\n⚠️ LƯU Ý: Không tìm thấy dữ liệu từ database cho câu hỏi này. Nếu câu hỏi liên quan đến dữ liệu trong hệ thống, hãy thông báo rằng "Hiện tại không có dữ liệu phù hợp" hoặc đề xuất cách khác để tìm thông tin.`;
+        }
+
+        // Format instruction cho JSON response
+        const formatInstruction = `\n\nHãy phân tích câu hỏi và trả lời bằng tiếng Việt. Trả về JSON với format:
+{
+  "text": "Nội dung trả lời markdown...",
+  "actions": [
+    {"type": "link", "label": "Nhãn nút", "href": "/đường-dẫn"},
+    {"type": "run_query", "label": "Nhãn nút", "endpoint": "/api/ai/query", "payload": {...}}
+  ]
+}`;
+
+        // Chuẩn bị full prompt với system context + database data
+        const fullPrompt = `${systemPrompt}${dataContext}\n\nCÂU HỎI: ${message}${formatInstruction}`;
+
+        // Đơn giản hóa: luôn dùng generateContent (ổn định nhất)
+        // Chỉ dùng startChat nếu thực sự cần conversation context
+        let result;
+
+        if (conversationHistory.length > 0) {
+            // Có history - thử dùng startChat
+            try {
+                // Chuyển đổi history sang format Gemini, đảm bảo bắt đầu với 'user'
+                const history = [];
+                for (let i = 0; i < conversationHistory.length && history.length < 10; i++) {
+                    const msg = conversationHistory[i];
+                    history.push({
+                        role: msg.role === 'user' ? 'user' : 'model',
+                        parts: [{ text: msg.content }]
+                    });
+                }
+
+                // Đảm bảo history bắt đầu với 'user'
+                if (history.length > 0 && history[0].role === 'user') {
+                    const chat = model.startChat({
+                        history: history
+                    });
+
+                    // Gửi message mới (có system prompt trong đó)
+                    result = await chat.sendMessage(fullPrompt);
+                } else {
+                    // History không hợp lệ, dùng generateContent
+                    result = await model.generateContent(fullPrompt);
+                }
+            } catch (chatError) {
+                // Nếu startChat lỗi, fallback về generateContent
+                console.warn('startChat failed, using generateContent:', chatError.message);
+                result = await model.generateContent(fullPrompt);
+            }
+        } else {
+            // Không có history, dùng generateContent
+            result = await model.generateContent(fullPrompt);
+        }
+
+        const response = await result.response;
+        const text = response.text();
+
+        // Parse JSON từ response
+        let parsedResponse;
+        try {
+            // Tìm JSON trong response (có thể có markdown code block)
+            const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const jsonStr = jsonMatch[1] || jsonMatch[0];
+                parsedResponse = JSON.parse(jsonStr);
+            } else {
+                parsedResponse = {
+                    text: text,
+                    actions: []
+                };
+            }
+        } catch (parseError) {
+            // Nếu không parse được JSON, trả về text như response
+            parsedResponse = {
+                text: text,
+                actions: []
+            };
+        }
+
+        return {
+            success: true,
+            response: parsedResponse.text || text,
+            actions: parsedResponse.actions || [],
+            timestamp: new Date().toISOString()
+        };
+    } catch (error) {
+        console.error('Error processing chat message:', error);
+        console.error('Error details:', {
+            message: error.message,
+            name: error.name,
+            stack: error.stack?.split('\n').slice(0, 5).join('\n')
+        });
+        throw error;
+    }
+};
+
+module.exports = {
+    processChatMessage,
+    processQuery,
+    search,
+    getUserContext
+};

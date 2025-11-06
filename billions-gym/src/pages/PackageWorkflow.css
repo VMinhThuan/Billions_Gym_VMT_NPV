@@ -3,7 +3,9 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 2rem;
-    min-height: 100vh;
+    /* Let the page-level container handle scrolling so the scrollbar is flush with the viewport edge.
+       Avoid forcing an inner scrolling context here. */
+    min-height: auto;
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
 }
 
@@ -523,10 +525,14 @@
 }
 
 .workflow-page {
-    width: 100%;
+    width: 100%; /* use 100% to avoid viewport-width overflow when vertical scrollbar is present */
+    /* keep page at least full viewport, but allow vertical scrolling */
     min-height: 100vh;
     padding-top: var(--header-height-desktop);
     background: linear-gradient(180deg, var(--bg-dark) 0%, var(--bg-dark-2) 100%);
+    overflow-y: auto; /* page-level vertical scrolling */
+    overflow-x: hidden; /* prevent horizontal scrolling */
+    -webkit-overflow-scrolling: touch; /* smooth scrolling on supported devices */
 }
 
 @media (max-width: 640px) {
@@ -542,6 +548,7 @@
     margin: 0 auto;
     padding-left: 1rem;
     padding-right: 1rem;
+    /* No inner scrolling here — keep scrolling on `.workflow-page` so scrollbar is at screen edge */
 }
 
 /* Sticky stepper under header */

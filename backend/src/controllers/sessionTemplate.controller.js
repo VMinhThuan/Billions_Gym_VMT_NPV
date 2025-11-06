@@ -4,11 +4,18 @@ const { PT } = require('../models/NguoiDung');
 
 exports.list = async (req, res) => {
     try {
-        const { doKho, loai } = req.query;
+        const { doKho, loai, populateExercises } = req.query;
         const q = {};
         if (doKho) q.doKho = doKho;
         if (loai) q.loai = loai;
-        const items = await Template.find(q).sort({ ten: 1 });
+
+        // Chỉ populate bài tập nếu được yêu cầu (lazy load)
+        let query = Template.find(q);
+        if (populateExercises === 'true') {
+            query = query.populate('baiTap');
+        }
+
+        const items = await query.sort({ ten: 1 });
         res.json(items);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -17,7 +24,15 @@ exports.list = async (req, res) => {
 
 exports.detail = async (req, res) => {
     try {
-        const item = await Template.findById(req.params.id);
+        const { populateExercises } = req.query;
+        let query = Template.findById(req.params.id);
+
+        // Populate exercises nếu được yêu cầu
+        if (populateExercises === 'true') {
+            query = query.populate('baiTap');
+        }
+
+        const item = await query;
         if (!item) return res.status(404).json({ message: 'Không tìm thấy template' });
         res.json(item);
     } catch (err) {

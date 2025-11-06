@@ -146,23 +146,98 @@ const selectTrainer = async (req, res) => {
     }
 };
 
+// Kiểm tra lịch tập có tồn tại không
+const checkScheduleExists = async (req, res) => {
+    try {
+        const { registrationId } = req.params;
+
+        // Kiểm tra trong LichTap collection
+        const schedule = await LichTap.findOne({
+            chiTietGoiTap: registrationId
+        });
+
+        // Kiểm tra trong ChiTietGoiTap
+        const registration = await ChiTietGoiTap.findById(registrationId);
+
+        return res.json({
+            success: true,
+            data: {
+                exists: schedule !== null,
+                hasSchedule: registration?.lichTapDuocTao === true,
+                status: registration?.trangThaiDangKy
+            }
+        });
+    } catch (error) {
+        console.error('Error checking schedule existence:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Không thể kiểm tra lịch tập'
+        });
+    }
+};
+
 // Tạo lịch tập dựa trên gói tập và PT đã chọn
 const generateWorkoutSchedule = async (req, res) => {
     try {
         const { chiTietGoiTapId } = req.params;
-        const { cacNgayTap, khungGioTap } = req.body;
+        const { cacNgayTap, khungGioTap, selectedSessions } = req.body;
 
-        // Lấy thông tin chi tiết gói tập
+        console.log('📥 Received request body:', {
+            cacNgayTap,
+            khungGioTap,
+            selectedSessions: selectedSessions?.length || 0
+        });
+
+        // Kiểm tra xem lịch tập đã tồn tại chưa
+        const existingSchedule = await LichTap.findOne({
+            chiTietGoiTap: chiTietGoiTapId
+        });
+
+        if (existingSchedule) {
+            return res.json({
+                success: true,
+                message: 'Lịch tập đã được tạo trước đó',
+                data: existingSchedule
+            });
+        }
+
+        // Lấy thông tin chi tiết gói tập (hỗ trợ cả field mới và legacy)
         const chiTietGoiTap = await ChiTietGoiTap.findById(chiTietGoiTapId)
-            .populate('maGoiTap')
+            .populate('goiTapId')
+            .populate('maGoiTap') // Legacy
             .populate('ptDuocChon')
-            .populate('maHoiVien');
+            .populate('nguoiDungId')
+            .populate('maHoiVien'); // Legacy
 
-        if (!chiTietGoiTap || chiTietGoiTap.trangThaiDangKy !== 'DA_CHON_PT') {
+        if (!chiTietGoiTap || !['DA_CHON_PT', 'DA_TAO_LICH'].includes(chiTietGoiTap.trangThaiDangKy)) {
             return res.status(400).json({ message: 'Chưa chọn PT hoặc trạng thái không hợp lệ' });
         }
 
-        const goiTap = chiTietGoiTap.maGoiTap;
+        const goiTap = chiTietGoiTap.goiTapId || chiTietGoiTap.maGoiTap;
+
+        // Kiểm tra xem goiTap có tồn tại không
+        if (!goiTap) {
+            console.error('❌ GoiTap not found for chiTietGoiTap:', chiTietGoiTapId);
+            return res.status(400).json({ message: 'Không tìm thấy thông tin gói tập' });
+        }
+
+        // Kiểm tra các field bắt buộc (hỗ trợ cả field mới và legacy)
+        const hoiVienId = chiTietGoiTap.nguoiDungId || chiTietGoiTap.maHoiVien;
+        if (!hoiVienId) {
+            console.error('❌ hoiVienId not found in chiTietGoiTap:', chiTietGoiTap);
+            return res.status(400).json({ message: 'Không tìm thấy thông tin hội viên' });
+        }
+
+        if (!chiTietGoiTap.ptDuocChon) {
+            console.error('❌ ptDuocChon not found in chiTietGoiTap:', chiTietGoiTap);
+            return res.status(400).json({ message: 'Không tìm thấy thông tin PT được chọn' });
+        }
+
+        const branchId = chiTietGoiTap.branchId;
+        if (!branchId) {
+            console.error('❌ branchId not found in chiTietGoiTap:', chiTietGoiTap);
+            return res.status(400).json({ message: 'Không tìm thấy thông tin chi nhánh' });
+        }
 
         console.log('🔍 GoiTap info:', {
             tenGoiTap: goiTap.tenGoiTap,
@@ -182,6 +257,9 @@ const generateWorkoutSchedule = async (req, res) => {
             ngayKetThuc.setDate(ngayKetThuc.getDate() + goiTap.thoiHan);
         } else if (goiTap.donViThoiHan === 'Năm') {
             ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + goiTap.thoiHan);
+        } else if (goiTap.donViThoiHan === 'Ngay') {
+            // Xử lý trường hợp 'Ngay' thay vì 'Ngày'
+            ngayKetThuc.setDate(ngayKetThuc.getDate() + goiTap.thoiHan);
         }
 
         console.log('🔍 Date calculation:', {
@@ -191,23 +269,32 @@ const generateWorkoutSchedule = async (req, res) => {
             donViThoiHan: goiTap.donViThoiHan
         });
 
-        // Tạo lịch tập
+        // Tạo lịch tập với dữ liệu từ frontend (hỗ trợ cả field mới và legacy)
         const lichTap = new LichTap({
-            hoiVien: chiTietGoiTap.maHoiVien._id,
-            pt: chiTietGoiTap.ptDuocChon._id,
+            hoiVien: hoiVienId._id || hoiVienId, // Hỗ trợ cả object và id
+            pt: chiTietGoiTap.ptDuocChon._id || chiTietGoiTap.ptDuocChon,
             ngayBatDau,
             ngayKetThuc,
             chiTietGoiTap: chiTietGoiTapId,
             soNgayTapTrongTuan: chiTietGoiTap.soNgayTapTrongTuan,
-            cacNgayTap,
-            khungGioTap,
-            trangThaiLich: 'DANG_HOAT_DONG'
+            cacNgayTap: cacNgayTap || [],
+            khungGioTap: khungGioTap || [],
+            trangThaiLich: 'DANG_HOAT_DONG',
+            goiTap: goiTap._id || goiTap,
+            chiNhanh: branchId,
+            tuanBatDau: ngayBatDau,
+            tuanKetThuc: ngayKetThuc,
+            gioTapUuTien: chiTietGoiTap.gioTapUuTien || [],
+            danhSachBuoiTap: [],
+            trangThai: 'DANG_HOAT_DONG'
         });
 
         await lichTap.save();
 
-        // Tạo các buổi tập dựa trên lịch
-        const buoiTapList = await generateWorkoutSessions(lichTap, goiTap);
+        // Tạo các buổi tập từ sessions đã chọn
+        const buoiTapList = selectedSessions && selectedSessions.length > 0
+            ? await createWorkoutSessionsFromSelected(lichTap, selectedSessions)
+            : await createWorkoutSessionsFromFrontend(lichTap, khungGioTap);
 
         console.log('🔍 Generated buoiTapList:', buoiTapList.length);
         console.log('🔍 lichTap.cacBuoiTap after generation:', lichTap.cacBuoiTap);
@@ -228,99 +315,319 @@ const generateWorkoutSchedule = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error generating workout schedule:', error);
-        res.status(500).json({ message: 'Lỗi server khi tạo lịch tập' });
+        console.error('❌ Error generating workout schedule:', error);
+        console.error('❌ Error stack:', error.stack);
+        console.error('❌ Error details:', {
+            name: error.name,
+            message: error.message,
+            code: error.code
+        });
+        res.status(500).json({
+            message: 'Lỗi server khi tạo lịch tập',
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 };
 
-// Hàm phụ trợ tạo các buổi tập
-const generateWorkoutSessions = async (lichTap, goiTap) => {
-    console.log('🔍 generateWorkoutSessions called with:', {
-        lichTapId: lichTap._id,
-        ngayBatDau: lichTap.ngayBatDau,
-        ngayKetThuc: lichTap.ngayKetThuc,
-        soNgayTapTrongTuan: lichTap.soNgayTapTrongTuan,
-        cacNgayTap: lichTap.cacNgayTap,
-        khungGioTap: lichTap.khungGioTap
-    });
-
-    const buoiTapList = [];
-    const ngayBatDau = new Date(lichTap.ngayBatDau);
-    const ngayKetThuc = new Date(lichTap.ngayKetThuc);
-
-    // Tính tổng số ngày trong gói tập
-    const totalDays = Math.ceil((ngayKetThuc - ngayBatDau) / (1000 * 60 * 60 * 24));
-
-    // Tính số buổi tập dựa trên thời hạn gói và số ngày tập trong tuần
-    const soTuanTap = Math.ceil(totalDays / 7);
-    const soBuoiTapToiDa = soTuanTap * lichTap.soNgayTapTrongTuan;
-
-    console.log('🔍 Schedule calculation:', {
-        totalDays,
-        soTuanTap,
-        soBuoiTapToiDa
-    });
-
-    let currentDate = new Date(ngayBatDau);
-    let buoiTapCount = 0;
-
-    while (currentDate <= ngayKetThuc && buoiTapCount < soBuoiTapToiDa) {
-        const dayOfWeek = getDayOfWeek(currentDate);
-
-        console.log('🔍 Processing date:', {
-            currentDate: currentDate.toISOString(),
-            dayOfWeek,
-            isInSchedule: lichTap.cacNgayTap.includes(dayOfWeek)
+// Hàm tạo các buổi tập từ sessions đã được chọn (có sẵn _id)
+const createWorkoutSessionsFromSelected = async (lichTap, selectedSessions) => {
+    try {
+        console.log('🔍 createWorkoutSessionsFromSelected called with:', {
+            lichTapId: lichTap._id,
+            selectedSessionsCount: selectedSessions?.length || 0
         });
 
-        // Kiểm tra xem ngày này có trong lịch tập không
-        if (lichTap.cacNgayTap.includes(dayOfWeek)) {
-            // Tìm khung giờ tương ứng
-            const khungGio = lichTap.khungGioTap.find(kg => kg.ngayTrongTuan === dayOfWeek);
+        const buoiTapList = [];
+        const danhSachBuoiTap = [];
 
-            console.log('🔍 Found time slot:', khungGio);
+        if (!selectedSessions || selectedSessions.length === 0) {
+            console.log('⚠️ No selectedSessions provided, returning empty list');
+            return buoiTapList;
+        }
 
-            if (khungGio) {
+        // Lấy các sessions từ database (chúng đã tồn tại)
+        for (const session of selectedSessions) {
+            try {
+                const existingBuoiTap = await BuoiTap.findById(session._id);
+
+                if (!existingBuoiTap) {
+                    console.log('⚠️ BuoiTap not found:', session._id);
+                    continue;
+                }
+
+                // Đăng ký hội viên vào buổi tập
+                const existingRegistration = existingBuoiTap.danhSachHoiVien?.find(
+                    hoiVien => hoiVien.hoiVien?.toString() === lichTap.hoiVien.toString()
+                );
+
+                if (!existingRegistration) {
+                    existingBuoiTap.danhSachHoiVien = existingBuoiTap.danhSachHoiVien || [];
+                    existingBuoiTap.danhSachHoiVien.push({
+                        hoiVien: lichTap.hoiVien,
+                        ngayDangKy: new Date(),
+                        trangThai: 'DA_DANG_KY'
+                    });
+                    existingBuoiTap.soLuongHienTai = (existingBuoiTap.soLuongHienTai || 0) + 1;
+
+                    await existingBuoiTap.save();
+                }
+
+                buoiTapList.push(existingBuoiTap);
+
+                // Thêm vào danh sách buổi tập của lịch
+                danhSachBuoiTap.push({
+                    buoiTap: existingBuoiTap._id,
+                    ngayTap: existingBuoiTap.ngayTap,
+                    gioBatDau: existingBuoiTap.gioBatDau,
+                    gioKetThuc: existingBuoiTap.gioKetThuc,
+                    ptPhuTrach: existingBuoiTap.ptPhuTrach || lichTap.pt,
+                    trangThai: 'DA_DANG_KY',
+                    ngayDangKy: new Date()
+                });
+
+                console.log('✅ Registered for buoiTap:', {
+                    _id: existingBuoiTap._id,
+                    tenBuoiTap: existingBuoiTap.tenBuoiTap,
+                    ngayTap: existingBuoiTap.ngayTap,
+                    gioBatDau: existingBuoiTap.gioBatDau,
+                    gioKetThuc: existingBuoiTap.gioKetThuc
+                });
+
+            } catch (error) {
+                console.error('❌ Error processing session:', error);
+            }
+        }
+
+        // Cập nhật lịch tập với danh sách buổi tập
+        lichTap.cacBuoiTap = buoiTapList.map(buoi => buoi._id);
+        lichTap.danhSachBuoiTap = danhSachBuoiTap;
+        await lichTap.save();
+
+        console.log('✅ Registered for total buoiTap:', buoiTapList.length);
+        return buoiTapList;
+
+    } catch (error) {
+        console.error('❌ Error in createWorkoutSessionsFromSelected:', error);
+        throw error;
+    }
+};
+
+// Hàm tạo các buổi tập từ dữ liệu frontend
+const createWorkoutSessionsFromFrontend = async (lichTap, khungGioTap) => {
+    try {
+        console.log('🔍 createWorkoutSessionsFromFrontend called with:', {
+            lichTapId: lichTap._id,
+            khungGioTap: khungGioTap
+        });
+
+        const buoiTapList = [];
+        const danhSachBuoiTap = [];
+
+        if (!khungGioTap || khungGioTap.length === 0) {
+            console.log('⚠️ No khungGioTap provided, returning empty list');
+            return buoiTapList;
+        }
+
+        // Tạo buổi tập từ mỗi khung giờ được chọn
+        for (const khungGio of khungGioTap) {
+            try {
+                // Tính ngày tập dựa trên ngày trong tuần
+                const ngayTap = calculateWorkoutDate(lichTap.ngayBatDau, khungGio.ngayTrongTuan);
+
                 const buoiTap = new BuoiTap({
-                    ngayTap: new Date(currentDate),
-                    hoiVien: lichTap.hoiVien,
-                    pt: lichTap.pt,
-                    lichTap: lichTap._id,
-                    gioBatDauDuKien: khungGio.gioBatDau,
-                    gioKetThucDuKien: khungGio.gioKetThuc,
-                    trangThaiXacNhan: 'CHO_XAC_NHAN',
-                    cacBaiTap: [] // Sẽ được PT thêm sau
+                    tenBuoiTap: `Buổi tập ${khungGio.ngayTrongTuan}`,
+                    chiNhanh: lichTap.chiNhanh,
+                    ptPhuTrach: lichTap.pt,
+                    ngayTap: ngayTap,
+                    gioBatDau: khungGio.gioBatDau,
+                    gioKetThuc: khungGio.gioKetThuc,
+                    soLuongToiDa: 10,
+                    soLuongHienTai: 1, // Hội viên đã đăng ký
+                    trangThai: 'CHUAN_BI',
+                    danhSachHoiVien: [{
+                        hoiVien: lichTap.hoiVien,
+                        ngayDangKy: new Date(),
+                        trangThai: 'DA_DANG_KY'
+                    }],
+                    moTa: `Buổi tập được tạo từ lịch tập ${lichTap._id}`
                 });
 
                 await buoiTap.save();
                 buoiTapList.push(buoiTap);
-                buoiTapCount++;
 
-                console.log('🔍 Created buoiTap:', {
-                    ngayTap: buoiTap.ngayTap,
-                    gioBatDauDuKien: buoiTap.gioBatDauDuKien,
-                    gioKetThucDuKien: buoiTap.gioKetThucDuKien
+                // Thêm vào danh sách buổi tập của lịch
+                danhSachBuoiTap.push({
+                    buoiTap: buoiTap._id,
+                    ngayTap: ngayTap,
+                    gioBatDau: khungGio.gioBatDau,
+                    gioKetThuc: khungGio.gioKetThuc,
+                    ptPhuTrach: lichTap.pt,
+                    trangThai: 'DA_DANG_KY',
+                    ngayDangKy: new Date()
                 });
+
+                console.log('✅ Created buoiTap:', {
+                    _id: buoiTap._id,
+                    tenBuoiTap: buoiTap.tenBuoiTap,
+                    ngayTap: buoiTap.ngayTap,
+                    gioBatDau: buoiTap.gioBatDau,
+                    gioKetThuc: buoiTap.gioKetThuc
+                });
+
+            } catch (error) {
+                console.error('❌ Error creating individual buoiTap:', error);
             }
         }
 
-        currentDate.setDate(currentDate.getDate() + 1);
+        // Cập nhật lịch tập với danh sách buổi tập
+        lichTap.cacBuoiTap = buoiTapList.map(buoi => buoi._id);
+        lichTap.danhSachBuoiTap = danhSachBuoiTap;
+        await lichTap.save();
+
+        console.log('✅ Created total buoiTap:', buoiTapList.length);
+        return buoiTapList;
+
+    } catch (error) {
+        console.error('❌ Error in createWorkoutSessionsFromFrontend:', error);
+        throw error;
+    }
+};
+
+// Hàm tính ngày tập dựa trên ngày trong tuần
+const calculateWorkoutDate = (startDate, dayOfWeek) => {
+    const start = new Date(startDate);
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const vietnameseDays = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+    // Tìm index của ngày trong tuần
+    let targetDayIndex = -1;
+
+    // Thử tìm bằng tên tiếng Anh
+    targetDayIndex = dayNames.findIndex(day => day.toLowerCase() === dayOfWeek.toLowerCase());
+
+    // Nếu không tìm thấy, thử tìm bằng tên tiếng Việt
+    if (targetDayIndex === -1) {
+        targetDayIndex = vietnameseDays.findIndex(day => day.toLowerCase() === dayOfWeek.toLowerCase());
     }
 
-    // Cập nhật danh sách buổi tập vào lịch tập
-    lichTap.cacBuoiTap = buoiTapList.map(bt => bt._id);
-    await lichTap.save();
+    // Nếu vẫn không tìm thấy, sử dụng ngày hiện tại
+    if (targetDayIndex === -1) {
+        console.log('⚠️ Could not find day of week:', dayOfWeek);
+        return start;
+    }
 
-    console.log('🔍 generateWorkoutSessions result:', {
-        totalSessions: buoiTapList.length,
-        sessionDates: buoiTapList.map(bt => ({
-            ngayTap: bt.ngayTap,
-            gioBatDauDuKien: bt.gioBatDauDuKien,
-            gioKetThucDuKien: bt.gioKetThucDuKien
-        }))
-    });
+    // Tính ngày tập
+    const currentDay = start.getDay();
+    const daysUntilTarget = (targetDayIndex - currentDay + 7) % 7;
+    const workoutDate = new Date(start);
+    workoutDate.setDate(start.getDate() + daysUntilTarget);
 
-    return buoiTapList;
+    return workoutDate;
+};
+
+// Hàm phụ trợ tạo các buổi tập (legacy - giữ lại để tương thích)
+const generateWorkoutSessions = async (lichTap, goiTap) => {
+    try {
+        console.log('🔍 generateWorkoutSessions called with:', {
+            lichTapId: lichTap._id,
+            ngayBatDau: lichTap.ngayBatDau,
+            ngayKetThuc: lichTap.ngayKetThuc,
+            soNgayTapTrongTuan: lichTap.soNgayTapTrongTuan,
+            cacNgayTap: lichTap.cacNgayTap,
+            khungGioTap: lichTap.khungGioTap
+        });
+
+        const buoiTapList = [];
+        const ngayBatDau = new Date(lichTap.ngayBatDau);
+        const ngayKetThuc = new Date(lichTap.ngayKetThuc);
+
+        // Tính tổng số ngày trong gói tập
+        const totalDays = Math.ceil((ngayKetThuc - ngayBatDau) / (1000 * 60 * 60 * 24));
+
+        // Tính số buổi tập dựa trên thời hạn gói và số ngày tập trong tuần
+        const soTuanTap = Math.ceil(totalDays / 7);
+        const soBuoiTapToiDa = soTuanTap * lichTap.soNgayTapTrongTuan;
+
+        console.log('🔍 Schedule calculation:', {
+            totalDays,
+            soTuanTap,
+            soBuoiTapToiDa
+        });
+
+        let currentDate = new Date(ngayBatDau);
+        let buoiTapCount = 0;
+
+        while (currentDate <= ngayKetThuc && buoiTapCount < soBuoiTapToiDa) {
+            const dayOfWeek = getDayOfWeek(currentDate);
+
+            console.log('🔍 Processing date:', {
+                currentDate: currentDate.toISOString(),
+                dayOfWeek,
+                isInSchedule: lichTap.cacNgayTap.includes(dayOfWeek)
+            });
+
+            // Kiểm tra xem ngày này có trong lịch tập không
+            if (lichTap.cacNgayTap.includes(dayOfWeek)) {
+                // Tìm khung giờ tương ứng
+                const khungGio = lichTap.khungGioTap.find(kg => kg.ngayTrongTuan === dayOfWeek);
+
+                console.log('🔍 Found time slot:', khungGio);
+
+                if (khungGio) {
+                    const buoiTap = new BuoiTap({
+                        tenBuoiTap: `Buổi tập ${dayOfWeek}`,
+                        chiNhanh: lichTap.chiNhanh || lichTap.branchId,
+                        ptPhuTrach: lichTap.pt,
+                        ngayTap: new Date(currentDate),
+                        gioBatDau: khungGio.gioBatDau,
+                        gioKetThuc: khungGio.gioKetThuc,
+                        soLuongToiDa: 10,
+                        soLuongHienTai: 0,
+                        trangThai: 'CHUAN_BI',
+                        danhSachHoiVien: [{
+                            hoiVien: lichTap.hoiVien,
+                            ngayDangKy: new Date(),
+                            trangThai: 'DA_DANG_KY'
+                        }],
+                        moTa: `Buổi tập được tạo tự động cho lịch tập ${lichTap._id}`
+                    });
+
+                    await buoiTap.save();
+                    buoiTapList.push(buoiTap);
+                    buoiTapCount++;
+
+                    console.log('🔍 Created buoiTap:', {
+                        ngayTap: buoiTap.ngayTap,
+                        gioBatDau: buoiTap.gioBatDau,
+                        gioKetThuc: buoiTap.gioKetThuc,
+                        tenBuoiTap: buoiTap.tenBuoiTap
+                    });
+                }
+            }
+
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        // Cập nhật danh sách buổi tập vào lịch tập
+        lichTap.cacBuoiTap = buoiTapList.map(bt => bt._id);
+        await lichTap.save();
+
+        console.log('🔍 generateWorkoutSessions result:', {
+            totalSessions: buoiTapList.length,
+            sessionDates: buoiTapList.map(bt => ({
+                ngayTap: bt.ngayTap,
+                gioBatDau: bt.gioBatDau,
+                gioKetThuc: bt.gioKetThuc,
+                tenBuoiTap: bt.tenBuoiTap
+            }))
+        });
+
+        return buoiTapList;
+    } catch (error) {
+        console.error('Error generating workout sessions:', error);
+        throw error;
+    }
 };
 
 // Hàm phụ trợ lấy tên ngày trong tuần
@@ -467,19 +774,19 @@ const completeWorkflow = async (req, res) => {
         // Kiểm tra chi tiết gói tập
         const chiTietGoiTap = await ChiTietGoiTap.findById(chiTietGoiTapId);
         console.log('🔍 Found chiTietGoiTap:', chiTietGoiTap);
-        
+
         if (!chiTietGoiTap) {
-            return res.status(404).json({ 
+            return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy thông tin đăng ký gói tập' 
+                message: 'Không tìm thấy thông tin đăng ký gói tập'
             });
         }
 
         // Không cho hoàn tất nếu gói đã bị nâng cấp/tạm dừng
         if (chiTietGoiTap.trangThaiDangKy === 'DA_NANG_CAP' || chiTietGoiTap.trangThaiSuDung === 'DA_NANG_CAP') {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 success: false,
-                message: 'Gói tập này đã được nâng cấp sang gói mới. Không thể hoàn tất workflow.' 
+                message: 'Gói tập này đã được nâng cấp sang gói mới. Không thể hoàn tất workflow.'
             });
         }
 
@@ -494,16 +801,49 @@ const completeWorkflow = async (req, res) => {
         }
 
         // 2. Đã có lịch tập (kiểm tra trong LichTap collection)
-        const existingSchedule = await LichTap.findOne({ 
-            hoiVien: chiTietGoiTap.maHoiVien,
-            goiTap: chiTietGoiTap.maGoiTap,
-            pt: chiTietGoiTap.ptDuocChon
+        // Hỗ trợ cả field legacy và field mới
+        const hoiVienId = chiTietGoiTap.nguoiDungId || chiTietGoiTap.maHoiVien;
+        const goiTapId = chiTietGoiTap.goiTapId || chiTietGoiTap.maGoiTap;
+
+        console.log('🔍 Looking for schedule with:', {
+            hoiVienId,
+            goiTapId,
+            ptId: chiTietGoiTap.ptDuocChon,
+            chiTietGoiTapId: chiTietGoiTap._id
         });
+
+        // Tìm lịch tập theo nhiều cách (hỗ trợ cả legacy và new)
+        let existingSchedule = await LichTap.findOne({
+            chiTietGoiTap: chiTietGoiTapId
+        });
+
+        // Nếu không tìm thấy, thử tìm theo hoiVien, goiTap, pt
+        if (!existingSchedule) {
+            existingSchedule = await LichTap.findOne({
+                hoiVien: hoiVienId,
+                goiTap: goiTapId,
+                pt: chiTietGoiTap.ptDuocChon
+            });
+        }
+
+        // Nếu vẫn không tìm thấy, kiểm tra qua lichTapDuocTao
+        if (!existingSchedule && chiTietGoiTap.lichTapDuocTao) {
+            existingSchedule = await LichTap.findById(chiTietGoiTap.lichTapDuocTao);
+        }
 
         console.log('🔍 Found existing schedule:', existingSchedule ? existingSchedule._id : 'None');
 
         if (!existingSchedule) {
             console.log('❌ Lịch tập chưa được tạo');
+            console.log('❌ ChiTietGoiTap details:', {
+                _id: chiTietGoiTap._id,
+                nguoiDungId: chiTietGoiTap.nguoiDungId,
+                maHoiVien: chiTietGoiTap.maHoiVien,
+                goiTapId: chiTietGoiTap.goiTapId,
+                maGoiTap: chiTietGoiTap.maGoiTap,
+                ptDuocChon: chiTietGoiTap.ptDuocChon,
+                lichTapDuocTao: chiTietGoiTap.lichTapDuocTao
+            });
             return res.status(400).json({
                 success: false,
                 message: 'Chưa hoàn thành đủ các bước workflow. Cần hoàn thành: chọn PT, tạo lịch tập, và xem lịch tập'
@@ -518,7 +858,14 @@ const completeWorkflow = async (req, res) => {
                 lichTapDuocTao: existingSchedule._id
             },
             { new: true }
-        ).populate('ptDuocChon').populate('maGoiTap').populate('maHoiVien');
+        )
+            .populate('ptDuocChon')
+            .populate('goiTapId')
+            .populate('maGoiTap') // Legacy
+            .populate('nguoiDungId')
+            .populate('maHoiVien') // Legacy
+            .populate('branchId')
+            .populate('lichTapDuocTao');
 
         console.log('✅ Workflow completed successfully');
 
@@ -530,9 +877,9 @@ const completeWorkflow = async (req, res) => {
 
     } catch (error) {
         console.error('❌ Error completing workflow:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            message: 'Lỗi server khi hoàn thành workflow: ' + error.message 
+            message: 'Lỗi server khi hoàn thành workflow: ' + error.message
         });
     }
 };
@@ -659,5 +1006,6 @@ module.exports = {
     getTrainerSchedule,
     completeWorkflow,
     getWorkflowStatus,
-    updateBranch
+    updateBranch,
+    checkScheduleExists
 };

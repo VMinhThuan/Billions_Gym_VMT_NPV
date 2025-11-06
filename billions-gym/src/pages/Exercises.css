@@ -1,0 +1,132 @@
+html,
+body {
+    background: #0a0a0a !important;
+    min-height: 100vh;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Workout Page Layout */
+
+.workout-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: calc(100% - 320px);
+    background-color: #0a0a0a !important;
+    font-family: 'Montserrat', sans-serif;
+    margin-left: 320px;
+    /* Default margin for expanded sidebar */
+    margin-top: 64px;
+    transition: margin-left 0.3s ease-in-out;
+    box-shadow: none !important;
+    z-index: 1;
+    position: relative;
+    overflow-x: hidden;
+}
+
+.workout-page.sidebar-collapsed {
+    margin-left: 80px;
+    background-color: #0a0a0a !important;
+    width: calc(100% - 80px);
+}
+
+/* Adjust layout when sidebar is expanded */
+.workout-page.sidebar-expanded {
+    margin-left: 320px;
+}
+
+.image-circle {
+    /* Use flex layout instead of float so the image is a flex item and the parent will
+       naturally size to fit it. This prevents clipping and ensures the image pushes
+       the text down on small screens when the layout stacks. */
+    position: relative;
+    display: block;
+    flex: 0 0 160px; /* don't shrink, fixed basis in flex row */
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    z-index: 1;
+    margin: 0; /* spacing handled by flex gap on the parent */
+}
+
+/* Decorative variant: partially hidden in the bottom-right corner of the card on larger screens */
+.image-circle.decor {
+    /* Keep the decorative circle fully inside the card container and flush against the bottom edge */
+    position: absolute;
+    bottom: 70; /* flush with the card bottom */
+    right: 12px; /* small gap from the right edge */
+    width: 140px;
+    height: 140px;
+    flex: 0 0 auto;
+    margin: 0;
+    z-index: 0; /* let the content sit above */
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+.image-circle.decor img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* Loading spinner styles (match Schedule page) */
+.exercises-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 0;
+    gap: 12px;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #374151;
+    border-top-color: #da2128;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+    /* On small screens the card stacks (flex-column) so center the image and reduce size */
+    .image-circle {
+        flex: 0 0 120px;
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 12px auto;
+    }
+
+    .workout-page {
+        width: 100%;
+        margin-left: 0;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    /* Mobile: decorative variant becomes in-flow and centered above content */
+    .image-circle.decor {
+        position: static;
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 12px auto;
+        z-index: 1;
+    }
+}

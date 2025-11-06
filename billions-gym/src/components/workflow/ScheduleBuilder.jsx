@@ -56,16 +56,16 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
         const sessionDate = new Date(ngay);
         const [hours, minutes] = gioBatDau.split(':').map(Number);
         const [endHours, endMinutes] = gioKetThuc.split(':').map(Number);
-        
+
         const startTime = new Date(sessionDate);
         startTime.setHours(hours, minutes, 0, 0);
-        
+
         const endTime = new Date(sessionDate);
         endTime.setHours(endHours, endMinutes, 0, 0);
-        
+
         const timeDiff = startTime.getTime() - now.getTime();
         const endTimeDiff = endTime.getTime() - now.getTime();
-        
+
         // Session has ended
         if (endTimeDiff <= 0) {
             return {
@@ -76,7 +76,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                 isFinished: true
             };
         }
-        
+
         // Session is ongoing
         if (timeDiff <= 0 && endTimeDiff > 0) {
             return {
@@ -87,17 +87,17 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                 isOngoing: true
             };
         }
-        
+
         // Session hasn't started yet
         const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
         const hours24 = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const mins = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
         const secs = Math.floor((timeDiff % (1000 * 60)) / 1000);
-        
+
         let status = 'upcoming';
         let color = '#00FFC6';
         let icon = '⏳';
-        
+
         // Critical timing - less than 10 minutes
         if (timeDiff <= 10 * 60 * 1000) {
             status = 'critical';
@@ -110,7 +110,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
             color = '#FF914D';
             icon = '⚡';
         }
-        
+
         // Format countdown text
         let countdownText = '';
         if (days > 0) {
@@ -122,7 +122,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
         } else {
             countdownText = `${secs} giây`;
         }
-        
+
         return {
             status,
             text: countdownText,
@@ -141,14 +141,14 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
     const getWorkoutTypeInfo = (sessionName, description, template) => {
         const name = sessionName?.toLowerCase() || '';
         const desc = description?.toLowerCase() || '';
-        
+
         let type = 'Workout';
         let difficulty = 'Trung bình';
         let icon = '🔥';
         let bgColor = 'rgba(162, 89, 255, 0.1)';
         let borderColor = '#A259FF';
         let backgroundImage = '';
-        
+
         if (name.includes('push')) {
             type = 'Strength';
             icon = '💪';
@@ -180,7 +180,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
             bgColor = 'rgba(245, 158, 11, 0.1)';
             borderColor = '#F59E0B';
         }
-        
+
         // Determine difficulty from description
         if (desc.includes('de') || desc.includes('easy')) {
             difficulty = 'Dễ';
@@ -189,14 +189,14 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
         } else if (desc.includes('trung_binh') || desc.includes('medium')) {
             difficulty = 'Trung bình';
         }
-        
+
         // Determine background image from template
         if (template === 'template-1') {
             backgroundImage = 'https://example.com/template-1-background.jpg';
         } else if (template === 'template-2') {
             backgroundImage = 'https://example.com/template-2-background.jpg';
         }
-        
+
         return { type, difficulty, icon, bgColor, borderColor, backgroundImage };
     };
 
@@ -252,7 +252,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                 setAvailableSessions(response.data.sessions);
                 setWeekInfo(response.data.weekInfo);
                 setPackageConstraints(response.data.packageConstraints);
-                
+
                 // Debug: Log first few sessions
                 if (response.data.sessions.length > 0) {
                     console.log('🔍 First session sample:', response.data.sessions[0]);
@@ -342,7 +342,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
         }
 
         const sessionsInSlot = getSessionsForTimeSlot(dayDate, timeSlot);
-        const hasSelectedSession = sessionsInSlot.some(session => 
+        const hasSelectedSession = sessionsInSlot.some(session =>
             selectedSessions.find(s => s._id === session._id)
         );
 
@@ -379,6 +379,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                 tuanBatDau: weekInfo.startDate,
                 soNgayTapTrongTuan: selectedSessions.length,
                 gioTapUuTien: selectedTrainer.gioTapUuTien || [],
+                selectedSessions: selectedSessions, // Gửi các sessions đã chọn
                 danhSachBuoiTap: selectedSessions.map(session => ({
                     buoiTapId: session._id,
                     ngayTap: session.ngay,
@@ -479,7 +480,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                 )}
             </div>
 
-            <div className="week-schedule">
+            <div className="week-schedule" style={{ ['--rows']: TIME_SLOTS.length }}>
                 {weekInfo && weekInfo.days.map((day, index) => (
                     <div key={index} className="day-column">
                         <div className="day-header">
@@ -487,14 +488,14 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                             <div className="day-date">
                                 {new Date(day.date).getDate()}/{new Date(day.date).getMonth() + 1}
                             </div>
-                            {day.isToday && <div className="today-badge">Hôm nay</div>}
+                            {/* {day.isToday && <div className="today-badge">Hôm nay</div>} */}
                         </div>
 
                         <div className="time-slots-container">
                             {TIME_SLOTS.map(timeSlot => {
                                 const status = getTimeSlotStatus(day.date, timeSlot);
                                 const sessionsInSlot = getSessionsForTimeSlot(day.date, timeSlot);
-                                const selectedSessionInSlot = sessionsInSlot.find(session => 
+                                const selectedSessionInSlot = sessionsInSlot.find(session =>
                                     selectedSessions.find(s => s._id === session._id)
                                 );
 
@@ -505,7 +506,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                                         onClick={() => handleTimeSlotClick(day.date, timeSlot)}
                                     >
                                         <div className="time-slot-time">{timeSlot.label}</div>
-                                        
+
                                         <div className="time-slot-status">
                                             {status === 'past' && (
                                                 <span className="status-text past">Đã qua</span>
@@ -520,7 +521,6 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                                             )}
                                             {status === 'selected' && selectedSessionInSlot && (
                                                 <div className="selected-session-info">
-                                                    <span className="status-text selected">✓ Đã chọn</span>
                                                     <div className="selected-trainer">
                                                         {selectedSessionInSlot.ptPhuTrach.hoTen}
                                                     </div>
@@ -591,18 +591,18 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                                     {/* Info message about single selection per time slot */}
                                     <div className="selection-info">
                                         <span className="info-icon">ℹ️</span>
-                                        <span>Bạn chỉ có thể chọn 1 buổi tập trong mỗi ca</span>
+                                        <span className='text-[#dadada]'>Bạn chỉ có thể chọn 1 buổi tập trong mỗi ca</span>
                                     </div>
-                                    
+
                                     {selectedTimeSlot.sessions.map(session => {
                                         const isSelected = selectedSessions.find(s => s._id === session._id);
                                         const status = getSessionStatus(session);
-                                        
+
                                         // Check if there's another session selected in this time slot
-                                        const hasSelectedInTimeSlot = selectedTimeSlot.sessions.some(s => 
+                                        const hasSelectedInTimeSlot = selectedTimeSlot.sessions.some(s =>
                                             selectedSessions.find(sel => sel._id === s._id) && s._id !== session._id
                                         );
-                                        
+
                                         const isDisabledDueToSelection = hasSelectedInTimeSlot && !isSelected;
 
                                         const sessionStatusInfo = getDetailedCountdown(session.ngay, session.gioBatDau, session.gioKetThuc);
@@ -622,7 +622,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                                             >
                                                 {/* Background Image Overlay */}
                                                 <div className="villa-card-overlay"></div>
-                                                
+
                                                 {/* Disabled State Overlay */}
                                                 {isDisabledDueToSelection && (
                                                     <div className="villa-disabled-overlay">
@@ -634,9 +634,9 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                                                 <div className={`villa-status-badge ${sessionStatusInfo.status}`}>
                                                     <span className="status-icon">{sessionStatusInfo.icon}</span>
                                                     <span className="status-text">
-                                                        {sessionStatusInfo.isOngoing ? 'ĐANG DIỄN RA' : 
-                                                         sessionStatusInfo.isFinished ? 'ĐÃ KẾT THÚC' : 
-                                                         sessionStatusInfo.isCritical ? 'SẮP BẮT ĐẦU' : 'SẮP DIỄN RA'}
+                                                        {sessionStatusInfo.isOngoing ? 'ĐANG DIỄN RA' :
+                                                            sessionStatusInfo.isFinished ? 'ĐÃ KẾT THÚC' :
+                                                                sessionStatusInfo.isCritical ? 'SẮP BẮT ĐẦU' : 'SẮP DIỄN RA'}
                                                     </span>
                                                 </div>
 
@@ -672,7 +672,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                                                                 </div>
                                                             </span>
                                                         </div>
-                                                        
+
                                                         {/* Capacity Info */}
                                                         <div className="capacity-info">
                                                             <span className="capacity-text">
@@ -732,15 +732,14 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                                                     </div>
 
                                                     {/* Action Button */}
-                                                    <button 
-                                                        className={`villa-register-btn ${
-                                                            isSelected ? 'selected' : 
-                                                            (session.soLuongToiDa || 0) - (session.soLuongHienTai || 0) <= 0 ? 'full' : 
-                                                            sessionStatusInfo.isFinished ? 'finished' : ''
-                                                        }`}
+                                                    <button
+                                                        className={`villa-register-btn ${isSelected ? 'selected' :
+                                                            (session.soLuongToiDa || 0) - (session.soLuongHienTai || 0) <= 0 ? 'full' :
+                                                                sessionStatusInfo.isFinished ? 'finished' : ''
+                                                            }`}
                                                         disabled={
                                                             isDisabledDueToSelection ||
-                                                            (session.soLuongToiDa || 0) - (session.soLuongHienTai || 0) <= 0 || 
+                                                            (session.soLuongToiDa || 0) - (session.soLuongHienTai || 0) <= 0 ||
                                                             sessionStatusInfo.isFinished
                                                         }
                                                     >
