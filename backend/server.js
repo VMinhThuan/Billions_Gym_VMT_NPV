@@ -97,6 +97,8 @@ const sessionPlaylistRouter = require('./src/routes/sessionPlaylist.route');
 const chiNhanhRouter = require('./src/routes/chinhanh.route');
 const notificationRouter = require('./src/routes/notification.route');
 const aiRouter = require('./src/routes/ai.route');
+const faceRouter = require('./src/routes/face.route');
+const checkinRouter = require('./src/routes/checkin.route');
 
 app.use('/api/auth', authRouter);
 // app.use('/api/users', userRouter);
@@ -128,6 +130,8 @@ app.use('/api/exercises', exerciseRouter);
 app.use('/api/chinhanh', chiNhanhRouter);
 app.use('/api/notifications', notificationRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/face', faceRouter);
+app.use('/api/checkin', checkinRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

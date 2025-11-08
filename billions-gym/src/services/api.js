@@ -310,6 +310,67 @@ export const paymentAPI = {
     },
 };
 
+export const checkInAPI = {
+    // Face enrollment
+    enrollFace: async (encodings) => {
+        return apiRequest('/face/enroll', {
+            method: 'POST',
+            body: JSON.stringify({ encodings }),
+        });
+    },
+    // Validate enrollment encodings
+    validateEnrollmentEncodings: async (encodings) => {
+        return apiRequest('/face/validate-enrollment', {
+            method: 'POST',
+            body: JSON.stringify({ encodings }),
+        });
+    },
+    // Verify face
+    verifyFace: async (encoding) => {
+        return apiRequest('/face/verify', {
+            method: 'POST',
+            body: JSON.stringify({ encoding }),
+        });
+    },
+    // Check if face is enrolled
+    checkFaceEncoding: async () => {
+        return apiRequest('/face/check');
+    },
+    // Get today's sessions
+    getTodaySessions: async () => {
+        return apiRequest('/checkin/today-sessions');
+    },
+    // Check-in
+    checkIn: async (buoiTapId, faceEncoding, image) => {
+        return apiRequest('/checkin/checkin', {
+            method: 'POST',
+            body: JSON.stringify({
+                buoiTapId,
+                faceEncoding,
+                image
+            }),
+        });
+    },
+    // Check-out
+    checkOut: async (buoiTapId, faceEncoding, image) => {
+        return apiRequest('/checkin/checkout', {
+            method: 'POST',
+            body: JSON.stringify({
+                buoiTapId,
+                faceEncoding,
+                image
+            }),
+        });
+    },
+    // Get check-in history
+    getHistory: async (limit = 50, startDate, endDate) => {
+        const params = new URLSearchParams({ limit: limit.toString() });
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+        return apiRequest(`/checkin/history?${params.toString()}`);
+    },
+};
+
 export const api = {
     get: async (path, query = {}, options = {}) => {
         const queryString = new URLSearchParams(query).toString();
@@ -364,5 +425,6 @@ export default {
     workoutPredictionAPI,
     chatbotAPI,
     paymentAPI,
+    checkInAPI,
     api,
 };

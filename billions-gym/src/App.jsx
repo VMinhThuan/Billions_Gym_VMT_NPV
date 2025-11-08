@@ -17,7 +17,7 @@ import ProfileScreen from './pages/Profile'
 import ProfileEdit from './pages/ProfileEdit'
 import ActivePackage from './pages/ActivePackage'
 import Schedule from './pages/Schedule'
-import Exercises from './pages/Exercises'
+import CheckInOut from './pages/CheckInOut'
 
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -111,7 +111,7 @@ const AppContent = () => {
             <Route path='/profile/edit' element={<ProfileEdit />} />
             <Route path='/active-package' element={<ActivePackage />} />
             <Route path='/schedule' element={<Schedule />} />
-            <Route path='/exercises' element={<Exercises />} />
+            <Route path='/checkin-out' element={<CheckInOut />} />
           </Routes>
         </div>
       )}
