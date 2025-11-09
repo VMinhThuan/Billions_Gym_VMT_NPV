@@ -12,6 +12,14 @@ const CheckInCamera = ({
     onFaceVerified = null,
     storedEncodings = null
 }) => {
+    // CRITICAL: Log verification mode on mount to ensure it's set correctly
+    useEffect(() => {
+        console.log('[CheckInCamera] Component mounted/updated with verificationMode:', verificationMode);
+        console.log('[CheckInCamera] storedEncodings:', storedEncodings ? `${storedEncodings.length} encodings` : 'null');
+        if (verificationMode) {
+            console.log('[CheckInCamera] 🔒 SECURITY: Verification mode is ACTIVE - server verification is REQUIRED');
+        }
+    }, [verificationMode, storedEncodings]);
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const streamRef = useRef(null); // Use ref to store stream for proper cleanup
@@ -391,15 +399,21 @@ const CheckInCamera = ({
 
     // Verify face encoding (for check-in mode or enrollment validation)
     const verifyFaceEncoding = useCallback(async (descriptor) => {
-        if (!descriptor) return false;
+        if (!descriptor) {
+            console.error('[CheckInCamera] verifyFaceEncoding called with null descriptor');
+            return false;
+        }
 
         setIsVerifying(true);
         setVerificationError(null);
 
         try {
+            // CRITICAL SECURITY FIX: In verification mode, ALWAYS verify with server
+            // There is NO fallback or default pass - this prevents the security bypass bug
             if (verificationMode) {
-                // Check-in mode: verify with server (with timeout for faster failure detection)
-                console.log('[CheckInCamera] Starting face verification...');
+                console.log('[CheckInCamera] 🔒 VERIFICATION MODE: Starting server verification...');
+                console.log('[CheckInCamera] Descriptor length:', descriptor.length);
+
                 // Verify with server - increased timeout to 10 seconds for reliability
                 const verifyPromise = checkInAPI.verifyFace(descriptor);
                 const timeoutPromise = new Promise((_, reject) =>
@@ -410,21 +424,32 @@ const CheckInCamera = ({
                 try {
                     result = await Promise.race([verifyPromise, timeoutPromise]);
                 } catch (timeoutError) {
-                    console.error('[CheckInCamera] Verification timeout:', timeoutError);
-                    throw new Error('Verification timeout - server không phản hồi');
+                    console.error('[CheckInCamera] ⚠️ Verification timeout:', timeoutError);
+                    setFaceVerified(false);
+                    setVerificationError('Server không phản hồi. Vui lòng thử lại.');
+                    if (onFaceVerified) {
+                        onFaceVerified(false, 0, 0.85);
+                    }
+                    setIsVerifying(false);
+                    return false;
                 }
 
-                console.log('[CheckInCamera] Verification result:', {
+                console.log('[CheckInCamera] 📊 Server verification result:', {
                     success: result.success,
                     isMatch: result.isMatch,
                     similarity: result.similarity,
                     threshold: result.threshold,
-                    message: result.message
+                    message: result.message,
+                    matchesWithStored: result.matchesWithStored,
+                    totalStored: result.totalStored,
+                    requiredMatches: result.requiredMatches
                 });
 
                 // CRITICAL: Only set faceVerified to true if result.isMatch is EXPLICITLY true
+                // This is the ONLY way to pass verification in verification mode
                 if (result.success === true && result.isMatch === true) {
-                    console.log('[CheckInCamera] ✅ Verification PASSED - similarity:', result.similarity, 'threshold:', result.threshold);
+                    console.log('[CheckInCamera] ✅✅✅ VERIFICATION PASSED - Face matches registered face');
+                    console.log('[CheckInCamera] Similarity:', result.similarity, 'Threshold:', result.threshold);
                     setFaceVerified(true);
                     if (onFaceVerified) {
                         onFaceVerified(true, result.similarity, result.threshold || 0.85);
@@ -433,44 +458,78 @@ const CheckInCamera = ({
                     return true;
                 } else {
                     // Explicitly fail verification if not matching
-                    console.log('[CheckInCamera] ❌ Verification FAILED - success:', result.success, 'isMatch:', result.isMatch, 'similarity:', result.similarity, 'threshold:', result.threshold);
+                    console.log('[CheckInCamera] ❌❌❌ VERIFICATION FAILED - Face does NOT match registered face');
+                    console.log('[CheckInCamera] Failure reason:', {
+                        success: result.success,
+                        isMatch: result.isMatch,
+                        similarity: result.similarity,
+                        threshold: result.threshold,
+                        message: result.message
+                    });
                     setFaceVerified(false); // Explicitly set to false
-                    setVerificationError(result.message || 'Khuôn mặt không hợp lệ');
+                    setVerificationError(result.message || 'Khuôn mặt không khớp với khuôn mặt đã đăng ký');
                     if (onFaceVerified) {
                         onFaceVerified(false, result.similarity || 0, result.threshold || 0.85);
                     }
                     setIsVerifying(false);
                     return false;
                 }
-            } else if (storedEncodings && storedEncodings.length > 0) {
-                // Enrollment mode: verify with stored encodings (client-side only for faster feedback)
+            }
+            // Enrollment mode: Only verify with stored encodings if provided (for step 2+)
+            else if (storedEncodings && storedEncodings.length > 0) {
+                console.log('[CheckInCamera] 📝 ENROLLMENT MODE: Verifying with stored encodings...');
                 const validation = compareWithStoredEncodings(descriptor, storedEncodings, 0.65);
                 if (validation.isValid) {
+                    console.log('[CheckInCamera] ✅ Enrollment verification passed (client-side)');
                     setFaceVerified(true);
                     setVerificationError(null);
                     setIsVerifying(false);
                     return true;
                 } else {
+                    console.log('[CheckInCamera] ❌ Enrollment verification failed (client-side)');
                     setFaceVerified(false);
                     setVerificationError(null); // Don't show error in enrollment mode, let parent handle it
                     setIsVerifying(false);
                     return false;
                 }
-            } else {
-                // No verification needed (first enrollment step)
+            }
+            // First enrollment step: No verification needed (just detecting face)
+            // CRITICAL SECURITY: This branch should ONLY be reached when verificationMode = false
+            // If verificationMode = true, we should have already handled it in the first branch
+            else {
+                // SECURITY CHECK: If we somehow reach here with verificationMode = true, it's a bug
+                if (verificationMode) {
+                    console.error('[CheckInCamera] ⚠️⚠️⚠️ CRITICAL SECURITY BUG: verificationMode = true but reached else branch!');
+                    console.error('[CheckInCamera] This should NEVER happen - verificationMode must verify with server!');
+                    setFaceVerified(false);
+                    setVerificationError('Lỗi hệ thống: Không thể xác thực. Vui lòng thử lại.');
+                    if (onFaceVerified) {
+                        onFaceVerified(false, 0, 0.85);
+                    }
+                    setIsVerifying(false);
+                    return false;
+                }
+
+                console.log('[CheckInCamera] 📝 ENROLLMENT MODE: First step - no verification needed, just detecting face');
+                console.log('[CheckInCamera] verificationMode =', verificationMode, '(should be false)');
+                // Only set to true for enrollment step 1 (not verification mode)
+                // This is safe because enrollment mode doesn't allow check-in
                 setFaceVerified(true);
                 setVerificationError(null);
                 setIsVerifying(false);
                 return true;
             }
         } catch (err) {
-            console.error('[CheckInCamera] Verification error:', err);
+            console.error('[CheckInCamera] ⚠️⚠️⚠️ CRITICAL ERROR in verification:', err);
             console.error('[CheckInCamera] Error details:', {
                 message: err.message,
                 stack: err.stack,
-                name: err.name
+                name: err.name,
+                verificationMode: verificationMode
             });
-            // CRITICAL: Always set to false on error
+
+            // CRITICAL: Always set to false on error, especially in verification mode
+            // This prevents false positives from errors
             setFaceVerified(false);
             setVerificationError('Lỗi khi xác thực khuôn mặt: ' + (err.message || 'Unknown error'));
             if (onFaceVerified) {
@@ -488,80 +547,131 @@ const CheckInCamera = ({
             clearTimeout(verificationTimeoutRef.current);
         }
 
-        // CRITICAL: In verification mode, ALWAYS verify when face is detected - no caching for security
+        // CRITICAL SECURITY: In verification mode, ALWAYS verify with server when face is detected
+        // There is NO bypass, NO cache, NO fallback - every face must be verified with server
         if (verificationMode && faceDetected && faceDescriptor) {
             const currentDescriptor = faceDescriptor;
             const previousDescriptor = previousDescriptorRef.current;
 
-            // Check if face has changed significantly (different person)
-            let faceChanged = false;
-            if (previousDescriptor && previousDescriptor.length === currentDescriptor.length) {
-                // Calculate difference between descriptors
+            // CRITICAL SECURITY FIX: In verification mode, ALWAYS reset verification state when face changes
+            // This ensures we never show "verified" from a previous face
+            // We reset FIRST, then verify - this prevents any possibility of showing stale verification state
+
+            let shouldReset = false;
+            let resetReason = '';
+
+            if (!previousDescriptor) {
+                // First face detected - always reset
+                shouldReset = true;
+                resetReason = 'First face detected';
+                console.log('[CheckInCamera] 🔒 FIRST FACE: Resetting verification state');
+            } else if (previousDescriptor.length !== currentDescriptor.length) {
+                // Descriptor length changed - definitely a different face
+                shouldReset = true;
+                resetReason = 'Descriptor length changed';
+                console.log('[CheckInCamera] 🔒 DESCRIPTOR LENGTH CHANGED: Resetting verification state');
+            } else {
+                // Check if face has changed significantly by comparing descriptor values
                 const diff = previousDescriptor.reduce((sum, val, idx) => {
                     return sum + Math.abs(val - currentDescriptor[idx]);
                 }, 0);
                 const avgDiff = diff / previousDescriptor.length;
 
-                // If average difference is > 0.2, it's likely a different face
-                if (avgDiff > 0.2) {
-                    faceChanged = true;
-                    console.log('[CheckInCamera] ⚠️ Face changed significantly (avgDiff:', avgDiff.toFixed(4), ') - resetting verification');
+                // CRITICAL: If average difference is > 0.05, treat it as a new face
+                // This is a very sensitive threshold to catch ANY face change, including:
+                // - Switching to a phone image
+                // - Switching to another person
+                // - Slight position changes that might indicate a different face
+                if (avgDiff > 0.05) {
+                    shouldReset = true;
+                    resetReason = `Face changed (avgDiff: ${avgDiff.toFixed(4)})`;
+                    console.log('[CheckInCamera] 🔒 FACE CHANGED: avgDiff =', avgDiff.toFixed(4), '- Resetting verification state');
+                } else {
+                    // Face seems the same - but in verification mode, we still want to re-verify periodically
+                    // Check if we haven't verified this exact descriptor yet
+                    const lastVerified = lastVerifiedDescriptorRef.current;
+                    if (!lastVerified || lastVerified.length !== currentDescriptor.length) {
+                        shouldReset = true;
+                        resetReason = 'No previous verification for this descriptor';
+                        console.log('[CheckInCamera] 🔒 NO PREVIOUS VERIFICATION: Resetting for fresh verification');
+                    } else {
+                        // Check if current descriptor matches last verified descriptor
+                        const verifiedDiff = lastVerified.reduce((sum, val, idx) => {
+                            return sum + Math.abs(val - currentDescriptor[idx]);
+                        }, 0);
+                        const verifiedAvgDiff = verifiedDiff / lastVerified.length;
+
+                        // If current descriptor is different from last verified, reset
+                        if (verifiedAvgDiff > 0.05) {
+                            shouldReset = true;
+                            resetReason = `Descriptor differs from last verified (avgDiff: ${verifiedAvgDiff.toFixed(4)})`;
+                            console.log('[CheckInCamera] 🔒 DESCRIPTOR DIFFERS FROM VERIFIED: Resetting verification state');
+                        }
+                    }
                 }
             }
 
-            // CRITICAL: Reset verification state immediately when new face is detected or face changes
-            // This prevents showing "verified" from previous face
-            if (!previousDescriptor || faceChanged) {
-                console.log('[CheckInCamera] New face detected or face changed, resetting verification state');
+            // CRITICAL SECURITY: Reset verification state immediately when face changes
+            // This must happen BEFORE any async operations to prevent showing stale "verified" state
+            if (shouldReset) {
+                console.log('[CheckInCamera] 🔒 IMMEDIATE RESET:', resetReason);
+                console.log('[CheckInCamera] Resetting verification state NOW to prevent showing stale verification');
+                // Reset immediately - don't wait for debounce
                 setFaceVerified(false);
                 setVerificationError(null);
-                lastVerifiedDescriptorRef.current = null;
+                // Don't reset lastVerifiedDescriptorRef here - we'll update it after verification
             }
 
-            // Update previous descriptor
+            // Update previous descriptor AFTER reset
             previousDescriptorRef.current = currentDescriptor;
 
-            console.log('[CheckInCamera] Face detected in verification mode, verifying...');
+            console.log('[CheckInCamera] 🔒 VERIFICATION MODE: Face detected, starting server verification...');
+            console.log('[CheckInCamera] Descriptor length:', currentDescriptor.length);
+            console.log('[CheckInCamera] Previous descriptor exists:', !!previousDescriptor);
+            console.log('[CheckInCamera] Descriptors are same object:', previousDescriptor === currentDescriptor);
 
             // Verify with short debounce to batch rapid updates but ensure security
             verificationTimeoutRef.current = setTimeout(() => {
                 // Double check: make sure we're still looking at the same face
                 if (!faceDetected || !faceDescriptor) {
-                    console.log('[CheckInCamera] Face no longer detected, aborting verification');
+                    console.log('[CheckInCamera] ⚠️ Face no longer detected, aborting verification');
                     setFaceVerified(false);
                     return;
                 }
 
                 // Check if descriptor still matches (face might have changed)
                 if (faceDescriptor !== currentDescriptor) {
-                    console.log('[CheckInCamera] Face descriptor changed during debounce, aborting verification');
+                    console.log('[CheckInCamera] ⚠️ Face descriptor changed during debounce, aborting verification');
                     setFaceVerified(false);
                     return;
                 }
 
-                console.log('[CheckInCamera] Calling verifyFaceEncoding with descriptor length:', currentDescriptor.length);
+                console.log('[CheckInCamera] 🔒 Calling verifyFaceEncoding - SERVER VERIFICATION REQUIRED');
+                console.log('[CheckInCamera] Descriptor preview (first 5 values):', currentDescriptor.slice(0, 5));
 
-                // ALWAYS verify - never skip or cache for security
+                // CRITICAL: ALWAYS verify with server - NEVER skip or cache
+                // This is the ONLY way to pass verification in verification mode
                 verifyFaceEncoding(currentDescriptor).then(verified => {
                     // Double check: make sure face is still detected and descriptor hasn't changed
                     if (!faceDetected || faceDescriptor !== currentDescriptor) {
-                        console.log('[CheckInCamera] Face changed after verification, not updating state');
+                        console.log('[CheckInCamera] ⚠️ Face changed after verification, NOT updating state');
                         setFaceVerified(false);
                         return;
                     }
 
                     if (verified) {
-                        console.log('[CheckInCamera] ✅ Face verified successfully');
+                        console.log('[CheckInCamera] ✅✅✅ SERVER VERIFIED: Face matches registered face');
                         lastVerifiedDescriptorRef.current = currentDescriptor;
                     } else {
-                        console.log('[CheckInCamera] ❌ Face verification FAILED');
+                        console.log('[CheckInCamera] ❌❌❌ SERVER REJECTED: Face does NOT match registered face');
                         setFaceVerified(false); // Explicitly set to false
                         lastVerifiedDescriptorRef.current = null; // Reset on failure
                     }
                 }).catch(err => {
-                    console.error('[CheckInCamera] Verification error:', err);
+                    console.error('[CheckInCamera] ⚠️⚠️⚠️ CRITICAL ERROR in verifyFaceEncoding:', err);
                     setFaceVerified(false); // Explicitly set to false on error
                     lastVerifiedDescriptorRef.current = null;
+                    setVerificationError('Lỗi khi xác thực: ' + (err.message || 'Unknown error'));
                 });
             }, 300);
         } else if (!verificationMode && faceDetected && faceDescriptor) {
@@ -784,22 +894,30 @@ const CheckInCamera = ({
                         className="camera-canvas"
                     />
                 )}
-                {/* CRITICAL: Only show "verified" message when EXPLICITLY verified by server in verification mode */}
-                {verificationMode && faceDetected && faceDescriptor && faceVerified === true && !isVerifying && (
+                {/* CRITICAL SECURITY: Only show "verified" message when EXPLICITLY verified by server */}
+                {/* This message should ONLY appear when server confirms the face matches the registered face */}
+                {/* Added additional checks: verificationMode must be true, faceVerified must be explicitly true, and not verifying */}
+                {verificationMode === true && faceDetected === true && faceDescriptor && faceVerified === true && isVerifying === false && (
                     <div className="face-detected-indicator" style={{
+                        position: 'absolute',
+                        bottom: '100px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
                         background: '#10b981',
                         color: 'white',
                         padding: '0.75rem 1.5rem',
                         borderRadius: '8px',
                         fontSize: '0.9rem',
                         fontWeight: 'bold',
-                        zIndex: 20
+                        zIndex: 20,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
                     }}>
                         <span>✓ Khuôn mặt đã được xác thực thành công</span>
                     </div>
                 )}
-                {/* Show error message when verification fails */}
-                {verificationMode && faceDetected && faceDescriptor && faceVerified === false && !isVerifying && verificationError && (
+                {/* Show error message when verification fails - CRITICAL: This should show for ANY face that doesn't match */}
+                {/* This includes: different person, phone image, or any face that fails server verification */}
+                {verificationMode === true && faceDetected === true && faceDescriptor && (faceVerified === false || !faceVerified) && isVerifying === false && (
                     <div className="face-verification-error" style={{
                         position: 'absolute',
                         bottom: '100px',
@@ -816,7 +934,7 @@ const CheckInCamera = ({
                         boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                         fontWeight: 'bold'
                     }}>
-                        <span>❌ {verificationError}</span>
+                        <span>❌ {verificationError || 'Khuôn mặt không khớp với khuôn mặt đã đăng ký. Vui lòng quét lại bằng gương mặt đã đăng ký.'}</span>
                     </div>
                 )}
                 {/* Show detection message only in enrollment mode (not verification) */}

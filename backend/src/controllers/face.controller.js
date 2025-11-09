@@ -218,11 +218,15 @@ exports.verifyFace = async (req, res) => {
         // Calculate similarity with average encoding (required check)
         const similarityWithAverage = calculateCosineSimilarity(encoding, faceEncoding.averageEncoding);
 
-        // Threshold for face matching - increased to 0.85 for EXTREMELY strict matching
+        // CRITICAL SECURITY: Threshold for face matching - INCREASED to 0.90 for MAXIMUM strictness
         // Higher threshold = more strict matching (prevents false positives)
-        // 0.85 is extremely strict - only very similar faces will pass
-        // This prevents false positives from photos, different people, etc.
-        const threshold = 0.85;
+        // 0.90 is VERY strict - only nearly identical faces will pass
+        // This is CRITICAL to prevent false positives from:
+        // - Photos of other people (even on phone screens)
+        // - Different people
+        // - Similar-looking people
+        // - 2D images (photos) vs 3D faces (real people)
+        const threshold = 0.90;
 
         // CRITICAL: Check similarity with ALL stored encodings
         const similarities = [];
@@ -239,38 +243,62 @@ exports.verifyFace = async (req, res) => {
         const maxSimilarity = Math.max(similarityWithAverage, ...similarities.map(s => s.similarity));
         const bestMatchIndex = similarities.findIndex(s => s.similarity === maxSimilarity);
 
-        // CRITICAL VALIDATION: Require similarity with average encoding AND at least 2/3 stored encodings
-        // This ensures the face matches the enrolled face profile, not just one encoding
+        // CRITICAL SECURITY VALIDATION: Require ALL of the following to pass:
+        // 1. Similarity with average encoding MUST be >= threshold (0.90)
+        // 2. At least 3/3 (100%) of stored encodings MUST match >= threshold
+        // 3. Maximum similarity MUST be >= threshold
+        // This is EXTREMELY strict to prevent ANY false positives
         const matchesWithAverage = similarityWithAverage >= threshold;
         const matchesWithStored = similarities.filter(s => s.similarity >= threshold);
-        const requiredMatches = Math.ceil((faceEncoding.encodings.length * 2) / 3); // At least 2/3
+
+        // CRITICAL: Changed from 2/3 to 3/3 (100%) - ALL encodings must match
+        // This prevents false positives even more strictly
+        const requiredMatches = faceEncoding.encodings.length; // ALL encodings must match (100%)
 
         const meetsStoredRequirement = matchesWithStored.length >= requiredMatches;
-        const finalMatch = matchesWithAverage && meetsStoredRequirement && maxSimilarity >= threshold;
+
+        // CRITICAL: Also check that maxSimilarity is significantly above threshold
+        // Require maxSimilarity to be at least 0.92 (even higher than threshold)
+        // This ensures we're not just barely passing the threshold
+        const minMaxSimilarity = 0.92; // Even stricter than threshold
+        const meetsMaxSimilarityRequirement = maxSimilarity >= minMaxSimilarity;
+
+        // Final match requires ALL conditions to be true
+        const finalMatch = matchesWithAverage &&
+            meetsStoredRequirement &&
+            maxSimilarity >= threshold &&
+            meetsMaxSimilarityRequirement;
 
         // Log verification result for debugging with more details
-        console.log(`[Face Verification] User: ${hoiVienId}`);
+        console.log(`[Face Verification] 🔒 SECURITY CHECK for User: ${hoiVienId}`);
         console.log(`  - Average encoding similarity: ${similarityWithAverage.toFixed(4)} (required: >= ${threshold})`);
-        console.log(`  - Matches with average: ${matchesWithAverage ? 'YES' : 'NO'}`);
-        console.log(`  - Individual encoding similarities:`, similarities.map(s => `${s.index + 1}: ${s.similarity.toFixed(4)}`).join(', '));
-        console.log(`  - Matches with stored encodings: ${matchesWithStored.length}/${faceEncoding.encodings.length} (required: >= ${requiredMatches})`);
-        console.log(`  - Max similarity: ${maxSimilarity.toFixed(4)}`);
-        console.log(`  - Threshold: ${threshold}`);
-        console.log(`  - Meets stored requirement: ${meetsStoredRequirement ? 'YES' : 'NO'}`);
-        console.log(`  - Final Match: ${finalMatch ? '✅ PASS' : '❌ FAIL'}`);
-        console.log(`  - Best match with encoding: ${bestMatchIndex >= 0 ? bestMatchIndex + 1 : 'average'}`);
+        console.log(`  - Matches with average: ${matchesWithAverage ? '✅ YES' : '❌ NO'}`);
+        console.log(`  - Individual encoding similarities:`, similarities.map(s => `${s.index + 1}: ${s.similarity.toFixed(4)}${s.similarity >= threshold ? ' ✅' : ' ❌'}`).join(', '));
+        console.log(`  - Matches with stored encodings: ${matchesWithStored.length}/${faceEncoding.encodings.length} (required: ALL ${requiredMatches})`);
+        console.log(`  - Meets stored requirement (100% match): ${meetsStoredRequirement ? '✅ YES' : '❌ NO'}`);
+        console.log(`  - Max similarity: ${maxSimilarity.toFixed(4)} (threshold: ${threshold}, min required: ${minMaxSimilarity})`);
+        console.log(`  - Meets max similarity requirement: ${meetsMaxSimilarityRequirement ? '✅ YES' : '❌ NO'}`);
+        console.log(`  - Final Match: ${finalMatch ? '✅✅✅ PASS - FACE VERIFIED' : '❌❌❌ FAIL - FACE REJECTED'}`);
+        console.log(`  - Best match with encoding: ${bestMatchIndex >= 0 ? `Encoding ${bestMatchIndex + 1}` : 'Average encoding'}`);
 
         if (!finalMatch) {
-            console.log(`  - ❌ VERIFICATION FAILED REASONS:`);
+            console.log(`  - ❌❌❌ VERIFICATION FAILED - SECURITY REJECTION:`);
             if (!matchesWithAverage) {
-                console.log(`    - Average encoding similarity (${similarityWithAverage.toFixed(4)}) < threshold (${threshold})`);
+                console.log(`    ❌ Average encoding similarity (${similarityWithAverage.toFixed(4)}) < threshold (${threshold})`);
             }
             if (!meetsStoredRequirement) {
-                console.log(`    - Only ${matchesWithStored.length}/${faceEncoding.encodings.length} stored encodings match (required: >= ${requiredMatches})`);
+                console.log(`    ❌ Only ${matchesWithStored.length}/${faceEncoding.encodings.length} stored encodings match (required: ALL ${requiredMatches})`);
+                console.log(`    ❌ This face does NOT match the enrolled face profile`);
             }
             if (maxSimilarity < threshold) {
-                console.log(`    - Max similarity (${maxSimilarity.toFixed(4)}) < threshold (${threshold})`);
+                console.log(`    ❌ Max similarity (${maxSimilarity.toFixed(4)}) < threshold (${threshold})`);
             }
+            if (!meetsMaxSimilarityRequirement) {
+                console.log(`    ❌ Max similarity (${maxSimilarity.toFixed(4)}) < minimum required (${minMaxSimilarity})`);
+            }
+            console.log(`  - 🔒 SECURITY: Face REJECTED - This is NOT the enrolled user's face`);
+        } else {
+            console.log(`  - ✅✅✅ SECURITY: Face VERIFIED - This IS the enrolled user's face`);
         }
 
         res.status(200).json({
