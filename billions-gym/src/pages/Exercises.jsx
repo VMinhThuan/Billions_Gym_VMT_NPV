@@ -4,7 +4,68 @@ import './Exercises.css';
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
 
-const Workout = () => {
+const VISIBLE_COUNT = 4;
+const MAX_CACHE_ITEMS = 20; // Giới hạn số lượng items lưu vào localStorage
+
+// Helper function: Chỉ lưu các field cần thiết để giảm kích thước
+const sanitizeForStorage = (items, fields) => {
+    if (!Array.isArray(items)) return [];
+    return items.slice(0, MAX_CACHE_ITEMS).map(item => {
+        const sanitized = {};
+        fields.forEach(field => {
+            if (item[field] !== undefined) {
+                sanitized[field] = item[field];
+            }
+        });
+        return sanitized;
+    });
+};
+
+// Helper function: Lưu an toàn vào localStorage với error handling
+const safeSetStorage = (key, data, fields = null) => {
+    try {
+        let dataToStore = data;
+
+        // Nếu có fields, chỉ lưu những field cần thiết
+        if (fields && Array.isArray(data)) {
+            dataToStore = sanitizeForStorage(data, fields);
+        } else if (Array.isArray(data)) {
+            // Giới hạn số lượng items
+            dataToStore = data.slice(0, MAX_CACHE_ITEMS);
+        }
+
+        const jsonString = JSON.stringify(dataToStore);
+        const sizeInMB = new Blob([jsonString]).size / 1024 / 1024;
+
+        // Kiểm tra kích thước (localStorage thường giới hạn ~5-10MB)
+        if (sizeInMB > 4) {
+            console.warn(`Data too large for localStorage (${sizeInMB.toFixed(2)}MB), skipping cache for key: ${key}`);
+            return;
+        }
+
+        localStorage.setItem(key, jsonString);
+    } catch (e) {
+        // Xử lý các lỗi cụ thể
+        if (e.name === 'QuotaExceededError') {
+            console.warn(`localStorage quota exceeded for key: ${key}. Attempting to clear old cache...`);
+            try {
+                // Thử xóa cache cũ
+                localStorage.removeItem(key);
+                // Thử lại với data nhỏ hơn
+                if (fields && Array.isArray(data)) {
+                    const smallerData = sanitizeForStorage(data.slice(0, 10), fields);
+                    localStorage.setItem(key, JSON.stringify(smallerData));
+                }
+            } catch (e2) {
+                console.warn(`Failed to save to localStorage for key: ${key}`, e2.message);
+            }
+        } else {
+            console.warn(`Failed to save to localStorage for key: ${key}`, e.message);
+        }
+    }
+};
+
+const Exercises = () => {
     const [workoutData, setWorkoutData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -14,8 +75,6 @@ const Workout = () => {
     const [banners, setBanners] = useState([]);
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [pts, setPts] = useState([]);
-
-    const VISIBLE_COUNT = 4;
 
     useEffect(() => {
         const handleSidebarToggle = (event) => {
@@ -36,31 +95,76 @@ const Workout = () => {
                 const cachedTpl = localStorage.getItem('workout_templates');
                 const cachedPts = localStorage.getItem('workout_trainers');
                 if (cachedTpl) {
-                    try { const parsed = JSON.parse(cachedTpl); if (Array.isArray(parsed)) { setTemplates(parsed); setBanners(parsed.slice(0, 2)); } } catch (e) { /* ignore parse errors */ }
+                    try {
+                        const parsed = JSON.parse(cachedTpl);
+                        if (Array.isArray(parsed)) {
+                            setTemplates(parsed);
+                            setBanners(parsed.slice(0, 2));
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse cached templates:', e.message);
+                        localStorage.removeItem('workout_templates'); // Xóa cache bị lỗi
+                    }
                 }
                 if (cachedPts) {
-                    try { const parsedPts = JSON.parse(cachedPts); if (Array.isArray(parsedPts)) setPts(parsedPts.slice(0, 6)); } catch (e) { /* ignore parse errors */ }
+                    try {
+                        const parsedPts = JSON.parse(cachedPts);
+                        if (Array.isArray(parsedPts)) {
+                            setPts(parsedPts.slice(0, 6));
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse cached trainers:', e.message);
+                        localStorage.removeItem('workout_trainers'); // Xóa cache bị lỗi
+                    }
                 }
             } catch (e) {
-                // ignore localStorage errors
+                console.warn('Failed to load from localStorage:', e.message);
             }
 
             setLoading(true);
             try {
                 // Fetch templates and trainers in parallel to reduce total wait time
-                const [tpl, trainers] = await Promise.all([
+                const [tplResponse, trainersResponse] = await Promise.all([
                     api.api.get('/session-templates/public'),
                     api.api.get('/user/pt')
                 ]);
 
-                if (Array.isArray(tpl)) {
+                // Xử lý templates - kiểm tra cả response.data và response trực tiếp
+                let tpl = [];
+                if (tplResponse) {
+                    if (Array.isArray(tplResponse)) {
+                        tpl = tplResponse;
+                    } else if (tplResponse.data) {
+                        tpl = Array.isArray(tplResponse.data) ? tplResponse.data : [];
+                    } else if (tplResponse.success && Array.isArray(tplResponse.data)) {
+                        tpl = tplResponse.data;
+                    }
+                }
+
+                if (Array.isArray(tpl) && tpl.length > 0) {
                     setTemplates(tpl);
                     setBanners(tpl.slice(0, 2));
-                    try { localStorage.setItem('workout_templates', JSON.stringify(tpl)); } catch (e) {/* ignore */ }
+                    // Chỉ lưu các field cần thiết cho templates (không lưu baiTap đầy đủ, chỉ _id)
+                    safeSetStorage('workout_templates', tpl, ['_id', 'ten', 'moTa', 'hinhAnh']);
                 }
-                if (Array.isArray(trainers)) {
+
+                // Xử lý trainers - kiểm tra cả response.data và response trực tiếp
+                let trainers = [];
+                if (trainersResponse) {
+                    if (Array.isArray(trainersResponse)) {
+                        trainers = trainersResponse;
+                    } else if (trainersResponse.data) {
+                        trainers = Array.isArray(trainersResponse.data) ? trainersResponse.data : [];
+                    } else if (trainersResponse.success && Array.isArray(trainersResponse.data)) {
+                        trainers = trainersResponse.data;
+                    }
+                }
+
+                if (Array.isArray(trainers) && trainers.length > 0) {
                     setPts(trainers.slice(0, 6));
-                    try { localStorage.setItem('workout_trainers', JSON.stringify(trainers)); } catch (e) {/* ignore */ }
+                    // Chỉ lưu các field cần thiết cho trainers
+                    // Lưu ý: Nếu anhDaiDien là base64 string lớn, có thể bỏ qua và chỉ lưu URL
+                    safeSetStorage('workout_trainers', trainers, ['_id', 'hoTen', 'chuyenMon']);
                 }
             } catch (e) {
                 console.error('Load workout page data failed', e);
@@ -191,4 +295,4 @@ const Workout = () => {
     );
 }
 
-export default Workout;
+export default Exercises;

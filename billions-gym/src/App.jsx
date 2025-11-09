@@ -18,6 +18,7 @@ import ProfileEdit from './pages/ProfileEdit'
 import ActivePackage from './pages/ActivePackage'
 import Schedule from './pages/Schedule'
 import CheckInOut from './pages/CheckInOut'
+import Exercises from './pages/Exercises'
 
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -51,10 +52,10 @@ const AppContent = () => {
     const handleStorageChange = () => {
       const isAuth = authUtils.isAuthenticated();
       if (isAuth && !isAuthenticated) {
-        setIsTransitioning(true);
+        setIsPageTransitioning(true);
         setTimeout(() => {
           setIsAuthenticated(true);
-          setIsTransitioning(false);
+          setIsPageTransitioning(false);
         }, 500);
       } else if (!isAuth && isAuthenticated) {
         setIsAuthenticated(false);
@@ -112,6 +113,7 @@ const AppContent = () => {
             <Route path='/active-package' element={<ActivePackage />} />
             <Route path='/schedule' element={<Schedule />} />
             <Route path='/checkin-out' element={<CheckInOut />} />
+            <Route path='/exercises' element={<Exercises />} />
           </Routes>
         </div>
       )}
