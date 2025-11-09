@@ -71,6 +71,13 @@ const Sidebar = ({ isOpen, onClose }) => {
             description: 'Xem lịch tập cá nhân'
         },
         {
+            id: 'checkin',
+            label: 'Check-in/Check-out',
+            icon: 'camera',
+            path: '/checkin-out',
+            description: 'Check-in và check-out buổi tập'
+        },
+        {
             id: 'workouts',
             label: 'Buổi tập',
             icon: 'activity',
@@ -112,13 +119,6 @@ const Sidebar = ({ isOpen, onClose }) => {
             path: '/reviews',
             description: 'Đánh giá trải nghiệm'
         },
-        {
-            id: 'checkin',
-            label: 'Check-in/Check-out',
-            icon: 'camera',
-            path: '/checkin-out',
-            description: 'Check-in và check-out buổi tập'
-        }
     ];
 
     const getIcon = (iconName) => {

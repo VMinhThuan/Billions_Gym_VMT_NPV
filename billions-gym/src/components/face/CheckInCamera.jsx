@@ -824,14 +824,12 @@ const CheckInCamera = ({
                 <div className="camera-error" style={{
                     marginBottom: '1rem',
                     padding: '1rem',
-                    background: '#7f1d1d',
-                    border: '1px solid #991b1b',
+                    background: '#da2128',
                     borderRadius: '8px',
-                    color: '#fca5a5',
                     textAlign: 'center'
                 }}>
                     <div className="error-icon" style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📷</div>
-                    <p>{cameraError}</p>
+                    <p className='text-white'>{cameraError}</p>
                 </div>
             )}
             {!modelsLoaded && (

@@ -21,7 +21,7 @@ const Schedule = () => {
     const user = authUtils.getUser();
     const userId = authUtils.getUserId();
 
-    const weekDaysShort = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const weekDaysShort = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
     const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
         'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
 
@@ -84,16 +84,12 @@ const Schedule = () => {
         if (userId) fetchScheduleData();
     }, [userId, selectedDate, currentMonth]);
 
-    // update current time every minute for timeline position
     useEffect(() => {
         const tick = () => setCurrentTime(new Date());
-        // align to the next minute boundary
         const msToNextMinute = (60 - new Date().getSeconds()) * 1000;
         const timeoutId = setTimeout(() => {
             tick();
             const intervalId = setInterval(tick, 60 * 1000);
-            // store interval id on window so cleanup below can reference it via closure
-            // but we'll return cleanup that clears both
             (window.__scheduleTimelineInterval = intervalId);
         }, msToNextMinute);
 
@@ -159,7 +155,9 @@ const Schedule = () => {
         const firstDay = new Date(year, month, 1);
         const lastDay = new Date(year, month + 1, 0);
         const startDate = new Date(firstDay);
-        startDate.setDate(startDate.getDate() - firstDay.getDay());
+        const dayOfWeek = firstDay.getDay();
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        startDate.setDate(startDate.getDate() + diff);
 
         const days = [];
         for (let i = 0; i < 42; i++) {
@@ -188,7 +186,6 @@ const Schedule = () => {
 
     const isNowDuringEvent = (event, now) => {
         if (!event.gioBatDau) return false;
-        // if event has gioKetThuc use it, otherwise assume 60 minutes duration
         const start = timeStringToMinutes(event.gioBatDau);
         let end = timeStringToMinutes(event.gioKetThuc);
         if (end == null || isNaN(end)) end = start + 60;
@@ -198,7 +195,9 @@ const Schedule = () => {
 
     const getWeekDays = () => {
         const start = new Date(selectedDate);
-        start.setDate(selectedDate.getDate() - selectedDate.getDay());
+        const dayOfWeek = selectedDate.getDay();
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        start.setDate(selectedDate.getDate() + diff);
         const days = [];
         for (let i = 0; i < 7; i++) {
             const date = new Date(start);
@@ -331,12 +330,16 @@ const Schedule = () => {
                 <div className="week-header-row">
                     <button className="nav-arrow-btn nav-prev" onClick={goToPrevious}>‹</button>
                     <div className="time-column-header"></div>
-                    {weekDays.map((date, index) => (
-                        <div key={index} className="week-day-header">
-                            <div className="day-name">{weekDaysShort[date.getDay()]}</div>
-                            <div className="day-date">{date.getDate()}/{date.getMonth() + 1}</div>
-                        </div>
-                    ))}
+                    {weekDays.map((date, index) => {
+                        const dayOfWeek = date.getDay();
+                        const displayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                        return (
+                            <div key={index} className="week-day-header">
+                                <div className="day-name">{weekDaysShort[displayIndex]}</div>
+                                <div className="day-date">{date.getDate()}/{date.getMonth() + 1}</div>
+                            </div>
+                        );
+                    })}
                     <button className="nav-arrow-btn nav-next" onClick={goToNext}>›</button>
                 </div>
                 <div className="week-grid">
@@ -347,9 +350,8 @@ const Schedule = () => {
                     {weekDays.map((date, dayIndex) => {
                         const events = getEventsForDate(date);
                         const isTodayCol = isSameDay(date, new Date());
-                        // timeline position: account for all-day cell (40px) + hour cells (60px each)
-                        const ALL_DAY_HEIGHT = 40; // matches .all-day-cell height
-                        const HOUR_HEIGHT = 60; // matches .hour-cell height
+                        const ALL_DAY_HEIGHT = 40;
+                        const HOUR_HEIGHT = 60;
                         const totalMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
                         const topPx = ALL_DAY_HEIGHT + (totalMinutes * (HOUR_HEIGHT / 60));
 
@@ -421,7 +423,9 @@ const Schedule = () => {
 
     const renderDayView = () => {
         const events = getEventsForDate(selectedDate);
-        const dayName = weekDaysShort[selectedDate.getDay()];
+        const dayOfWeek = selectedDate.getDay();
+        const displayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const dayName = weekDaysShort[displayIndex];
         const isTodaySelected = isSameDay(selectedDate, new Date());
         const ALL_DAY_HEIGHT = 40;
         const HOUR_HEIGHT = 60;

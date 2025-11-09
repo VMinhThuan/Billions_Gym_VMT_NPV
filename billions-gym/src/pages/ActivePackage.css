@@ -1,7 +1,10 @@
 .active-package-container {
     min-height: 100vh;
     background: #0a0a0a;
-    padding: 6rem 3rem 2rem 3rem;
+    padding-top: 7rem;
+    padding-bottom: 2rem;
+    padding-left: 3rem;
+    padding-right: 3rem;
     transition: padding-left 0.3s ease;
 }
 
@@ -408,12 +411,20 @@
 /* Responsive */
 @media (max-width: 1280px) {
     .active-package-container {
-        padding: 4rem 3rem;
+        padding-top: 6rem;
+        padding-left: 2rem;
+        padding-right: 2rem;
+        padding-bottom: 2rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
 
     .packages-grid {
         flex-direction: column;
         gap: 2rem;
+        align-items: center;
+        justify-content: center;
     }
 
     .package-card,
@@ -421,6 +432,8 @@
     .package-card:last-child {
         border: 1px solid rgba(115, 115, 115, 0.8);
         border-radius: 1.5rem;
+        max-width: 600px;
+        width: 100%;
     }
 
     .package-card.popular {
@@ -430,7 +443,13 @@
 
 @media (max-width: 768px) {
     .active-package-container {
-        padding: 2rem 1rem;
+        padding-top: 5rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-bottom: 2rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
 
     .main-title {
@@ -441,9 +460,48 @@
     .main-description {
         font-size: 1rem;
         line-height: 1.5rem;
+        padding: 0 1rem;
     }
 
     .package-card {
         padding: 2rem 1.5rem;
+        max-width: 500px;
+        width: 100%;
+    }
+
+    .header-section {
+        margin-bottom: 3rem;
+    }
+
+    .current-package-card {
+        max-width: 500px;
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .active-package-container {
+        padding-top: 4.5rem;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+        padding-bottom: 1.5rem;
+    }
+
+    .main-title {
+        font-size: 1.5rem;
+        line-height: 2rem;
+    }
+
+    .main-description {
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+    }
+
+    .package-card {
+        padding: 1.5rem 1rem;
+    }
+
+    .current-package-card {
+        padding: 1.5rem;
     }
 }

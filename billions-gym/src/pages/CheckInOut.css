@@ -1,19 +1,42 @@
 .checkin-page {
     min-height: 100vh;
-    background: #0f172a;
+    background: #0a0a0a;
     color: #e5e7eb;
 }
 
 .checkin-content {
     margin-left: 0;
     padding: 2rem;
+    padding-top: 6rem;
     max-width: 1400px;
     margin: 0 auto;
+    transition: margin-left 0.3s ease, padding-left 0.3s ease;
+    background: #0a0a0a;
 }
 
-@media (min-width: 1024px) {
-    .checkin-content {
+/* Sidebar expanded */
+.checkin-content.sidebar-expanded {
+    margin-left: 0;
+    padding-left: 2rem;
+}
+
+@media (min-width: 768px) {
+    .checkin-content.sidebar-expanded {
         margin-left: 320px;
+        padding-left: 2rem;
+    }
+}
+
+/* Sidebar collapsed */
+.checkin-content.sidebar-collapsed {
+    margin-left: 0;
+    padding-left: 2rem;
+}
+
+@media (min-width: 768px) {
+    .checkin-content.sidebar-collapsed {
+        margin-left: 80px;
+        padding-left: 2rem;
     }
 }
 
@@ -29,8 +52,10 @@
 }
 
 .checkin-header p {
-    color: #9ca3af;
-    font-size: 1rem;
+    padding-top: 20px;
+    color: #ffffff;
+    font-size: 1.2rem;
+    font-weight: 600;
 }
 
 .checkin-main {
@@ -58,7 +83,7 @@
 
 .sessions-section,
 .history-section {
-    background: #1f2937;
+    background: #141414;
     border-radius: 12px;
     padding: 1.5rem;
 }
@@ -183,7 +208,7 @@
 }
 
 .camera-section {
-    background: #1f2937;
+    background: #141414 ;
     border-radius: 12px;
     padding: 1.5rem;
 }
@@ -253,10 +278,9 @@
 .error-message {
     margin-top: 1rem;
     padding: 1rem;
-    background: #7f1d1d;
-    border: 1px solid #991b1b;
+    background: #da2128;
     border-radius: 8px;
-    color: #fca5a5;
+    color: #ffffff;
     text-align: center;
 }
 
@@ -269,10 +293,9 @@
 
 .btn-toggle-history {
     padding: 0.5rem 1rem;
-    background: #374151;
-    border: 1px solid #4b5563;
+    background: #0046FF;
     border-radius: 6px;
-    color: #e5e7eb;
+    color: #ffffff;
     font-size: 0.875rem;
     font-weight: 600;
     cursor: pointer;
@@ -280,7 +303,7 @@
 }
 
 .btn-toggle-history:hover {
-    background: #4b5563;
+    background: rgb(0, 70, 255, 0.7);
 }
 
 .history-list {

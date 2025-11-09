@@ -42,6 +42,14 @@ const ActivePackage = () => {
             setLoading(true);
             setError(null);
 
+            // Kiểm tra user trước khi fetch
+            if (!user || !user._id) {
+                console.error('User not found');
+                setError('Vui lòng đăng nhập để xem thông tin gói tập');
+                setLoading(false);
+                return;
+            }
+
             const [activePackageResponse, allPackagesResponse] = await Promise.all([
                 fetch(getApiUrl(`/chitietgoitap/hoi-vien/${user._id}/active`), {
                     method: 'GET',
@@ -101,7 +109,7 @@ const ActivePackage = () => {
             <>
                 <Header />
                 <Sidebar />
-                <div className={`active-package-container bg-[#0a0a0a] min-h-screen ${sidebarCollapsed ? 'pl-20' : 'pl-80'}`}>
+                <div className={`active-package-container bg-[#0a0a0a] min-h-screen pl-0 ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-80'}`}>
                     <div className="h-screen flex items-center justify-center">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#da2128]"></div>
                     </div>
@@ -115,7 +123,7 @@ const ActivePackage = () => {
             <>
                 <Header />
                 <Sidebar />
-                <div className={`active-package-container bg-[#0a0a0a] min-h-screen ${sidebarCollapsed ? 'pl-20' : 'pl-80'}`}>
+                <div className={`active-package-container bg-[#0a0a0a] min-h-screen pl-0 ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-80'}`}>
                     <div className="h-screen flex items-center justify-center">
                         <div className="text-center">
                             <p className="text-red-500 mb-4">{error}</p>
@@ -174,11 +182,11 @@ const ActivePackage = () => {
         <>
             <Header />
             <Sidebar />
-            <div className={`transition-all duration-300 bg-[#0a0a0a] min-h-screen ${sidebarCollapsed ? 'pl-20' : 'pl-80'}`}>
-                <div className="flex flex-col w-full items-center justify-center gap-16 px-4 lg:px-12 py-12 min-h-screen">
+            <div className={`transition-all duration-300 bg-[#0a0a0a] min-h-screen pt-20 pl-0 ${sidebarCollapsed ? 'md:pl-0' : 'md:pl-80'}`}>
+                <div className="flex flex-col w-full items-center justify-center gap-16 px-4 lg:px-12 pb-12 min-h-screen">
                     {/* Plans & Pricing Section */}
                     <section className="flex flex-col items-center gap-16 w-full max-w-7xl">
-                        <header className="inline-flex flex-col items-center gap-3 mt-16">
+                        <header className="inline-flex flex-col items-center gap-3 mt-8">
                             <h2 className="text-4xl font-bold text-white text-center">
                                 Gói tập &amp; Bảng giá
                             </h2>

@@ -19,6 +19,7 @@ const CheckInOut = () => {
     const [history, setHistory] = useState([]);
     const [showHistory, setShowHistory] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [faceVerified, setFaceVerified] = useState(false);
     const [verificationError, setVerificationError] = useState(null);
     const verificationRetryCountRef = useRef(0);
@@ -26,6 +27,14 @@ const CheckInOut = () => {
     // Get user and auth status at component level
     const user = authUtils.getUser();
     const isAuth = authUtils.isAuthenticated();
+
+    useEffect(() => {
+        const handleSidebarToggle = (event) => {
+            setSidebarCollapsed(event.detail.collapsed);
+        };
+        window.addEventListener('sidebar:toggle', handleSidebarToggle);
+        return () => window.removeEventListener('sidebar:toggle', handleSidebarToggle);
+    }, []);
 
     useEffect(() => {
         // Check if user is authenticated before making API calls
@@ -368,7 +377,7 @@ const CheckInOut = () => {
             <div className="checkin-page">
                 <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
                 <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-                <div className="checkin-content">
+                <div className={`checkin-content ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
                     <div className="checkin-loading">
                         <div className="loading-spinner"></div>
                         <p>Đang tải...</p>
@@ -383,7 +392,7 @@ const CheckInOut = () => {
             <div className="checkin-page">
                 <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
                 <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-                <div className="checkin-content">
+                <div className={`checkin-content ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
                     <FaceEnrollment
                         onComplete={handleEnrollmentComplete}
                         onCancel={() => window.history.back()}
@@ -397,7 +406,7 @@ const CheckInOut = () => {
         <div className="checkin-page">
             <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-            <div className="checkin-content">
+            <div className={`checkin-content ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
                 <div className="checkin-header">
                     <h1>Check-in / Check-out</h1>
                     <p>Chào mừng, {user?.hoTen || 'Hội viên'}!</p>
@@ -405,10 +414,9 @@ const CheckInOut = () => {
                         <div className="error-message" style={{
                             marginTop: '1rem',
                             padding: '1rem',
-                            background: '#7f1d1d',
-                            border: '1px solid #991b1b',
+                            background: '#da2128',
                             borderRadius: '8px',
-                            color: '#fca5a5'
+                            color: '#ffffff'
                         }}>
                             {error}
                         </div>
@@ -577,13 +585,12 @@ const CheckInOut = () => {
                                 <div className="verification-error" style={{
                                     marginTop: '1rem',
                                     padding: '1rem',
-                                    background: '#7f1d1d',
-                                    border: '1px solid #991b1b',
+                                    background: '#da2128',
                                     borderRadius: '8px',
-                                    color: '#fca5a5',
+                                    color: '#ffffff',
                                     textAlign: 'center'
                                 }}>
-                                    <p>{verificationError}</p>
+                                    <p className='text-white'>{verificationError}</p>
                                 </div>
                             )}
                             {selectedSession && (
@@ -624,7 +631,7 @@ const CheckInOut = () => {
                             )}
                             {error && (
                                 <div className="error-message">
-                                    <p>{error}</p>
+                                    <p className='text-white'>{error}</p>
                                 </div>
                             )}
                         </div>
