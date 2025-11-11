@@ -130,3 +130,21 @@ body {
         z-index: 1;
     }
 }
+
+/* Custom scrollbar for video list */
+.exercise-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.exercise-list::-webkit-scrollbar-track {
+    background: #1f1f1f; /* Dark track */
+}
+
+.exercise-list::-webkit-scrollbar-thumb {
+    background: #3a3a3a; /* Slightly lighter thumb */
+    border-radius: 4px;
+}
+
+.exercise-list::-webkit-scrollbar-thumb:hover {
+    background: #5a5a5a; /* Highlighted thumb */
+}

@@ -5,7 +5,6 @@
 }
 
 .checkin-content {
-    margin-left: 0;
     padding: 2rem;
     padding-top: 5rem;
     max-width: 1600px;
@@ -24,6 +23,7 @@
     .checkin-content.sidebar-expanded {
         margin-left: 320px;
         padding-left: 2rem;
+        width: calc(100% - 320px);
     }
 }
 
@@ -37,7 +37,14 @@
     .checkin-content.sidebar-collapsed {
         margin-left: 80px;
         padding-left: 2rem;
+        width: calc(100% - 80px);
     }
+}
+
+.checkin-content > * {
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .checkin-header {

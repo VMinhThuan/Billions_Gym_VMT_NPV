@@ -82,14 +82,14 @@ const Sidebar = ({ isOpen, onClose }) => {
             label: 'Buổi tập',
             icon: 'activity',
             path: '/workouts',
-            description: 'Theo dõi các buổi tập đã thực hiện'
+            description: 'Xem video và bài tập theo playlist'
         },
         {
             id: 'exercises',
             label: 'Bài tập',
             icon: 'barbell',
             path: '/exercises',
-            description: 'Thư viện bài tập cá nhân'
+            description: 'Thư viện bài tập và video hướng dẫn'
         },
         {
             id: 'nutrition',
