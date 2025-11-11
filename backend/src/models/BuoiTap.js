@@ -125,4 +125,23 @@ BuoiTapSchema.methods.xoaHoiVien = function (hoiVienId) {
     return this.save();
 };
 
+// Method để cập nhật trạng thái tham gia của hội viên
+BuoiTapSchema.methods.updateAttendanceStatus = function (hoiVienId, newStatus) {
+    const validStatuses = ['DA_DANG_KY', 'DA_THAM_GIA', 'VANG_MAT', 'HUY'];
+    if (!validStatuses.includes(newStatus)) {
+        throw new Error(`Invalid status: ${newStatus}. Must be one of: ${validStatuses.join(', ')}`);
+    }
+
+    const member = this.danhSachHoiVien.find(
+        m => m.hoiVien.toString() === hoiVienId.toString()
+    );
+
+    if (!member) {
+        throw new Error('Hội viên chưa đăng ký buổi tập này');
+    }
+
+    member.trangThai = newStatus;
+    return this.save();
+};
+
 module.exports = mongoose.model('BuoiTap', BuoiTapSchema);

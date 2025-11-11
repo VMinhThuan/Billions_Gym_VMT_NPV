@@ -17,6 +17,7 @@ import ProfileScreen from './pages/Profile'
 import ProfileEdit from './pages/ProfileEdit'
 import ActivePackage from './pages/ActivePackage'
 import Schedule from './pages/Schedule'
+import CheckInOut from './pages/CheckInOut'
 import Exercises from './pages/Exercises'
 
 const AppContent = () => {
@@ -51,10 +52,10 @@ const AppContent = () => {
     const handleStorageChange = () => {
       const isAuth = authUtils.isAuthenticated();
       if (isAuth && !isAuthenticated) {
-        setIsTransitioning(true);
+        setIsPageTransitioning(true);
         setTimeout(() => {
           setIsAuthenticated(true);
-          setIsTransitioning(false);
+          setIsPageTransitioning(false);
         }, 500);
       } else if (!isAuth && isAuthenticated) {
         setIsAuthenticated(false);
@@ -85,7 +86,7 @@ const AppContent = () => {
 
   return (
     // Remove global overflow-hidden so pages can scroll on the viewport level.
-    <div className="relative">
+    <div className="relative" key={location.pathname}>
       {isPageTransitioning ? (
         <div className="min-h-screen flex items-center justify-center bg-black">
           <div className="text-center">
@@ -98,7 +99,7 @@ const AppContent = () => {
           ? 'opacity-0 scale-95 translate-x-4'
           : 'opacity-100'
           }`}>
-          <Routes>
+          <Routes location={location}>
             <Route path="/" element={<Home onNavigateToLogin={() => navigateToPage('login')} onNavigateToRegister={() => navigateToPage('register')} />} />
             <Route path="/home" element={<Home onNavigateToLogin={() => navigateToPage('login')} onNavigateToRegister={() => navigateToPage('register')} />} />
             <Route path="/goi-tap/:id" element={<PackageDetail onNavigateToLogin={() => navigateToPage('login')} onNavigateToRegister={() => navigateToPage('register')} />} />
@@ -111,6 +112,8 @@ const AppContent = () => {
             <Route path='/profile/edit' element={<ProfileEdit />} />
             <Route path='/active-package' element={<ActivePackage />} />
             <Route path='/schedule' element={<Schedule />} />
+            <Route path='/checkin-out' element={<CheckInOut />} />
+            <Route path='/workouts' element={<Exercises />} />
             <Route path='/exercises' element={<Exercises />} />
           </Routes>
         </div>

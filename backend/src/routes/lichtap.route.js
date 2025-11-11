@@ -10,11 +10,20 @@ const allUsers = ['HoiVien', 'PT', 'OngChu'];
 // Lấy tất cả lịch tập (cho dashboard)
 router.get('/', auth, authorize(allUsers), lichTapController.getAllSchedules);
 
+// Kiểm tra điều kiện đăng ký lịch tập tuần sau
+router.get('/check-registration-eligibility', auth, authorize(hoiVien), lichTapController.checkRegistrationEligibility);
+
 // Lấy các buổi tập khả dụng cho chi nhánh, tuần và gói cụ thể
 router.get('/available-sessions', auth, authorize(hoiVien), lichTapController.getAvailableSessions);
 
 // Đăng ký buổi tập cho hội viên
 router.post('/register-session', auth, authorize(hoiVien), lichTapController.registerSession);
+
+// Hủy đăng ký buổi tập
+router.post('/cancel-session', auth, authorize(hoiVien), lichTapController.cancelSession);
+
+// Lấy danh sách buổi tập có sẵn trong tuần hiện tại
+router.get('/available-sessions-this-week', auth, authorize(hoiVien), lichTapController.getAvailableSessionsThisWeek);
 
 // Tạo lịch tập cho hội viên
 router.post('/create-schedule', auth, authorize(hoiVien), lichTapController.createWorkoutSchedule);

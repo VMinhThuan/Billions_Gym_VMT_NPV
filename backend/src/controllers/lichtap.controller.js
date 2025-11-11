@@ -4,6 +4,8 @@ const BuoiTap = require('../models/BuoiTap');
 const GoiTap = require('../models/GoiTap');
 const LichTap = require('../models/LichTap');
 const SessionOption = require('../models/SessionOption');
+const ChiTietGoiTap = require('../models/ChiTietGoiTap');
+const UserNotification = require('../models/UserNotification');
 
 /**
  * Lấy các buổi tập khả dụng cho chi nhánh, tuần và gói cụ thể
@@ -236,6 +238,34 @@ exports.registerSession = async (req, res) => {
         // Thêm hội viên vào buổi tập
         await buoiTap.themHoiVien(userId);
 
+        // Cập nhật LichTap nếu có
+        const lichTap = await LichTap.findOne({ hoiVien: userId });
+        if (lichTap) {
+            // Kiểm tra xem buổi tập đã có trong danhSachBuoiTap chưa
+            const existingBuoiTap = lichTap.danhSachBuoiTap.find(
+                bt => bt.buoiTap?.toString() === buoiTapId.toString()
+            );
+
+            if (!existingBuoiTap) {
+                lichTap.danhSachBuoiTap.push({
+                    buoiTap: buoiTap._id,
+                    ngayTap: buoiTap.ngayTap,
+                    gioBatDau: buoiTap.gioBatDau,
+                    gioKetThuc: buoiTap.gioKetThuc,
+                    ptPhuTrach: buoiTap.ptPhuTrach,
+                    trangThai: 'DA_DANG_KY',
+                    ngayDangKy: new Date()
+                });
+
+                // Thêm vào cacBuoiTap nếu chưa có
+                if (!lichTap.cacBuoiTap.includes(buoiTap._id)) {
+                    lichTap.cacBuoiTap.push(buoiTap._id);
+                }
+
+                await lichTap.save();
+            }
+        }
+
         res.json({
             success: true,
             message: 'Đăng ký buổi tập thành công',
@@ -253,6 +283,188 @@ exports.registerSession = async (req, res) => {
         res.status(500).json({
             success: false,
             message: error.message || 'Lỗi server khi đăng ký buổi tập'
+        });
+    }
+};
+
+/**
+ * Hủy đăng ký buổi tập (chỉ cho phép hủy trước 1 ngày)
+ */
+exports.cancelSession = async (req, res) => {
+    try {
+        const { buoiTapId } = req.body;
+        const userId = req.user.id;
+
+        if (!buoiTapId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu buoiTapId'
+            });
+        }
+
+        // Lấy thông tin buổi tập
+        const buoiTap = await BuoiTap.findById(buoiTapId)
+            .populate('chiNhanh')
+            .populate('ptPhuTrach');
+
+        if (!buoiTap) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy buổi tập'
+            });
+        }
+
+        // Kiểm tra hội viên có đăng ký buổi tập này không
+        const existingRegistration = buoiTap.danhSachHoiVien.find(
+            member => member.hoiVien.toString() === userId.toString()
+        );
+
+        if (!existingRegistration) {
+            return res.status(400).json({
+                success: false,
+                message: 'Bạn chưa đăng ký buổi tập này'
+            });
+        }
+
+        // Kiểm tra trạng thái buổi tập
+        if (existingRegistration.trangThai === 'DA_THAM_GIA') {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể hủy buổi tập đã tham gia'
+            });
+        }
+
+        // Kiểm tra thời gian: chỉ cho phép hủy trước 1 ngày
+        const now = new Date();
+        const buoiTapDate = new Date(buoiTap.ngayTap);
+        const timeDiff = buoiTapDate.getTime() - now.getTime();
+        const hoursDiff = timeDiff / (1000 * 60 * 60);
+
+        if (hoursDiff < 24) {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ có thể hủy buổi tập trước 24 giờ. Thời gian còn lại: ' + Math.round(hoursDiff) + ' giờ'
+            });
+        }
+
+        // Xóa hội viên khỏi buổi tập
+        await buoiTap.xoaHoiVien(userId);
+
+        // Cập nhật LichTap nếu có
+        const lichTap = await LichTap.findOne({ hoiVien: userId });
+        if (lichTap) {
+            // Xóa buổi tập khỏi danhSachBuoiTap
+            lichTap.danhSachBuoiTap = lichTap.danhSachBuoiTap.filter(
+                bt => bt.buoiTap?.toString() !== buoiTapId.toString()
+            );
+
+            // Xóa khỏi cacBuoiTap
+            lichTap.cacBuoiTap = lichTap.cacBuoiTap.filter(
+                id => id.toString() !== buoiTapId.toString()
+            );
+
+            await lichTap.save();
+        }
+
+        res.json({
+            success: true,
+            message: 'Hủy đăng ký buổi tập thành công',
+            data: {
+                buoiTap: buoiTap
+            }
+        });
+
+    } catch (error) {
+        console.error('Error canceling session:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi server khi hủy đăng ký buổi tập'
+        });
+    }
+};
+
+/**
+ * Lấy danh sách buổi tập có sẵn trong tuần hiện tại
+ */
+exports.getAvailableSessionsThisWeek = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Lấy thông tin hội viên
+        const { HoiVien } = require('../models/NguoiDung');
+        const hoiVien = await HoiVien.findById(userId);
+        if (!hoiVien) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy hội viên'
+            });
+        }
+
+        // Lấy LichTap của hội viên để biết chi nhánh và gói tập
+        const lichTap = await LichTap.findOne({ hoiVien: userId })
+            .populate('chiNhanh')
+            .populate('goiTap');
+
+        if (!lichTap || !lichTap.chiNhanh) {
+            return res.status(400).json({
+                success: false,
+                message: 'Hội viên chưa có lịch tập hoặc chi nhánh'
+            });
+        }
+
+        // Tính ngày đầu và cuối tuần hiện tại (Vietnam timezone)
+        const now = new Date();
+        const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+        const vietnamTime = new Date(utcTime + (7 * 60 * 60 * 1000));
+        const dayOfWeek = vietnamTime.getUTCDay(); // 0 = Sunday, 1 = Monday, ...
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Số ngày cần lùi lại để đến thứ 2
+
+        const weekStart = new Date(vietnamTime);
+        weekStart.setUTCDate(vietnamTime.getUTCDate() - daysToMonday);
+        weekStart.setUTCHours(0, 0, 0, 0);
+        const weekStartUTC = new Date(weekStart.getTime() - (7 * 60 * 60 * 1000));
+
+        const weekEnd = new Date(weekStart);
+        weekEnd.setUTCDate(weekStart.getUTCDate() + 7);
+        const weekEndUTC = new Date(weekEnd.getTime() - (7 * 60 * 60 * 1000));
+
+        // Lấy các buổi tập trong tuần tại chi nhánh của hội viên
+        const buoiTaps = await BuoiTap.find({
+            chiNhanh: lichTap.chiNhanh._id,
+            ngayTap: {
+                $gte: weekStartUTC,
+                $lt: weekEndUTC
+            },
+            trangThai: { $ne: 'HUY' }
+        })
+            .populate('ptPhuTrach', 'hoTen')
+            .populate('chiNhanh', 'tenChiNhanh')
+            .sort({ ngayTap: 1, gioBatDau: 1 });
+
+        // Lọc các buổi tập mà hội viên chưa đăng ký và còn chỗ
+        const availableSessions = buoiTaps.filter(bt => {
+            // Kiểm tra còn chỗ
+            if (bt.daDay) return false;
+
+            // Kiểm tra hội viên chưa đăng ký
+            const isRegistered = bt.danhSachHoiVien.some(
+                member => member.hoiVien.toString() === userId.toString()
+            );
+            if (isRegistered) return false;
+
+            return true;
+        });
+
+        res.json({
+            success: true,
+            data: availableSessions
+        });
+
+    } catch (error) {
+        console.error('Error getting available sessions:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi server khi lấy danh sách buổi tập'
         });
     }
 };
@@ -336,6 +548,20 @@ exports.createWorkoutSchedule = async (req, res) => {
         });
 
         await lichTap.save();
+
+        // Xóa notification đăng ký lịch tập tuần sau nếu có
+        try {
+            const weekStartStr = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
+            await UserNotification.deleteMany({
+                userId: userId,
+                loaiThongBao: 'WORKOUT_REMINDER',
+                'duLieuLienQuan.weekStart': weekStartStr
+            });
+            console.log('✅ [Backend] Deleted schedule registration notifications for user:', userId);
+        } catch (error) {
+            console.error('❌ [Backend] Error deleting schedule registration notifications:', error);
+            // Không throw error, chỉ log
+        }
 
         // Đăng ký các buổi tập (sử dụng SessionOption model)
         for (const buoi of danhSachBuoiTap) {
@@ -557,3 +783,274 @@ function isToday(date) {
     const today = new Date();
     return date.toDateString() === today.toDateString();
 }
+
+/**
+ * Kiểm tra điều kiện đăng ký lịch tập tuần sau
+ */
+exports.checkRegistrationEligibility = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Kiểm tra hội viên có gói tập đang hoạt động VÀ đã hoàn tất việc đăng ký gói tập
+        // Chỉ cho phép đăng ký khi trangThaiDangKy = 'HOAN_THANH' (đã hoàn tất workflow)
+
+        // Trước tiên, kiểm tra tất cả gói tập của user để debug
+        const allPackages = await ChiTietGoiTap.find({
+            $or: [
+                { maHoiVien: userId },
+                { nguoiDungId: userId }
+            ]
+        })
+            .populate('maGoiTap')
+            .populate('goiTapId')
+            .populate('branchId')
+            .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+
+        console.log('📦 All packages for user:', {
+            userId,
+            totalPackages: allPackages.length,
+            packages: allPackages.map(p => ({
+                _id: p._id,
+                trangThaiDangKy: p.trangThaiDangKy,
+                trangThaiSuDung: p.trangThaiSuDung,
+                ngayKetThuc: p.ngayKetThuc,
+                goiTapId: p.goiTapId?._id || p.maGoiTap?._id
+            }))
+        });
+
+        // TEST: Đơn giản hóa query - tìm gói tập đã thanh toán, không cần HOAN_THANH
+        // Tìm tất cả gói tập của user, sau đó filter trong code
+        let activePackage = await ChiTietGoiTap.findOne({
+            $or: [
+                { maHoiVien: userId },
+                { nguoiDungId: userId }
+            ],
+            // Chỉ cần đã thanh toán hoặc đã hoàn tất
+            $or: [
+                { trangThaiThanhToan: 'DA_THANH_TOAN' },
+                { trangThaiDangKy: 'HOAN_THANH' }
+            ]
+        })
+            .populate('maGoiTap')
+            .populate('goiTapId')
+            .populate('branchId')
+            .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+
+        // Nếu không tìm thấy với điều kiện trên, thử tìm bất kỳ gói tập nào của user
+        if (!activePackage) {
+            activePackage = await ChiTietGoiTap.findOne({
+                $or: [
+                    { maHoiVien: userId },
+                    { nguoiDungId: userId }
+                ]
+            })
+                .populate('maGoiTap')
+                .populate('goiTapId')
+                .populate('branchId')
+                .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+        }
+
+        console.log('📦 [Backend] Active package check:', {
+            userId,
+            foundPackage: !!activePackage,
+            packageStatus: activePackage ? {
+                _id: activePackage._id,
+                trangThaiDangKy: activePackage.trangThaiDangKy,
+                trangThaiSuDung: activePackage.trangThaiSuDung,
+                goiTapId: activePackage.goiTapId?._id || activePackage.maGoiTap?._id,
+                chiNhanhId: activePackage.branchId?._id,
+                ngayKetThuc: activePackage.ngayKetThuc
+            } : null,
+            allPackagesCount: allPackages.length,
+            allPackagesStatus: allPackages.map(p => ({
+                _id: p._id,
+                trangThaiDangKy: p.trangThaiDangKy,
+                trangThaiSuDung: p.trangThaiSuDung
+            }))
+        });
+
+        // Tính tuần tiếp theo (Thứ 2) - di chuyển lên trước để dùng cho cả 2 trường hợp
+        const now = new Date();
+        const day = now.getDay(); // 0 = CN, 6 = T7
+        const daysUntilMonday = day === 0 ? 1 : 8 - day;
+        const nextWeekStart = new Date(now);
+        nextWeekStart.setDate(now.getDate() + daysUntilMonday);
+        nextWeekStart.setHours(0, 0, 0, 0);
+
+        // Kiểm tra thời gian hiện tại có phải T7/CN từ 12h trưa trở đi
+        // TEST: Cho phép đăng ký cả ngày T7/CN (từ 12h trưa) để thuận tiện cho hội viên
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+        const isSaturday = day === 6;
+        const isSunday = day === 0;
+        // Cho phép đăng ký từ 12h trưa trở đi trong ngày T7/CN
+        const isRegistrationTime = (isSaturday || isSunday) && hour >= 12;
+
+        console.log('🕐 [Backend] Registration time check:', {
+            day,
+            dayName: isSaturday ? 'Saturday' : isSunday ? 'Sunday' : 'Other',
+            hour,
+            minute,
+            isSaturday,
+            isSunday,
+            isRegistrationTime,
+            now: now.toISOString(),
+            localTime: now.toLocaleString('vi-VN')
+        });
+
+        // Kiểm tra gói tập có hợp lệ không
+        const hasValidPackage = activePackage && (
+            activePackage.trangThaiThanhToan === 'DA_THANH_TOAN' ||
+            activePackage.trangThaiDangKy === 'HOAN_THANH' ||
+            !activePackage.trangThaiSuDung || // Chưa có trạng thái
+            ['DANG_HOAT_DONG', 'DANG_SU_DUNG', 'DANG_KICH_HOAT'].includes(activePackage.trangThaiSuDung)
+        );
+
+        if (!hasValidPackage) {
+            console.log('⚠️ [Backend] No valid package found:', {
+                hasPackage: !!activePackage,
+                packageStatus: activePackage ? {
+                    trangThaiThanhToan: activePackage.trangThaiThanhToan,
+                    trangThaiDangKy: activePackage.trangThaiDangKy,
+                    trangThaiSuDung: activePackage.trangThaiSuDung
+                } : null
+            });
+
+            return res.json({
+                success: false,
+                canRegister: false,
+                message: 'Bạn chưa có gói tập đang hoạt động hoặc chưa thanh toán. Vui lòng kiểm tra lại.',
+                hasActivePackage: false,
+                hasCompletedPackage: false,
+                isRegistrationTime,
+                nextWeekStart: nextWeekStart.toISOString(),
+                nextWeekEnd: new Date(nextWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toISOString()
+            });
+        }
+
+        // Kiểm tra hội viên đã đăng ký tuần tiếp theo chưa
+        const nextWeekEnd = new Date(nextWeekStart);
+        nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+        nextWeekEnd.setHours(23, 59, 59, 999);
+
+        // Lưu nextWeekEnd để dùng cho notification
+        const nextWeekEndForNotification = new Date(nextWeekEnd);
+
+        const existingSchedule = await LichTap.findOne({
+            hoiVien: userId,
+            tuanBatDau: {
+                $gte: nextWeekStart,
+                $lte: nextWeekEnd
+            },
+            trangThai: { $ne: 'HUY' }
+        });
+
+        // Cho phép đăng ký nếu:
+        // 1. Đúng thời gian (T7/CN từ 12h trưa)
+        // 2. Chưa đăng ký lịch tập cho tuần sau
+        // 3. Có gói tập hợp lệ
+        const canRegister = isRegistrationTime && !existingSchedule && hasValidPackage;
+
+        // Tạo notification nếu có thể đăng ký và đúng thời gian
+        if (canRegister && isRegistrationTime) {
+            try {
+                // Kiểm tra xem đã có notification cho tuần này chưa
+                const weekStartStr = nextWeekStart.toISOString().split('T')[0]; // YYYY-MM-DD
+                const existingNotification = await UserNotification.findOne({
+                    userId: userId,
+                    loaiThongBao: 'WORKOUT_REMINDER',
+                    'duLieuLienQuan.weekStart': weekStartStr,
+                    createdAt: {
+                        $gte: new Date(new Date().setHours(0, 0, 0, 0)) // Từ đầu ngày hôm nay
+                    }
+                });
+
+                if (!existingNotification) {
+                    // Tạo notification mới
+                    const nextWeekEnd = new Date(nextWeekStart);
+                    nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+                    const weekRange = `${nextWeekStart.toLocaleDateString('vi-VN')} - ${nextWeekEnd.toLocaleDateString('vi-VN')}`;
+
+                    const notification = new UserNotification({
+                        userId: userId,
+                        tieuDe: 'Đăng ký lịch tập tuần sau',
+                        noiDung: `Vui lòng đăng ký lịch tập cho tuần sau (${weekRange}). Bạn có thể đăng ký các buổi tập phù hợp với lịch trình của mình.`,
+                        loaiThongBao: 'WORKOUT_REMINDER',
+                        daDoc: false,
+                        duLieuLienQuan: {
+                            weekStart: weekStartStr,
+                            nextWeekStart: nextWeekStart.toISOString(),
+                            nextWeekEnd: nextWeekEnd.toISOString(),
+                            actionUrl: '/schedule',
+                            canRegister: true
+                        }
+                    });
+
+                    await notification.save();
+                    console.log('✅ [Backend] Created schedule registration notification for user:', userId);
+                } else {
+                    console.log('ℹ️ [Backend] Schedule registration notification already exists for user:', userId);
+                }
+            } catch (error) {
+                console.error('❌ [Backend] Error creating schedule registration notification:', error);
+                // Không throw error, chỉ log để không ảnh hưởng đến response
+            }
+        }
+
+        console.log('✅ [Backend] Eligibility check result:', {
+            canRegister,
+            isRegistrationTime,
+            hasExistingSchedule: !!existingSchedule,
+            hasActivePackage: hasValidPackage,
+            hasCompletedPackage: hasValidPackage,
+            nextWeekStart: nextWeekStart.toISOString(),
+            nextWeekEnd: nextWeekEnd.toISOString(),
+            reason: !isRegistrationTime ? 'Not registration time' :
+                !hasValidPackage ? 'No valid package' :
+                    existingSchedule ? 'Already registered' :
+                        'Can register',
+            packageInfo: activePackage ? {
+                _id: activePackage._id,
+                trangThaiThanhToan: activePackage.trangThaiThanhToan,
+                trangThaiDangKy: activePackage.trangThaiDangKy,
+                trangThaiSuDung: activePackage.trangThaiSuDung
+            } : null
+        });
+
+        return res.json({
+            success: true,
+            canRegister,
+            message: canRegister
+                ? 'Bạn có thể đăng ký lịch tập cho tuần sau'
+                : existingSchedule
+                    ? 'Bạn đã đăng ký lịch tập cho tuần này rồi'
+                    : !isRegistrationTime
+                        ? 'Chỉ có thể đăng ký vào Thứ 7 hoặc Chủ nhật từ 12h trưa trở đi'
+                        : !hasValidPackage
+                            ? 'Bạn chưa có gói tập đang hoạt động'
+                            : 'Không thể đăng ký lịch tập',
+            nextWeekStart: nextWeekStart.toISOString(),
+            nextWeekEnd: nextWeekEnd.toISOString(),
+            isRegistrationTime,
+            hasExistingSchedule: !!existingSchedule,
+            hasCompletedPackage: hasValidPackage,
+            activePackage: activePackage ? {
+                _id: activePackage._id,
+                goiTapId: activePackage.goiTapId?._id || activePackage.maGoiTap?._id,
+                chiNhanhId: activePackage.branchId?._id,
+                tenGoiTap: activePackage.goiTapId?.tenGoiTap || activePackage.maGoiTap?.tenGoiTap,
+                trangThaiDangKy: activePackage.trangThaiDangKy,
+                trangThaiSuDung: activePackage.trangThaiSuDung
+            } : null
+        });
+
+    } catch (error) {
+        console.error('Error checking registration eligibility:', error);
+        res.status(500).json({
+            success: false,
+            canRegister: false,
+            message: 'Lỗi server khi kiểm tra điều kiện đăng ký',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
