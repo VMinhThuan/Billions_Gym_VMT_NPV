@@ -33,6 +33,7 @@ const CheckInOut = () => {
     const [scannedQRCode, setScannedQRCode] = useState(null);
     const [checkInSuccessData, setCheckInSuccessData] = useState(null);
     const [checkOutSuccessData, setCheckOutSuccessData] = useState(null);
+    const [shouldStopCamera, setShouldStopCamera] = useState(false);
 
     // Get user and auth status at component level
     const user = authUtils.getUser();
@@ -320,6 +321,8 @@ const CheckInOut = () => {
                 setCheckInStatus('success');
                 setError(null);
                 setVerificationError(null);
+                // Stop camera immediately after successful check-out
+                setShouldStopCamera(true);
                 // Store success data to display detailed information
                 setCheckOutSuccessData(result.data || null);
                 setCheckInSuccessData(null);
@@ -333,6 +336,7 @@ const CheckInOut = () => {
                     setFaceDescriptor(null);
                     setFaceVerified(false); // Reset verification after successful check-out
                     verificationRetryCountRef.current = 0;
+                    setShouldStopCamera(false); // Reset camera stop flag
                 }, 5000); // Show success message for 5 seconds
             } else {
                 setCheckInStatus('error');
@@ -450,6 +454,8 @@ const CheckInOut = () => {
                 setError(null);
                 setVerificationError(null);
                 setScannedQRCode(null);
+                // Stop camera immediately after successful QR scan
+                setShouldStopCamera(true);
 
                 // Store success data to display detailed information
                 if (isCheckOut) {
@@ -500,6 +506,7 @@ const CheckInOut = () => {
                     setCheckInStatus(null);
                     setCheckInSuccessData(null);
                     setCheckOutSuccessData(null);
+                    setShouldStopCamera(false); // Reset camera stop flag
                     // Keep selectedSession so user can see the updated status
                 }, 5000);
             } else {
@@ -743,6 +750,7 @@ const CheckInOut = () => {
                                                     setCheckInStatus(null); // Clear check-in status
                                                     setCheckInSuccessData(null);
                                                     setCheckOutSuccessData(null);
+                                                    setShouldStopCamera(false); // Reset camera stop flag when selecting new session
 
                                                     // If session needs check-out, show info message
                                                     if (canCheckOut) {
@@ -949,6 +957,7 @@ const CheckInOut = () => {
                                         setCheckInStatus(null);
                                         setCheckInSuccessData(null);
                                         setCheckOutSuccessData(null);
+                                        setShouldStopCamera(false); // Reset camera stop flag when switching modes
                                     }}
                                 >
                                     Quét khuôn mặt
@@ -963,6 +972,7 @@ const CheckInOut = () => {
                                         setCheckInStatus(null);
                                         setCheckInSuccessData(null);
                                         setCheckOutSuccessData(null);
+                                        setShouldStopCamera(false); // Reset camera stop flag when switching modes
                                         // Reset face verification state when switching to QR mode
                                         setFaceVerified(false);
                                         setFaceDescriptor(null);
@@ -985,14 +995,33 @@ const CheckInOut = () => {
                                 <>
                                     <h2>Camera nhận diện</h2>
                                     {/* Only render CheckInCamera when in face mode - unmounting will stop camera */}
-                                    <CheckInCamera
-                                        key="checkin-camera-face" // Key ensures fresh mount when switching modes
-                                        onFaceDetected={handleFaceDetected}
-                                        onError={setError}
-                                        autoStart={checkInMode === 'face'}
-                                        verificationMode={true}
-                                        onFaceVerified={handleFaceVerified}
-                                    />
+                                    {!shouldStopCamera && checkInStatus !== 'success' ? (
+                                        <CheckInCamera
+                                            key="checkin-camera-face" // Key ensures fresh mount when switching modes
+                                            onFaceDetected={handleFaceDetected}
+                                            onError={setError}
+                                            autoStart={checkInMode === 'face'}
+                                            verificationMode={true}
+                                            onFaceVerified={handleFaceVerified}
+                                        />
+                                    ) : (
+                                        <div style={{
+                                            padding: '2rem',
+                                            textAlign: 'center',
+                                            background: '#1f2937',
+                                            border: '2px dashed #374151',
+                                            borderRadius: '8px',
+                                            color: '#9ca3af',
+                                            minHeight: '300px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            <p style={{ margin: 0, fontSize: '1rem' }}>
+                                                Camera đã được tắt sau khi check-in/check-out thành công
+                                            </p>
+                                        </div>
+                                    )}
                                     {verificationError && (
                                         <div className="verification-error" style={{
                                             marginTop: '1rem',
@@ -1080,13 +1109,32 @@ const CheckInOut = () => {
                                         </div>
                                     ) : (
                                         <>
-                                            <QRScanner
-                                                key={`qr-scanner-${selectedSession._id}-${checkInMode}`} // Key ensures fresh mount when session or mode changes
-                                                onScanSuccess={handleQRScanSuccess}
-                                                onError={handleQRScanError}
-                                                autoStart={checkInMode === 'qr' && !!selectedSession && checkInStatus !== 'processing' && checkInStatus !== 'success'}
-                                            />
-                                            {checkInStatus !== 'processing' && checkInStatus !== 'success' && (
+                                            {!shouldStopCamera && checkInStatus !== 'success' ? (
+                                                <QRScanner
+                                                    key={`qr-scanner-${selectedSession._id}-${checkInMode}`} // Key ensures fresh mount when session or mode changes
+                                                    onScanSuccess={handleQRScanSuccess}
+                                                    onError={handleQRScanError}
+                                                    autoStart={checkInMode === 'qr' && !!selectedSession}
+                                                />
+                                            ) : (
+                                                <div style={{
+                                                    padding: '2rem',
+                                                    textAlign: 'center',
+                                                    background: '#1f2937',
+                                                    border: '2px dashed #374151',
+                                                    borderRadius: '8px',
+                                                    color: '#9ca3af',
+                                                    minHeight: '300px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}>
+                                                    <p style={{ margin: 0, fontSize: '1rem' }}>
+                                                        Camera đã được tắt sau khi check-in/check-out thành công
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {checkInStatus !== 'processing' && checkInStatus !== 'success' && !shouldStopCamera && (
                                                 <div className="action-buttons">
                                                     {selectedSession.hasCheckedIn && selectedSession.checkInRecord && !selectedSession.checkInRecord.checkOutTime ? (
                                                         <div style={{
