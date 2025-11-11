@@ -27,7 +27,7 @@ export const API_ENDPOINTS = {
     UPDATE_BODY_METRICS: '/chisocothe',
     GET_WORKOUT_PREDICTION: '/workout-prediction/du-bao-thoi-gian-va-phuong-phap',
     GET_WORKOUT_EFFECTIVENESS: '/workout-prediction/du-bao-hieu-qua',
-    SEND_MESSAGE: '/chatbot/send-message',
+    SEND_MESSAGE: '/ai/chat',
     GET_CHAT_HISTORY: '/chatbot/history',
     GET_PAYMENTS: '/thanhtoan',
     CREATE_PAYMENT: '/thanhtoan',
@@ -50,7 +50,7 @@ export const getAuthHeaders = (includeAuth = true) => {
 };
 export const apiRequest = async (endpoint, options = {}) => {
     const url = getApiUrl(endpoint);
-    const { requireAuth = true, allow404 = false, ...restOptions } = options;
+    const { requireAuth = true, allow404 = false, dontClearTokenOn401 = false, ...restOptions } = options;
     const defaultOptions = {
         headers: getAuthHeaders(requireAuth),
         credentials: 'include',
@@ -77,11 +77,13 @@ export const apiRequest = async (endpoint, options = {}) => {
         if (!response.ok) {
             if (response.status === 401) {
                 // If the request required auth, treat 401 as session expiration and clear local session
-                if (requireAuth) {
+                // UNLESS dontClearTokenOn401 is true (for non-critical endpoints like watch-history)
+                if (requireAuth && !dontClearTokenOn401) {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
                     throw new Error('Session expired. Please login again.');
                 }
+                // If dontClearTokenOn401 is true, just throw error without clearing token
                 // If the request did not require auth (e.g. login), propagate backend message if present
                 throw new Error((data && data.message) ? data.message : 'Unauthorized');
             }
@@ -93,6 +95,14 @@ export const apiRequest = async (endpoint, options = {}) => {
                 }
                 throw new Error(data?.message || 'Bad request. Please check your input.');
             }
+            if (response.status === 409) {
+                // For 409 Conflict errors (e.g., duplicate phone/email), return the error response
+                // This allows the caller to handle conflicts gracefully
+                if (data && data.success === false) {
+                    return data; // Return the error response object
+                }
+                throw new Error(data?.message || 'Conflict: This resource already exists.');
+            }
             if (response.status === 403) {
                 throw new Error(data?.message || 'Access denied. You do not have permission to perform this action.');
             }
@@ -103,7 +113,16 @@ export const apiRequest = async (endpoint, options = {}) => {
                 throw new Error(data?.message || 'Resource not found.');
             }
             if (response.status >= 500) {
-                throw new Error(data?.message || 'Server error. Please try again later.');
+                // Log chi tiết lỗi server để debug
+                console.error(`Server error (${response.status}):`, {
+                    url,
+                    status: response.status,
+                    statusText: response.statusText,
+                    data
+                });
+                // Nếu backend trả về message, dùng nó; nếu không, dùng message mặc định
+                const errorMessage = data?.message || data?.error || 'Lỗi server. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.';
+                throw new Error(errorMessage);
             }
             throw new Error(data?.message || `API request failed with status ${response.status}`);
         }
@@ -291,10 +310,16 @@ export const workoutPredictionAPI = {
     },
 };
 export const chatbotAPI = {
-    sendMessage: async (message) => {
+    sendMessage: async (message, conversationHistory = []) => {
+        // Send message with optional conversation history
+        // Backend can use conversationHistory for context if supported
+        const payload = { message };
+        if (conversationHistory && conversationHistory.length > 0) {
+            payload.conversationHistory = conversationHistory;
+        }
         return apiRequest(API_ENDPOINTS.SEND_MESSAGE, {
             method: 'POST',
-            body: JSON.stringify({ message }),
+            body: JSON.stringify(payload),
         });
     },
     getChatHistory: async (limit = 50) => {

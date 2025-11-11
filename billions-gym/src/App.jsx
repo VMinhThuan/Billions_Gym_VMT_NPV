@@ -19,6 +19,7 @@ import ActivePackage from './pages/ActivePackage'
 import Schedule from './pages/Schedule'
 import CheckInOut from './pages/CheckInOut'
 import Exercises from './pages/Exercises'
+import BubbleChat from './components/BubbleChat'
 
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -116,6 +117,9 @@ const AppContent = () => {
             <Route path='/workouts' element={<Exercises />} />
             <Route path='/exercises' element={<Exercises />} />
           </Routes>
+
+          {/* Bubble Chat AI - Only show for authenticated users */}
+          {isAuthenticated && <BubbleChat isAuthenticated={isAuthenticated} />}
         </div>
       )}
     </div>
