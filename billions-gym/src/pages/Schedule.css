@@ -85,7 +85,6 @@
     text-overflow: ellipsis;
     flex: 0 1 auto;
     min-width: 0;
-    color: #ffffff;
 }
 
 .view-mode-toggle {

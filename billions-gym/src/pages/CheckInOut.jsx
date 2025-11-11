@@ -766,7 +766,7 @@ const CheckInOut = () => {
                     )}
                 </div>
 
-                <div className="checkin-main">
+                <div className={`checkin-main ${checkInMode === 'qr' ? 'qr-mode-active' : ''}`}>
                     <div className="checkin-left">
                         <div className="sessions-section">
                             <h2>Buổi tập hôm nay</h2>
@@ -931,9 +931,9 @@ const CheckInOut = () => {
                                             </div>
                                         );
                                     })}
-                                </div>
+                                </div >
                             )}
-                        </div>
+                        </div >
 
                         <div className="history-section">
                             <div className="history-header">
@@ -991,7 +991,7 @@ const CheckInOut = () => {
                     </div>
 
                     <div className="checkin-right">
-                        <div className="camera-section">
+                        <div className={`camera-section ${checkInMode === 'qr' ? 'qr-mode-active' : ''}`}>
                             <div className="checkin-mode-tabs">
                                 <button
                                     className={`checkin-mode-tab ${checkInMode === 'face' ? 'active' : ''}`}
