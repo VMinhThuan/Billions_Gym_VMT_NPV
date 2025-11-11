@@ -18,5 +18,14 @@ router.post('/checkout', checkinController.checkOut);
 // Get check-in history
 router.get('/history', checkinController.getCheckInHistory);
 
+// Get QR code of current member
+router.get('/qr-code', checkinController.getQRCode);
+
+// Check-in with QR code
+router.post('/checkin-qr', checkinController.checkInWithQR);
+
+// Check-out with QR code
+router.post('/checkout-qr', checkinController.checkOutWithQR);
+
 module.exports = router;
 

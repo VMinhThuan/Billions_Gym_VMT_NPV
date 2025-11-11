@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useFaceDetection } from '../../hooks/useFaceDetection';
+import { useLivenessDetection } from '../../hooks/useLivenessDetection';
 import { checkInAPI } from '../../services/api';
 import { compareWithStoredEncodings } from '../../utils/faceUtils';
 import './CheckInCamera.css';
@@ -28,16 +29,25 @@ const CheckInCamera = ({
     const [faceVerified, setFaceVerified] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
     const [verificationError, setVerificationError] = useState(null);
+    const [livenessRequired, setLivenessRequired] = useState(false); // Track if liveness is required
+    const [continuousDetectionTime, setContinuousDetectionTime] = useState(0); // Track continuous detection time
     const lastVerifiedDescriptorRef = useRef(null);
     const previousDescriptorRef = useRef(null); // Track previous descriptor to detect face changes
     const verificationTimeoutRef = useRef(null);
     const eventHandlersRef = useRef({}); // Store event handlers for cleanup
+    const continuousDetectionStartRef = useRef(null); // Track when continuous detection started
+    const minContinuousDetectionTime = 3000; // Require at least 3 seconds of continuous detection
+    // Use refs to store latest liveness values to avoid stale closure values
+    const latestLivenessChecksRef = useRef({ blinks: 0, headMovements: 0, mouthMovements: 0, faceSizeVariations: 0 });
+    const latestContinuousDetectionTimeRef = useRef(0);
+    const latestLivenessResultRef = useRef(null); // Store latest liveness result from processLandmarks
 
     const {
         modelsLoaded,
         isDetecting,
         faceDetected,
         faceDescriptor,
+        faceLandmarks,
         error: faceApiError,
         loadingProgress,
         startDetection,
@@ -47,6 +57,21 @@ const CheckInCamera = ({
         minConfidence: 0.5,
         withLandmarks: true,
         withDescriptors: true
+    });
+
+    // Liveness detection - only for verification mode
+    const {
+        processLandmarks,
+        reset: resetLiveness,
+        isLive,
+        livenessScore,
+        livenessChecks
+    } = useLivenessDetection({
+        minBlinks: 1,
+        minHeadMovements: 2,
+        detectionWindow: 5000,
+        earThreshold: 0.25,
+        movementThreshold: 0.02
     });
 
     // Track if video is ready for detection
@@ -411,10 +436,83 @@ const CheckInCamera = ({
             // CRITICAL SECURITY FIX: In verification mode, ALWAYS verify with server
             // There is NO fallback or default pass - this prevents the security bypass bug
             if (verificationMode) {
+                // CRITICAL: Validate descriptor before sending to server
+                if (!descriptor) {
+                    console.error('[CheckInCamera] ⚠️⚠️⚠️ CRITICAL: Descriptor is null/undefined!');
+                    setFaceVerified(false);
+                    setVerificationError('Không thể lấy dữ liệu khuôn mặt. Vui lòng đảm bảo camera hoạt động tốt và thử lại.');
+                    if (onFaceVerified) {
+                        onFaceVerified(false, 0, 0.95);
+                    }
+                    setIsVerifying(false);
+                    return false;
+                }
+
+                if (!Array.isArray(descriptor)) {
+                    console.error('[CheckInCamera] ⚠️⚠️⚠️ CRITICAL: Descriptor is not an array!', typeof descriptor);
+                    setFaceVerified(false);
+                    setVerificationError('Dữ liệu khuôn mặt không hợp lệ. Vui lòng thử lại.');
+                    if (onFaceVerified) {
+                        onFaceVerified(false, 0, 0.95);
+                    }
+                    setIsVerifying(false);
+                    return false;
+                }
+
+                if (descriptor.length !== 128) {
+                    console.error('[CheckInCamera] ⚠️⚠️⚠️ CRITICAL: Descriptor length is not 128!', descriptor.length);
+                    setFaceVerified(false);
+                    setVerificationError(`Dữ liệu khuôn mặt không đúng định dạng (${descriptor.length} giá trị thay vì 128). Vui lòng thử lại.`);
+                    if (onFaceVerified) {
+                        onFaceVerified(false, 0, 0.95);
+                    }
+                    setIsVerifying(false);
+                    return false;
+                }
+
+                // Check for invalid values
+                const hasInvalidValues = descriptor.some(val => typeof val !== 'number' || isNaN(val) || !isFinite(val));
+                if (hasInvalidValues) {
+                    console.error('[CheckInCamera] ⚠️⚠️⚠️ CRITICAL: Descriptor contains invalid values (NaN/Infinity)!');
+                    setFaceVerified(false);
+                    setVerificationError('Dữ liệu khuôn mặt chứa giá trị không hợp lệ. Vui lòng thử lại.');
+                    if (onFaceVerified) {
+                        onFaceVerified(false, 0, 0.95);
+                    }
+                    setIsVerifying(false);
+                    return false;
+                }
+
+                // Check if all zeros
+                const isAllZeros = descriptor.every(val => val === 0);
+                if (isAllZeros) {
+                    console.error('[CheckInCamera] ⚠️⚠️⚠️ CRITICAL: Descriptor is all zeros!');
+                    setFaceVerified(false);
+                    setVerificationError('Không thể nhận diện khuôn mặt. Vui lòng đảm bảo camera hoạt động tốt và khuôn mặt được nhìn thấy rõ.');
+                    if (onFaceVerified) {
+                        onFaceVerified(false, 0, 0.95);
+                    }
+                    setIsVerifying(false);
+                    return false;
+                }
+
                 console.log('[CheckInCamera] 🔒 VERIFICATION MODE: Starting server verification...');
                 console.log('[CheckInCamera] Descriptor length:', descriptor.length);
+                console.log('[CheckInCamera] Descriptor type:', typeof descriptor, Array.isArray(descriptor) ? 'Array' : 'Not Array');
+                console.log('[CheckInCamera] Descriptor preview (first 10 values):', descriptor.slice(0, 10));
+                console.log('[CheckInCamera] Descriptor stats:', {
+                    length: descriptor.length,
+                    min: Math.min(...descriptor),
+                    max: Math.max(...descriptor),
+                    sum: descriptor.reduce((a, b) => a + b, 0),
+                    avg: descriptor.reduce((a, b) => a + b, 0) / descriptor.length,
+                    hasNaN: descriptor.some(val => isNaN(val)),
+                    hasInfinity: descriptor.some(val => !isFinite(val)),
+                    isAllZeros: descriptor.every(val => val === 0)
+                });
 
                 // Verify with server - increased timeout to 10 seconds for reliability
+                console.log('[CheckInCamera] 🔒 Sending descriptor to server for verification...');
                 const verifyPromise = checkInAPI.verifyFace(descriptor);
                 const timeoutPromise = new Promise((_, reject) =>
                     setTimeout(() => reject(new Error('Verification timeout after 10 seconds')), 10000)
@@ -428,7 +526,7 @@ const CheckInCamera = ({
                     setFaceVerified(false);
                     setVerificationError('Server không phản hồi. Vui lòng thử lại.');
                     if (onFaceVerified) {
-                        onFaceVerified(false, 0, 0.85);
+                        onFaceVerified(false, 0, 0.95);
                     }
                     setIsVerifying(false);
                     return false;
@@ -438,12 +536,35 @@ const CheckInCamera = ({
                     success: result.success,
                     isMatch: result.isMatch,
                     similarity: result.similarity,
+                    similarityWithAverage: result.similarityWithAverage,
                     threshold: result.threshold,
                     message: result.message,
                     matchesWithStored: result.matchesWithStored,
                     totalStored: result.totalStored,
                     requiredMatches: result.requiredMatches
                 });
+
+                // CRITICAL: Log if similarity is 0 - this indicates a problem
+                if (result.similarity === 0 || result.similarity === null || result.similarity === undefined) {
+                    console.error('[CheckInCamera] ⚠️⚠️⚠️ CRITICAL: Similarity is 0 or null!');
+                    console.error('[CheckInCamera] This indicates a problem with face encoding comparison');
+                    console.error('[CheckInCamera] Descriptor length:', currentDescriptor ? currentDescriptor.length : 'null');
+                    console.error('[CheckInCamera] Descriptor preview (first 10 values):', currentDescriptor ? currentDescriptor.slice(0, 10) : 'null');
+                    console.error('[CheckInCamera] Descriptor stats:', currentDescriptor ? {
+                        length: currentDescriptor.length,
+                        min: Math.min(...currentDescriptor),
+                        max: Math.max(...currentDescriptor),
+                        sum: currentDescriptor.reduce((a, b) => a + b, 0),
+                        avg: currentDescriptor.reduce((a, b) => a + b, 0) / currentDescriptor.length,
+                        hasNaN: currentDescriptor.some(val => isNaN(val)),
+                        hasInfinity: currentDescriptor.some(val => !isFinite(val)),
+                        isAllZeros: currentDescriptor.every(val => val === 0)
+                    } : 'null');
+                    console.error('[CheckInCamera] Full server response:', JSON.stringify(result, null, 2));
+
+                    // Set a more helpful error message
+                    setVerificationError('Không thể so sánh khuôn mặt. Vui lòng đảm bảo camera hoạt động tốt và thử lại. Nếu vấn đề vẫn tiếp tục, vui lòng đăng ký lại khuôn mặt.');
+                }
 
                 // CRITICAL: Only set faceVerified to true if result.isMatch is EXPLICITLY true
                 // This is the ONLY way to pass verification in verification mode
@@ -452,7 +573,7 @@ const CheckInCamera = ({
                     console.log('[CheckInCamera] Similarity:', result.similarity, 'Threshold:', result.threshold);
                     setFaceVerified(true);
                     if (onFaceVerified) {
-                        onFaceVerified(true, result.similarity, result.threshold || 0.85);
+                        onFaceVerified(true, result.similarity, result.threshold || 0.95);
                     }
                     setIsVerifying(false);
                     return true;
@@ -467,9 +588,15 @@ const CheckInCamera = ({
                         message: result.message
                     });
                     setFaceVerified(false); // Explicitly set to false
-                    setVerificationError(result.message || 'Khuôn mặt không khớp với khuôn mặt đã đăng ký');
+                    // Use server message if available, otherwise create custom message
+                    const errorMessage = result.message ||
+                        (result.similarity === 0
+                            ? 'Không thể so sánh khuôn mặt. Vui lòng thử lại hoặc đăng ký lại khuôn mặt.'
+                            : `Khuôn mặt không khớp với khuôn mặt đã đăng ký (Độ tương đồng: ${((result.similarity || 0) * 100).toFixed(1)}%, Yêu cầu: ≥${((result.threshold || 0.95) * 100).toFixed(0)}%)`);
+                    setVerificationError(errorMessage);
                     if (onFaceVerified) {
-                        onFaceVerified(false, result.similarity || 0, result.threshold || 0.85);
+                        // Ensure we use the threshold from server response, not default
+                        onFaceVerified(false, result.similarity || 0, result.threshold || 0.95);
                     }
                     setIsVerifying(false);
                     return false;
@@ -504,7 +631,7 @@ const CheckInCamera = ({
                     setFaceVerified(false);
                     setVerificationError('Lỗi hệ thống: Không thể xác thực. Vui lòng thử lại.');
                     if (onFaceVerified) {
-                        onFaceVerified(false, 0, 0.85);
+                        onFaceVerified(false, 0, 0.95);
                     }
                     setIsVerifying(false);
                     return false;
@@ -540,7 +667,55 @@ const CheckInCamera = ({
         }
     }, [verificationMode, storedEncodings, onFaceVerified]);
 
+    // Process landmarks for liveness detection (in verification mode)
+    useEffect(() => {
+        if (verificationMode && faceDetected && faceLandmarks) {
+            // Process landmarks for liveness detection
+            const livenessResult = processLandmarks(faceLandmarks);
+            // CRITICAL: Store latest result in ref to avoid stale closure values
+            latestLivenessResultRef.current = livenessResult;
+            latestLivenessChecksRef.current = livenessResult.checks;
+            console.log('[CheckInCamera] Liveness detection:', {
+                isLive: livenessResult.isLive,
+                score: livenessResult.score,
+                checks: livenessResult.checks
+            });
+        }
+    }, [verificationMode, faceDetected, faceLandmarks, processLandmarks]);
+
+    // Track continuous detection time (for time-based verification)
+    useEffect(() => {
+        let intervalId = null;
+
+        if (verificationMode && faceDetected && faceDescriptor) {
+            if (!continuousDetectionStartRef.current) {
+                continuousDetectionStartRef.current = Date.now();
+            }
+
+            // Update time every 100ms for smoother UI
+            intervalId = setInterval(() => {
+                if (continuousDetectionStartRef.current) {
+                    const elapsed = Date.now() - continuousDetectionStartRef.current;
+                    setContinuousDetectionTime(elapsed);
+                    // CRITICAL: Store latest time in ref to avoid stale closure values
+                    latestContinuousDetectionTimeRef.current = elapsed;
+                }
+            }, 100);
+        } else {
+            continuousDetectionStartRef.current = null;
+            setContinuousDetectionTime(0);
+            latestContinuousDetectionTimeRef.current = 0;
+        }
+
+        return () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
+    }, [verificationMode, faceDetected, faceDescriptor]);
+
     // Verify face when detected (debounced)
+    // FIXED: Now triggers when liveness requirements are met by including livenessChecks and continuousDetectionTime in dependencies
     useEffect(() => {
         // Clear any pending verifications
         if (verificationTimeoutRef.current) {
@@ -549,6 +724,7 @@ const CheckInCamera = ({
 
         // CRITICAL SECURITY: In verification mode, ALWAYS verify with server when face is detected
         // There is NO bypass, NO cache, NO fallback - every face must be verified with server
+        // ADDITIONAL: Require liveness detection and continuous detection time
         if (verificationMode && faceDetected && faceDescriptor) {
             const currentDescriptor = faceDescriptor;
             const previousDescriptor = previousDescriptorRef.current;
@@ -646,11 +822,83 @@ const CheckInCamera = ({
                     return;
                 }
 
+                // CRITICAL SECURITY: Check liveness and continuous detection requirements
+                // Use refs to get latest values (avoid stale closure values)
+                const latestTime = latestContinuousDetectionTimeRef.current;
+                const latestChecks = latestLivenessChecksRef.current;
+                const latestLivenessResult = latestLivenessResultRef.current;
+
+                // Require at least 3 seconds of continuous detection (prevents photo spoofing)
+                const hasMinContinuousTime = latestTime >= minContinuousDetectionTime;
+
+                // Require liveness detection to pass (blinks, head movements)
+                // FIXED: Use latest values from refs to ensure accuracy
+                const hasBlinks = latestChecks.blinks >= 1;
+                const hasHeadMovements = latestChecks.headMovements >= 2;
+                const hasLiveness = hasBlinks || hasHeadMovements;
+
+                console.log('[CheckInCamera] 🔒 SECURITY CHECKS (using latest ref values):', {
+                    continuousDetectionTime: latestTime,
+                    continuousDetectionTimeState: continuousDetectionTime,
+                    minRequired: minContinuousDetectionTime,
+                    hasMinContinuousTime: hasMinContinuousTime,
+                    isLive: latestLivenessResult?.isLive || isLive,
+                    livenessScore: latestLivenessResult?.score || livenessScore,
+                    livenessChecks: latestChecks,
+                    livenessChecksState: livenessChecks,
+                    hasLiveness: hasLiveness,
+                    hasBlinks: hasBlinks,
+                    hasHeadMovements: hasHeadMovements,
+                    blinks: latestChecks.blinks,
+                    headMovements: latestChecks.headMovements
+                });
+
+                // CRITICAL: Block verification if time requirement not met
+                if (!hasMinContinuousTime) {
+                    console.log('[CheckInCamera] ⚠️ WAITING: Continuous detection time insufficient', {
+                        current: latestTime,
+                        required: minContinuousDetectionTime,
+                        remaining: minContinuousDetectionTime - latestTime
+                    });
+                    setVerificationError(`Vui lòng giữ khuôn mặt ổn định thêm ${((minContinuousDetectionTime - latestTime) / 1000).toFixed(1)} giây...`);
+                    return; // Wait for more time
+                }
+
+                // CRITICAL: Block verification if liveness requirements not met
+                // FIXED: Now properly checks liveness requirements and blocks if not met
+                if (!hasLiveness) {
+                    console.log('[CheckInCamera] ⚠️ BLOCKED: Liveness requirements not met', {
+                        blinks: latestChecks.blinks,
+                        requiredBlinks: 1,
+                        headMovements: latestChecks.headMovements,
+                        requiredHeadMovements: 2,
+                        hasBlinks: hasBlinks,
+                        hasHeadMovements: hasHeadMovements
+                    });
+                    if (!hasBlinks && !hasHeadMovements) {
+                        setVerificationError('Vui lòng chớp mắt ít nhất 1 lần HOẶC di chuyển đầu ít nhất 2 lần để xác thực liveness.');
+                    } else if (!hasBlinks) {
+                        setVerificationError('Vui lòng chớp mắt ít nhất 1 lần để xác thực liveness.');
+                    } else if (!hasHeadMovements) {
+                        setVerificationError('Vui lòng di chuyển đầu ít nhất 2 lần để xác thực liveness.');
+                    }
+                    return; // Block verification until liveness requirements are met
+                }
+
+                console.log('[CheckInCamera] ✅ SECURITY CHECKS PASSED:', {
+                    hasMinContinuousTime: true,
+                    hasLiveness: true,
+                    blinks: latestChecks.blinks,
+                    headMovements: latestChecks.headMovements,
+                    continuousTime: latestTime
+                });
+
                 console.log('[CheckInCamera] 🔒 Calling verifyFaceEncoding - SERVER VERIFICATION REQUIRED');
                 console.log('[CheckInCamera] Descriptor preview (first 5 values):', currentDescriptor.slice(0, 5));
 
                 // CRITICAL: ALWAYS verify with server - NEVER skip or cache
                 // This is the ONLY way to pass verification in verification mode
+                // Liveness and time requirements have been checked above
                 verifyFaceEncoding(currentDescriptor).then(verified => {
                     // Double check: make sure face is still detected and descriptor hasn't changed
                     if (!faceDetected || faceDescriptor !== currentDescriptor) {
@@ -721,6 +969,12 @@ const CheckInCamera = ({
             setVerificationError(null);
             lastVerifiedDescriptorRef.current = null;
             previousDescriptorRef.current = null; // Reset previous descriptor
+            continuousDetectionStartRef.current = null;
+            setContinuousDetectionTime(0);
+            latestContinuousDetectionTimeRef.current = 0;
+            latestLivenessChecksRef.current = { blinks: 0, headMovements: 0, mouthMovements: 0, faceSizeVariations: 0 };
+            latestLivenessResultRef.current = null;
+            resetLiveness(); // Reset liveness detection
             if (onFaceVerified) {
                 onFaceVerified(false, 0, 0.85);
             }
@@ -731,7 +985,8 @@ const CheckInCamera = ({
                 clearTimeout(verificationTimeoutRef.current);
             }
         };
-    }, [verificationMode, faceDetected, faceDescriptor, verifyFaceEncoding]);
+        // FIXED: Include livenessChecks and continuousDetectionTime to trigger verification when requirements are met
+    }, [verificationMode, faceDetected, faceDescriptor, verifyFaceEncoding, livenessChecks, continuousDetectionTime]);
 
     // Notify parent when face is detected (only if verified or not in verification mode)
     const lastNotifiedDescriptorRef = useRef(null);
@@ -913,9 +1168,36 @@ const CheckInCamera = ({
                         <span>✓ Khuôn mặt đã được xác thực thành công</span>
                     </div>
                 )}
+                {/* Show liveness detection status */}
+                {verificationMode === true && faceDetected === true && faceDescriptor && !faceVerified && (
+                    <div style={{
+                        position: 'absolute',
+                        bottom: verificationError ? '160px' : '100px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: 'rgba(0, 0, 0, 0.8)',
+                        color: '#fff',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '8px',
+                        fontSize: '0.85rem',
+                        maxWidth: '80%',
+                        textAlign: 'center',
+                        zIndex: 19,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                    }}>
+                        <div>Đang xác thực liveness...</div>
+                        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', opacity: 0.9 }}>
+                            Chớp mắt: {livenessChecks.blinks} / {1} | Di chuyển đầu: {livenessChecks.headMovements} / {2}
+                        </div>
+                        <div style={{ marginTop: '0.25rem', fontSize: '0.75rem', opacity: 0.9 }}>
+                            Thời gian: {(continuousDetectionTime / 1000).toFixed(1)}s / {(minContinuousDetectionTime / 1000).toFixed(1)}s
+                        </div>
+                    </div>
+                )}
+
                 {/* Show error message when verification fails - CRITICAL: This should show for ANY face that doesn't match */}
                 {/* This includes: different person, phone image, or any face that fails server verification */}
-                {verificationMode === true && faceDetected === true && faceDescriptor && (faceVerified === false || !faceVerified) && isVerifying === false && (
+                {verificationMode === true && faceDetected === true && faceDescriptor && (faceVerified === false || !faceVerified) && isVerifying === false && verificationError && (
                     <div className="face-verification-error" style={{
                         position: 'absolute',
                         bottom: '100px',
@@ -932,7 +1214,7 @@ const CheckInCamera = ({
                         boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                         fontWeight: 'bold'
                     }}>
-                        <span>❌ {verificationError || 'Khuôn mặt không khớp với khuôn mặt đã đăng ký. Vui lòng quét lại bằng gương mặt đã đăng ký.'}</span>
+                        <span>❌ {verificationError}</span>
                     </div>
                 )}
                 {/* Show detection message only in enrollment mode (not verification) */}

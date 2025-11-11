@@ -1,0 +1,73 @@
+.qr-scanner-container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.qr-scanner {
+    width: 100%;
+    min-height: 300px;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+}
+
+.qr-scanner-error {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #7f1d1d;
+    border: 1px solid #991b1b;
+    border-radius: 8px;
+    color: #fca5a5;
+    text-align: center;
+}
+
+.qr-scanner-controls {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.qr-scanner-btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.qr-scanner-btn-start {
+    background: #22c55e;
+    color: white;
+}
+
+.qr-scanner-btn-start:hover {
+    background: #16a34a;
+}
+
+.qr-scanner-btn-stop {
+    background: #ef4444;
+    color: white;
+}
+
+.qr-scanner-btn-stop:hover {
+    background: #dc2626;
+}
+
+.qr-scanner-instructions {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #1e3a8a;
+    border-radius: 8px;
+    color: #dbeafe;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+    .qr-scanner {
+        min-height: 250px;
+    }
+}

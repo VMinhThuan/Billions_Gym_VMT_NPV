@@ -85,19 +85,27 @@ export const apiRequest = async (endpoint, options = {}) => {
                 // If the request did not require auth (e.g. login), propagate backend message if present
                 throw new Error((data && data.message) ? data.message : 'Unauthorized');
             }
+            if (response.status === 400) {
+                // For 400 errors, return the error response so caller can check result.success
+                // This allows the caller to handle validation errors gracefully
+                if (data && data.success === false) {
+                    return data; // Return the error response object
+                }
+                throw new Error(data?.message || 'Bad request. Please check your input.');
+            }
             if (response.status === 403) {
-                throw new Error('Access denied. You do not have permission to perform this action.');
+                throw new Error(data?.message || 'Access denied. You do not have permission to perform this action.');
             }
             if (response.status === 404 && allow404) {
                 return null;
             }
             if (response.status === 404) {
-                throw new Error('Resource not found.');
+                throw new Error(data?.message || 'Resource not found.');
             }
             if (response.status >= 500) {
-                throw new Error('Server error. Please try again later.');
+                throw new Error(data?.message || 'Server error. Please try again later.');
             }
-            throw new Error(data.message || `API request failed with status ${response.status}`);
+            throw new Error(data?.message || `API request failed with status ${response.status}`);
         }
         return data;
     } catch (error) {
@@ -327,10 +335,38 @@ export const checkInAPI = {
     },
     // Verify face
     verifyFace: async (encoding) => {
-        return apiRequest('/face/verify', {
-            method: 'POST',
-            body: JSON.stringify({ encoding }),
-        });
+        // Validate encoding before sending
+        if (!encoding || !Array.isArray(encoding)) {
+            console.error('[API] verifyFace: Invalid encoding provided');
+            throw new Error('Face encoding không hợp lệ');
+        }
+
+        if (encoding.length !== 128) {
+            console.error('[API] verifyFace: Encoding length is not 128:', encoding.length);
+            throw new Error(`Face encoding phải có 128 giá trị (nhận được ${encoding.length})`);
+        }
+
+        console.log('[API] verifyFace: Sending encoding to server, length:', encoding.length);
+        console.log('[API] verifyFace: Encoding preview (first 5 values):', encoding.slice(0, 5));
+
+        try {
+            const result = await apiRequest('/face/verify', {
+                method: 'POST',
+                body: JSON.stringify({ encoding }),
+            });
+
+            console.log('[API] verifyFace: Server response:', {
+                success: result.success,
+                isMatch: result.isMatch,
+                similarity: result.similarity,
+                threshold: result.threshold
+            });
+
+            return result;
+        } catch (error) {
+            console.error('[API] verifyFace: Error calling server:', error);
+            throw error;
+        }
     },
     // Check if face is enrolled
     checkFaceEncoding: async () => {
@@ -368,6 +404,51 @@ export const checkInAPI = {
         if (startDate) params.append('startDate', startDate);
         if (endDate) params.append('endDate', endDate);
         return apiRequest(`/checkin/history?${params.toString()}`);
+    },
+    // Get QR code of current member
+    getQRCode: async () => {
+        return apiRequest('/checkin/qr-code');
+    },
+    // Check-in with QR code
+    checkInWithQR: async (buoiTapId, qrCode) => {
+        return apiRequest('/checkin/checkin-qr', {
+            method: 'POST',
+            body: JSON.stringify({
+                buoiTapId,
+                qrCode
+            }),
+        });
+    },
+    // Check-out with QR code
+    checkOutWithQR: async (buoiTapId, qrCode) => {
+        return apiRequest('/checkin/checkout-qr', {
+            method: 'POST',
+            body: JSON.stringify({
+                buoiTapId,
+                qrCode
+            }),
+        });
+    },
+};
+
+export const scheduleAPI = {
+    // Đăng ký buổi tập
+    registerSession: async (buoiTapId) => {
+        return apiRequest('/lichtap/register-session', {
+            method: 'POST',
+            body: JSON.stringify({ buoiTapId }),
+        });
+    },
+    // Hủy đăng ký buổi tập
+    cancelSession: async (buoiTapId) => {
+        return apiRequest('/lichtap/cancel-session', {
+            method: 'POST',
+            body: JSON.stringify({ buoiTapId }),
+        });
+    },
+    // Lấy danh sách buổi tập có sẵn trong tuần hiện tại
+    getAvailableSessionsThisWeek: async () => {
+        return apiRequest('/lichtap/available-sessions-this-week');
     },
 };
 

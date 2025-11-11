@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authUtils } from '../utils/auth';
-import { api } from '../services/api';
+import { api, scheduleAPI } from '../services/api';
 import Header from '../components/layout/Header';
 import Sidebar from '../components/layout/Sidebar';
 import './Schedule.css';
@@ -17,6 +17,23 @@ const Schedule = () => {
     const [selectedSession, setSelectedSession] = useState(null);
     const [showSessionDetail, setShowSessionDetail] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [showRegistrationNotification, setShowRegistrationNotification] = useState(false);
+    const [canRegister, setCanRegister] = useState(false);
+    const [nextWeekStart, setNextWeekStart] = useState(null);
+    const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+    const [registrationEligibility, setRegistrationEligibility] = useState(null);
+    const [availableSessions, setAvailableSessions] = useState([]);
+    const [selectedSessions, setSelectedSessions] = useState([]);
+    const [loadingSessions, setLoadingSessions] = useState(false);
+    const [submittingRegistration, setSubmittingRegistration] = useState(false);
+    const [showAddSessionModal, setShowAddSessionModal] = useState(false);
+    const [availableSessionsThisWeek, setAvailableSessionsThisWeek] = useState([]);
+    const [loadingAvailableSessions, setLoadingAvailableSessions] = useState(false);
+    const [selectedSessionsToAdd, setSelectedSessionsToAdd] = useState([]);
+    const [addingSessions, setAddingSessions] = useState(false);
+    const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+    const [sessionToCancel, setSessionToCancel] = useState(null);
+    const [cancelingSession, setCancelingSession] = useState(false);
 
     const user = authUtils.getUser();
     const userId = authUtils.getUserId();
@@ -102,6 +119,96 @@ const Schedule = () => {
         };
     }, []);
 
+    // Kiểm tra điều kiện đăng ký lịch tập
+    useEffect(() => {
+        console.log('🚀 [Schedule] useEffect triggered, userId:', userId);
+        if (!userId) {
+            console.log('❌ [Schedule] No userId, skipping registration check');
+            return;
+        }
+
+        const checkRegistrationEligibility = async () => {
+            try {
+                console.log('🔄 [Schedule] Checking registration eligibility at:', new Date().toLocaleTimeString('vi-VN'));
+                const response = await api.get('/lichtap/check-registration-eligibility');
+                console.log('📋 [Schedule] Registration eligibility response:', response);
+
+                if (response && response.success !== undefined) {
+                    setCanRegister(response.canRegister || false);
+                    setNextWeekStart(response.nextWeekStart ? new Date(response.nextWeekStart) : null);
+                    setRegistrationEligibility(response);
+
+                    // CHỈ hiển thị thông báo đăng ký lịch tập cho trường hợp khách ĐÃ HOÀN TẤT việc đăng ký gói tập
+                    // Điều kiện:
+                    // 1. Có thể đăng ký (canRegister = true)
+                    // 2. Đã hoàn tất đăng ký gói tập (hasCompletedPackage = true)
+                    // 3. Đúng thời gian đăng ký (isRegistrationTime = true) - T7/CN 13h05 (TEST)
+                    const shouldShowRegistrationNotification = response.canRegister &&
+                        response.hasCompletedPackage &&
+                        response.isRegistrationTime;
+
+                    console.log('🔔 [Schedule] Notification check:', {
+                        canRegister: response.canRegister,
+                        hasCompletedPackage: response.hasCompletedPackage,
+                        isRegistrationTime: response.isRegistrationTime,
+                        shouldShowNotification: shouldShowRegistrationNotification,
+                        message: response.message,
+                        activePackage: response.activePackage,
+                        hasExistingSchedule: response.hasExistingSchedule,
+                        currentTime: new Date().toLocaleTimeString('vi-VN'),
+                        currentDay: ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][new Date().getDay()]
+                    });
+
+                    // Thông báo đăng ký lịch tập - CHỈ hiện cho khách đã hoàn tất đăng ký gói tập
+                    if (shouldShowRegistrationNotification) {
+                        console.log('✅ [Schedule] SHOWING registration notification!');
+                        setShowRegistrationNotification(true);
+                        // Tự động ẩn thông báo sau 30 giây
+                        setTimeout(() => {
+                            console.log('⏰ [Schedule] Auto-hiding notification after 30s');
+                            setShowRegistrationNotification(false);
+                        }, 30000);
+                    } else {
+                        const reason = !response.canRegister ? 'Cannot register' :
+                            !response.hasCompletedPackage ? 'Package not completed' :
+                                !response.isRegistrationTime ? 'Not registration time' : 'Unknown';
+                        console.log('❌ [Schedule] NOT showing notification. Reason:', reason, {
+                            canRegister: response.canRegister,
+                            hasCompletedPackage: response.hasCompletedPackage,
+                            isRegistrationTime: response.isRegistrationTime
+                        });
+                        setShowRegistrationNotification(false);
+                    }
+
+                }
+            } catch (error) {
+                console.error('❌ [Schedule] Error checking registration eligibility:', error);
+                console.error('❌ [Schedule] Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    response: error.response?.data
+                });
+            }
+        };
+
+        // Kiểm tra ngay lập tức
+        checkRegistrationEligibility();
+
+        // Kiểm tra mỗi phút để cập nhật trạng thái
+        // Và kiểm tra mỗi 10 giây trong khoảng 12h-13h vào T7/CN để catch chính xác
+        const now = new Date();
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+        const isSaturday = now.getDay() === 6;
+        const isSunday = now.getDay() === 0;
+        const isNearRegistrationTime = (isSaturday || isSunday) && hour >= 12 && hour <= 13;
+
+        const intervalTime = isNearRegistrationTime ? 10 * 1000 : 60 * 1000; // 10 giây nếu trong khoảng thời gian đăng ký, 1 phút nếu không
+        const intervalId = setInterval(checkRegistrationEligibility, intervalTime);
+
+        return () => clearInterval(intervalId);
+    }, [userId]);
+
     const fetchScheduleData = async () => {
         if (!userId) return;
         setLoading(true);
@@ -131,14 +238,20 @@ const Schedule = () => {
         lichTaps.forEach(lichTap => {
             if (lichTap.danhSachBuoiTap && Array.isArray(lichTap.danhSachBuoiTap)) {
                 lichTap.danhSachBuoiTap.forEach(buoi => {
+                    // buoiTap có thể là object đã populate hoặc chỉ là ObjectId
                     const buoiTapInfo = buoi.buoiTap || {};
+                    const buoiTapId = buoiTapInfo._id
+                        ? buoiTapInfo._id.toString()
+                        : (buoi.buoiTap?.toString ? buoi.buoiTap.toString() : buoi.buoiTap);
+
                     sessions.push({
                         id: buoi._id || buoiTapInfo._id,
-                        tenBuoiTap: buoiTapInfo.tenBuoiTap || 'Buổi tập',
+                        buoiTapId: buoiTapId, // ID của BuoiTap để dùng cho cancel
+                        tenBuoiTap: buoiTapInfo.tenBuoiTap || buoi.tenBuoiTap || 'Buổi tập',
                         date: new Date(buoi.ngayTap),
                         gioBatDau: buoi.gioBatDau,
                         gioKetThuc: buoi.gioKetThuc,
-                        ptPhuTrach: buoi.ptPhuTrach?.hoTen || 'Chưa có PT',
+                        ptPhuTrach: buoi.ptPhuTrach?.hoTen || buoiTapInfo.ptPhuTrach?.hoTen || 'Chưa có PT',
                         chiNhanh: lichTap.chiNhanh?.tenChiNhanh || 'Chưa có chi nhánh',
                         trangThai: buoi.trangThai || 'DA_DANG_KY',
                         color: getSessionColor(colorIndex++)
@@ -147,6 +260,284 @@ const Schedule = () => {
             }
         });
         return sessions;
+    };
+
+    // Kiểm tra có thể hủy buổi tập (trước 1 ngày)
+    const canCancelSession = (sessionDate) => {
+        const now = new Date();
+        const sessionDateTime = new Date(sessionDate);
+        const timeDiff = sessionDateTime.getTime() - now.getTime();
+        const hoursDiff = timeDiff / (1000 * 60 * 60);
+        return hoursDiff >= 24;
+    };
+
+    // Load available sessions this week
+    const loadAvailableSessionsThisWeek = async () => {
+        setLoadingAvailableSessions(true);
+        setError(null);
+        try {
+            const response = await scheduleAPI.getAvailableSessionsThisWeek();
+            if (response && response.success) {
+                setAvailableSessionsThisWeek(response.data || []);
+            } else {
+                setError('Không thể tải danh sách buổi tập');
+            }
+        } catch (err) {
+            console.error('Error loading available sessions:', err);
+            setError('Lỗi khi tải danh sách buổi tập');
+        } finally {
+            setLoadingAvailableSessions(false);
+        }
+    };
+
+    // Time slots for weekly schedule
+    const TIME_SLOTS = [
+        { id: 1, start: '06:00', end: '08:00', label: '06:00 - 08:00' },
+        { id: 2, start: '08:00', end: '10:00', label: '08:00 - 10:00' },
+        { id: 3, start: '10:00', end: '12:00', label: '10:00 - 12:00' },
+        { id: 4, start: '13:00', end: '15:00', label: '13:00 - 15:00' },
+        { id: 5, start: '15:00', end: '17:00', label: '15:00 - 17:00' },
+        { id: 6, start: '17:00', end: '19:00', label: '17:00 - 19:00' },
+        { id: 7, start: '19:00', end: '21:00', label: '19:00 - 21:00' },
+        { id: 8, start: '21:00', end: '23:00', label: '21:00 - 23:00' }
+    ];
+
+    // Get current week days
+    const getCurrentWeekDays = () => {
+        const now = new Date();
+        // Get Vietnam time (UTC+7)
+        const vietnamOffset = 7 * 60 * 60 * 1000;
+        const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+        const vietnamTime = new Date(utcTime + vietnamOffset);
+
+        const dayOfWeek = vietnamTime.getUTCDay(); // 0 = Sunday, 1 = Monday, ...
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+        // Calculate Monday of current week in Vietnam time
+        const weekStartVietnam = new Date(vietnamTime);
+        weekStartVietnam.setUTCDate(vietnamTime.getUTCDate() - daysToMonday);
+        weekStartVietnam.setUTCHours(0, 0, 0, 0);
+
+        const days = [];
+        const weekDaysNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(weekStartVietnam);
+            date.setUTCDate(weekStartVietnam.getUTCDate() + i);
+            // Convert back to UTC for comparison
+            const dateUTC = new Date(date.getTime() - vietnamOffset);
+            days.push({
+                date: dateUTC.toISOString(),
+                dayName: weekDaysNames[date.getUTCDay()],
+                dayShort: weekDaysShort[date.getUTCDay()],
+                isToday: date.getUTCDate() === vietnamTime.getUTCDate() &&
+                    date.getUTCMonth() === vietnamTime.getUTCMonth() &&
+                    date.getUTCFullYear() === vietnamTime.getUTCFullYear()
+            });
+        }
+        return days;
+    };
+
+    // Get sessions for a time slot
+    const getSessionsForTimeSlot = (dayDate, timeSlot) => {
+        return availableSessionsThisWeek.filter(session => {
+            // Compare dates by date only (ignore time)
+            const sessionDate = new Date(session.ngayTap);
+            const dayDateObj = new Date(dayDate);
+
+            // Normalize dates to compare only date part
+            const sessionDateOnly = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate());
+            const dayDateOnly = new Date(dayDateObj.getFullYear(), dayDateObj.getMonth(), dayDateObj.getDate());
+
+            if (sessionDateOnly.getTime() !== dayDateOnly.getTime()) {
+                return false;
+            }
+
+            // Check if session time matches time slot
+            const sessionStart = session.gioBatDau ? session.gioBatDau.substring(0, 5) : '';
+            const sessionEnd = session.gioKetThuc ? session.gioKetThuc.substring(0, 5) : '';
+
+            if (!sessionStart || !sessionEnd) return false;
+
+            // Session starts within the time slot or time slot starts within session
+            return (sessionStart >= timeSlot.start && sessionStart < timeSlot.end) ||
+                (timeSlot.start >= sessionStart && timeSlot.start < sessionEnd);
+        });
+    };
+
+    // Check if time slot is in past
+    const isTimeSlotInPast = (dayDate, timeSlot) => {
+        const now = new Date();
+        const slotDateTime = new Date(dayDate);
+        // Ensure we're comparing in the same timezone
+        const slotDate = new Date(slotDateTime);
+        const [hours] = timeSlot.start.split(':');
+        slotDate.setHours(parseInt(hours), 0, 0, 0);
+        return slotDate < now;
+    };
+
+    // Get time slot status
+    const getTimeSlotStatus = (dayDate, timeSlot) => {
+        if (isTimeSlotInPast(dayDate, timeSlot)) {
+            return 'past';
+        }
+
+        const sessionsInSlot = getSessionsForTimeSlot(dayDate, timeSlot);
+        const hasSelectedSession = sessionsInSlot.some(session =>
+            selectedSessionsToAdd.includes(session._id.toString())
+        );
+
+        if (hasSelectedSession) {
+            return 'selected';
+        }
+
+        if (sessionsInSlot.length === 0) {
+            return 'empty';
+        }
+
+        return 'available';
+    };
+
+    // Handle time slot click
+    const handleTimeSlotClick = (dayDate, timeSlot) => {
+        if (isTimeSlotInPast(dayDate, timeSlot)) {
+            return;
+        }
+
+        const sessionsInSlot = getSessionsForTimeSlot(dayDate, timeSlot);
+
+        if (sessionsInSlot.length === 0) {
+            return;
+        }
+
+        // If only one session, toggle it directly
+        if (sessionsInSlot.length === 1) {
+            const session = sessionsInSlot[0];
+            const isSelected = selectedSessionsToAdd.includes(session._id.toString());
+            if (isSelected) {
+                setSelectedSessionsToAdd(prev => prev.filter(id => id !== session._id.toString()));
+            } else {
+                // Remove any other session in this time slot first
+                const otherSessionsInSlot = availableSessionsThisWeek.filter(s => {
+                    const sDate = new Date(s.ngayTap);
+                    const dDate = new Date(dayDate);
+                    if (sDate.toDateString() !== dDate.toDateString()) return false;
+                    const sStart = s.gioBatDau.substring(0, 5);
+                    const sEnd = s.gioKetThuc.substring(0, 5);
+                    return sStart >= timeSlot.start && sEnd <= timeSlot.end;
+                }).map(s => s._id.toString());
+
+                setSelectedSessionsToAdd(prev => {
+                    const filtered = prev.filter(id => !otherSessionsInSlot.includes(id));
+                    return [...filtered, session._id.toString()];
+                });
+            }
+        } else {
+            // Multiple sessions - show modal to select
+            // For now, just select the first available one
+            const firstAvailable = sessionsInSlot[0];
+            const isSelected = selectedSessionsToAdd.includes(firstAvailable._id.toString());
+            if (!isSelected) {
+                // Remove any other session in this time slot first
+                const otherSessionsInSlot = availableSessionsThisWeek.filter(s => {
+                    const sDate = new Date(s.ngayTap);
+                    const dDate = new Date(dayDate);
+                    if (sDate.toDateString() !== dDate.toDateString()) return false;
+                    const sStart = s.gioBatDau.substring(0, 5);
+                    const sEnd = s.gioKetThuc.substring(0, 5);
+                    return sStart >= timeSlot.start && sEnd <= timeSlot.end;
+                }).map(s => s._id.toString());
+
+                setSelectedSessionsToAdd(prev => {
+                    const filtered = prev.filter(id => !otherSessionsInSlot.includes(id));
+                    return [...filtered, firstAvailable._id.toString()];
+                });
+            }
+        }
+    };
+
+    // Mở modal đăng ký thêm buổi tập
+    const handleOpenAddSessionModal = () => {
+        setShowAddSessionModal(true);
+        setSelectedSessionsToAdd([]);
+        loadAvailableSessionsThisWeek();
+    };
+
+    // Đăng ký thêm buổi tập
+    const handleAddSessions = async () => {
+        if (selectedSessionsToAdd.length === 0) {
+            setError('Vui lòng chọn ít nhất một buổi tập');
+            return;
+        }
+
+        setAddingSessions(true);
+        setError(null);
+
+        try {
+            // Đăng ký từng buổi tập
+            const results = await Promise.allSettled(
+                selectedSessionsToAdd.map(buoiTapId =>
+                    scheduleAPI.registerSession(buoiTapId)
+                )
+            );
+
+            const failed = results.filter(r => r.status === 'rejected' || (r.value && !r.value.success));
+            if (failed.length > 0) {
+                const errorMessages = failed.map(r =>
+                    r.status === 'rejected' ? r.reason?.message : r.value?.message
+                ).filter(Boolean);
+                setError(`Một số buổi tập đăng ký thất bại: ${errorMessages.join(', ')}`);
+            } else {
+                // Refresh schedule data
+                await fetchScheduleData();
+                setShowAddSessionModal(false);
+                setSelectedSessionsToAdd([]);
+                setError(null);
+                alert('Đăng ký buổi tập thành công!');
+            }
+        } catch (err) {
+            console.error('Error adding sessions:', err);
+            setError('Lỗi khi đăng ký buổi tập');
+        } finally {
+            setAddingSessions(false);
+        }
+    };
+
+    // Hủy buổi tập
+    const handleCancelSession = async () => {
+        if (!sessionToCancel) return;
+
+        setCancelingSession(true);
+        setError(null);
+
+        try {
+            const response = await scheduleAPI.cancelSession(sessionToCancel.buoiTapId);
+            if (response && response.success) {
+                // Refresh schedule data
+                await fetchScheduleData();
+                setShowCancelConfirm(false);
+                setSessionToCancel(null);
+                setError(null);
+                alert('Hủy đăng ký buổi tập thành công!');
+            } else {
+                setError(response?.message || 'Hủy đăng ký thất bại');
+            }
+        } catch (err) {
+            console.error('Error canceling session:', err);
+            setError(err.message || 'Lỗi khi hủy đăng ký buổi tập');
+        } finally {
+            setCancelingSession(false);
+        }
+    };
+
+    // Mở modal xác nhận hủy
+    const handleOpenCancelConfirm = (session) => {
+        if (!canCancelSession(session.date)) {
+            alert('Chỉ có thể hủy buổi tập trước 24 giờ');
+            return;
+        }
+        setSessionToCancel(session);
+        setShowCancelConfirm(true);
     };
 
     const getDaysInMonth = () => {
@@ -243,6 +634,10 @@ const Schedule = () => {
             newDate.setDate(selectedDate.getDate() + 1);
             setSelectedDate(newDate);
         }
+    };
+
+    const handleOpenRegistration = () => {
+        setShowRegistrationModal(true);
     };
 
     const getDisplayTitle = () => {
@@ -510,10 +905,52 @@ const Schedule = () => {
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
             <div className={`calendar-container ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
                 <div className="calendar-wrapper">
+                    {/* Registration Notification - Đăng ký lịch tập */}
+                    {showRegistrationNotification && (
+                        <div className="registration-notification">
+                            <div className="notification-content">
+                                <span className="notification-icon">🔔</span>
+                                <span className="notification-message">Vui lòng đăng ký lịch tập cho tuần sau</span>
+                                <button
+                                    className="notification-btn"
+                                    onClick={() => {
+                                        setShowRegistrationNotification(false);
+                                        setShowRegistrationModal(true);
+                                    }}
+                                >
+                                    Đăng ký ngay
+                                </button>
+                                <button
+                                    className="notification-close"
+                                    onClick={() => setShowRegistrationNotification(false)}
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+
                     {/* Top Navigation Bar */}
                     <div className="calendar-top-bar">
                         <div className="calendar-nav-left">
-                            <button className="add-event-btn">Thêm sự kiện +</button>
+                            <button
+                                className={`register-week-btn ${!canRegister ? 'disabled' : ''}`}
+                                onClick={handleOpenRegistration}
+                                disabled={!canRegister}
+                                title={!canRegister
+                                    ? (registrationEligibility?.message || 'Chỉ có thể đăng ký vào Thứ 7 hoặc Chủ nhật từ 12h trưa trở đi')
+                                    : 'Đăng ký lịch tập tuần sau'}
+                            >
+                                Đăng ký lịch tập tuần sau
+                            </button>
+                            <button
+                                className="add-session-btn"
+                                onClick={handleOpenAddSessionModal}
+                                title="Đăng ký thêm buổi tập trong tuần này"
+                            >
+                                Đăng ký thêm buổi tập
+                            </button>
                         </div>
                         <div className="calendar-title">{getDisplayTitle()}</div>
                         <div className="view-mode-toggle">
@@ -614,6 +1051,17 @@ const Schedule = () => {
                             </div>
                         </div>
                         <div className="modal-footer">
+                            {selectedSession.trangThai === 'DA_DANG_KY' && canCancelSession(selectedSession.date) && (
+                                <button
+                                    className="btn-cancel-session"
+                                    onClick={() => {
+                                        closeSessionDetail();
+                                        handleOpenCancelConfirm(selectedSession);
+                                    }}
+                                >
+                                    Hủy buổi tập
+                                </button>
+                            )}
                             <button className="btn-close-modal" onClick={closeSessionDetail}>
                                 Đóng
                             </button>
@@ -621,7 +1069,466 @@ const Schedule = () => {
                     </div>
                 </div>
             )}
+
+            {/* Modal đăng ký thêm buổi tập */}
+            {showAddSessionModal && (
+                <div className="modal-overlay" onClick={() => setShowAddSessionModal(false)}>
+                    <div className="modal-content add-session-modal week-registration-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Đăng ký thêm buổi tập</h2>
+                            <button className="modal-close" onClick={() => setShowAddSessionModal(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            {loadingAvailableSessions ? (
+                                <div className="loading-state">
+                                    <div className="loading-spinner"></div>
+                                    <p>Đang tải danh sách buổi tập...</p>
+                                </div>
+                            ) : availableSessionsThisWeek.length === 0 ? (
+                                <div className="empty-state">
+                                    <p>Không có buổi tập nào có sẵn trong tuần này</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="schedule-header">
+                                        <p className="modal-description">Chọn các ca tập bạn muốn đăng ký thêm</p>
+                                    </div>
+                                    <div className="week-schedule" style={{ ['--rows']: TIME_SLOTS.length }}>
+                                        {getCurrentWeekDays().map((day, index) => (
+                                            <div key={index} className="day-column">
+                                                <div className="day-header">
+                                                    <div className="day-name">{day.dayName}</div>
+                                                    <div className="day-date">
+                                                        {(() => {
+                                                            const d = new Date(day.date);
+                                                            // Adjust for Vietnam timezone display
+                                                            const vietnamOffset = 7 * 60 * 60 * 1000;
+                                                            const vietnamTime = new Date(d.getTime() + vietnamOffset);
+                                                            return `${vietnamTime.getUTCDate()}/${vietnamTime.getUTCMonth() + 1}`;
+                                                        })()}
+                                                    </div>
+                                                    {day.isToday && <div className="today-badge">Hôm nay</div>}
+                                                </div>
+
+                                                <div className="time-slots-container">
+                                                    {TIME_SLOTS.map(timeSlot => {
+                                                        const status = getTimeSlotStatus(day.date, timeSlot);
+                                                        const sessionsInSlot = getSessionsForTimeSlot(day.date, timeSlot);
+                                                        const selectedSessionInSlot = sessionsInSlot.find(session =>
+                                                            selectedSessionsToAdd.includes(session._id.toString())
+                                                        );
+
+                                                        return (
+                                                            <div
+                                                                key={timeSlot.id}
+                                                                className={`time-slot-card ${status}`}
+                                                                onClick={() => handleTimeSlotClick(day.date, timeSlot)}
+                                                            >
+                                                                <div className="time-slot-time">{timeSlot.label}</div>
+                                                                <div className="time-slot-status">
+                                                                    {status === 'past' && (
+                                                                        <span className="status-text past">Đã qua</span>
+                                                                    )}
+                                                                    {status === 'empty' && (
+                                                                        <span className="status-text empty">Trống</span>
+                                                                    )}
+                                                                    {status === 'available' && (
+                                                                        <span className="status-text available">
+                                                                            {sessionsInSlot.length} buổi
+                                                                        </span>
+                                                                    )}
+                                                                    {status === 'selected' && selectedSessionInSlot && (
+                                                                        <div className="selected-session-info">
+                                                                            <div className="selected-trainer">
+                                                                                {selectedSessionInSlot.ptPhuTrach?.hoTen || 'N/A'}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {selectedSessionsToAdd.length > 0 && (
+                                        <div className="schedule-summary">
+                                            <div className="selected-count">
+                                                Đã chọn: {selectedSessionsToAdd.length} buổi tập
+                                            </div>
+                                            <div className="selected-sessions">
+                                                <h4>Buổi tập đã chọn:</h4>
+                                                <div className="selected-list">
+                                                    {selectedSessionsToAdd.map(buoiTapId => {
+                                                        const session = availableSessionsThisWeek.find(s => s._id.toString() === buoiTapId);
+                                                        if (!session) return null;
+                                                        const sessionDate = new Date(session.ngayTap);
+                                                        const weekDayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+                                                        const dayIndex = sessionDate.getDay();
+
+                                                        return (
+                                                            <div key={buoiTapId} className="selected-session">
+                                                                <span className="session-day">
+                                                                    {weekDayNames[dayIndex]}
+                                                                </span>
+                                                                <span className="session-time">
+                                                                    {session.gioBatDau.substring(0, 5)} - {session.gioKetThuc.substring(0, 5)}
+                                                                </span>
+                                                                <span className="session-trainer">
+                                                                    {session.ptPhuTrach?.hoTen || session.tenBuoiTap || 'N/A'}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {error && <div className="error-message">{error}</div>}
+                                </>
+                            )}
+                        </div>
+                        <div className="modal-footer">
+                            <button
+                                className="btn-cancel"
+                                onClick={() => {
+                                    setShowAddSessionModal(false);
+                                    setSelectedSessionsToAdd([]);
+                                    setError(null);
+                                }}
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                className="btn-submit"
+                                onClick={handleAddSessions}
+                                disabled={selectedSessionsToAdd.length === 0 || addingSessions || loadingAvailableSessions}
+                            >
+                                {addingSessions ? 'Đang đăng ký...' : `Đăng ký (${selectedSessionsToAdd.length})`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal xác nhận hủy buổi tập */}
+            {showCancelConfirm && sessionToCancel && (
+                <div className="modal-overlay" onClick={() => setShowCancelConfirm(false)}>
+                    <div className="modal-content cancel-confirm-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Xác nhận hủy buổi tập</h2>
+                            <button className="modal-close" onClick={() => setShowCancelConfirm(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <p>Bạn có chắc chắn muốn hủy buổi tập này?</p>
+                            <div className="session-detail-cancel">
+                                <div className="detail-row">
+                                    <div className="detail-label">Tên buổi tập:</div>
+                                    <div className="detail-value">{sessionToCancel.tenBuoiTap}</div>
+                                </div>
+                                <div className="detail-row">
+                                    <div className="detail-label">Ngày tập:</div>
+                                    <div className="detail-value">
+                                        {sessionToCancel.date.toLocaleDateString('vi-VN', {
+                                            weekday: 'long',
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric'
+                                        })}
+                                    </div>
+                                </div>
+                                <div className="detail-row">
+                                    <div className="detail-label">Thời gian:</div>
+                                    <div className="detail-value">
+                                        {sessionToCancel.gioBatDau} - {sessionToCancel.gioKetThuc}
+                                    </div>
+                                </div>
+                            </div>
+                            {error && <div className="error-message">{error}</div>}
+                        </div>
+                        <div className="modal-footer">
+                            <button
+                                className="btn-cancel"
+                                onClick={() => {
+                                    setShowCancelConfirm(false);
+                                    setSessionToCancel(null);
+                                    setError(null);
+                                }}
+                                disabled={cancelingSession}
+                            >
+                                Không
+                            </button>
+                            <button
+                                className="btn-confirm-cancel"
+                                onClick={handleCancelSession}
+                                disabled={cancelingSession}
+                            >
+                                {cancelingSession ? 'Đang hủy...' : 'Xác nhận hủy'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Week Registration Modal */}
+            {showRegistrationModal && (
+                <WeekRegistrationModal
+                    onClose={() => {
+                        setShowRegistrationModal(false);
+                        setSelectedSessions([]);
+                        setAvailableSessions([]);
+                    }}
+                    nextWeekStart={nextWeekStart}
+                    registrationEligibility={registrationEligibility}
+                    onSuccess={() => {
+                        setShowRegistrationModal(false);
+                        setSelectedSessions([]);
+                        setAvailableSessions([]);
+                        fetchScheduleData();
+                        // Refresh eligibility
+                        if (userId) {
+                            api.get('/lichtap/check-registration-eligibility').then(response => {
+                                if (response) {
+                                    setCanRegister(response.canRegister || false);
+                                    setRegistrationEligibility(response);
+                                }
+                            }).catch(console.error);
+                        }
+                        // Refresh notifications để cập nhật sau khi đăng ký
+                        window.dispatchEvent(new Event('refreshNotifications'));
+                    }}
+                />
+            )}
         </>
+    );
+};
+
+// Week Registration Modal Component
+const WeekRegistrationModal = ({ onClose, nextWeekStart, registrationEligibility, onSuccess }) => {
+    const [availableSessions, setAvailableSessions] = useState([]);
+    const [selectedSessions, setSelectedSessions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState(null);
+    const userId = authUtils.getUserId();
+
+    const loadAvailableSessions = async () => {
+        if (!nextWeekStart || !registrationEligibility?.activePackage) return;
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            const { goiTapId, chiNhanhId } = registrationEligibility.activePackage;
+            const response = await api.get('/lichtap/available-sessions', {
+                chiNhanhId: chiNhanhId,
+                tuanBatDau: nextWeekStart.toISOString(),
+                goiTapId: goiTapId
+            });
+
+            if (response && response.success && response.data) {
+                setAvailableSessions(response.data.sessions || []);
+            } else {
+                setError('Không thể tải danh sách buổi tập');
+            }
+        } catch (err) {
+            console.error('Error loading available sessions:', err);
+            setError('Lỗi khi tải danh sách buổi tập');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const weekDays = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    const weekDaysShort = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+    useEffect(() => {
+        if (nextWeekStart && registrationEligibility?.activePackage) {
+            loadAvailableSessions();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [nextWeekStart, registrationEligibility]);
+
+    const getNextWeekDays = () => {
+        if (!nextWeekStart) return [];
+        const days = [];
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(nextWeekStart);
+            date.setDate(nextWeekStart.getDate() + i);
+            days.push({
+                date,
+                dayOfWeek: date.getDay(),
+                dayName: weekDays[date.getDay()],
+                dayShort: weekDaysShort[date.getDay()]
+            });
+        }
+        return days;
+    };
+
+    const getSessionsForDay = (date) => {
+        if (!availableSessions || availableSessions.length === 0) return [];
+        const dateStr = date.toDateString();
+        return availableSessions.filter(session => {
+            const sessionDate = new Date(session.ngay);
+            return sessionDate.toDateString() === dateStr && session.coTheDangKy;
+        });
+    };
+
+    const toggleSessionSelection = (session) => {
+        setSelectedSessions(prev => {
+            const isSelected = prev.some(s => s._id === session._id);
+            if (isSelected) {
+                return prev.filter(s => s._id !== session._id);
+            } else {
+                return [...prev, session];
+            }
+        });
+    };
+
+    const isSessionSelected = (sessionId) => {
+        return selectedSessions.some(s => s._id === sessionId);
+    };
+
+    const handleSubmit = async () => {
+        if (selectedSessions.length === 0) {
+            setError('Vui lòng chọn ít nhất một buổi tập');
+            return;
+        }
+
+        if (!registrationEligibility?.activePackage) {
+            setError('Không tìm thấy thông tin gói tập');
+            return;
+        }
+
+        setSubmitting(true);
+        setError(null);
+
+        try {
+            const { goiTapId, chiNhanhId } = registrationEligibility.activePackage;
+            const scheduleData = {
+                goiTapId: goiTapId,
+                chiNhanhId: chiNhanhId,
+                tuanBatDau: nextWeekStart.toISOString(),
+                soNgayTapTrongTuan: selectedSessions.length,
+                gioTapUuTien: [],
+                danhSachBuoiTap: selectedSessions.map(session => ({
+                    buoiTapId: session._id,
+                    ngayTap: session.ngay,
+                    gioBatDau: session.gioBatDau,
+                    gioKetThuc: session.gioKetThuc,
+                    ptPhuTrach: session.ptPhuTrach?._id || session.ptPhuTrach
+                }))
+            };
+
+            const response = await api.post('/lichtap/create-schedule', scheduleData);
+
+            if (response && response.success) {
+                onSuccess();
+            } else {
+                setError(response?.message || 'Đăng ký thất bại');
+            }
+        } catch (err) {
+            console.error('Error submitting registration:', err);
+            setError(err.message || 'Lỗi khi đăng ký lịch tập');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const weekDaysList = getNextWeekDays();
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="week-registration-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2>Đăng ký lịch tập tuần sau</h2>
+                    <button className="modal-close" onClick={onClose}>×</button>
+                </div>
+                <div className="modal-body">
+                    {nextWeekStart && (
+                        <div className="week-info">
+                            <p className="week-range">
+                                Tuần từ {nextWeekStart.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} đến {' '}
+                                {new Date(nextWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </p>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="error-message">{error}</div>
+                    )}
+
+                    {loading ? (
+                        <div className="loading-sessions">
+                            <div className="loading-spinner"></div>
+                            <p>Đang tải danh sách buổi tập...</p>
+                        </div>
+                    ) : (
+                        <div className="week-calendar-grid">
+                            {weekDaysList.map((day, index) => {
+                                const daySessions = getSessionsForDay(day.date);
+                                return (
+                                    <div key={index} className="week-day-column">
+                                        <div className="day-header">
+                                            <div className="day-name">{day.dayShort}</div>
+                                            <div className="day-date">{day.date.getDate()}/{day.date.getMonth() + 1}</div>
+                                        </div>
+                                        <div className="day-sessions">
+                                            {daySessions.length === 0 ? (
+                                                <div className="no-sessions">Không có buổi tập</div>
+                                            ) : (
+                                                daySessions.map(session => (
+                                                    <div
+                                                        key={session._id}
+                                                        className={`session-card ${isSessionSelected(session._id) ? 'selected' : ''}`}
+                                                        onClick={() => toggleSessionSelection(session)}
+                                                    >
+                                                        <div className="session-time">
+                                                            {session.gioBatDau} - {session.gioKetThuc}
+                                                        </div>
+                                                        <div className="session-title">{session.tenBuoiTap || 'Buổi tập'}</div>
+                                                        <div className="session-pt">
+                                                            PT: {session.ptPhuTrach?.hoTen || 'Chưa có PT'}
+                                                        </div>
+                                                        <div className="session-slots">
+                                                            Còn {session.conChoTrong} chỗ trống
+                                                        </div>
+                                                        {isSessionSelected(session._id) && (
+                                                            <div className="session-checkmark">✓</div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {selectedSessions.length > 0 && (
+                        <div className="selected-sessions-summary">
+                            Đã chọn {selectedSessions.length} buổi tập
+                        </div>
+                    )}
+                </div>
+                <div className="modal-footer">
+                    <button className="btn-cancel" onClick={onClose} disabled={submitting}>
+                        Hủy
+                    </button>
+                    <button
+                        className="btn-submit"
+                        onClick={handleSubmit}
+                        disabled={submitting || selectedSessions.length === 0 || loading}
+                    >
+                        {submitting ? 'Đang đăng ký...' : 'Đăng ký'}
+                    </button>
+                </div>
+            </div>
+        </div>
     );
 };
 

@@ -172,6 +172,30 @@
     background: #22c55e;
 }
 
+.status-badge.checked-in-completed {
+    background: #3b82f6;
+    color: white;
+}
+
+.session-card.completed {
+    opacity: 0.8;
+    border-color: #3b82f6;
+}
+
+.session-card.completed:hover {
+    opacity: 1;
+}
+
+.session-card.needs-checkout {
+    border-color: #f59e0b;
+    border-width: 3px;
+}
+
+.session-card.needs-checkout:hover {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
 .check-in-details {
     text-align: right;
     font-size: 0.75rem;
@@ -275,6 +299,95 @@
     font-weight: 600;
 }
 
+.success-message.detailed-success {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.success-message.detailed-success .success-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: white;
+}
+
+.success-message.detailed-success .success-content {
+    color: white;
+}
+
+.success-message.detailed-success .success-content h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: white;
+}
+
+.success-message.detailed-success .success-details {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+    text-align: left;
+}
+
+.success-message.detailed-success .success-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: white;
+}
+
+.success-message.detailed-success .success-time {
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.success-message.detailed-success .success-status {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.success-message.detailed-success .status-badge-large {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: white;
+    width: fit-content;
+}
+
+.success-message.detailed-success .status-detail {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.9);
+    margin-top: 0.25rem;
+}
+
+.success-message.detailed-success .success-session {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.9);
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
 .error-message {
     margin-top: 1rem;
     padding: 1rem;
@@ -362,5 +475,106 @@
 @keyframes spin {
     to {
         transform: rotate(360deg);
+    }
+}
+
+/* QR Code Styles */
+.checkin-mode-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid #334155;
+    padding-bottom: 0.5rem;
+}
+
+.checkin-mode-tab {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #9ca3af;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: -2px;
+}
+
+.checkin-mode-tab:hover {
+    color: #e5e7eb;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.checkin-mode-tab.active {
+    color: #3b82f6;
+    border-bottom-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.checkin-mode-tab-qr-display {
+    flex: 0 0 auto;
+    padding: 0.75rem 1rem;
+    background: #10b981;
+    color: white;
+    border-radius: 6px;
+    margin-left: auto;
+}
+
+.checkin-mode-tab-qr-display:hover {
+    background: #059669;
+}
+
+.qr-scanner-placeholder {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: #9ca3af;
+    background: #1e293b;
+    border-radius: 8px;
+    border: 2px dashed #334155;
+}
+
+.qr-scan-instruction {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 0.9rem;
+    margin: 1rem 0;
+    padding: 0.75rem;
+    background: #1e293b;
+    border-radius: 6px;
+}
+
+.qr-code-display-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.qr-code-display-modal-content {
+    background: white;
+    border-radius: 12px;
+    max-width: 500px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+    .checkin-mode-tabs {
+        flex-direction: column;
+    }
+
+    .checkin-mode-tab-qr-display {
+        margin-left: 0;
+        margin-top: 0.5rem;
     }
 }

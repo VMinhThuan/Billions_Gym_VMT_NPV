@@ -85,12 +85,15 @@
     text-overflow: ellipsis;
     flex: 0 1 auto;
     min-width: 0;
+    color: #ffffff;
 }
 
 .view-mode-toggle {
     display: flex;
     gap: 6px;
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.05);
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
     padding: 4px;
     border-radius: 8px;
     flex-shrink: 0;
@@ -110,7 +113,7 @@
 }
 
 .view-btn:hover {
-    background: rgba(255,255,255,0.1);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .view-btn.active {
@@ -145,7 +148,7 @@
     text-align: center;
     font-size: 13px;
     font-weight: 700;
-    color: #ffffff; 
+    color: #ffffff;
     text-transform: uppercase;
 }
 
@@ -171,11 +174,11 @@
 }
 
 .calendar-day-cell:hover {
-    background: rgba(255,255,255,0.03);
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .calendar-day-cell.other-month {
-    background: rgba(255,255,255,0.01);
+    background: rgba(255, 255, 255, 0.01);
 }
 
 .calendar-day-cell.today {
@@ -269,7 +272,7 @@
 }
 
 .week-header-row {
-    padding-right: 10px; 
+    padding-right: 10px;
 }
 
 .time-column-header {
@@ -382,7 +385,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(218,33,40,0.1);
+    background: rgba(218, 33, 40, 0.1);
     pointer-events: none;
     z-index: 0;
 }
@@ -396,11 +399,12 @@
 /* timeline line indicating current time (minute-accurate) */
 .current-timeline {
     position: absolute;
-    left: 0; /* span full width of the column */
+    left: 0;
+    /* span full width of the column */
     right: 0;
     height: 2px;
     background: #da2128;
-    box-shadow: 0 0 8px rgba(218,33,40,0.6);
+    box-shadow: 0 0 8px rgba(218, 33, 40, 0.6);
     border-radius: 2px;
     z-index: 3;
 }
@@ -408,13 +412,15 @@
 .current-timeline::before {
     content: '';
     position: absolute;
-    left: 0; /* place dot at the very start of the timeline */
-    top: -4px; /* center dot vertically with the 2px line */
+    left: 0;
+    /* place dot at the very start of the timeline */
+    top: -4px;
+    /* center dot vertically with the 2px line */
     width: 10px;
     height: 10px;
     border-radius: 50%;
     background: #da2128;
-    box-shadow: 0 0 6px rgba(218,33,40,0.6);
+    box-shadow: 0 0 6px rgba(218, 33, 40, 0.6);
     z-index: 4;
 }
 
@@ -424,7 +430,8 @@
     left: 12px;
     transform: translateY(0);
     padding: 0 6px;
-    background: transparent; /* removed background per request */
+    background: transparent;
+    /* removed background per request */
     color: #da2128;
     font-size: 12px;
     font-weight: 700;
@@ -435,7 +442,9 @@
 }
 
 /* make sure event blocks appear above overlay */
-.event-block { z-index: 2; }
+.event-block {
+    z-index: 2;
+}
 
 .week-day-column:last-child {
     border-right: none;
@@ -594,7 +603,9 @@
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .retry-button {
@@ -1075,6 +1086,7 @@
 
 /* Ensure proper spacing on all screen sizes */
 @media (max-width: 768px) {
+
     .week-grid,
     .day-grid {
         max-height: calc(100vh - 180px);
@@ -1107,8 +1119,13 @@
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .modal-content {
@@ -1127,6 +1144,7 @@
         transform: translateY(30px);
         opacity: 0;
     }
+
     to {
         transform: translateY(0);
         opacity: 1;
@@ -1252,4 +1270,830 @@
 .modal-content {
     scrollbar-width: thin;
     scrollbar-color: #2a2a2a #1a1a1a;
+}
+
+/* Registration Notification */
+.registration-notification {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: linear-gradient(135deg, #da2128 0%, #ff4757 100%);
+    color: white;
+    padding: 16px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s ease-out;
+    max-width: 700px;
+    width: 90%;
+}
+
+.registration-notification.complete-package-notification {
+    background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.notification-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.notification-icon {
+    font-size: 20px;
+}
+
+.notification-message {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.notification-btn {
+    padding: 8px 16px;
+    background: white;
+    color: #da2128;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background 0.2s ease;
+}
+
+.notification-btn:hover {
+    background: #f0f0f0;
+}
+
+.notification-close {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s ease;
+}
+
+.notification-close:hover {
+    opacity: 0.7;
+}
+
+/* Register Week Button */
+.register-week-btn {
+    padding: 10px 20px;
+    background: #da2128;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.register-week-btn:hover:not(.disabled) {
+    background: #b81d23;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(218, 33, 40, 0.3);
+}
+
+.register-week-btn.disabled {
+    background: #6b7280;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Add Session Button */
+.add-session-btn {
+    padding: 10px 20px;
+    background: #10b981;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.add-session-btn:hover {
+    background: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* Week Registration Modal */
+.week-registration-modal {
+    background: #1a1a1a;
+    border-radius: 12px;
+    max-width: 1200px;
+    width: 95%;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.week-registration-modal .modal-header {
+    padding: 24px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #0a0a0a;
+}
+
+.week-registration-modal .modal-header h2 {
+    margin: 0;
+    color: white;
+    font-size: 24px;
+}
+
+.week-registration-modal .modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.week-info {
+    margin-bottom: 20px;
+    padding: 12px;
+    background: #0a0a0a;
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+
+.week-range {
+    margin: 0;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.error-message {
+    background: #ef4444;
+    color: white;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.loading-sessions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: #ffffff;
+}
+
+.loading-sessions .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #333;
+    border-top-color: #da2128;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Week Calendar Grid */
+.week-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.week-registration-modal .week-day-column {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 400px;
+}
+
+.week-registration-modal .day-header {
+    text-align: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #333;
+    margin-bottom: 12px;
+}
+
+.week-registration-modal .day-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #da2128;
+    margin-bottom: 4px;
+}
+
+.week-registration-modal .day-date {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.week-registration-modal .day-sessions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.week-registration-modal .no-sessions {
+    text-align: center;
+    color: #6b7280;
+    font-size: 12px;
+    padding: 20px 0;
+}
+
+/* Session Card */
+.session-card {
+    background: #141414;
+    border: 2px solid #333;
+    border-radius: 6px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.session-card:hover {
+    border-color: #da2128;
+    background: #1a1a1a;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.session-card.selected {
+    border-color: #da2128;
+    background: #1a0a0a;
+}
+
+.session-card.selected::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(218, 33, 40, 0.1);
+    border-radius: 4px;
+}
+
+.session-time {
+    font-size: 12px;
+    font-weight: 600;
+    color: #da2128;
+    margin-bottom: 4px;
+}
+
+.session-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #ffffff;
+    margin-bottom: 6px;
+}
+
+.session-pt {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-bottom: 4px;
+}
+
+.session-slots {
+    font-size: 11px;
+    color: #10b981;
+    font-weight: 500;
+}
+
+.session-checkmark {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 20px;
+    height: 20px;
+    background: #da2128;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.selected-sessions-summary {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+    margin-top: 20px;
+}
+
+.week-registration-modal .modal-footer {
+    padding: 20px 24px;
+    border-top: 1px solid #333;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    background: #0a0a0a;
+}
+
+.btn-cancel {
+    padding: 10px 20px;
+    background: transparent;
+    color: #9ca3af;
+    border: 1px solid #333;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-cancel:hover:not(:disabled) {
+    background: #1a1a1a;
+    border-color: #555;
+    color: #ffffff;
+}
+
+.btn-cancel:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-submit {
+    padding: 10px 24px;
+    background: #da2128;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-submit:hover:not(:disabled) {
+    background: #b81d23;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(218, 33, 40, 0.3);
+}
+
+.btn-submit:disabled {
+    background: #6b7280;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Add Session Modal - Weekly Schedule Style */
+.add-session-modal {
+    max-width: 1200px;
+    max-height: 90vh;
+}
+
+.add-session-modal.week-registration-modal {
+    width: 95%;
+}
+
+.add-session-modal .schedule-header {
+    margin-bottom: 1.5rem;
+}
+
+.add-session-modal .schedule-header p {
+    color: #d1d1d1;
+    margin: 0;
+}
+
+/* Week Schedule Grid */
+.add-session-modal .week-schedule {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+    --row-height: 70px;
+    align-items: start;
+}
+
+/* Day Column */
+.add-session-modal .day-column {
+    background: #1a1a1a;
+    border: 1px solid #262626;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.add-session-modal .day-header {
+    background: #262626;
+    padding: 0.75rem;
+    text-align: center;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+.add-session-modal .day-name {
+    font-weight: 600;
+    color: #f2f2f2 !important;
+    font-size: 0.875rem;
+}
+
+.add-session-modal .day-date {
+    color: #a3a3a3;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.add-session-modal .today-badge {
+    background: #10b981;
+    color: white;
+    font-size: 0.625rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    margin-top: 0.25rem;
+    display: inline-block;
+}
+
+/* Time Slots Container */
+.add-session-modal .time-slots-container {
+    display: grid;
+    grid-template-rows: repeat(var(--rows), var(--row-height, 80px));
+    gap: 12px;
+    padding: 12px;
+    box-sizing: border-box;
+    flex: 1;
+}
+
+/* Time Slot Card */
+.add-session-modal .time-slot-card {
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    position: relative;
+    height: 100%;
+    min-height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.add-session-modal .time-slot-card:hover {
+    border-color: #404040;
+    background: #191919;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(96, 119, 255, 0.06), 0 2px 6px rgba(102, 126, 234, 0.06) inset;
+}
+
+.add-session-modal .time-slot-card.past {
+    opacity: 1;
+    cursor: not-allowed;
+    background: #1F2937;
+    border-color: #111827;
+}
+
+.add-session-modal .time-slot-card.past:hover {
+    transform: none;
+    border-color: #2a2a2a;
+    background: #0f0f0f;
+}
+
+.add-session-modal .time-slot-card.empty {
+    border-color: #2a2a2a;
+    background: #141414;
+}
+
+.add-session-modal .time-slot-card.empty:hover {
+    border-color: #404040;
+}
+
+.add-session-modal .time-slot-card.available {
+    border-color: #3b82f6;
+    background: #0b1220;
+}
+
+.add-session-modal .time-slot-card.available:hover {
+    border-color: #2563eb;
+    background: #111827;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.add-session-modal .time-slot-card.available .time-slot-time {
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.add-session-modal .time-slot-card.available .status-text {
+    color: #e5f0ff;
+}
+
+.add-session-modal .time-slot-card.selected {
+    border-color: #22c55e;
+    background: #064e3b;
+    color: #ffffff;
+    box-shadow: 0 8px 24px rgba(34, 197, 94, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.add-session-modal .time-slot-card.selected:hover {
+    border-color: #16a34a;
+    background: #065f46;
+}
+
+.add-session-modal .time-slot-card.selected .time-slot-time {
+    color: #10b981;
+}
+
+.add-session-modal .time-slot-card.past .time-slot-time,
+.add-session-modal .time-slot-card.past .status-text {
+    color: rgba(242, 242, 242, 0.5);
+}
+
+.add-session-modal .time-slot-time {
+    font-weight: 600;
+    color: #f9fafb;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+    text-align: center;
+    width: 100%;
+}
+
+.add-session-modal .time-slot-status {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.add-session-modal .status-text,
+.add-session-modal .selected-trainer {
+    font-size: 0.75rem;
+    line-height: 1.1;
+    color: #a3a3a3;
+    text-align: center;
+    width: 100%;
+}
+
+.add-session-modal .status-text.past {
+    color: #6b7280;
+}
+
+.add-session-modal .status-text.empty {
+    color: #9ca3af;
+}
+
+.add-session-modal .status-text.available {
+    color: #3b82f6;
+}
+
+.add-session-modal .status-text.selected {
+    color: #10b981;
+}
+
+.add-session-modal .selected-session-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.add-session-modal .selected-trainer {
+    font-size: 0.625rem;
+    color: #a3a3a3;
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 100%;
+}
+
+/* Schedule Summary (same as WorkflowComponents) */
+.add-session-modal .schedule-summary {
+    background: #1a1a1a;
+    border: 1px solid #262626;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.add-session-modal .selected-count {
+    font-weight: 600;
+    color: #f2f2f2;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+}
+
+.add-session-modal .selected-sessions h4 {
+    color: #e5e5e5;
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.add-session-modal .selected-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.add-session-modal .selected-session {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: #141414;
+    padding: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #2a2a2a;
+}
+
+.add-session-modal .session-day {
+    background: #10b981;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 40px;
+    text-align: center;
+}
+
+.add-session-modal .session-time {
+    color: #f2f2f2;
+    font-weight: 500;
+    font-size: 0.875rem;
+    min-width: 100px;
+}
+
+.add-session-modal .session-trainer {
+    color: #a3a3a3;
+    font-size: 0.875rem;
+    flex: 1;
+}
+
+.modal-description {
+    color: #d1d1d1;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.available-sessions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.session-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    background: #141414;
+    border: 2px solid #2a2a2a;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.session-item:hover {
+    border-color: #da2128;
+    background: #1a1a1a;
+}
+
+.session-item.selected {
+    border-color: #da2128;
+    background: rgba(218, 33, 40, 0.1);
+}
+
+.session-item input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    margin-top: 2px;
+}
+
+.session-info {
+    flex: 1;
+}
+
+.session-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 6px;
+}
+
+.session-details {
+    font-size: 14px;
+    color: #9ca3af;
+    margin-bottom: 4px;
+}
+
+.session-pt {
+    font-size: 13px;
+    color: #d1d1d1;
+    margin-bottom: 4px;
+}
+
+.session-capacity {
+    font-size: 12px;
+    color: #10b981;
+    font-weight: 500;
+}
+
+.loading-state,
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #9ca3af;
+}
+
+.error-message {
+    background: #ef4444;
+    color: white;
+    padding: 12px;
+    border-radius: 6px;
+    margin-top: 16px;
+    font-size: 14px;
+}
+
+/* Cancel Session Button */
+.btn-cancel-session {
+    padding: 10px 20px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-cancel-session:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+/* Cancel Confirm Modal */
+.cancel-confirm-modal {
+    max-width: 500px;
+}
+
+.session-detail-cancel {
+    margin-top: 20px;
+    padding: 16px;
+    background: #141414;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+}
+
+.btn-confirm-cancel {
+    padding: 10px 24px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-confirm-cancel:hover:not(:disabled) {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.btn-confirm-cancel:disabled {
+    background: #6b7280;
+    cursor: not-allowed;
+    opacity: 0.6;
 }

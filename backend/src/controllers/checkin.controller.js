@@ -45,37 +45,72 @@ const getCheckOutStatus = (checkOutTime, scheduledEndTime) => {
 exports.getTodaySessions = async (req, res) => {
     try {
         const hoiVienId = req.user.id;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        // Get today's date in Vietnam timezone (UTC+7)
+        // Calculate Vietnam time from UTC
+        const now = new Date();
+        const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+        const vietnamTime = new Date(utcTime + (7 * 60 * 60 * 1000)); // UTC+7
+
+        // Get date components in Vietnam time
+        const year = vietnamTime.getUTCFullYear();
+        const month = vietnamTime.getUTCMonth();
+        const date = vietnamTime.getUTCDate();
+
+        // Create today at 00:00:00 Vietnam time, then convert to UTC
+        const todayVietnam = new Date(Date.UTC(year, month, date, 0, 0, 0, 0));
+        const todayUTC = new Date(todayVietnam.getTime() - (7 * 60 * 60 * 1000)); // Convert back to UTC
+        const tomorrowUTC = new Date(todayUTC);
+        tomorrowUTC.setDate(tomorrowUTC.getDate() + 1);
 
         // Find sessions where member is registered
         const buoiTaps = await BuoiTap.find({
             'danhSachHoiVien.hoiVien': hoiVienId,
             ngayTap: {
-                $gte: today,
-                $lt: tomorrow
+                $gte: todayUTC,
+                $lt: tomorrowUTC
             }
         })
             .populate('chiNhanh', 'tenChiNhanh diaChi')
             .populate('ptPhuTrach', 'hoTen')
             .sort({ gioBatDau: 1 });
 
-        // Get check-in records for today
+        // Get check-in records for today (including those without check-out)
         const checkInRecords = await CheckInRecord.find({
             hoiVien: hoiVienId,
             checkInTime: {
-                $gte: today,
-                $lt: tomorrow
+                $gte: todayUTC,
+                $lt: tomorrowUTC
+            }
+        }).sort({ checkInTime: -1 });
+
+        // Also get any pending check-out records (checked in today but not checked out yet)
+        // This ensures we show sessions that need check-out even if they're from earlier
+        const pendingCheckOutRecords = await CheckInRecord.find({
+            hoiVien: hoiVienId,
+            checkOutTime: null,
+            checkInTime: {
+                $gte: todayUTC,
+                $lt: tomorrowUTC
             }
         });
 
+        // Note: pendingCheckOutRecords is already included in checkInRecords
+        // but we prioritize pending check-outs when mapping
+
         // Map check-in records to sessions
         const sessionsWithCheckIn = buoiTaps.map(buoiTap => {
-            const checkInRecord = checkInRecords.find(
+            // Find check-in record for this session (prefer non-checked-out if exists)
+            let checkInRecord = pendingCheckOutRecords.find(
                 record => record.buoiTap.toString() === buoiTap._id.toString()
             );
+
+            // If no pending check-out, find any check-in record
+            if (!checkInRecord) {
+                checkInRecord = checkInRecords.find(
+                    record => record.buoiTap.toString() === buoiTap._id.toString()
+                );
+            }
 
             const memberInfo = buoiTap.danhSachHoiVien.find(
                 member => member.hoiVien.toString() === hoiVienId
@@ -88,7 +123,10 @@ exports.getTodaySessions = async (req, res) => {
                     checkInTime: checkInRecord.checkInTime,
                     checkOutTime: checkInRecord.checkOutTime,
                     checkInStatus: checkInRecord.checkInStatus,
-                    checkOutStatus: checkInRecord.checkOutStatus
+                    checkOutStatus: checkInRecord.checkOutStatus,
+                    thoiGianMuonCheckIn: checkInRecord.thoiGianMuonCheckIn,
+                    thoiGianSomCheckOut: checkInRecord.thoiGianSomCheckOut,
+                    sessionDuration: checkInRecord.sessionDuration
                 } : null,
                 attendanceStatus: memberInfo ? memberInfo.trangThai : null
             };
@@ -172,15 +210,17 @@ exports.checkIn = async (req, res) => {
         // CRITICAL: Calculate similarity with average encoding (required check)
         const similarityWithAverage = calculateCosineSimilarity(faceEncoding, faceEncodingDoc.averageEncoding);
 
-        // CRITICAL SECURITY: Threshold for face matching - INCREASED to 0.90 for MAXIMUM strictness
+        // CRITICAL SECURITY: Threshold for face matching - INCREASED to 0.95 for EXTREME strictness
         // Higher threshold = more strict matching (prevents false positives)
-        // 0.90 is VERY strict - only nearly identical faces will pass
+        // 0.95 is EXTREMELY strict - only nearly identical faces will pass
         // This is CRITICAL to prevent false positives from:
         // - Photos of other people (even on phone screens)
         // - Different people
         // - Similar-looking people
         // - 2D images (photos) vs 3D faces (real people)
-        const threshold = 0.90;
+        // - Twins or very similar faces
+        // NOTE: This may cause some false negatives (rejecting valid users) but is necessary for security
+        const threshold = 0.95;
 
         // CRITICAL: Check similarity with ALL stored encodings
         const similarities = [];
@@ -212,9 +252,10 @@ exports.checkIn = async (req, res) => {
         const meetsStoredRequirement = matchesWithStored.length >= requiredMatches;
 
         // CRITICAL: Also check that maxSimilarity is significantly above threshold
-        // Require maxSimilarity to be at least 0.92 (even higher than threshold)
+        // Require maxSimilarity to be at least 0.96 (even higher than threshold)
         // This ensures we're not just barely passing the threshold
-        const minMaxSimilarity = 0.92; // Even stricter than threshold
+        // This is EXTREMELY strict to prevent ANY false positives
+        const minMaxSimilarity = 0.96; // Even stricter than threshold (0.95)
         const meetsMaxSimilarityRequirement = maxSimilarity >= minMaxSimilarity;
 
         // Final match requires ALL conditions to be true
@@ -430,15 +471,17 @@ exports.checkOut = async (req, res) => {
         // CRITICAL: Calculate similarity with average encoding (required check)
         const similarityWithAverage = calculateCosineSimilarity(faceEncoding, faceEncodingDoc.averageEncoding);
 
-        // CRITICAL SECURITY: Threshold for face matching - INCREASED to 0.90 for MAXIMUM strictness
+        // CRITICAL SECURITY: Threshold for face matching - INCREASED to 0.95 for EXTREME strictness
         // Higher threshold = more strict matching (prevents false positives)
-        // 0.90 is VERY strict - only nearly identical faces will pass
+        // 0.95 is EXTREMELY strict - only nearly identical faces will pass
         // This is CRITICAL to prevent false positives from:
         // - Photos of other people (even on phone screens)
         // - Different people
         // - Similar-looking people
         // - 2D images (photos) vs 3D faces (real people)
-        const threshold = 0.90;
+        // - Twins or very similar faces
+        // NOTE: This may cause some false negatives (rejecting valid users) but is necessary for security
+        const threshold = 0.95;
 
         // CRITICAL: Check similarity with ALL stored encodings
         const similarities = [];
@@ -470,9 +513,10 @@ exports.checkOut = async (req, res) => {
         const meetsStoredRequirement = matchesWithStored.length >= requiredMatches;
 
         // CRITICAL: Also check that maxSimilarity is significantly above threshold
-        // Require maxSimilarity to be at least 0.92 (even higher than threshold)
+        // Require maxSimilarity to be at least 0.96 (even higher than threshold)
         // This ensures we're not just barely passing the threshold
-        const minMaxSimilarity = 0.92; // Even stricter than threshold
+        // This is EXTREMELY strict to prevent ANY false positives
+        const minMaxSimilarity = 0.96; // Even stricter than threshold (0.95)
         const meetsMaxSimilarityRequirement = maxSimilarity >= minMaxSimilarity;
 
         // Final match requires ALL conditions to be true
@@ -628,6 +672,295 @@ exports.getCheckInHistory = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi server khi lấy lịch sử check-in',
+            error: error.message
+        });
+    }
+};
+
+// Get QR code of current member
+exports.getQRCode = async (req, res) => {
+    try {
+        const hoiVienId = req.user.id;
+
+        // Find member
+        const hoiVien = await HoiVien.findById(hoiVienId).select('qrCode hoTen');
+
+        if (!hoiVien) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy hội viên'
+            });
+        }
+
+        // If QR code doesn't exist, generate it (for existing members)
+        if (!hoiVien.qrCode) {
+            // Generate QR code
+            const crypto = require('crypto');
+            let qrCode;
+            let isUnique = false;
+
+            while (!isUnique) {
+                qrCode = crypto.randomBytes(32).toString('hex');
+                const existing = await HoiVien.findOne({ qrCode: qrCode });
+                if (!existing) {
+                    isUnique = true;
+                }
+            }
+
+            hoiVien.qrCode = qrCode;
+            await hoiVien.save();
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                qrCode: hoiVien.qrCode,
+                hoTen: hoiVien.hoTen
+            }
+        });
+    } catch (error) {
+        console.error('Error in getQRCode:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi lấy mã QR',
+            error: error.message
+        });
+    }
+};
+
+// Check-in with QR code
+exports.checkInWithQR = async (req, res) => {
+    try {
+        const { buoiTapId, qrCode } = req.body;
+
+        // Validate input
+        if (!buoiTapId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng cung cấp ID buổi tập'
+            });
+        }
+
+        if (!qrCode) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng cung cấp mã QR'
+            });
+        }
+
+        // Find member by QR code
+        const hoiVien = await HoiVien.findOne({ qrCode: qrCode });
+
+        if (!hoiVien) {
+            return res.status(404).json({
+                success: false,
+                message: 'Mã QR không hợp lệ'
+            });
+        }
+
+        // Check if member is active
+        if (hoiVien.trangThaiHoiVien !== 'DANG_HOAT_DONG') {
+            return res.status(403).json({
+                success: false,
+                message: 'Tài khoản hội viên không hoạt động'
+            });
+        }
+
+        const hoiVienId = hoiVien._id;
+
+        // Check if session exists and member is registered
+        const buoiTap = await BuoiTap.findById(buoiTapId)
+            .populate('chiNhanh', 'tenChiNhanh diaChi')
+            .populate('ptPhuTrach', 'hoTen');
+
+        if (!buoiTap) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy buổi tập'
+            });
+        }
+
+        // Check if member is registered for this session
+        const memberInfo = buoiTap.danhSachHoiVien.find(
+            member => member.hoiVien.toString() === hoiVienId.toString()
+        );
+
+        if (!memberInfo || memberInfo.trangThai !== 'DA_DANG_KY') {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn chưa đăng ký buổi tập này'
+            });
+        }
+
+        // Check if already checked in
+        const existingRecord = await CheckInRecord.findOne({
+            hoiVien: hoiVienId,
+            buoiTap: buoiTapId,
+            checkOutTime: null
+        });
+
+        if (existingRecord) {
+            return res.status(400).json({
+                success: false,
+                message: 'Bạn đã check-in buổi tập này rồi'
+            });
+        }
+
+        // Calculate check-in status
+        const now = new Date();
+        const scheduledStartTime = parseTime(buoiTap.gioBatDau, buoiTap.ngayTap);
+        const checkInStatus = getCheckInStatus(now, scheduledStartTime);
+        const thoiGianMuonCheckIn = now > scheduledStartTime
+            ? getTimeDifference(now, scheduledStartTime)
+            : 0;
+
+        // Create check-in record
+        const checkInRecord = new CheckInRecord({
+            hoiVien: hoiVienId,
+            buoiTap: buoiTapId,
+            checkInTime: now,
+            checkInStatus: checkInStatus,
+            thoiGianMuonCheckIn: thoiGianMuonCheckIn
+        });
+
+        await checkInRecord.save();
+
+        console.log(`[QR Check-in] ✅ Member ${hoiVienId} checked in to session ${buoiTapId} using QR code`);
+
+        res.status(200).json({
+            success: true,
+            message: 'Check-in thành công',
+            data: {
+                checkInRecord: {
+                    checkInTime: checkInRecord.checkInTime,
+                    checkInStatus: checkInRecord.checkInStatus,
+                    thoiGianMuonCheckIn: checkInRecord.thoiGianMuonCheckIn
+                },
+                buoiTap: {
+                    tenBuoiTap: buoiTap.tenBuoiTap,
+                    gioBatDau: buoiTap.gioBatDau,
+                    gioKetThuc: buoiTap.gioKetThuc,
+                    chiNhanh: buoiTap.chiNhanh
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error in checkInWithQR:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi check-in bằng QR code',
+            error: error.message
+        });
+    }
+};
+
+// Check-out with QR code
+exports.checkOutWithQR = async (req, res) => {
+    try {
+        const { buoiTapId, qrCode } = req.body;
+
+        // Validate input
+        if (!buoiTapId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng cung cấp ID buổi tập'
+            });
+        }
+
+        if (!qrCode) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng cung cấp mã QR'
+            });
+        }
+
+        // Find member by QR code
+        const hoiVien = await HoiVien.findOne({ qrCode: qrCode });
+
+        if (!hoiVien) {
+            return res.status(404).json({
+                success: false,
+                message: 'Mã QR không hợp lệ'
+            });
+        }
+
+        // Check if member is active
+        if (hoiVien.trangThaiHoiVien !== 'DANG_HOAT_DONG') {
+            return res.status(403).json({
+                success: false,
+                message: 'Tài khoản hội viên không hoạt động'
+            });
+        }
+
+        const hoiVienId = hoiVien._id;
+
+        // Find check-in record
+        const checkInRecord = await CheckInRecord.findOne({
+            hoiVien: hoiVienId,
+            buoiTap: buoiTapId,
+            checkOutTime: null
+        }).populate('buoiTap');
+
+        if (!checkInRecord) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy bản ghi check-in. Vui lòng check-in trước.'
+            });
+        }
+
+        // Get buoi tap
+        const buoiTap = checkInRecord.buoiTap || await BuoiTap.findById(buoiTapId);
+        if (!buoiTap) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy buổi tập'
+            });
+        }
+
+        // Calculate check-out status
+        const now = new Date();
+        const scheduledEndTime = parseTime(buoiTap.gioKetThuc, buoiTap.ngayTap);
+        const checkOutStatus = getCheckOutStatus(now, scheduledEndTime);
+        const thoiGianSomCheckOut = now < scheduledEndTime
+            ? getTimeDifference(scheduledEndTime, now)
+            : 0;
+
+        // Calculate session duration
+        const sessionDuration = getTimeDifference(now, checkInRecord.checkInTime);
+
+        // Update check-in record
+        checkInRecord.checkOutTime = now;
+        checkInRecord.checkOutStatus = checkOutStatus;
+        checkInRecord.thoiGianSomCheckOut = thoiGianSomCheckOut;
+        checkInRecord.sessionDuration = sessionDuration;
+        await checkInRecord.save();
+
+        console.log(`[QR Check-out] ✅ Member ${hoiVienId} checked out from session ${buoiTapId} using QR code`);
+
+        res.status(200).json({
+            success: true,
+            message: 'Check-out thành công',
+            data: {
+                checkInRecord: {
+                    checkInTime: checkInRecord.checkInTime,
+                    checkOutTime: checkInRecord.checkOutTime,
+                    checkInStatus: checkInRecord.checkInStatus,
+                    checkOutStatus: checkInRecord.checkOutStatus,
+                    thoiGianSomCheckOut: checkInRecord.thoiGianSomCheckOut,
+                    sessionDuration: checkInRecord.sessionDuration
+                },
+                buoiTap: {
+                    tenBuoiTap: buoiTap.tenBuoiTap,
+                    gioBatDau: buoiTap.gioBatDau,
+                    gioKetThuc: buoiTap.gioKetThuc
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error in checkOutWithQR:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi check-out bằng QR code',
             error: error.message
         });
     }

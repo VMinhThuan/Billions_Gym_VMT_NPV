@@ -17,6 +17,7 @@ export const useFaceDetection = (videoRef, canvasRef, options = {}) => {
     const [isDetecting, setIsDetecting] = useState(false);
     const [faceDetected, setFaceDetected] = useState(false);
     const [faceDescriptor, setFaceDescriptor] = useState(null);
+    const [faceLandmarks, setFaceLandmarks] = useState(null); // Add landmarks state
     const [error, setError] = useState(null);
     const detectionIntervalRef = useRef(null);
     const [loadingProgress, setLoadingProgress] = useState('');
@@ -216,6 +217,11 @@ export const useFaceDetection = (videoRef, canvasRef, options = {}) => {
                         return true; // Was false, update to true
                     });
 
+                    // Update landmarks if available (for liveness detection)
+                    if (detections.landmarks) {
+                        setFaceLandmarks(detections.landmarks.positions || detections.landmarks);
+                    }
+
                     // Only update descriptor if it's significantly different (reduced threshold for faster updates)
                     setFaceDescriptor(prev => {
                         const newDescriptor = detections.descriptor;
@@ -256,6 +262,7 @@ export const useFaceDetection = (videoRef, canvasRef, options = {}) => {
                         if (!prev) return prev; // Already null, no update
                         return null; // Had value, clear it
                     });
+                    setFaceLandmarks(null); // Clear landmarks when face not detected
 
                     const ctx = currentCanvas.getContext('2d');
                     if (ctx) {
@@ -289,7 +296,56 @@ export const useFaceDetection = (videoRef, canvasRef, options = {}) => {
 
     // Get face descriptor (128D vector)
     const getFaceDescriptor = () => {
-        return faceDescriptor ? Array.from(faceDescriptor) : null;
+        if (!faceDescriptor) return null;
+
+        // Ensure descriptor is a proper array of numbers
+        try {
+            const descriptorArray = Array.isArray(faceDescriptor)
+                ? faceDescriptor
+                : Array.from(faceDescriptor);
+
+            // Validate descriptor
+            if (descriptorArray.length !== 128) {
+                console.error('[useFaceDetection] Invalid descriptor length:', descriptorArray.length);
+                return null;
+            }
+
+            // Check for invalid values
+            const hasInvalidValues = descriptorArray.some(val =>
+                typeof val !== 'number' || isNaN(val) || !isFinite(val)
+            );
+
+            if (hasInvalidValues) {
+                console.error('[useFaceDetection] Descriptor contains invalid values (NaN/Infinity)');
+                return null;
+            }
+
+            // Check if all zeros
+            const isAllZeros = descriptorArray.every(val => val === 0);
+            if (isAllZeros) {
+                console.error('[useFaceDetection] Descriptor is all zeros - invalid!');
+                return null;
+            }
+
+            return descriptorArray;
+        } catch (error) {
+            console.error('[useFaceDetection] Error converting descriptor:', error);
+            return null;
+        }
+    };
+
+    // Get face landmarks
+    const getFaceLandmarks = () => {
+        if (!faceLandmarks) return null;
+        // Convert landmarks to array format if needed
+        if (Array.isArray(faceLandmarks)) {
+            return faceLandmarks;
+        }
+        // If landmarks is an object with positions property
+        if (faceLandmarks.positions) {
+            return faceLandmarks.positions;
+        }
+        return null;
     };
 
     // Cleanup on unmount
@@ -304,6 +360,7 @@ export const useFaceDetection = (videoRef, canvasRef, options = {}) => {
         isDetecting,
         faceDetected,
         faceDescriptor: getFaceDescriptor(),
+        faceLandmarks: getFaceLandmarks(), // Export landmarks for liveness detection
         error,
         loadingProgress,
         startDetection,

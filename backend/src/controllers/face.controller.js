@@ -16,20 +16,65 @@ const calculateDistance = (encoding1, encoding2) => {
 
 // Helper function to calculate cosine similarity (better for face recognition)
 const calculateCosineSimilarity = (encoding1, encoding2) => {
-    if (encoding1.length !== encoding2.length) {
+    // Validate inputs
+    if (!encoding1 || !encoding2) {
+        console.error('[calculateCosineSimilarity] One or both encodings are null/undefined');
         return 0;
     }
+
+    if (!Array.isArray(encoding1) || !Array.isArray(encoding2)) {
+        console.error('[calculateCosineSimilarity] One or both encodings are not arrays');
+        return 0;
+    }
+
+    if (encoding1.length !== encoding2.length) {
+        console.error(`[calculateCosineSimilarity] Encoding length mismatch: ${encoding1.length} vs ${encoding2.length}`);
+        return 0;
+    }
+
+    // Check for invalid values
+    const hasInvalid1 = encoding1.some(val => typeof val !== 'number' || isNaN(val) || !isFinite(val));
+    const hasInvalid2 = encoding2.some(val => typeof val !== 'number' || isNaN(val) || !isFinite(val));
+
+    if (hasInvalid1 || hasInvalid2) {
+        console.error('[calculateCosineSimilarity] One or both encodings contain invalid values (NaN/Infinity)');
+        return 0;
+    }
+
+    // Calculate cosine similarity
     let dotProduct = 0;
     let norm1 = 0;
     let norm2 = 0;
+
     for (let i = 0; i < encoding1.length; i++) {
-        dotProduct += encoding1[i] * encoding2[i];
-        norm1 += encoding1[i] * encoding1[i];
-        norm2 += encoding2[i] * encoding2[i];
+        const val1 = encoding1[i];
+        const val2 = encoding2[i];
+        dotProduct += val1 * val2;
+        norm1 += val1 * val1;
+        norm2 += val2 * val2;
     }
+
     const denominator = Math.sqrt(norm1) * Math.sqrt(norm2);
-    if (denominator === 0) return 0;
-    return dotProduct / denominator;
+
+    if (denominator === 0) {
+        console.error('[calculateCosineSimilarity] Denominator is 0 (one or both encodings are all zeros)');
+        return 0;
+    }
+
+    const similarity = dotProduct / denominator;
+
+    // Validate result
+    if (isNaN(similarity) || !isFinite(similarity)) {
+        console.error('[calculateCosineSimilarity] Calculated similarity is invalid:', similarity);
+        return 0;
+    }
+
+    // Cosine similarity should be between -1 and 1, but for face recognition it's usually between 0 and 1
+    if (similarity < -1 || similarity > 1) {
+        console.warn('[calculateCosineSimilarity] Similarity out of expected range:', similarity);
+    }
+
+    return similarity;
 };
 
 // Validate that 3 enrollment encodings belong to the same person (internal helper)
@@ -182,11 +227,41 @@ exports.verifyFace = async (req, res) => {
         const { encoding } = req.body;
         const hoiVienId = req.user.id;
 
+        // Debug: Log incoming request
+        console.log(`[Face Verification] Received verification request for user ${hoiVienId}`);
+        console.log(`[Face Verification] Request body keys:`, Object.keys(req.body));
+        console.log(`[Face Verification] Encoding type:`, typeof encoding);
+        console.log(`[Face Verification] Encoding is array:`, Array.isArray(encoding));
+        console.log(`[Face Verification] Encoding length:`, encoding ? encoding.length : 'null/undefined');
+
         // Validate input
-        if (!encoding || !Array.isArray(encoding) || encoding.length !== 128) {
+        if (!encoding) {
+            console.error(`[Face Verification] Encoding is null/undefined for user ${hoiVienId}`);
             return res.status(400).json({
                 success: false,
-                message: 'Face encoding phải là mảng 128 số'
+                message: 'Face encoding không được để trống',
+                isMatch: false,
+                similarity: 0
+            });
+        }
+
+        if (!Array.isArray(encoding)) {
+            console.error(`[Face Verification] Encoding is not an array for user ${hoiVienId}, type: ${typeof encoding}`);
+            return res.status(400).json({
+                success: false,
+                message: 'Face encoding phải là mảng',
+                isMatch: false,
+                similarity: 0
+            });
+        }
+
+        if (encoding.length !== 128) {
+            console.error(`[Face Verification] Encoding length is ${encoding.length}, expected 128 for user ${hoiVienId}`);
+            return res.status(400).json({
+                success: false,
+                message: `Face encoding phải là mảng 128 số (nhận được ${encoding.length} số)`,
+                isMatch: false,
+                similarity: 0
             });
         }
 
@@ -211,22 +286,70 @@ exports.verifyFace = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'Face encoding không hợp lệ',
-                isMatch: false
+                isMatch: false,
+                similarity: 0
             });
         }
+
+        // Debug: Check if encoding is all zeros
+        const isAllZeros = encoding.every(val => val === 0);
+        if (isAllZeros) {
+            console.error(`[Face Verification] Encoding is all zeros for user ${hoiVienId}`);
+            return res.status(400).json({
+                success: false,
+                message: 'Face encoding không hợp lệ (toàn số 0)',
+                isMatch: false,
+                similarity: 0
+            });
+        }
+
+        // Debug: Check stored encoding
+        const isStoredEncodingAllZeros = faceEncoding.averageEncoding && faceEncoding.averageEncoding.every(val => val === 0);
+        if (isStoredEncodingAllZeros) {
+            console.error(`[Face Verification] Stored average encoding is all zeros for user ${hoiVienId}`);
+            return res.status(500).json({
+                success: false,
+                message: 'Dữ liệu khuôn mặt trong hệ thống không hợp lệ. Vui lòng đăng ký lại.',
+                isMatch: false,
+                similarity: 0
+            });
+        }
+
+        // Debug: Log encoding statistics
+        const encodingStats = {
+            length: encoding.length,
+            min: Math.min(...encoding),
+            max: Math.max(...encoding),
+            sum: encoding.reduce((a, b) => a + b, 0),
+            avg: encoding.reduce((a, b) => a + b, 0) / encoding.length
+        };
+        console.log(`[Face Verification] Incoming encoding stats for user ${hoiVienId}:`, encodingStats);
+
+        const storedEncodingStats = {
+            length: faceEncoding.averageEncoding.length,
+            min: Math.min(...faceEncoding.averageEncoding),
+            max: Math.max(...faceEncoding.averageEncoding),
+            sum: faceEncoding.averageEncoding.reduce((a, b) => a + b, 0),
+            avg: faceEncoding.averageEncoding.reduce((a, b) => a + b, 0) / faceEncoding.averageEncoding.length
+        };
+        console.log(`[Face Verification] Stored average encoding stats for user ${hoiVienId}:`, storedEncodingStats);
 
         // Calculate similarity with average encoding (required check)
         const similarityWithAverage = calculateCosineSimilarity(encoding, faceEncoding.averageEncoding);
 
-        // CRITICAL SECURITY: Threshold for face matching - INCREASED to 0.90 for MAXIMUM strictness
+        console.log(`[Face Verification] Similarity with average encoding: ${similarityWithAverage.toFixed(4)} for user ${hoiVienId}`);
+
+        // CRITICAL SECURITY: Threshold for face matching - INCREASED to 0.95 for EXTREME strictness
         // Higher threshold = more strict matching (prevents false positives)
-        // 0.90 is VERY strict - only nearly identical faces will pass
+        // 0.95 is EXTREMELY strict - only nearly identical faces will pass
         // This is CRITICAL to prevent false positives from:
         // - Photos of other people (even on phone screens)
         // - Different people
         // - Similar-looking people
         // - 2D images (photos) vs 3D faces (real people)
-        const threshold = 0.90;
+        // - Twins or very similar faces
+        // NOTE: This may cause some false negatives (rejecting valid users) but is necessary for security
+        const threshold = 0.95;
 
         // CRITICAL: Check similarity with ALL stored encodings
         const similarities = [];
@@ -258,9 +381,10 @@ exports.verifyFace = async (req, res) => {
         const meetsStoredRequirement = matchesWithStored.length >= requiredMatches;
 
         // CRITICAL: Also check that maxSimilarity is significantly above threshold
-        // Require maxSimilarity to be at least 0.92 (even higher than threshold)
+        // Require maxSimilarity to be at least 0.96 (even higher than threshold)
         // This ensures we're not just barely passing the threshold
-        const minMaxSimilarity = 0.92; // Even stricter than threshold
+        // This is EXTREMELY strict to prevent ANY false positives
+        const minMaxSimilarity = 0.96; // Even stricter than threshold (0.95)
         const meetsMaxSimilarityRequirement = maxSimilarity >= minMaxSimilarity;
 
         // Final match requires ALL conditions to be true
@@ -301,18 +425,29 @@ exports.verifyFace = async (req, res) => {
             console.log(`  - ✅✅✅ SECURITY: Face VERIFIED - This IS the enrolled user's face`);
         }
 
+        // CRITICAL: Ensure similarity is never 0 unless there's a real issue
+        // If maxSimilarity is 0, there's a problem with the encodings
+        if (maxSimilarity === 0) {
+            console.error(`[Face Verification] CRITICAL: maxSimilarity is 0 for user ${hoiVienId}`);
+            console.error(`[Face Verification] This indicates a problem with encoding comparison`);
+            console.error(`[Face Verification] Similarity with average: ${similarityWithAverage}`);
+            console.error(`[Face Verification] Individual similarities:`, similarities.map(s => `${s.index}: ${s.similarity.toFixed(4)}`));
+        }
+
         res.status(200).json({
             success: true,
             isMatch: finalMatch,
-            similarity: maxSimilarity,
-            similarityWithAverage: similarityWithAverage,
+            similarity: maxSimilarity > 0 ? maxSimilarity : 0, // Ensure we never return negative or NaN
+            similarityWithAverage: similarityWithAverage > 0 ? similarityWithAverage : 0,
             threshold: threshold,
             matchesWithStored: matchesWithStored.length,
             totalStored: faceEncoding.encodings.length,
             requiredMatches: requiredMatches,
             message: finalMatch
                 ? 'Xác thực khuôn mặt thành công'
-                : `Không khớp với khuôn mặt đã đăng ký (Độ tương đồng tối đa: ${(maxSimilarity * 100).toFixed(1)}%, Yêu cầu: ${(threshold * 100).toFixed(1)}%. Khớp với ${matchesWithStored.length}/${faceEncoding.encodings.length} encodings, yêu cầu: >= ${requiredMatches})`
+                : maxSimilarity === 0
+                    ? 'Không thể so sánh khuôn mặt. Vui lòng thử lại hoặc đăng ký lại khuôn mặt.'
+                    : `Không khớp với khuôn mặt đã đăng ký (Độ tương đồng tối đa: ${(maxSimilarity * 100).toFixed(1)}%, Yêu cầu: ${(threshold * 100).toFixed(1)}%. Khớp với ${matchesWithStored.length}/${faceEncoding.encodings.length} encodings, yêu cầu: TẤT CẢ ${requiredMatches})`
         });
     } catch (error) {
         console.error('Error in verifyFace:', error);

@@ -102,11 +102,29 @@ const NotificationIcon = () => {
         };
     }, []);
 
+    // Check and create schedule registration notification
+    const checkAndCreateScheduleNotification = async () => {
+        if (!user?._id) return;
+
+        try {
+            // Gọi API check-registration-eligibility để tự động tạo notification nếu đủ điều kiện
+            await api.get('/lichtap/check-registration-eligibility');
+            // Sau khi check, refresh notifications
+            fetchNotifications();
+            fetchUnreadCount();
+        } catch (error) {
+            // Không log error vì có thể user chưa có gói tập hoặc chưa đúng thời gian
+            console.log('Schedule registration check:', error.response?.data?.message || 'Not eligible');
+        }
+    };
+
     // Fetch data on mount and when user changes
     useEffect(() => {
         if (user?._id) {
             fetchNotifications();
             fetchUnreadCount();
+            // Check và tạo notification đăng ký lịch tập nếu đủ điều kiện
+            checkAndCreateScheduleNotification();
         }
     }, [user?._id]);
 
@@ -126,11 +144,15 @@ const NotificationIcon = () => {
         };
     }, [user?._id]);
 
-    // Auto refresh unread count every 30 seconds
+    // Auto refresh unread count and check schedule registration every 30 seconds
     useEffect(() => {
         if (!user?._id) return;
 
-        const interval = setInterval(fetchUnreadCount, 30000);
+        const interval = setInterval(() => {
+            fetchUnreadCount();
+            // Kiểm tra và tạo notification đăng ký lịch tập mỗi 30 giây
+            checkAndCreateScheduleNotification();
+        }, 30000);
         return () => clearInterval(interval);
     }, [user?._id]);
 
@@ -249,6 +271,11 @@ const NotificationIcon = () => {
                                             }
                                             // Nếu là thông báo workflow, navigate đến trang workflow
                                             if (notification.loaiThongBao === 'WORKFLOW' && notification.duLieuLienQuan?.actionUrl) {
+                                                navigate(notification.duLieuLienQuan.actionUrl);
+                                                setIsOpen(false);
+                                            }
+                                            // Nếu là thông báo đăng ký lịch tập, navigate đến trang schedule
+                                            else if (notification.loaiThongBao === 'WORKOUT_REMINDER' && notification.duLieuLienQuan?.actionUrl) {
                                                 navigate(notification.duLieuLienQuan.actionUrl);
                                                 setIsOpen(false);
                                             }
