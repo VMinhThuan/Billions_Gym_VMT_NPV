@@ -2,6 +2,8 @@
     width: 100%;
     max-width: 100%;
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .qr-scanner {
@@ -11,6 +13,18 @@
     border-radius: 8px;
     overflow: hidden;
     position: relative;
+    flex: 1;
+}
+
+/* When inside camera-viewer-container, use full height */
+.camera-viewer-container .qr-scanner-container {
+    height: 100%;
+}
+
+.camera-viewer-container .qr-scanner {
+    height: 100%;
+    min-height: 100%;
+    border-radius: 0;
 }
 
 .qr-scanner-error {

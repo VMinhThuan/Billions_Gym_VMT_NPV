@@ -354,6 +354,29 @@ const CheckInOut = () => {
         return timeString;
     };
 
+    const formatDate = (date) => {
+        if (!date) return '';
+        const d = new Date(date);
+        const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+        const dayName = days[d.getDay()];
+        const day = d.getDate().toString().padStart(2, '0');
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const year = d.getFullYear();
+        return `${dayName}, ${day}/${month}/${year}`;
+    };
+
+    const getSessionIcon = (sessionName) => {
+        const name = sessionName?.toLowerCase() || '';
+        if (name.includes('back') || name.includes('biceps')) return '🏋️';
+        if (name.includes('boxing')) return '🥊';
+        if (name.includes('cardio') || name.includes('hiit')) return '💪';
+        if (name.includes('core')) return '🔥';
+        if (name.includes('leg')) return '🦵';
+        if (name.includes('chest')) return '💪';
+        if (name.includes('yoga') || name.includes('stretch')) return '🧘';
+        return '🏋️';
+    };
+
     const getStatusText = (status) => {
         const statusMap = {
             'DUNG_GIO': 'Đúng giờ',
@@ -362,6 +385,26 @@ const CheckInOut = () => {
             'CHUA_CHECKOUT': 'Chưa check-out'
         };
         return statusMap[status] || status;
+    };
+
+    const getStatusIcon = (status) => {
+        const iconMap = {
+            'DUNG_GIO': '✅',
+            'SOM': '⏰',
+            'MUON': '⏱️',
+            'CHUA_CHECKOUT': '⏳'
+        };
+        return iconMap[status] || '⏳';
+    };
+
+    const getStatusBadgeClass = (status) => {
+        const classMap = {
+            'DUNG_GIO': 'on-time',
+            'SOM': 'early',
+            'MUON': 'late',
+            'CHUA_CHECKOUT': 'pending'
+        };
+        return classMap[status] || 'pending';
     };
 
     const getStatusColor = (status) => {
@@ -674,7 +717,10 @@ const CheckInOut = () => {
             <div className={`checkin-content ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
                 <div className="checkin-header">
                     <h1>Check-in / Check-out</h1>
-                    <p>Chào mừng, {user?.hoTen || 'Hội viên'}!</p>
+                    <div className="date-display">
+                        📅 Hôm nay: {formatDate(new Date())}
+                    </div>
+                    <p className="greeting">Chào mừng, {user?.hoTen || 'Hội viên'}!</p>
                     {/* Only show error message if it's not a "already checked in" message and there's a selected session */}
                     {error && !showEnrollment && !error.includes('đã check-in') && (
                         <div className="error-message" style={{
@@ -761,106 +807,108 @@ const CheckInOut = () => {
                                                     // The key change in QRScanner will force a remount
                                                 }}
                                             >
-                                                <div className="session-info">
-                                                    <h3>{session.tenBuoiTap}</h3>
-                                                    <p className="session-time">
-                                                        {formatTime(session.gioBatDau)} - {formatTime(session.gioKetThuc)}
-                                                    </p>
-                                                    {session.chiNhanh && (
-                                                        <p className="session-branch">{session.chiNhanh.tenChiNhanh}</p>
-                                                    )}
+                                                <div className="session-card-header">
+                                                    <div className="session-info">
+                                                        <h3>
+                                                            <span className="session-icon">{getSessionIcon(session.tenBuoiTap)}</span>
+                                                            {session.tenBuoiTap}
+                                                        </h3>
+                                                        <p className="session-time">
+                                                            {formatTime(session.gioBatDau)} - {formatTime(session.gioKetThuc)}
+                                                        </p>
+                                                        {session.chiNhanh && (
+                                                            <p className="session-branch">{session.chiNhanh.tenChiNhanh}</p>
+                                                        )}
+                                                    </div>
+                                                    <div className="session-status">
+                                                        {session.hasCheckedIn ? (
+                                                            session.checkInRecord && session.checkInRecord.checkOutTime ? (
+                                                                <span className={`status-badge session-status-badge completed`}>
+                                                                    ✅ Đã hoàn thành
+                                                                </span>
+                                                            ) : (
+                                                                <span className={`status-badge session-status-badge checked-in`}>
+                                                                    🟢 Đang tập
+                                                                </span>
+                                                            )
+                                                        ) : canCheckIn ? (
+                                                            <span className={`status-badge session-status-badge pending`}>
+                                                                ⏳ Chưa check-in
+                                                            </span>
+                                                        ) : (
+                                                            <span className="status-badge session-status-badge">{session.attendanceStatus || 'N/A'}</span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div className="session-status">
-                                                    {session.hasCheckedIn ? (
-                                                        <div>
-                                                            {session.checkInRecord && session.checkInRecord.checkOutTime ? (
-                                                                // Session completed (both check-in and check-out)
-                                                                <>
-                                                                    <span className="status-badge checked-in-completed">Đã hoàn thành</span>
-                                                                    <div className="check-in-details">
-                                                                        <p>Check-in: {new Date(session.checkInRecord.checkInTime).toLocaleTimeString('vi-VN')}</p>
-                                                                        <p style={{
-                                                                            color: getStatusColor(session.checkInRecord.checkInStatus),
-                                                                            fontWeight: '600',
-                                                                            marginTop: '4px'
-                                                                        }}>
-                                                                            {getStatusText(session.checkInRecord.checkInStatus)}
+
+                                                {session.hasCheckedIn && session.checkInRecord && (
+                                                    <div className="session-details">
+                                                        {session.checkInRecord.checkInTime && (
+                                                            <div className="session-detail-row">
+                                                                <span className="session-detail-label">Check-in:</span>
+                                                                <span className="session-detail-value">
+                                                                    {new Date(session.checkInRecord.checkInTime).toLocaleTimeString('vi-VN')}
+                                                                    {session.checkInRecord.checkInStatus && (
+                                                                        <span className={`status-badge ${getStatusBadgeClass(session.checkInRecord.checkInStatus)}`} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}>
+                                                                            {getStatusIcon(session.checkInRecord.checkInStatus)} {getStatusText(session.checkInRecord.checkInStatus)}
                                                                             {session.checkInRecord.thoiGianMuonCheckIn > 0 && (
                                                                                 <span> ({session.checkInRecord.thoiGianMuonCheckIn} phút)</span>
                                                                             )}
-                                                                        </p>
-                                                                        <p style={{ marginTop: '8px' }}>
-                                                                            Check-out: {new Date(session.checkInRecord.checkOutTime).toLocaleTimeString('vi-VN')}
-                                                                        </p>
+                                                                        </span>
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {session.checkInRecord.checkOutTime && (
+                                                            <>
+                                                                <div className="session-detail-row">
+                                                                    <span className="session-detail-label">Check-out:</span>
+                                                                    <span className="session-detail-value">
+                                                                        {new Date(session.checkInRecord.checkOutTime).toLocaleTimeString('vi-VN')}
                                                                         {session.checkInRecord.checkOutStatus && (
-                                                                            <p style={{
-                                                                                color: getStatusColor(session.checkInRecord.checkOutStatus),
-                                                                                fontWeight: '600',
-                                                                                marginTop: '4px'
-                                                                            }}>
-                                                                                {getStatusText(session.checkInRecord.checkOutStatus)}
+                                                                            <span className={`status-badge ${getStatusBadgeClass(session.checkInRecord.checkOutStatus)}`} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}>
+                                                                                {getStatusIcon(session.checkInRecord.checkOutStatus)} {getStatusText(session.checkInRecord.checkOutStatus)}
                                                                                 {session.checkInRecord.thoiGianSomCheckOut > 0 && (
                                                                                     <span> ({session.checkInRecord.thoiGianSomCheckOut} phút)</span>
                                                                                 )}
-                                                                            </p>
+                                                                            </span>
                                                                         )}
-                                                                        {session.checkInRecord.sessionDuration && (
-                                                                            <p style={{
-                                                                                marginTop: '8px',
-                                                                                fontSize: '0.9rem',
-                                                                                color: '#9ca3af'
-                                                                            }}>
-                                                                                Thời gian tập: {session.checkInRecord.sessionDuration} phút
-                                                                            </p>
-                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                                {session.checkInRecord.sessionDuration && (
+                                                                    <div className="session-detail-row">
+                                                                        <span className="session-detail-label">Thời gian tập:</span>
+                                                                        <span className="session-detail-value">
+                                                                            {session.checkInRecord.sessionDuration} phút
+                                                                        </span>
                                                                     </div>
-                                                                </>
-                                                            ) : (
-                                                                // Session checked in but not checked out
-                                                                <>
-                                                                    <span className="status-badge checked-in">Đã check-in</span>
-                                                                    {session.checkInRecord && (
-                                                                        <div className="check-in-details">
-                                                                            <p>Check-in: {new Date(session.checkInRecord.checkInTime).toLocaleTimeString('vi-VN')}</p>
-                                                                            <p style={{
-                                                                                color: getStatusColor(session.checkInRecord.checkInStatus),
-                                                                                fontWeight: '600',
-                                                                                marginTop: '4px'
-                                                                            }}>
-                                                                                {getStatusText(session.checkInRecord.checkInStatus)}
-                                                                                {session.checkInRecord.thoiGianMuonCheckIn > 0 && (
-                                                                                    <span> ({session.checkInRecord.thoiGianMuonCheckIn} phút)</span>
-                                                                                )}
-                                                                            </p>
-                                                                        </div>
-                                                                    )}
-                                                                    {canCheckOut && (
-                                                                        <button
-                                                                            className="btn-checkout"
-                                                                            style={{
-                                                                                marginTop: '0.5rem',
-                                                                                width: '100%'
-                                                                            }}
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setSelectedSession(session);
-                                                                                setError(null);
-                                                                                setVerificationError(null);
-                                                                                setFaceVerified(false);
-                                                                                verificationRetryCountRef.current = 0;
-                                                                                setCheckInStatus(null);
-                                                                                setCheckInSuccessData(null);
-                                                                                setCheckOutSuccessData(null);
-                                                                                // Log for debugging
-                                                                                console.log('[CheckInOut] Check-out button clicked for session:', session.tenBuoiTap);
-                                                                            }}
-                                                                        >
-                                                                            Check-out ngay
-                                                                        </button>
-                                                                    )}
-                                                                </>
-                                                            )}
-                                                        </div>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                <div className="session-actions">
+                                                    {session.hasCheckedIn ? (
+                                                        canCheckOut ? (
+                                                            <button
+                                                                className="btn-checkout"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedSession(session);
+                                                                    setError(null);
+                                                                    setVerificationError(null);
+                                                                    setFaceVerified(false);
+                                                                    verificationRetryCountRef.current = 0;
+                                                                    setCheckInStatus(null);
+                                                                    setCheckInSuccessData(null);
+                                                                    setCheckOutSuccessData(null);
+                                                                    console.log('[CheckInOut] Check-out button clicked for session:', session.tenBuoiTap);
+                                                                }}
+                                                            >
+                                                                🚪 Check-out ngay
+                                                            </button>
+                                                        ) : null
                                                     ) : canCheckIn ? (
                                                         <button
                                                             className="btn-checkin"
@@ -876,11 +924,9 @@ const CheckInOut = () => {
                                                                 setCheckOutSuccessData(null);
                                                             }}
                                                         >
-                                                            Check-in
+                                                            ✅ Check-in ngay
                                                         </button>
-                                                    ) : (
-                                                        <span className="status-badge">{session.attendanceStatus || 'N/A'}</span>
-                                                    )}
+                                                    ) : null}
                                                 </div>
                                             </div>
                                         );
@@ -960,7 +1006,7 @@ const CheckInOut = () => {
                                         setShouldStopCamera(false); // Reset camera stop flag when switching modes
                                     }}
                                 >
-                                    Quét khuôn mặt
+                                    🧠 Nhận diện
                                 </button>
                                 <button
                                     className={`checkin-mode-tab ${checkInMode === 'qr' ? 'active' : ''}`}
@@ -980,48 +1026,37 @@ const CheckInOut = () => {
                                         // due to key change in QRScanner component
                                     }}
                                 >
-                                    Quét mã QR
+                                    🔳 Mã QR
                                 </button>
                                 <button
                                     className="checkin-mode-tab checkin-mode-tab-qr-display"
                                     onClick={handleShowQRCode}
                                     title="Xem mã QR của tôi"
                                 >
-                                    Mã QR của tôi
+                                    🪪 Mã của tôi
                                 </button>
                             </div>
 
                             {checkInMode === 'face' ? (
                                 <>
-                                    <h2>Camera nhận diện</h2>
+                                    <h2>📷 Khu vực nhận diện</h2>
                                     {/* Only render CheckInCamera when in face mode - unmounting will stop camera */}
-                                    {!shouldStopCamera && checkInStatus !== 'success' ? (
-                                        <CheckInCamera
-                                            key="checkin-camera-face" // Key ensures fresh mount when switching modes
-                                            onFaceDetected={handleFaceDetected}
-                                            onError={setError}
-                                            autoStart={checkInMode === 'face'}
-                                            verificationMode={true}
-                                            onFaceVerified={handleFaceVerified}
-                                        />
-                                    ) : (
-                                        <div style={{
-                                            padding: '2rem',
-                                            textAlign: 'center',
-                                            background: '#1f2937',
-                                            border: '2px dashed #374151',
-                                            borderRadius: '8px',
-                                            color: '#9ca3af',
-                                            minHeight: '300px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center'
-                                        }}>
-                                            <p style={{ margin: 0, fontSize: '1rem' }}>
-                                                Camera đã được tắt sau khi check-in/check-out thành công
-                                            </p>
-                                        </div>
-                                    )}
+                                    <div className="camera-viewer-container">
+                                        {!shouldStopCamera && checkInStatus !== 'success' ? (
+                                            <CheckInCamera
+                                                key="checkin-camera-face" // Key ensures fresh mount when switching modes
+                                                onFaceDetected={handleFaceDetected}
+                                                onError={setError}
+                                                autoStart={checkInMode === 'face'}
+                                                verificationMode={true}
+                                                onFaceVerified={handleFaceVerified}
+                                            />
+                                        ) : (
+                                            <div className="qr-scanner-placeholder">
+                                                <p>Camera đã được tắt sau khi check-in/check-out thành công</p>
+                                            </div>
+                                        )}
+                                    </div>
                                     {verificationError && (
                                         <div className="verification-error" style={{
                                             marginTop: '1rem',
@@ -1102,70 +1137,60 @@ const CheckInOut = () => {
                                 </>
                             ) : (
                                 <>
-                                    <h2>Quét mã QR</h2>
-                                    {!selectedSession ? (
-                                        <div className="qr-scanner-placeholder">
-                                            <p>Vui lòng chọn buổi tập để quét mã QR</p>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            {!shouldStopCamera && checkInStatus !== 'success' ? (
-                                                <QRScanner
-                                                    key={`qr-scanner-${selectedSession._id}-${checkInMode}`} // Key ensures fresh mount when session or mode changes
-                                                    onScanSuccess={handleQRScanSuccess}
-                                                    onError={handleQRScanError}
-                                                    autoStart={checkInMode === 'qr' && !!selectedSession}
-                                                />
-                                            ) : (
+                                    <h2>📷 Khu vực quét QR</h2>
+                                    <div className="camera-viewer-container qr-mode">
+                                        {!selectedSession ? (
+                                            <div className="qr-scanner-placeholder">
+                                                <p>🕓 Gợi ý: Chọn buổi tập để quét mã QR</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {!shouldStopCamera && checkInStatus !== 'success' ? (
+                                                    <QRScanner
+                                                        key={`qr-scanner-${selectedSession._id}-${checkInMode}`} // Key ensures fresh mount when session or mode changes
+                                                        onScanSuccess={handleQRScanSuccess}
+                                                        onError={handleQRScanError}
+                                                        autoStart={checkInMode === 'qr' && !!selectedSession}
+                                                    />
+                                                ) : (
+                                                    <div className="qr-scanner-placeholder">
+                                                        <p>Camera đã được tắt sau khi check-in/check-out thành công</p>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                    {checkInStatus !== 'processing' && checkInStatus !== 'success' && !shouldStopCamera && selectedSession && (
+                                        <div className="action-buttons">
+                                            {selectedSession.hasCheckedIn && selectedSession.checkInRecord && !selectedSession.checkInRecord.checkOutTime ? (
                                                 <div style={{
-                                                    padding: '2rem',
+                                                    padding: '1rem',
+                                                    background: 'linear-gradient(135deg, #78350f 0%, #92400e 100%)',
+                                                    border: '2px solid #f59e0b',
+                                                    borderRadius: '12px',
+                                                    color: '#fde68a',
                                                     textAlign: 'center',
-                                                    background: '#1f2937',
-                                                    border: '2px dashed #374151',
-                                                    borderRadius: '8px',
-                                                    color: '#9ca3af',
-                                                    minHeight: '300px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center'
+                                                    marginTop: '1rem',
+                                                    boxShadow: '0 4px 6px rgba(245, 158, 11, 0.3)'
                                                 }}>
-                                                    <p style={{ margin: 0, fontSize: '1rem' }}>
-                                                        Camera đã được tắt sau khi check-in/check-out thành công
+                                                    <p style={{ margin: 0, fontWeight: '600', fontSize: '1rem' }}>
+                                                        ⚠️ Cần check-out
                                                     </p>
-                                                </div>
-                                            )}
-                                            {checkInStatus !== 'processing' && checkInStatus !== 'success' && !shouldStopCamera && (
-                                                <div className="action-buttons">
-                                                    {selectedSession.hasCheckedIn && selectedSession.checkInRecord && !selectedSession.checkInRecord.checkOutTime ? (
-                                                        <div style={{
-                                                            padding: '1rem',
-                                                            background: '#78350f',
-                                                            border: '1px solid #f59e0b',
-                                                            borderRadius: '8px',
-                                                            color: '#fde68a',
-                                                            textAlign: 'center',
-                                                            marginTop: '1rem'
-                                                        }}>
-                                                            <p style={{ margin: 0, fontWeight: '600', fontSize: '1rem' }}>
-                                                                ⚠️ Cần check-out
-                                                            </p>
-                                                            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>
-                                                                Quét mã QR để check-out buổi tập này
-                                                            </p>
-                                                            {selectedSession.checkInRecord.checkInTime && (
-                                                                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', opacity: 0.8 }}>
-                                                                    Đã check-in lúc: {new Date(selectedSession.checkInRecord.checkInTime).toLocaleString('vi-VN')}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <p className="qr-scan-instruction">
-                                                            Quét mã QR để check-in
+                                                    <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>
+                                                        Quét mã QR để check-out buổi tập này
+                                                    </p>
+                                                    {selectedSession.checkInRecord.checkInTime && (
+                                                        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', opacity: 0.8 }}>
+                                                            Đã check-in lúc: {new Date(selectedSession.checkInRecord.checkInTime).toLocaleString('vi-VN')}
                                                         </p>
                                                     )}
                                                 </div>
+                                            ) : (
+                                                <p className="qr-scan-instruction">
+                                                    🕓 Gợi ý: Quét mã QR để check-in
+                                                </p>
                                             )}
-                                        </>
+                                        </div>
                                     )}
                                 </>
                             )}

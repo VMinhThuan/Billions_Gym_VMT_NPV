@@ -7,8 +7,8 @@
 .checkin-content {
     margin-left: 0;
     padding: 2rem;
-    padding-top: 6rem;
-    max-width: 1400px;
+    padding-top: 5rem;
+    max-width: 1600px;
     margin: 0 auto;
     transition: margin-left 0.3s ease, padding-left 0.3s ease;
     background: #0a0a0a;
@@ -41,21 +41,49 @@
 }
 
 .checkin-header {
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
+    position: sticky;
+    top: 5rem;
+    z-index: 100;
+    padding-top: 1rem;
+    padding-bottom: 1.5rem;
+    margin-left: -2rem;
+    margin-right: -2rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    margin-top: -5rem;
+    border-bottom: 1px solid rgba(42, 42, 42, 0.5);
+    backdrop-filter: blur(10px);
+    background: rgba(10, 10, 10, 0.95);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .checkin-header h1 {
-    font-size: 2rem;
+    font-size: 2.25rem;
     font-weight: 700;
     color: #ffffff;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
+    background: linear-gradient(135deg, #ffffff 0%, #e5e7eb 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
-.checkin-header p {
-    padding-top: 20px;
+.checkin-header .date-display {
+    color: #9ca3af;
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.checkin-header .greeting {
     color: #ffffff;
-    font-size: 1.2rem;
+    font-size: 1.25rem;
     font-weight: 600;
+    padding-top: 0.5rem;
 }
 
 .checkin-main {
@@ -66,7 +94,8 @@
 
 @media (min-width: 1024px) {
     .checkin-main {
-        grid-template-columns: 2fr 1fr;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 2.5rem;
     }
 }
 
@@ -83,39 +112,65 @@
 
 .sessions-section,
 .history-section {
-    background: #141414;
-    border-radius: 12px;
-    padding: 1.5rem;
+    background: linear-gradient(135deg, #141414 0%, #1a1a1a 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    border: 1px solid #2a2a2a;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 .sessions-section h2,
 .history-section h2 {
     font-size: 1.5rem;
-    font-weight: 600;
+    font-weight: 700;
     color: #ffffff;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.sessions-section h2::before {
+    content: '📅';
+    font-size: 1.75rem;
 }
 
 .no-sessions {
     text-align: center;
-    padding: 2rem;
+    padding: 3rem 2rem;
     color: #9ca3af;
+    background: #1a1a1a;
+    border-radius: 12px;
+    border: 2px dashed #2a2a2a;
 }
 
 .sessions-list {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.25rem;
 }
 
 .session-card {
-    background: #111827;
-    border: 2px solid #374151;
-    border-radius: 8px;
-    padding: 1.5rem;
+    background: linear-gradient(135deg, #1a1a1a 0%, #1f1f1f 100%);
+    border: 2px solid #2a2a2a;
+    border-radius: 16px;
+    padding: 1.75rem;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 1.25rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.session-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: #2a2a2a;
     transition: all 0.3s ease;
 }
 
@@ -124,62 +179,35 @@
 }
 
 .session-card.clickable:hover {
-    border-color: #da2128;
-    background: #1f2937;
+    border-color: #00FFA3;
+    background: linear-gradient(135deg, #1f2937 0%, #243447 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 255, 163, 0.15);
+}
+
+.session-card.clickable:hover::before {
+    background: #00FFA3;
+    width: 4px;
 }
 
 .session-card.selected {
-    border-color: #da2128;
-    background: #1f2937;
-    box-shadow: 0 0 0 3px rgba(218, 33, 40, 0.1);
+    border-color: #00FFA3;
+    background: linear-gradient(135deg, #1f2937 0%, #243447 100%);
+    box-shadow: 0 0 0 3px rgba(0, 255, 163, 0.2), 0 8px 16px rgba(0, 255, 163, 0.15);
 }
 
-.session-info h3 {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: #ffffff;
-    margin-bottom: 0.5rem;
-}
-
-.session-time {
-    color: #9ca3af;
-    font-size: 0.875rem;
-    margin-bottom: 0.25rem;
-}
-
-.session-branch {
-    color: #6b7280;
-    font-size: 0.875rem;
-}
-
-.session-status {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.5rem;
-}
-
-.status-badge {
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    background: #374151;
-    color: #ffffff;
-}
-
-.status-badge.checked-in {
-    background: #22c55e;
-}
-
-.status-badge.checked-in-completed {
-    background: #3b82f6;
-    color: white;
+.session-card.selected::before {
+    background: #00FFA3;
+    width: 4px;
 }
 
 .session-card.completed {
-    opacity: 0.8;
+    opacity: 0.85;
     border-color: #3b82f6;
+}
+
+.session-card.completed::before {
+    background: #3b82f6;
 }
 
 .session-card.completed:hover {
@@ -188,122 +216,528 @@
 
 .session-card.needs-checkout {
     border-color: #f59e0b;
-    border-width: 3px;
+    border-width: 2px;
+    background: linear-gradient(135deg, #1f1a0f 0%, #2a2215 100%);
+}
+
+.session-card.needs-checkout::before {
+    background: #f59e0b;
 }
 
 .session-card.needs-checkout:hover {
     border-color: #f59e0b;
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
 }
 
-.check-in-details {
-    text-align: right;
-    font-size: 0.75rem;
+/* Session Card Header */
+.session-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.session-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.session-info h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.session-info h3 .session-icon {
+    font-size: 1.75rem;
+    line-height: 1;
+}
+
+.session-time {
     color: #9ca3af;
+    font-size: 0.95rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.session-time::before {
+    content: '🕐';
+    font-size: 1rem;
+}
+
+.session-branch {
+    color: #6b7280;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.session-branch::before {
+    content: '📍';
+    font-size: 0.9rem;
+}
+
+/* Session Status Badge */
+.session-status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
+
+.status-badge.completed {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.status-badge.checked-in {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.status-badge.pending {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+}
+
+.status-badge.late {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.status-badge.on-time {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(34, 197, 94, 0.3);
+}
+
+.status-badge.early {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+}
+
+/* Session Details */
+.session-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid #2a2a2a;
+}
+
+.session-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.session-detail-label {
+    color: #9ca3af;
+    font-weight: 500;
+}
+
+.session-detail-value {
+    color: #ffffff;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Session Actions */
+.session-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
 }
 
 .btn-checkin,
 .btn-checkout {
-    padding: 0.5rem 1rem;
+    flex: 1;
+    padding: 0.75rem 1.5rem;
     border: none;
-    border-radius: 6px;
-    font-size: 0.875rem;
+    border-radius: 10px;
+    font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    white-space: nowrap;
 }
 
 .btn-checkin {
-    background: #22c55e;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
     color: white;
+    box-shadow: 0 4px 6px rgba(34, 197, 94, 0.3);
 }
 
 .btn-checkin:hover {
-    background: #16a34a;
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(34, 197, 94, 0.4);
 }
 
 .btn-checkout {
-    background: #f59e0b;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
     color: white;
+    box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3);
 }
 
 .btn-checkout:hover {
-    background: #d97706;
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(245, 158, 11, 0.4);
 }
 
+/* Camera Section */
 .camera-section {
-    background: #141414 ;
-    border-radius: 12px;
-    padding: 1.5rem;
+    background: linear-gradient(135deg, #141414 0%, #1a1a1a 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    border: 1px solid #2a2a2a;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    position: sticky;
+    top: calc(5rem + 200px);
+    align-self: flex-start;
+    max-height: calc(100vh - 5rem - 220px);
+    overflow-y: auto;
+    z-index: 10;
+}
+
+.camera-section::-webkit-scrollbar {
+    width: 6px;
+}
+
+.camera-section::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 3px;
+}
+
+.camera-section::-webkit-scrollbar-thumb {
+    background: #2a2a2a;
+    border-radius: 3px;
+}
+
+.camera-section::-webkit-scrollbar-thumb:hover {
+    background: #3a3a3a;
 }
 
 .camera-section h2 {
     font-size: 1.5rem;
-    font-weight: 600;
+    font-weight: 700;
     color: #ffffff;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 }
 
-.action-buttons {
-    margin-top: 1rem;
+/* Check-in Mode Tabs */
+.checkin-mode-tabs {
     display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.checkin-mode-tab {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.875rem 1.25rem;
+    background: #1a1a1a;
+    border: 2px solid #2a2a2a;
+    border-radius: 12px;
+    color: #9ca3af;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
     justify-content: center;
+    gap: 0.5rem;
+}
+
+.checkin-mode-tab:hover {
+    color: #e5e7eb;
+    background: #1f1f1f;
+    border-color: #3a3a3a;
+    transform: translateY(-2px);
+}
+
+.checkin-mode-tab.active {
+    color: #000000;
+    background: linear-gradient(135deg, #00FFA3 0%, #00D4AA 100%);
+    border-color: #00FFA3;
+    box-shadow: 0 4px 12px rgba(0, 255, 163, 0.4);
+    transform: translateY(-2px);
+}
+
+.checkin-mode-tab-qr-display {
+    flex: 0 0 auto;
+    padding: 0.875rem 1.25rem;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border-radius: 12px;
+    margin-left: auto;
+    border: 2px solid #10b981;
+    box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+}
+
+.checkin-mode-tab-qr-display:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(16, 185, 129, 0.4);
+}
+
+/* QR Scanner Placeholder */
+/* Camera/Scanner Viewer Container - Fixed Height */
+.camera-viewer-container {
+    width: 100%;
+    height: 500px;
+    min-height: 500px;
+    max-height: 500px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 2px solid #2a2a2a;
+    background: #1a1a1a;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+    position: relative;
+    margin-bottom: 1.5rem;
+    box-sizing: border-box;
+}
+
+.camera-viewer-container.qr-mode {
+    border: 2px dashed #00FFA3;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.camera-viewer-container>* {
+    width: 100%;
+    height: 100%;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+/* Ensure camera video fills container */
+.camera-viewer-container video,
+.camera-viewer-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+}
+
+/* QR Scanner specific styles - Force full size */
+.camera-viewer-container .qr-scanner-container {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0;
+    margin: 0;
+    flex: 1;
+    display: flex !important;
+    flex-direction: column !important;
+    position: relative;
+}
+
+.camera-viewer-container .qr-scanner {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0;
+    margin: 0;
+    flex: 1;
+    position: relative;
+}
+
+/* Hide controls and instructions when inside fixed container */
+.camera-viewer-container .qr-scanner-controls,
+.camera-viewer-container .qr-scanner-instructions {
+    display: none !important;
+}
+
+/* Error message should be positioned absolutely to not affect container size */
+.camera-viewer-container .qr-scanner-error {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    z-index: 100;
+    margin: 0;
+}
+
+/* Target the html5-qrcode library's internal elements */
+.camera-viewer-container [id^="qr-scanner-read-area"],
+.camera-viewer-container [id*="qr-scanner-read-area"],
+.camera-viewer-container [id^="html5-qrcode-anchor"],
+.camera-viewer-container [id*="html5-qrcode"] {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+    position: relative !important;
+    display: block !important;
+}
+
+.camera-viewer-container [id^="qr-scanner-read-area"] video,
+.camera-viewer-container [id*="qr-scanner-read-area"] video,
+.camera-viewer-container [id^="html5-qrcode-anchor"] video,
+.camera-viewer-container [id*="html5-qrcode"] video,
+.camera-viewer-container [id^="qr-scanner-read-area"] canvas,
+.camera-viewer-container [id*="qr-scanner-read-area"] canvas {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* Ensure html5-qrcode internal divs also fill */
+.camera-viewer-container [id^="html5-qrcode"]>div,
+.camera-viewer-container [id*="html5-qrcode"]>div {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.qr-scanner-placeholder {
+    width: 100%;
+    height: 100%;
+    padding: 2rem;
+    text-align: center;
+    color: #9ca3af;
+    background: transparent;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    border-radius: 0;
+    box-sizing: border-box;
+    flex: 1;
+}
+
+.qr-scanner-placeholder::before {
+    content: '📷';
+    font-size: 3rem;
+    opacity: 0.5;
+}
+
+.qr-scan-instruction {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 0.95rem;
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: #1a1a1a;
+    border-radius: 12px;
+    border: 1px solid #2a2a2a;
+}
+
+/* Action Buttons */
+.action-buttons {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 
 .btn-action {
     padding: 1rem 2rem;
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
     width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
 .btn-checkin-action {
-    background: #22c55e;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
     color: white;
+    box-shadow: 0 4px 6px rgba(34, 197, 94, 0.3);
 }
 
 .btn-checkin-action:hover:not(:disabled) {
-    background: #16a34a;
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(34, 197, 94, 0.3);
+    box-shadow: 0 6px 12px rgba(34, 197, 94, 0.4);
 }
 
 .btn-checkout-action {
-    background: #f59e0b;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
     color: white;
+    box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3);
 }
 
 .btn-checkout-action:hover:not(:disabled) {
-    background: #d97706;
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 6px 12px rgba(245, 158, 11, 0.4);
 }
 
 .btn-action:disabled {
-    background: #6b7280;
+    background: #374151;
     cursor: not-allowed;
     opacity: 0.6;
 }
 
+/* Success Message */
 .success-message {
-    margin-top: 1rem;
-    padding: 1rem;
-    background: #22c55e;
-    border-radius: 8px;
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    border-radius: 12px;
     color: white;
     text-align: center;
     font-weight: 600;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
 }
 
 .success-message.detailed-success {
     background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-    padding: 1.5rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 8px 16px rgba(34, 197, 94, 0.4);
     animation: slideIn 0.3s ease-out;
 }
 
@@ -338,10 +772,11 @@
 
 .success-message.detailed-success .success-details {
     background: rgba(255, 255, 255, 0.15);
-    border-radius: 8px;
-    padding: 1rem;
+    border-radius: 12px;
+    padding: 1.5rem;
     margin-top: 1rem;
     text-align: left;
+    backdrop-filter: blur(10px);
 }
 
 .success-message.detailed-success .success-title {
@@ -352,7 +787,7 @@
 }
 
 .success-message.detailed-success .success-time {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     margin-bottom: 0.75rem;
     color: rgba(255, 255, 255, 0.9);
 }
@@ -388,35 +823,54 @@
     border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* Error Message */
 .error-message {
-    margin-top: 1rem;
+    margin-top: 1.5rem;
     padding: 1rem;
-    background: #da2128;
-    border-radius: 8px;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    border-radius: 12px;
     color: #ffffff;
     text-align: center;
+    font-weight: 600;
+    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
 }
 
+.verification-error {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+    border: 1px solid #991b1b;
+    border-radius: 12px;
+    color: #fca5a5;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* History Section */
 .history-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
 }
 
 .btn-toggle-history {
-    padding: 0.5rem 1rem;
-    background: #0046FF;
-    border-radius: 6px;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border-radius: 10px;
     color: #ffffff;
-    font-size: 0.875rem;
+    font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
+    border: none;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
 .btn-toggle-history:hover {
-    background: rgb(0, 70, 255, 0.7);
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
 }
 
 .history-list {
@@ -426,13 +880,19 @@
 }
 
 .history-item {
-    background: #111827;
-    border: 1px solid #374151;
-    border-radius: 8px;
-    padding: 1rem;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    padding: 1.25rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: all 0.3s ease;
+}
+
+.history-item:hover {
+    border-color: #3a3a3a;
+    background: #1f1f1f;
 }
 
 .history-info h4 {
@@ -454,6 +914,7 @@
     align-items: flex-end;
 }
 
+/* Loading */
 .checkin-loading {
     display: flex;
     flex-direction: column;
@@ -467,7 +928,7 @@
     width: 48px;
     height: 48px;
     border: 4px solid #374151;
-    border-top-color: #da2128;
+    border-top-color: #00FFA3;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -478,96 +939,50 @@
     }
 }
 
-/* QR Code Styles */
-.checkin-mode-tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    border-bottom: 2px solid #334155;
-    padding-bottom: 0.5rem;
-}
-
-.checkin-mode-tab {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: #9ca3af;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-bottom: -2px;
-}
-
-.checkin-mode-tab:hover {
-    color: #e5e7eb;
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.checkin-mode-tab.active {
-    color: #3b82f6;
-    border-bottom-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.1);
-}
-
-.checkin-mode-tab-qr-display {
-    flex: 0 0 auto;
-    padding: 0.75rem 1rem;
-    background: #10b981;
-    color: white;
-    border-radius: 6px;
-    margin-left: auto;
-}
-
-.checkin-mode-tab-qr-display:hover {
-    background: #059669;
-}
-
-.qr-scanner-placeholder {
-    padding: 3rem 1rem;
-    text-align: center;
-    color: #9ca3af;
-    background: #1e293b;
-    border-radius: 8px;
-    border: 2px dashed #334155;
-}
-
-.qr-scan-instruction {
-    text-align: center;
-    color: #9ca3af;
-    font-size: 0.9rem;
-    margin: 1rem 0;
-    padding: 0.75rem;
-    background: #1e293b;
-    border-radius: 6px;
-}
-
+/* QR Code Display Modal */
 .qr-code-display-modal {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.8);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
     padding: 1rem;
+    backdrop-filter: blur(4px);
 }
 
 .qr-code-display-modal-content {
-    background: white;
-    border-radius: 12px;
+    background: #1a1a1a;
+    border-radius: 16px;
     max-width: 500px;
     width: 100%;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    border: 1px solid #2a2a2a;
 }
 
+/* Info Messages */
+.info-message {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.session-status-info {
+    padding: 1rem;
+    border-radius: 12px;
+    text-align: center;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
     .checkin-mode-tabs {
         flex-direction: column;
@@ -576,5 +991,30 @@
     .checkin-mode-tab-qr-display {
         margin-left: 0;
         margin-top: 0.5rem;
+    }
+
+    .session-card-header {
+        flex-direction: column;
+    }
+
+    .session-actions {
+        width: 100%;
+    }
+
+    .checkin-header {
+        top: 0;
+        margin-top: 0;
+    }
+
+    .camera-section {
+        position: sticky;
+        top: 1rem;
+        max-height: calc(100vh - 2rem);
+    }
+
+    .camera-viewer-container {
+        height: 400px;
+        min-height: 400px;
+        max-height: 400px;
     }
 }
