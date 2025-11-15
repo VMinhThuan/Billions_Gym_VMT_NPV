@@ -36,6 +36,7 @@ const Schedule = () => {
     const [cancelingSession, setCancelingSession] = useState(false);
     const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
     const [showSessionModal, setShowSessionModal] = useState(false);
+    const [selectedSessionsInCurrentModal, setSelectedSessionsInCurrentModal] = useState([]);
 
     const user = authUtils.getUser();
     const userId = authUtils.getUserId();
@@ -389,11 +390,39 @@ const Schedule = () => {
     };
 
     // Kiểm tra session đã đăng ký chưa (dựa vào scheduleData)
+    // CHỈ kiểm tra session cụ thể, không chặn toàn bộ ngày
     const isSessionAlreadyRegistered = (sessionId) => {
-        return scheduleData.some(registeredSession => {
-            // So sánh buoiTapId với session._id
-            return registeredSession.buoiTapId === sessionId.toString();
+        if (!sessionId) return false;
+
+        const sessionIdStr = sessionId.toString();
+
+        const isRegistered = scheduleData.some(registeredSession => {
+            // So sánh buoiTapId với session._id (normalize cả hai về string)
+            const registeredBuoiTapId = registeredSession.buoiTapId
+                ? registeredSession.buoiTapId.toString()
+                : null;
+
+            if (!registeredBuoiTapId) return false;
+
+            // So sánh chính xác ID
+            const isMatch = registeredBuoiTapId === sessionIdStr;
+
+            if (isMatch) {
+                console.log('🔍 [Session Check] Session đã đăng ký:', {
+                    sessionId: sessionIdStr,
+                    registeredBuoiTapId: registeredBuoiTapId,
+                    registeredSession: {
+                        tenBuoiTap: registeredSession.tenBuoiTap,
+                        date: registeredSession.date,
+                        gioBatDau: registeredSession.gioBatDau
+                    }
+                });
+            }
+
+            return isMatch;
         });
+
+        return isRegistered;
     };
 
     // Get time slot status
@@ -419,7 +448,7 @@ const Schedule = () => {
     };
 
     // Handle time slot click - mở modal để chọn session
-    const handleTimeSlotClick = (dayDate, timeSlot) => {
+    const handleTimeSlotClick = async (dayDate, timeSlot) => {
         if (isTimeSlotInPast(dayDate, timeSlot)) {
             return;
         }
@@ -430,9 +459,29 @@ const Schedule = () => {
             return;
         }
 
+        // Refresh schedule data để có thông tin mới nhất về sessions đã đăng ký
+        await fetchScheduleData();
+
         // Lấy tên ngày trong tuần
         const weekDays = getCurrentWeekDays();
         const dayInfo = weekDays.find(d => d.date === dayDate);
+
+        // Khi mở modal mới, chỉ giữ lại sessions đã chọn trong ca này
+        // Sử dụng state riêng cho modal để tránh ảnh hưởng từ các ca khác
+        const sessionIdsInSlot = sessionsInSlot.map(s => s._id.toString());
+        const sessionsInThisSlot = selectedSessionsToAdd.filter(id => sessionIdsInSlot.includes(id));
+
+        console.log('🔍 [Modal Open] Opening modal for time slot:', {
+            timeSlot: timeSlot.label,
+            dayDate: dayDate,
+            dayName: dayInfo?.dayName,
+            sessionsInSlot: sessionIdsInSlot,
+            selectedSessionsToAdd: selectedSessionsToAdd,
+            sessionsInThisSlot: sessionsInThisSlot
+        });
+
+        // Set state riêng cho modal hiện tại
+        setSelectedSessionsInCurrentModal(sessionsInThisSlot);
 
         // Mở modal để chọn session
         setSelectedTimeSlot({
@@ -448,31 +497,53 @@ const Schedule = () => {
     const handleSessionSelect = (session) => {
         // Kiểm tra session đã đăng ký chưa
         if (isSessionAlreadyRegistered(session._id)) {
+            console.log('🚫 [Session Select] Session đã đăng ký, không cho phép chọn:', session._id);
             return; // Không cho phép chọn session đã đăng ký
         }
 
         // Kiểm tra session có thể đăng ký không
-        if (!session.coTheDangKy) {
+        // Chỉ chặn khi coTheDangKy là false một cách rõ ràng, không phải undefined
+        if (session.coTheDangKy === false) {
+            console.log('🚫 [Session Select] Session không thể đăng ký:', session._id);
             return;
         }
 
-        const isSelected = selectedSessionsToAdd.includes(session._id.toString());
+        if (!selectedTimeSlot) {
+            console.error('🚫 [Session Select] selectedTimeSlot is null');
+            return;
+        }
+
+        const sessionIdStr = session._id.toString();
+        const isSelected = selectedSessionsInCurrentModal.includes(sessionIdStr);
+
+        console.log('🔍 [Session Select] Selecting session:', {
+            sessionId: sessionIdStr,
+            tenBuoiTap: session.tenBuoiTap,
+            isSelected: isSelected,
+            selectedSessionsInCurrentModal: selectedSessionsInCurrentModal,
+            selectedSessionsToAdd: selectedSessionsToAdd
+        });
 
         if (isSelected) {
-            // Bỏ chọn
-            setSelectedSessionsToAdd(prev => prev.filter(id => id !== session._id.toString()));
+            // Bỏ chọn - cập nhật cả state modal và state tổng
+            setSelectedSessionsInCurrentModal(prev => prev.filter(id => id !== sessionIdStr));
+            setSelectedSessionsToAdd(prev => prev.filter(id => id !== sessionIdStr));
         } else {
             // Chọn session - chỉ cho phép 1 session trong mỗi ca
             // Tìm các session khác trong cùng ca này và bỏ chọn chúng
             const otherSessionsInSlot = selectedTimeSlot.sessions
-                .filter(s => s._id.toString() !== session._id.toString())
+                .filter(s => s._id.toString() !== sessionIdStr)
                 .map(s => s._id.toString());
 
+            // Cập nhật state modal (chỉ cho ca hiện tại)
+            setSelectedSessionsInCurrentModal([sessionIdStr]);
+
+            // Cập nhật state tổng (bỏ chọn các session khác trong ca này, thêm session mới)
             setSelectedSessionsToAdd(prev => {
                 // Bỏ chọn các session khác trong ca này
                 const filtered = prev.filter(id => !otherSessionsInSlot.includes(id));
                 // Thêm session mới
-                return [...filtered, session._id.toString()];
+                return [...filtered, sessionIdStr];
             });
         }
     };
@@ -481,6 +552,7 @@ const Schedule = () => {
     const closeSessionModal = () => {
         setShowSessionModal(false);
         setSelectedTimeSlot(null);
+        setSelectedSessionsInCurrentModal([]);
     };
 
     // Enhanced countdown function with detailed time breakdown
@@ -624,9 +696,11 @@ const Schedule = () => {
     };
 
     // Mở modal đăng ký thêm buổi tập
-    const handleOpenAddSessionModal = () => {
+    const handleOpenAddSessionModal = async () => {
         setShowAddSessionModal(true);
         setSelectedSessionsToAdd([]);
+        // Refresh schedule data để có thông tin mới nhất về sessions đã đăng ký
+        await fetchScheduleData();
         loadAvailableSessionsThisWeek();
     };
 
@@ -1405,16 +1479,61 @@ const Schedule = () => {
                                     {/* Grid Layout: 3 cards per row on desktop */}
                                     <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
                                         {selectedTimeSlot.sessions.map(session => {
-                                            const isSelected = selectedSessionsToAdd.includes(session._id.toString());
+                                            const sessionIdStr = session._id.toString();
+                                            const isSelected = selectedSessionsInCurrentModal.includes(sessionIdStr);
                                             const isAlreadyRegistered = isSessionAlreadyRegistered(session._id);
 
+                                            // Debug logging
+                                            if (isAlreadyRegistered) {
+                                                console.log('🚫 [Session Disabled] Session đã đăng ký:', {
+                                                    sessionId: session._id,
+                                                    tenBuoiTap: session.tenBuoiTap,
+                                                    ngayTap: session.ngayTap || session.ngay,
+                                                    gioBatDau: session.gioBatDau,
+                                                    scheduleDataCount: scheduleData.length,
+                                                    scheduleData: scheduleData.map(s => ({
+                                                        buoiTapId: s.buoiTapId,
+                                                        tenBuoiTap: s.tenBuoiTap,
+                                                        date: s.date
+                                                    }))
+                                                });
+                                            }
+
                                             // Check if there's another session selected in this time slot
-                                            const hasSelectedInTimeSlot = selectedTimeSlot.sessions.some(s =>
-                                                selectedSessionsToAdd.includes(s._id.toString()) && s._id.toString() !== session._id.toString()
-                                            );
+                                            // Sử dụng selectedSessionsInCurrentModal (chỉ chứa sessions trong ca hiện tại)
+                                            // Kiểm tra xem có session khác trong ca này đã được chọn không
+                                            const hasSelectedInTimeSlot = selectedSessionsInCurrentModal.some(selectedId => {
+                                                return selectedId !== sessionIdStr;
+                                            });
 
                                             const isDisabledDueToSelection = hasSelectedInTimeSlot && !isSelected;
-                                            const isDisabled = isDisabledDueToSelection || isAlreadyRegistered || !session.coTheDangKy;
+                                            // Chỉ disable khi coTheDangKy là false một cách rõ ràng, không phải undefined
+                                            const cannotRegister = session.coTheDangKy === false;
+                                            const isDisabled = isDisabledDueToSelection || isAlreadyRegistered || cannotRegister;
+
+                                            // Debug logging để xem tại sao session bị disable
+                                            if (isDisabled) {
+                                                console.log('🚫 [Session Disabled] Lý do disable:', {
+                                                    sessionId: session._id,
+                                                    tenBuoiTap: session.tenBuoiTap,
+                                                    isDisabledDueToSelection: isDisabledDueToSelection,
+                                                    isAlreadyRegistered: isAlreadyRegistered,
+                                                    cannotRegister: cannotRegister,
+                                                    coTheDangKy: session.coTheDangKy,
+                                                    coTheDangKyType: typeof session.coTheDangKy,
+                                                    hasSelectedInTimeSlot: hasSelectedInTimeSlot,
+                                                    isSelected: isSelected,
+                                                    selectedSessionsInCurrentModal: selectedSessionsInCurrentModal,
+                                                    selectedSessionsToAdd: selectedSessionsToAdd,
+                                                    timeSlot: selectedTimeSlot.timeSlot.label,
+                                                    dayName: selectedTimeSlot.dayName,
+                                                    sessionsInSlot: selectedTimeSlot.sessions.map(s => ({
+                                                        id: s._id.toString(),
+                                                        tenBuoiTap: s.tenBuoiTap,
+                                                        isInSelectedList: selectedSessionsInCurrentModal.includes(s._id.toString())
+                                                    }))
+                                                });
+                                            }
 
                                             const sessionStatusInfo = getDetailedCountdown(session.ngayTap || session.ngay, session.gioBatDau, session.gioKetThuc);
                                             const workoutTypeInfo = getWorkoutTypeInfo(session.tenBuoiTap, session.moTa, session.templateBuoiTap);
@@ -1711,11 +1830,30 @@ const WeekRegistrationModal = ({ onClose, nextWeekStart, registrationEligibility
         setError(null);
 
         try {
-            const { goiTapId, chiNhanhId } = registrationEligibility.activePackage;
+            const { goiTapId, chiNhanhId, tenGoiTap } = registrationEligibility.activePackage;
+
+            console.log('🔍 [Frontend] Loading available sessions with package:', {
+                goiTapId,
+                chiNhanhId,
+                tenGoiTap,
+                isWeekendPackage: tenGoiTap?.toLowerCase().includes('weekend') || tenGoiTap?.toLowerCase().includes('cuối tuần'),
+                nextWeekStart: nextWeekStart.toISOString()
+            });
+
             const response = await api.get('/lichtap/available-sessions', {
                 chiNhanhId: chiNhanhId,
                 tuanBatDau: nextWeekStart.toISOString(),
                 goiTapId: goiTapId
+            });
+
+            console.log('📡 [Frontend] Available sessions response:', {
+                success: response?.success,
+                sessionsCount: response?.data?.sessions?.length || 0,
+                sessions: response?.data?.sessions?.slice(0, 5).map(s => ({
+                    tenBuoiTap: s.tenBuoiTap,
+                    ngayTap: s.ngayTap || s.ngay,
+                    gioBatDau: s.gioBatDau
+                }))
             });
 
             if (response && response.success && response.data) {

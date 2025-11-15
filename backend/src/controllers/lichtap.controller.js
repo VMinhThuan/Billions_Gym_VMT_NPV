@@ -156,12 +156,15 @@ exports.getAvailableSessions = async (req, res) => {
             }).filter(Boolean);
 
             // Lọc theo ràng buộc gói tập
-            console.log(`🔍 [Weekend Gym] Before filter: ${mapped.length} sessions`);
+            // LƯU Ý: isSessionAllowedForPackage sẽ:
+            // - Chỉ áp dụng ràng buộc cho các gói đặc biệt (Weekend Gym, Morning, Evening)
+            // - Return true cho TẤT CẢ các gói khác (cho phép đăng ký từ T2 đến CN)
+            console.log(`🔍 [Package Filter] Before filter: ${mapped.length} sessions`);
             const tenGoiTap = goiTap.tenGoiTap.toLowerCase();
             const isWeekendPackage = tenGoiTap.includes('weekend') || tenGoiTap.includes('cuối tuần');
 
             if (isWeekendPackage) {
-                console.log(`🔍 [Weekend Gym] Filtering sessions for Weekend Gym package`);
+                console.log(`🔍 [Weekend Gym] Filtering sessions for Weekend Gym package (ID: ${goiTap._id})`);
                 mapped.forEach((buoi, index) => {
                     const allowed = isSessionAllowedForPackage(buoi, goiTap);
                     console.log(`🔍 [Weekend Gym] Session ${index + 1}:`, {
@@ -189,10 +192,29 @@ exports.getAvailableSessions = async (req, res) => {
                         })()
                     });
                 });
+            } else {
+                console.log(`🔍 [Package Filter] Non-restricted package (${goiTap.tenGoiTap}), allowing all sessions`);
             }
 
-            const filteredSessions = mapped.filter(buoi => isSessionAllowedForPackage(buoi, goiTap));
-            console.log(`🔍 [Weekend Gym] After filter: ${filteredSessions.length} sessions`);
+            // Filter sessions: Weekend Gym chỉ cho phép T7-CN, các gói khác cho phép tất cả
+            const filteredSessions = mapped.filter(buoi => {
+                const allowed = isSessionAllowedForPackage(buoi, goiTap);
+                if (!allowed) {
+                    console.log('🚫 [Filter] Session bị loại bỏ:', {
+                        tenBuoiTap: buoi.tenBuoiTap,
+                        ngayTap: buoi.ngayTap || buoi.ngay,
+                        goiTapId: goiTap._id,
+                        tenGoiTap: goiTap.tenGoiTap
+                    });
+                }
+                return allowed;
+            });
+            console.log(`🔍 [Package Filter] After filter: ${filteredSessions.length} sessions (from ${mapped.length} total)`);
+            console.log(`🔍 [Package Filter] Package info:`, {
+                goiTapId: goiTap._id,
+                tenGoiTap: goiTap.tenGoiTap,
+                isWeekendPackage: (goiTap.tenGoiTap || '').toLowerCase().includes('weekend') || (goiTap.tenGoiTap || '').toLowerCase().includes('cuối tuần')
+            });
 
             // Thêm cờ có thể đăng ký (chỉ những buổi chưa bắt đầu và còn chỗ)
             const sessionsWithStatus = filteredSessions.map(buoi => ({
@@ -829,6 +851,20 @@ function isSessionAllowedForPackage(buoiTap, goiTap) {
     // Lấy ngày tập - có thể là 'ngayTap' hoặc 'ngay' tùy vào context
     const ngayTapValue = buoiTap.ngayTap || buoiTap.ngay;
 
+    // Debug: Log thông tin gói tập để kiểm tra
+    const isWeekendPackage = tenGoiTap.includes('weekend') || tenGoiTap.includes('cuối tuần');
+    if (!isWeekendPackage) {
+        // Nếu không phải Weekend Gym, return true ngay lập tức (cho phép tất cả)
+        console.log('✅ [Package Check] Non-restricted package, allowing session:', {
+            goiTapId: goiTap._id,
+            tenGoiTap: goiTap.tenGoiTap,
+            sessionId: buoiTap._id,
+            tenBuoiTap: buoiTap.tenBuoiTap,
+            ngayTap: ngayTapValue
+        });
+        return true;
+    }
+
     // Xử lý ngày tập - đảm bảo lấy đúng ngày theo timezone local (Vietnam UTC+7)
     let ngayTap;
     if (ngayTapValue instanceof Date) {
@@ -875,12 +911,15 @@ function isSessionAllowedForPackage(buoiTap, goiTap) {
         return gioBatDau >= 5 && gioBatDau <= 11;
     }
 
-    // Ràng buộc cho gói Weekend Gym
+    // Ràng buộc cho gói Weekend Gym (chỉ cho phép Thứ 7 và Chủ nhật)
+    // LƯU Ý: Chỉ áp dụng cho gói có tên chứa "weekend" hoặc "cuối tuần"
+    // Các gói khác sẽ return true ở cuối hàm (cho phép đăng ký từ T2 đến CN)
     if (tenGoiTap.includes('weekend') || tenGoiTap.includes('cuối tuần')) {
         // Thứ 7 = 6, Chủ nhật = 0
         const isWeekend = thuTrongTuan === 6 || thuTrongTuan === 0;
         console.log('🔍 [Weekend Gym Check]', {
             tenGoiTap,
+            goiTapId: goiTap._id,
             ngayTapOriginal: ngayTapValue,
             ngayTapParsed: ngayTap.toISOString(),
             thuTrongTuan,
@@ -891,12 +930,13 @@ function isSessionAllowedForPackage(buoiTap, goiTap) {
         return isWeekend;
     }
 
-    // Ràng buộc cho gói Evening
+    // Ràng buộc cho gói Evening (chỉ cho phép khung giờ tối)
     if (tenGoiTap.includes('evening') || tenGoiTap.includes('tối')) {
         return gioBatDau >= 17 && gioBatDau <= 22;
     }
 
-    // Gói khác không có ràng buộc
+    // Các gói khác KHÔNG có ràng buộc - cho phép đăng ký từ T2 đến CN
+    // Bao gồm: Basic, Premium, VIP, và các gói khác không phải Weekend/Morning/Evening
     return true;
 }
 
@@ -1003,17 +1043,15 @@ exports.checkRegistrationEligibility = async (req, res) => {
             }))
         });
 
-        // TEST: Đơn giản hóa query - tìm gói tập đã thanh toán, không cần HOAN_THANH
-        // Tìm tất cả gói tập của user, sau đó filter trong code
-        let activePackage = await ChiTietGoiTap.findOne({
+        // Tìm gói tập đang hoạt động của user
+        // Ưu tiên: 1) Gói chưa hết hạn, 2) Gói có trạng thái hoạt động, 3) Gói mới nhất
+        const currentTime = new Date();
+
+        // Lấy tất cả gói tập của user và filter trong code để tìm gói đang hoạt động tốt nhất
+        const allUserPackages = await ChiTietGoiTap.find({
             $or: [
                 { maHoiVien: userId },
                 { nguoiDungId: userId }
-            ],
-            // Chỉ cần đã thanh toán hoặc đã hoàn tất
-            $or: [
-                { trangThaiThanhToan: 'DA_THANH_TOAN' },
-                { trangThaiDangKy: 'HOAN_THANH' }
             ]
         })
             .populate('maGoiTap')
@@ -1021,19 +1059,50 @@ exports.checkRegistrationEligibility = async (req, res) => {
             .populate('branchId')
             .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
 
-        // Nếu không tìm thấy với điều kiện trên, thử tìm bất kỳ gói tập nào của user
-        if (!activePackage) {
-            activePackage = await ChiTietGoiTap.findOne({
-                $or: [
-                    { maHoiVien: userId },
-                    { nguoiDungId: userId }
-                ]
-            })
-                .populate('maGoiTap')
-                .populate('goiTapId')
-                .populate('branchId')
-                .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+        // Filter và sắp xếp gói tập theo độ ưu tiên
+        let activePackage = null;
+
+        // Ưu tiên 1: Gói chưa hết hạn và có trạng thái hoạt động
+        const validPackages = allUserPackages.filter(pkg => {
+            const isPaid = pkg.trangThaiThanhToan === 'DA_THANH_TOAN' || pkg.trangThaiDangKy === 'HOAN_THANH';
+            const isActive = !pkg.trangThaiSuDung || ['DANG_HOAT_DONG', 'DANG_SU_DUNG', 'DANG_KICH_HOAT'].includes(pkg.trangThaiSuDung);
+            const notExpired = !pkg.ngayKetThuc || new Date(pkg.ngayKetThuc) >= currentTime;
+            return isPaid && isActive && notExpired;
+        });
+
+        if (validPackages.length > 0) {
+            // Ưu tiên gói mới nhất (đã sort ở trên)
+            activePackage = validPackages[0];
+        } else {
+            // Nếu không có gói hợp lệ, lấy gói mới nhất bất kỳ
+            activePackage = allUserPackages[0] || null;
         }
+
+        console.log('📦 [Backend] Package selection logic:', {
+            userId,
+            totalPackages: allUserPackages.length,
+            validPackagesCount: validPackages.length,
+            selectedPackage: activePackage ? {
+                _id: activePackage._id,
+                tenGoiTap: activePackage.goiTapId?.tenGoiTap || activePackage.maGoiTap?.tenGoiTap,
+                goiTapId: activePackage.goiTapId?._id || activePackage.maGoiTap?._id,
+                trangThaiThanhToan: activePackage.trangThaiThanhToan,
+                trangThaiDangKy: activePackage.trangThaiDangKy,
+                trangThaiSuDung: activePackage.trangThaiSuDung,
+                ngayKetThuc: activePackage.ngayKetThuc,
+                isExpired: activePackage.ngayKetThuc ? new Date(activePackage.ngayKetThuc) < currentTime : false
+            } : null,
+            allPackages: allUserPackages.map(p => ({
+                _id: p._id,
+                tenGoiTap: p.goiTapId?.tenGoiTap || p.maGoiTap?.tenGoiTap,
+                goiTapId: p.goiTapId?._id || p.maGoiTap?._id,
+                trangThaiThanhToan: p.trangThaiThanhToan,
+                trangThaiDangKy: p.trangThaiDangKy,
+                trangThaiSuDung: p.trangThaiSuDung,
+                ngayKetThuc: p.ngayKetThuc,
+                isExpired: p.ngayKetThuc ? new Date(p.ngayKetThuc) < currentTime : false
+            }))
+        });
 
         console.log('📦 [Backend] Active package check:', {
             userId,
@@ -1202,6 +1271,29 @@ exports.checkRegistrationEligibility = async (req, res) => {
             } : null
         });
 
+        // Log thông tin gói tập đang được trả về
+        const returnedPackage = activePackage ? {
+            _id: activePackage._id,
+            goiTapId: activePackage.goiTapId?._id || activePackage.maGoiTap?._id,
+            chiNhanhId: activePackage.branchId?._id,
+            tenGoiTap: activePackage.goiTapId?.tenGoiTap || activePackage.maGoiTap?.tenGoiTap,
+            trangThaiDangKy: activePackage.trangThaiDangKy,
+            trangThaiSuDung: activePackage.trangThaiSuDung
+        } : null;
+
+        console.log('📦 [Backend] Returning activePackage to frontend:', {
+            userId,
+            returnedPackage,
+            isWeekendPackage: returnedPackage?.tenGoiTap?.toLowerCase().includes('weekend') || returnedPackage?.tenGoiTap?.toLowerCase().includes('cuối tuần'),
+            allPackages: allPackages.map(p => ({
+                _id: p._id,
+                tenGoiTap: p.goiTapId?.tenGoiTap || p.maGoiTap?.tenGoiTap,
+                goiTapId: p.goiTapId?._id || p.maGoiTap?._id,
+                trangThaiDangKy: p.trangThaiDangKy,
+                trangThaiSuDung: p.trangThaiSuDung
+            }))
+        });
+
         return res.json({
             success: true,
             canRegister,
@@ -1219,14 +1311,7 @@ exports.checkRegistrationEligibility = async (req, res) => {
             isRegistrationTime,
             hasExistingSchedule: !!existingSchedule,
             hasCompletedPackage: hasValidPackage,
-            activePackage: activePackage ? {
-                _id: activePackage._id,
-                goiTapId: activePackage.goiTapId?._id || activePackage.maGoiTap?._id,
-                chiNhanhId: activePackage.branchId?._id,
-                tenGoiTap: activePackage.goiTapId?.tenGoiTap || activePackage.maGoiTap?.tenGoiTap,
-                trangThaiDangKy: activePackage.trangThaiDangKy,
-                trangThaiSuDung: activePackage.trangThaiSuDung
-            } : null
+            activePackage: returnedPackage
         });
 
     } catch (error) {
