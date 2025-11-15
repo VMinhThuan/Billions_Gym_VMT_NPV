@@ -97,18 +97,35 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
         let status = 'upcoming';
         let color = '#00FFC6';
         let icon = '⏳';
+        let label = 'Bắt đầu sau:';
 
         // Critical timing - less than 10 minutes
         if (timeDiff <= 10 * 60 * 1000) {
             status = 'critical';
             color = '#FF6B6B';
             icon = '🚨';
+            label = 'Sắp bắt đầu trong:';
         }
         // Urgent - less than 1 hour
         else if (timeDiff <= 60 * 60 * 1000) {
             status = 'urgent';
             color = '#FF914D';
             icon = '⚡';
+            label = 'Sắp diễn ra trong:';
+        }
+        // Soon - less than 24 hours (but more than 1 hour)
+        else if (timeDiff <= 24 * 60 * 60 * 1000) {
+            status = 'soon';
+            color = '#00FFC6';
+            icon = '⏰';
+            label = 'Sắp tới trong:';
+        }
+        // Upcoming - more than 24 hours
+        else {
+            status = 'upcoming';
+            color = '#00FFC6';
+            icon = '⏳';
+            label = 'Bắt đầu sau:';
         }
 
         // Format countdown text
@@ -128,12 +145,14 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
             text: countdownText,
             color,
             icon,
+            label,
             days,
             hours: hours24,
             minutes: mins,
             seconds: secs,
             isCritical: status === 'critical',
-            isUrgent: status === 'urgent'
+            isUrgent: status === 'urgent',
+            isSoon: status === 'soon'
         };
     };
 
@@ -555,6 +574,16 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                                     <span className="session-trainer">
                                         {session.ptPhuTrach.hoTen}
                                     </span>
+                                    <button
+                                        className="session-remove-btn"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleSessionSelect(session);
+                                        }}
+                                        title="Xóa buổi tập"
+                                    >
+                                        ×
+                                    </button>
                                 </div>
                             ))}
                         </div>
@@ -576,7 +605,7 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
             {/* Session Selection Modal */}
             {showSessionModal && selectedTimeSlot && (
                 <div className="session-modal-overlay" onClick={closeModal}>
-                    <div className="session-modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="session-modal max-w-6xl w-full" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3>Chọn buổi tập</h3>
                             <div className="modal-subtitle">
@@ -585,206 +614,214 @@ const ScheduleBuilder = ({ registrationId, selectedTrainer, onCreateSchedule, lo
                             <button className="modal-close" onClick={closeModal}>×</button>
                         </div>
 
-                        <div className="modal-content">
+                        <div className="modal-content w-full max-w-6xl mx-auto px-6">
                             {selectedTimeSlot.sessions.length > 0 ? (
-                                <div className="sessions-grid">
+                                <div className="w-full">
                                     {/* Info message about single selection per time slot */}
-                                    <div className="selection-info">
-                                        <span className="info-icon">ℹ️</span>
-                                        <span className='text-[#dadada]'>Bạn chỉ có thể chọn 1 buổi tập trong mỗi ca</span>
+                                    <div className="flex items-center gap-2 mb-6 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                        <span className="text-blue-400">ℹ️</span>
+                                        <span className="text-[#dadada] text-sm">Bạn chỉ có thể chọn 1 buổi tập trong mỗi ca</span>
                                     </div>
 
-                                    {selectedTimeSlot.sessions.map(session => {
-                                        const isSelected = selectedSessions.find(s => s._id === session._id);
-                                        const status = getSessionStatus(session);
+                                    {/* Grid Layout: 3 cards per row on desktop - Full width parent */}
+                                    <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+                                        {selectedTimeSlot.sessions.map(session => {
+                                            const isSelected = selectedSessions.find(s => s._id === session._id);
+                                            const status = getSessionStatus(session);
 
-                                        // Check if there's another session selected in this time slot
-                                        const hasSelectedInTimeSlot = selectedTimeSlot.sessions.some(s =>
-                                            selectedSessions.find(sel => sel._id === s._id) && s._id !== session._id
-                                        );
+                                            // Check if there's another session selected in this time slot
+                                            const hasSelectedInTimeSlot = selectedTimeSlot.sessions.some(s =>
+                                                selectedSessions.find(sel => sel._id === s._id) && s._id !== session._id
+                                            );
 
-                                        const isDisabledDueToSelection = hasSelectedInTimeSlot && !isSelected;
+                                            const isDisabledDueToSelection = hasSelectedInTimeSlot && !isSelected;
 
-                                        const sessionStatusInfo = getDetailedCountdown(session.ngay, session.gioBatDau, session.gioKetThuc);
-                                        const workoutTypeInfo = getWorkoutTypeInfo(session.tenBuoiTap, session.moTa, session.templateBuoiTap);
+                                            const sessionStatusInfo = getDetailedCountdown(session.ngay, session.gioBatDau, session.gioKetThuc);
+                                            const workoutTypeInfo = getWorkoutTypeInfo(session.tenBuoiTap, session.moTa, session.templateBuoiTap);
 
-                                        return (
-                                            <div
-                                                key={session._id}
-                                                className={`villa-workout-card ${isSelected ? 'selected' : ''} ${sessionStatusInfo.status}`}
-                                                onClick={() => !isDisabledDueToSelection && handleSessionSelect(session)}
-                                                style={{
-                                                    '--countdown-color': sessionStatusInfo.color,
-                                                    '--workout-bg': workoutTypeInfo.bgColor,
-                                                    '--workout-border': workoutTypeInfo.borderColor,
-                                                    backgroundImage: `url(${workoutTypeInfo.backgroundImage || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80'})`
-                                                }}
-                                            >
-                                                {/* Background Image Overlay */}
-                                                <div className="villa-card-overlay"></div>
+                                            // Get day name from session date
+                                            const sessionDate = new Date(session.ngay);
+                                            const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                                            const dayName = dayNames[sessionDate.getDay()];
 
-                                                {/* Disabled State Overlay */}
-                                                {isDisabledDueToSelection && (
-                                                    <div className="villa-disabled-overlay">
-                                                        <span className="disabled-message">Đã chọn buổi khác trong ca này</span>
-                                                    </div>
-                                                )}
+                                            // Format time
+                                            const timeLabel = `${session.gioBatDau.substring(0, 5)} - ${session.gioKetThuc.substring(0, 5)}`;
 
-                                                {/* Status Badge */}
-                                                <div className={`villa-status-badge ${sessionStatusInfo.status}`}>
-                                                    <span className="status-icon">{sessionStatusInfo.icon}</span>
-                                                    <span className="status-text">
-                                                        {sessionStatusInfo.isOngoing ? 'ĐANG DIỄN RA' :
-                                                            sessionStatusInfo.isFinished ? 'ĐÃ KẾT THÚC' :
-                                                                sessionStatusInfo.isCritical ? 'SẮP BẮT ĐẦU' : 'SẮP DIỄN RA'}
-                                                    </span>
-                                                </div>
+                                            // Available slots
+                                            const availableSlots = (session.soLuongToiDa || 0) - (session.soLuongHienTai || 0);
 
-                                                {/* Main Content Area */}
-                                                <div className="villa-content">
-                                                    {/* Workout Type & Difficulty */}
-                                                    <div className="villa-workout-header">
-                                                        <div className="workout-type-pill">
-                                                            <span className="workout-icon">{workoutTypeInfo.icon}</span>
-                                                            <span className="workout-name">{session.tenBuoiTap || 'Buổi tập'}</span>
-                                                        </div>
-                                                        <div className="difficulty-badge" style={{ backgroundColor: workoutTypeInfo.bgColor }}>
-                                                            {workoutTypeInfo.difficulty}
-                                                        </div>
-                                                    </div>
+                                            // Check if upcoming (not finished and not ongoing)
+                                            const isUpcoming = !sessionStatusInfo.isFinished && !sessionStatusInfo.isOngoing;
 
-                                                    {/* Session Details */}
-                                                    <div className="villa-session-info">
-                                                        <div className="session-meta">
-                                                            <span className="session-type">Loại: {workoutTypeInfo.type}</span>
-                                                            <span className="session-separator">|</span>
-                                                            <span className="session-trainer">
-                                                                PT: {session.ptPhuTrach.hoTen}
-                                                                <div className="trainer-rating">
-                                                                    {[...Array(5)].map((_, i) => (
-                                                                        <span
-                                                                            key={i}
-                                                                            className={`star ${i < session.ptPhuTrach.danhGia ? 'filled' : ''}`}
-                                                                        >
-                                                                            ⭐
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
-                                                            </span>
-                                                        </div>
+                                            // Check if session is soon (within 24 hours) - for "SẮP DIỄN RA" badge
+                                            const isUpcomingSoon = isUpcoming && (sessionStatusInfo.isSoon || sessionStatusInfo.isUrgent || sessionStatusInfo.isCritical);
 
-                                                        {/* Capacity Info */}
-                                                        <div className="capacity-info">
-                                                            <span className="capacity-text">
-                                                                Slot: {session.soLuongHienTai || 0} / {session.soLuongToiDa || 0}
-                                                            </span>
-                                                            <div className="remaining-slots">
-                                                                <span className="slots-icon">🟢</span>
-                                                                <span className="slots-count">
-                                                                    Còn {(session.soLuongToiDa || 0) - (session.soLuongHienTai || 0)} slot
+                                            // Get PT image or placeholder
+                                            const ptImage = session.ptPhuTrach?.anhDaiDien || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80';
+
+                                            return (
+                                                <div
+                                                    key={session._id}
+                                                    className={`w-full h-full flex flex-col bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 overflow-hidden cursor-pointer relative ${isSelected ? 'ring-2 ring-blue-500' : ''
+                                                        } ${isDisabledDueToSelection ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    onClick={() => !isDisabledDueToSelection && handleSessionSelect(session)}
+                                                >
+                                                    {/* Image Container with Badges and Favorite */}
+                                                    <div className="relative w-full aspect-video overflow-hidden">
+                                                        {/* Background Image */}
+                                                        <img
+                                                            src={ptImage}
+                                                            alt={session.tenBuoiTap || 'Buổi tập'}
+                                                            className="w-full h-full object-cover opacity-90"
+                                                        />
+
+                                                        {/* Badges - Top Left */}
+                                                        <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
+                                                            {isUpcomingSoon && (
+                                                                <span className="bg-[#EF4444] text-white text-xs font-bold px-3 py-1 rounded-full">
+                                                                    SẮP DIỄN RA
                                                                 </span>
+                                                            )}
+                                                            <span className="bg-[#8B5CF6] text-white text-xs font-bold px-3 py-1 rounded-full">
+                                                                {workoutTypeInfo.difficulty}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Favorite Icon - Top Right */}
+                                                        <button
+                                                            className="absolute top-3 right-3 bg-black/40 backdrop-blur-md p-2 rounded-full text-white hover:bg-black/60 transition-all z-10"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                // TODO: Implement favorite functionality
+                                                            }}
+                                                        >
+                                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Card Content */}
+                                                    <div className="p-5 flex-1 flex flex-col">
+                                                        {/* Title Line - Fixed height for alignment */}
+                                                        <h3 className="text-lg font-semibold text-white mb-1 line-clamp-2 min-h-[3.5rem] flex-shrink-0">
+                                                            {session.tenBuoiTap || 'Buổi tập'} – PT {session.ptPhuTrach.hoTen}
+                                                        </h3>
+
+                                                        {/* Sub Info Line - Fixed height for alignment */}
+                                                        <p className="text-[#A1A1A1] text-sm mb-4 line-clamp-1 min-h-[1.25rem] flex-shrink-0">
+                                                            Loại: {workoutTypeInfo.type} · Slot: {session.soLuongHienTai || 0}/{session.soLuongToiDa || 0}
+                                                        </p>
+
+                                                        {/* Info Row with Icons - Fixed height for alignment */}
+                                                        <div className="flex items-center justify-between text-gray-300 text-sm mb-4 min-h-[1.5rem] flex-shrink-0">
+                                                            <div className="flex items-center gap-1">
+                                                                <span>📅</span>
+                                                                <span>{dayName}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <span>⏰</span>
+                                                                <span>{timeLabel}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <span>🎟</span>
+                                                                <span>{availableSlots} slot</span>
                                                             </div>
                                                         </div>
-                                                    </div>
 
-                                                    {/* Real-time Countdown */}
-                                                    <div className={`villa-countdown ${sessionStatusInfo.status}`}>
-                                                        <div className="countdown-icon">⏳</div>
-                                                        <div className="countdown-content">
-                                                            {sessionStatusInfo.isOngoing ? (
-                                                                <div className="ongoing-status">
-                                                                    <span className="ongoing-text">🔥 ĐANG DIỄN RA</span>
+                                                        {/* Real-time Countdown - Always render with fixed height */}
+                                                        <div className="mb-4 p-3 bg-black/30 rounded-lg border border-[#2A2A2A] flex-shrink-0 h-[110px] flex flex-col justify-center">
+                                                            {sessionStatusInfo.isFinished ? (
+                                                                <div className="flex items-center justify-center gap-2 h-full">
+                                                                    <span className="text-xl">✅</span>
+                                                                    <span className="text-gray-400 text-sm font-medium">ĐÃ KẾT THÚC</span>
                                                                 </div>
-                                                            ) : sessionStatusInfo.isFinished ? (
-                                                                <div className="finished-status">
-                                                                    <span className="finished-text">✅ ĐÃ KẾT THÚC</span>
+                                                            ) : sessionStatusInfo.isOngoing ? (
+                                                                <div className="flex items-center justify-center gap-2 h-full">
+                                                                    <span className="text-2xl">🔥</span>
+                                                                    <span className="text-white font-semibold">ĐANG DIỄN RA</span>
                                                                 </div>
                                                             ) : (
-                                                                <div className="countdown-display">
-                                                                    <span className="countdown-label">
-                                                                        {sessionStatusInfo.isCritical ? 'Sắp bắt đầu trong:' : 'Bắt đầu sau:'}
-                                                                    </span>
-                                                                    <div className="countdown-time">
+                                                                <div className="w-full h-full flex flex-col justify-center">
+                                                                    <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+                                                                        <span className="text-xl">{sessionStatusInfo.icon}</span>
+                                                                        <span className="text-white text-xs font-semibold uppercase">
+                                                                            {sessionStatusInfo.label || 'Bắt đầu sau:'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 text-white flex-shrink-0">
                                                                         {sessionStatusInfo.days > 0 && (
-                                                                            <span className="time-unit">
-                                                                                <span className="time-number">{sessionStatusInfo.days.toString().padStart(2, '0')}</span>
-                                                                                <span className="time-label">ngày</span>
-                                                                            </span>
+                                                                            <div className="flex flex-col items-center">
+                                                                                <span className="text-lg font-bold">{sessionStatusInfo.days.toString().padStart(2, '0')}</span>
+                                                                                <span className="text-xs text-gray-400">NGÀY</span>
+                                                                            </div>
                                                                         )}
                                                                         {(sessionStatusInfo.days > 0 || sessionStatusInfo.hours > 0) && (
-                                                                            <span className="time-unit">
-                                                                                <span className="time-number">{sessionStatusInfo.hours.toString().padStart(2, '0')}</span>
-                                                                                <span className="time-label">giờ</span>
-                                                                            </span>
+                                                                            <div className="flex flex-col items-center">
+                                                                                <span className="text-lg font-bold">{sessionStatusInfo.hours.toString().padStart(2, '0')}</span>
+                                                                                <span className="text-xs text-gray-400">GIỜ</span>
+                                                                            </div>
                                                                         )}
-                                                                        <span className="time-unit">
-                                                                            <span className="time-number">{sessionStatusInfo.minutes.toString().padStart(2, '0')}</span>
-                                                                            <span className="time-label">phút</span>
-                                                                        </span>
-                                                                        <span className="time-unit seconds">
-                                                                            <span className="time-number">{sessionStatusInfo.seconds.toString().padStart(2, '0')}</span>
-                                                                            <span className="time-label">giây</span>
-                                                                        </span>
+                                                                        <div className="flex flex-col items-center">
+                                                                            <span className="text-lg font-bold">{sessionStatusInfo.minutes.toString().padStart(2, '0')}</span>
+                                                                            <span className="text-xs text-gray-400">PHÚT</span>
+                                                                        </div>
+                                                                        <div className="flex flex-col items-center">
+                                                                            <span className="text-lg font-bold">{sessionStatusInfo.seconds.toString().padStart(2, '0')}</span>
+                                                                            <span className="text-xs text-gray-400">GIÂY</span>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             )}
                                                         </div>
+
+                                                        {/* Spacer to push button to bottom */}
+                                                        <div className="flex-1"></div>
+
+                                                        {/* Register Button */}
+                                                        <button
+                                                            className={`w-full bg-black text-white py-2 rounded-xl font-medium hover:bg-[#2A2A2A] transition disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ${isSelected ? 'bg-green-600 hover:bg-green-700' : ''
+                                                                }`}
+                                                            disabled={
+                                                                isDisabledDueToSelection ||
+                                                                availableSlots <= 0 ||
+                                                                sessionStatusInfo.isFinished
+                                                            }
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (!isDisabledDueToSelection && availableSlots > 0 && !sessionStatusInfo.isFinished) {
+                                                                    handleSessionSelect(session);
+                                                                }
+                                                            }}
+                                                        >
+                                                            {isSelected ? (
+                                                                '✓ Đã chọn'
+                                                            ) : availableSlots <= 0 ? (
+                                                                'Đã đầy'
+                                                            ) : sessionStatusInfo.isFinished ? (
+                                                                'Đã kết thúc'
+                                                            ) : (
+                                                                'Đăng ký buổi tập'
+                                                            )}
+                                                        </button>
                                                     </div>
 
-                                                    {/* Action Button */}
-                                                    <button
-                                                        className={`villa-register-btn ${isSelected ? 'selected' :
-                                                            (session.soLuongToiDa || 0) - (session.soLuongHienTai || 0) <= 0 ? 'full' :
-                                                                sessionStatusInfo.isFinished ? 'finished' : ''
-                                                            }`}
-                                                        disabled={
-                                                            isDisabledDueToSelection ||
-                                                            (session.soLuongToiDa || 0) - (session.soLuongHienTai || 0) <= 0 ||
-                                                            sessionStatusInfo.isFinished
-                                                        }
-                                                    >
-                                                        {isSelected ? (
-                                                            <>
-                                                                <span className="btn-icon">✓</span>
-                                                                <span>Đã chọn</span>
-                                                            </>
-                                                        ) : (session.soLuongToiDa || 0) - (session.soLuongHienTai || 0) <= 0 ? (
-                                                            <>
-                                                                <span className="btn-icon">❌</span>
-                                                                <span>Đã đầy</span>
-                                                            </>
-                                                        ) : sessionStatusInfo.isFinished ? (
-                                                            <>
-                                                                <span className="btn-icon">⏹️</span>
-                                                                <span>Đã kết thúc</span>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <span className="btn-icon">🚀</span>
-                                                                <span>Đăng ký buổi tập</span>
-                                                            </>
-                                                        )}
-                                                    </button>
+                                                    {/* Disabled Overlay */}
+                                                    {isDisabledDueToSelection && (
+                                                        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-20">
+                                                            <span className="text-white text-sm font-medium">Đã chọn buổi khác trong ca này</span>
+                                                        </div>
+                                                    )}
                                                 </div>
-
-                                                {/* Selection Glow Effect */}
-                                                {isSelected && (
-                                                    <div className="villa-selection-glow"></div>
-                                                )}
-
-                                                {/* Critical Session Pulse Effect */}
-                                                {sessionStatusInfo.isCritical && (
-                                                    <div className="villa-critical-pulse"></div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             ) : (
-                                <div className="empty-sessions">
-                                    <div className="empty-icon">📅</div>
-                                    <h4>Không có buổi tập trong ca này</h4>
-                                    <p>Hiện tại chưa có buổi tập nào được tổ chức trong khung giờ này.</p>
+                                <div className="empty-sessions text-center py-12">
+                                    <div className="text-5xl mb-4">📅</div>
+                                    <h4 className="text-white text-lg font-semibold mb-2">Không có buổi tập trong ca này</h4>
+                                    <p className="text-gray-400 text-sm">Hiện tại chưa có buổi tập nào được tổ chức trong khung giờ này.</p>
                                 </div>
                             )}
                         </div>

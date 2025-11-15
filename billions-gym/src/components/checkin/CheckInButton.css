@@ -1,0 +1,136 @@
+.checkin-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.checkin-button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.checkin-button:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.checkin-button-primary {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    color: white;
+}
+
+.checkin-button-primary:hover {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(34, 197, 94, 0.3);
+}
+
+.checkin-button-secondary {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+}
+
+.checkin-button-secondary:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.checkin-button-outline {
+    background: transparent;
+    color: #22c55e;
+    border: 2px solid #22c55e;
+}
+
+.checkin-button-outline:hover {
+    background: #22c55e;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(34, 197, 94, 0.3);
+}
+
+.checkin-button-icon {
+    font-size: 1.25rem;
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+
+.checkin-button:hover .checkin-button-icon {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.checkin-button-text {
+    position: relative;
+    z-index: 1;
+}
+
+.checkin-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .checkin-button {
+        padding: 0.625rem 1.25rem;
+        font-size: 0.875rem;
+    }
+
+    .checkin-button-icon {
+        font-size: 1.125rem;
+    }
+}
+
+/* Floating button variant */
+.checkin-button-floating {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    padding: 0;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+    z-index: 1000;
+}
+
+.checkin-button-floating .checkin-button-text {
+    display: none;
+}
+
+.checkin-button-floating .checkin-button-icon {
+    font-size: 1.5rem;
+}
+
+.checkin-button-floating:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(34, 197, 94, 0.5);
+}
+
+@media (max-width: 768px) {
+    .checkin-button-floating {
+        bottom: 1.5rem;
+        right: 1.5rem;
+        width: 56px;
+        height: 56px;
+    }
+}

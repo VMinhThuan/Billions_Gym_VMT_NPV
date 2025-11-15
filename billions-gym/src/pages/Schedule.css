@@ -1131,7 +1131,7 @@
     background: #1a1a1a;
     border-radius: 12px;
     width: 90%;
-    max-width: 500px;
+    max-width: 2500px;
     max-height: 80vh;
     overflow-y: auto;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
@@ -1269,6 +1269,22 @@
 .modal-content {
     scrollbar-width: thin;
     scrollbar-color: #2a2a2a #1a1a1a;
+}
+
+/* Session Detail Modal - Style riêng để không ảnh hưởng các modal khác */
+.modal-content.session-detail-modal {
+    width: 90%;
+    max-width: 600px;
+    max-height: 85vh;
+}
+
+/* Responsive cho Session Detail Modal */
+@media (max-width: 768px) {
+    .modal-content.session-detail-modal {
+        width: 95%;
+        max-width: 95%;
+        max-height: 90vh;
+    }
 }
 
 /* Registration Notification */

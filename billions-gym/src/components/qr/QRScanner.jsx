@@ -7,11 +7,13 @@ const QRScanner = ({ onScanSuccess, onError, autoStart = false }) => {
     const html5QrcodeRef = useRef(null);
     const [isScanning, setIsScanning] = useState(false);
     const [error, setError] = useState(null);
+    const [isReady, setIsReady] = useState(false);
     const hasStartedRef = useRef(false);
 
     useEffect(() => {
         const scannerId = 'qr-scanner-' + Date.now();
         scannerRef.current = scannerId;
+        setIsReady(true); // Mark as ready after scannerId is set
 
         return () => {
             // Cleanup on unmount
@@ -49,6 +51,7 @@ const QRScanner = ({ onScanSuccess, onError, autoStart = false }) => {
             }
             hasStartedRef.current = false;
             setIsScanning(false);
+            setIsReady(false); // Reset ready state on unmount
         };
     }, []);
 
@@ -220,7 +223,13 @@ const QRScanner = ({ onScanSuccess, onError, autoStart = false }) => {
 
     // Auto-start scanning when autoStart is true
     useEffect(() => {
-        console.log('QRScanner: Auto-start effect triggered', { autoStart, isScanning, hasStarted: hasStartedRef.current, error });
+        console.log('QRScanner: Auto-start effect triggered', { autoStart, isScanning, hasStarted: hasStartedRef.current, error, scannerId: scannerRef.current, isReady });
+
+        // Wait for component to be ready (scannerId set)
+        if (!isReady) {
+            console.log('QRScanner: Component not ready yet, waiting...');
+            return;
+        }
 
         if (!autoStart) {
             // Stop scanning when autoStart becomes false
@@ -232,8 +241,21 @@ const QRScanner = ({ onScanSuccess, onError, autoStart = false }) => {
             return;
         }
 
+        // If already scanning successfully, don't restart
+        if (isScanning && !error) {
+            console.log('QRScanner: Already scanning, skipping auto-start');
+            return;
+        }
+
+        // Reset error state when autoStart becomes true (allows retry)
+        if (error && !isScanning) {
+            console.log('QRScanner: Resetting error state to allow retry');
+            setError(null);
+            hasStartedRef.current = false;
+        }
+
         // Function to attempt starting the scanner
-        const attemptStart = () => {
+        const attemptStart = async () => {
             if (!scannerRef.current) {
                 console.log('QRScanner: scannerRef.current is not set yet');
                 return false;
@@ -245,60 +267,74 @@ const QRScanner = ({ onScanSuccess, onError, autoStart = false }) => {
                 return false;
             }
 
+            // Check if element is visible and has dimensions
+            const rect = scannerElement.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) {
+                console.log('QRScanner: Element not visible yet', { width: rect.width, height: rect.height });
+                return false;
+            }
+
             // If already scanning successfully, don't restart
             if (isScanning && !error) {
                 console.log('QRScanner: Already scanning, skipping');
                 return true;
             }
 
+            // Prevent multiple simultaneous start attempts
+            if (hasStartedRef.current) {
+                console.log('QRScanner: Start already in progress, skipping');
+                return false;
+            }
+
             console.log('QRScanner: Attempting to start scanner...', { hasStarted: hasStartedRef.current, error });
             hasStartedRef.current = true;
-            startScanning().catch(err => {
+
+            try {
+                await startScanning();
+                return true;
+            } catch (err) {
                 console.error('QRScanner: Failed to start scanning:', err);
                 hasStartedRef.current = false; // Allow retry on error
-            });
-            return true;
+                return false;
+            }
         };
 
-        // Reset error state when autoStart becomes true (allows retry)
-        if (error) {
-            console.log('QRScanner: Resetting error state to allow retry');
-            setError(null);
-            hasStartedRef.current = false;
-        }
-
-        // Try to start immediately if conditions are met
-        if (!isScanning) {
-            if (attemptStart()) {
+        // Try to start immediately with a small delay to ensure DOM is ready
+        const startTimeout = setTimeout(async () => {
+            const success = await attemptStart();
+            if (success) {
                 return;
             }
 
             // If element doesn't exist yet, wait and retry multiple times
             let retryCount = 0;
-            const maxRetries = 5;
+            const maxRetries = 20; // Increased retries for better reliability
 
-            const retryInterval = setInterval(() => {
+            const retryInterval = setInterval(async () => {
                 retryCount++;
                 console.log(`QRScanner: Retry attempt ${retryCount}/${maxRetries}`);
 
-                if (attemptStart()) {
+                const success = await attemptStart();
+                if (success) {
                     clearInterval(retryInterval);
                 } else if (retryCount >= maxRetries) {
-                    console.log('QRScanner: Max retries reached, giving up');
+                    console.log('QRScanner: Max retries reached, user can manually start');
                     clearInterval(retryInterval);
-                    setError('Không thể khởi động camera. Vui lòng thử lại hoặc nhấn nút "Bắt đầu quét mã QR".');
+                    hasStartedRef.current = false; // Reset to allow manual start
+                    // Don't set error here - let the user manually start
+                    // The button will always be visible for manual start
                 }
-            }, 500); // Retry every 500ms
+            }, 200); // Retry every 200ms (faster)
 
             return () => {
                 clearInterval(retryInterval);
             };
-        }
+        }, 200); // Increased initial delay to 200ms
 
         return () => {
-            // Cleanup if component unmounts or autoStart changes
+            clearTimeout(startTimeout);
         };
-    }, [autoStart]); // Only depend on autoStart - component remounts when key changes
+    }, [autoStart, isReady]); // Depend on autoStart and isReady to ensure component is mounted
 
     const stopScanning = async () => {
         try {
@@ -370,6 +406,11 @@ const QRScanner = ({ onScanSuccess, onError, autoStart = false }) => {
             {error && (
                 <div className="qr-scanner-error">
                     <p>{error}</p>
+                    {!isScanning && (
+                        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', opacity: 0.9 }}>
+                            Nhấn nút "Bắt đầu quét mã QR" bên dưới để thử lại.
+                        </p>
+                    )}
                 </div>
             )}
 
@@ -379,21 +420,23 @@ const QRScanner = ({ onScanSuccess, onError, autoStart = false }) => {
                         className="qr-scanner-btn qr-scanner-btn-start"
                         onClick={handleStartClick}
                     >
-                        Bắt đầu quét mã QR
+                        <span className="qr-scanner-btn-icon">📷</span>
+                        <span>Bắt đầu quét mã QR</span>
                     </button>
                 ) : (
                     <button
                         className="qr-scanner-btn qr-scanner-btn-stop"
                         onClick={handleStopClick}
                     >
-                        Dừng quét
+                        <span className="qr-scanner-btn-icon">⏸</span>
+                        <span>Dừng quét</span>
                     </button>
                 )}
             </div>
 
             {!isScanning && !error && (
                 <div className="qr-scanner-instructions">
-                    <p>Nhấn nút "Bắt đầu quét mã QR" để bắt đầu quét mã QR code của hội viên</p>
+                    <p>Nhấn nút "Bắt đầu quét mã QR" để bắt đầu quét mã QR code</p>
                 </div>
             )}
         </div>

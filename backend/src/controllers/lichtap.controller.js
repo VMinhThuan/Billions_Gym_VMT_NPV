@@ -60,8 +60,13 @@ exports.getAvailableSessions = async (req, res) => {
             console.log('🏢 Branch IDs in BuoiTap collection:', distinctBranchIds);
 
             // Query BuoiTap collection with correct field names
+            // Thêm filter theo ngày để chỉ lấy sessions trong tuần
             const query = {
                 chiNhanh: chiNhanhId,
+                ngayTap: {
+                    $gte: startDate,
+                    $lte: endDate
+                },
                 trangThai: { $in: ['CHUAN_BI', 'DANG_DIEN_RA'] }
             };
             console.log('🔎 MongoDB Query:', JSON.stringify(query, null, 2));
@@ -76,6 +81,10 @@ exports.getAvailableSessions = async (req, res) => {
                 console.log('⚠️ No sessions for requested branch, using first available branch:', distinctBranchIds[0]);
                 actualQuery = {
                     chiNhanh: distinctBranchIds[0],
+                    ngayTap: {
+                        $gte: startDate,
+                        $lte: endDate
+                    },
                     trangThai: { $in: ['CHUAN_BI', 'DANG_DIEN_RA'] }
                 };
             }
@@ -147,7 +156,43 @@ exports.getAvailableSessions = async (req, res) => {
             }).filter(Boolean);
 
             // Lọc theo ràng buộc gói tập
+            console.log(`🔍 [Weekend Gym] Before filter: ${mapped.length} sessions`);
+            const tenGoiTap = goiTap.tenGoiTap.toLowerCase();
+            const isWeekendPackage = tenGoiTap.includes('weekend') || tenGoiTap.includes('cuối tuần');
+
+            if (isWeekendPackage) {
+                console.log(`🔍 [Weekend Gym] Filtering sessions for Weekend Gym package`);
+                mapped.forEach((buoi, index) => {
+                    const allowed = isSessionAllowedForPackage(buoi, goiTap);
+                    console.log(`🔍 [Weekend Gym] Session ${index + 1}:`, {
+                        tenBuoiTap: buoi.tenBuoiTap,
+                        ngay: buoi.ngay,
+                        ngayType: typeof buoi.ngay,
+                        allowed,
+                        thuTrongTuan: allowed ? 'N/A' : (() => {
+                            const ngayTapValue = buoi.ngayTap || buoi.ngay;
+                            let ngayTap;
+                            if (ngayTapValue instanceof Date) {
+                                const year = ngayTapValue.getFullYear();
+                                const month = ngayTapValue.getMonth();
+                                const day = ngayTapValue.getDate();
+                                ngayTap = new Date(year, month, day, 12, 0, 0);
+                            } else {
+                                const tempDate = new Date(ngayTapValue);
+                                const year = tempDate.getFullYear();
+                                const month = tempDate.getMonth();
+                                const day = tempDate.getDate();
+                                ngayTap = new Date(year, month, day, 12, 0, 0);
+                            }
+                            const thu = ngayTap.getDay();
+                            return thu + ' (' + ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][thu] + ')';
+                        })()
+                    });
+                });
+            }
+
             const filteredSessions = mapped.filter(buoi => isSessionAllowedForPackage(buoi, goiTap));
+            console.log(`🔍 [Weekend Gym] After filter: ${filteredSessions.length} sessions`);
 
             // Thêm cờ có thể đăng ký (chỉ những buổi chưa bắt đầu và còn chỗ)
             const sessionsWithStatus = filteredSessions.map(buoi => ({
@@ -233,6 +278,50 @@ exports.registerSession = async (req, res) => {
                 success: false,
                 message: 'Bạn đã đăng ký buổi tập này'
             });
+        }
+
+        // Kiểm tra gói tập của hội viên và validate ràng buộc
+        const activePackage = await ChiTietGoiTap.findOne({
+            $or: [
+                { maHoiVien: userId },
+                { nguoiDungId: userId }
+            ],
+            $or: [
+                { trangThaiThanhToan: 'DA_THANH_TOAN' },
+                { trangThaiDangKy: 'HOAN_THANH' }
+            ]
+        })
+            .populate('maGoiTap')
+            .populate('goiTapId')
+            .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+
+        if (activePackage) {
+            const goiTap = activePackage.goiTapId || activePackage.maGoiTap;
+            if (goiTap) {
+                // Kiểm tra buổi tập có phù hợp với gói tập không
+                const buoiTapForCheck = {
+                    gioBatDau: buoiTap.gioBatDau || '00:00',
+                    ngayTap: buoiTap.ngayTap
+                };
+
+                if (!isSessionAllowedForPackage(buoiTapForCheck, goiTap)) {
+                    const tenGoiTap = goiTap.tenGoiTap.toLowerCase();
+                    let errorMessage = 'Buổi tập này không phù hợp với gói tập của bạn';
+
+                    if (tenGoiTap.includes('weekend') || tenGoiTap.includes('cuối tuần')) {
+                        errorMessage = 'Gói Weekend Gym chỉ cho phép đăng ký vào Thứ 7 và Chủ nhật';
+                    } else if (tenGoiTap.includes('morning') || tenGoiTap.includes('sáng')) {
+                        errorMessage = 'Gói Morning Fitness chỉ cho phép đăng ký vào khung giờ sáng (05:00-11:00)';
+                    } else if (tenGoiTap.includes('evening') || tenGoiTap.includes('tối')) {
+                        errorMessage = 'Gói Evening chỉ cho phép đăng ký vào khung giờ tối (17:00-22:00)';
+                    }
+
+                    return res.status(400).json({
+                        success: false,
+                        message: errorMessage
+                    });
+                }
+            }
         }
 
         // Thêm hội viên vào buổi tập
@@ -500,6 +589,49 @@ exports.createWorkoutSchedule = async (req, res) => {
             });
         }
 
+        // Lấy thông tin gói tập để kiểm tra ràng buộc
+        const goiTap = await GoiTap.findById(goiTapId);
+        if (!goiTap) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy gói tập'
+            });
+        }
+
+        // Validate tất cả các buổi tập có phù hợp với gói tập không
+        for (const buoi of danhSachBuoiTap) {
+            const buoiTap = await BuoiTap.findById(buoi.buoiTapId);
+            if (!buoiTap) {
+                return res.status(404).json({
+                    success: false,
+                    message: `Không tìm thấy buổi tập với ID: ${buoi.buoiTapId}`
+                });
+            }
+
+            const buoiTapForCheck = {
+                gioBatDau: buoiTap.gioBatDau || buoi.gioBatDau || '00:00',
+                ngayTap: buoiTap.ngayTap || new Date(buoi.ngayTap)
+            };
+
+            if (!isSessionAllowedForPackage(buoiTapForCheck, goiTap)) {
+                const tenGoiTap = goiTap.tenGoiTap.toLowerCase();
+                let errorMessage = 'Một số buổi tập không phù hợp với gói tập của bạn';
+
+                if (tenGoiTap.includes('weekend') || tenGoiTap.includes('cuối tuần')) {
+                    errorMessage = 'Gói Weekend Gym chỉ cho phép đăng ký vào Thứ 7 và Chủ nhật';
+                } else if (tenGoiTap.includes('morning') || tenGoiTap.includes('sáng')) {
+                    errorMessage = 'Gói Morning Fitness chỉ cho phép đăng ký vào khung giờ sáng (05:00-11:00)';
+                } else if (tenGoiTap.includes('evening') || tenGoiTap.includes('tối')) {
+                    errorMessage = 'Gói Evening chỉ cho phép đăng ký vào khung giờ tối (17:00-22:00)';
+                }
+
+                return res.status(400).json({
+                    success: false,
+                    message: errorMessage
+                });
+            }
+        }
+
         // Tính ngày kết thúc tuần
         const startDate = new Date(tuanBatDau);
         const endDate = new Date(startDate);
@@ -693,8 +825,50 @@ exports.getAllSchedules = async (req, res) => {
 function isSessionAllowedForPackage(buoiTap, goiTap) {
     const tenGoiTap = goiTap.tenGoiTap.toLowerCase();
     const gioBatDau = parseInt(buoiTap.gioBatDau.split(':')[0]);
-    const ngayTap = new Date(buoiTap.ngayTap);
-    const thuTrongTuan = ngayTap.getDay(); // 0 = Chủ nhật, 1 = Thứ 2, ...
+
+    // Lấy ngày tập - có thể là 'ngayTap' hoặc 'ngay' tùy vào context
+    const ngayTapValue = buoiTap.ngayTap || buoiTap.ngay;
+
+    // Xử lý ngày tập - đảm bảo lấy đúng ngày theo timezone local (Vietnam UTC+7)
+    let ngayTap;
+    if (ngayTapValue instanceof Date) {
+        // Nếu là Date object từ MongoDB, có thể là UTC
+        // Lấy local date components để tránh timezone issues
+        // Sử dụng getFullYear, getMonth, getDate thay vì UTC để lấy theo local timezone
+        const year = ngayTapValue.getFullYear();
+        const month = ngayTapValue.getMonth();
+        const day = ngayTapValue.getDate();
+        ngayTap = new Date(year, month, day, 12, 0, 0); // Set giữa trưa để tránh timezone shift
+    } else if (typeof ngayTapValue === 'string') {
+        // Nếu là string ISO (có T hoặc có timezone), parse cẩn thận
+        if (ngayTapValue.includes('T') || ngayTapValue.includes('Z') || ngayTapValue.includes('+')) {
+            // ISO string với time - lấy phần date và tạo local date
+            const dateStr = ngayTapValue.split('T')[0];
+            const [year, month, day] = dateStr.split('-').map(Number);
+            ngayTap = new Date(year, month - 1, day, 12, 0, 0); // Month is 0-indexed, set giữa trưa
+        } else if (ngayTapValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Format YYYY-MM-DD
+            const [year, month, day] = ngayTapValue.split('-').map(Number);
+            ngayTap = new Date(year, month - 1, day, 12, 0, 0);
+        } else {
+            // Fallback: parse như bình thường và normalize
+            const tempDate = new Date(ngayTapValue);
+            const year = tempDate.getFullYear();
+            const month = tempDate.getMonth();
+            const day = tempDate.getDate();
+            ngayTap = new Date(year, month, day, 12, 0, 0);
+        }
+    } else {
+        // Fallback: parse và normalize
+        const tempDate = new Date(ngayTapValue);
+        const year = tempDate.getFullYear();
+        const month = tempDate.getMonth();
+        const day = tempDate.getDate();
+        ngayTap = new Date(year, month, day, 12, 0, 0);
+    }
+
+    // Lấy thứ trong tuần (0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7)
+    const thuTrongTuan = ngayTap.getDay();
 
     // Ràng buộc cho gói Morning Fitness
     if (tenGoiTap.includes('morning') || tenGoiTap.includes('sáng')) {
@@ -703,7 +877,18 @@ function isSessionAllowedForPackage(buoiTap, goiTap) {
 
     // Ràng buộc cho gói Weekend Gym
     if (tenGoiTap.includes('weekend') || tenGoiTap.includes('cuối tuần')) {
-        return thuTrongTuan === 6 || thuTrongTuan === 0; // Thứ 7 hoặc Chủ nhật
+        // Thứ 7 = 6, Chủ nhật = 0
+        const isWeekend = thuTrongTuan === 6 || thuTrongTuan === 0;
+        console.log('🔍 [Weekend Gym Check]', {
+            tenGoiTap,
+            ngayTapOriginal: ngayTapValue,
+            ngayTapParsed: ngayTap.toISOString(),
+            thuTrongTuan,
+            isWeekend,
+            ngayTapType: typeof ngayTapValue,
+            dayName: ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][thuTrongTuan]
+        });
+        return isWeekend;
     }
 
     // Ràng buộc cho gói Evening

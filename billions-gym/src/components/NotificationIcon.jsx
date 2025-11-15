@@ -205,7 +205,7 @@ const NotificationIcon = () => {
 
             {/* Dropdown */}
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-hidden">
                     {/* Header */}
                     <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-gray-900">Thông báo</h3>
@@ -305,7 +305,7 @@ const NotificationIcon = () => {
                     {/* Footer */}
                     {notifications.length > 0 && (
                         <div className="px-4 py-3 border-t border-gray-100 text-center">
-                            <button className="text-sm text-[#da2128] hover:text-[#b91c1c] font-medium">
+                            <button className="text-sm text-[#da2128] hover:text-[#b91c1c] font-medium whitespace-nowrap w-full">
                                 Xem tất cả thông báo
                             </button>
                         </div>
