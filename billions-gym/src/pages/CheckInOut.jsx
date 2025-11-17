@@ -777,7 +777,21 @@ const CheckInOut = () => {
                             ) : (
                                 <div className="sessions-list">
                                     {todaySessions.map((session) => {
-                                        const canCheckIn = session.attendanceStatus === 'DA_DANG_KY' && !session.hasCheckedIn;
+                                        // Kiểm tra xem có session nào khác đang check-in mà chưa check-out không
+                                        const hasActiveCheckIn = todaySessions.some(s =>
+                                            s._id !== session._id &&
+                                            s.hasCheckedIn &&
+                                            s.checkInRecord &&
+                                            !s.checkInRecord.checkOutTime
+                                        );
+
+                                        // Chỉ cho phép check-in nếu:
+                                        // 1. Session này chưa check-in
+                                        // 2. Không có session nào khác đang check-in chưa check-out
+                                        const canCheckIn = session.attendanceStatus === 'DA_DANG_KY' &&
+                                            !session.hasCheckedIn &&
+                                            !hasActiveCheckIn;
+
                                         const canCheckOut = session.hasCheckedIn && session.checkInRecord && !session.checkInRecord.checkOutTime;
                                         const isSelected = selectedSession?._id === session._id;
 
@@ -926,6 +940,18 @@ const CheckInOut = () => {
                                                         >
                                                             ✅ Check-in ngay
                                                         </button>
+                                                    ) : hasActiveCheckIn ? (
+                                                        <div className="session-disabled-message" style={{
+                                                            padding: '0.75rem',
+                                                            background: '#78350f',
+                                                            border: '1px solid #f59e0b',
+                                                            borderRadius: '8px',
+                                                            color: '#fde68a',
+                                                            fontSize: '0.875rem',
+                                                            textAlign: 'center'
+                                                        }}>
+                                                            ⚠️ Vui lòng check-out ca đang tập trước
+                                                        </div>
                                                     ) : null}
                                                 </div>
                                             </div>

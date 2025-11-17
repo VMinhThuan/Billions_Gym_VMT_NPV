@@ -160,6 +160,53 @@ exports.checkIn = async (req, res) => {
             });
         }
 
+        // QUAN TRỌNG: Kiểm tra TRƯỚC TIÊN xem có buổi tập nào đang check-in mà chưa check-out không
+        // Điều này đảm bảo không thể check-in nhiều ca cùng lúc
+        // Kiểm tra TRƯỚC khi verify face để tránh lãng phí thời gian
+        const activeCheckIn = await CheckInRecord.findOne({
+            hoiVien: hoiVienId,
+            checkOutTime: null // Chưa check-out - bất kỳ buổi tập nào
+        })
+            .populate('buoiTap', 'tenBuoiTap ngayTap gioBatDau gioKetThuc');
+
+        if (activeCheckIn) {
+            const buoiTapInfo = activeCheckIn.buoiTap;
+            const checkInTime = new Date(activeCheckIn.checkInTime);
+            const timeStr = checkInTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+            // Kiểm tra xem có phải đang cố check-in lại cùng một buổi tập không
+            const isSameSession = activeCheckIn.buoiTap._id.toString() === buoiTapId.toString();
+
+            console.log(`❌ Check-in blocked: User ${hoiVienId} already has active check-in for session ${activeCheckIn.buoiTap._id}`);
+            console.log(`   - Is same session: ${isSameSession}`);
+            console.log(`   - Requested buoiTapId: ${buoiTapId}`);
+
+            if (isSameSession) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Bạn đã check-in buổi tập "${buoiTapInfo?.tenBuoiTap || 'N/A'}" rồi. Vui lòng check-out trước khi check-in lại.`,
+                    activeCheckIn: {
+                        buoiTapId: activeCheckIn.buoiTap._id,
+                        buoiTapName: buoiTapInfo?.tenBuoiTap || 'N/A',
+                        checkInTime: activeCheckIn.checkInTime,
+                        checkInTimeFormatted: timeStr
+                    }
+                });
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    message: `Bạn đang có buổi tập chưa check-out. Vui lòng check-out buổi tập "${buoiTapInfo?.tenBuoiTap || 'N/A'}" (Check-in lúc ${timeStr}) trước khi check-in buổi tập mới. Không thể check-in nhiều ca cùng lúc.`,
+                    activeCheckIn: {
+                        buoiTapId: activeCheckIn.buoiTap._id,
+                        buoiTapName: buoiTapInfo?.tenBuoiTap || 'N/A',
+                        checkInTime: activeCheckIn.checkInTime,
+                        checkInTimeFormatted: timeStr
+                    }
+                });
+            }
+        }
+
+        // Validate face encoding AFTER checking for active check-in
         if (!faceEncoding || !Array.isArray(faceEncoding) || faceEncoding.length !== 128) {
             return res.status(400).json({
                 success: false,
@@ -768,6 +815,51 @@ exports.checkInWithQR = async (req, res) => {
 
         const hoiVienId = hoiVien._id;
 
+        // QUAN TRỌNG: Kiểm tra xem có buổi tập nào đang check-in mà chưa check-out không
+        // Điều này đảm bảo không thể check-in nhiều ca cùng lúc
+        const activeCheckIn = await CheckInRecord.findOne({
+            hoiVien: hoiVienId,
+            checkOutTime: null // Chưa check-out - bất kỳ buổi tập nào
+        })
+            .populate('buoiTap', 'tenBuoiTap ngayTap gioBatDau gioKetThuc');
+
+        if (activeCheckIn) {
+            const buoiTapInfo = activeCheckIn.buoiTap;
+            const checkInTime = new Date(activeCheckIn.checkInTime);
+            const timeStr = checkInTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+            // Kiểm tra xem có phải đang cố check-in lại cùng một buổi tập không
+            const isSameSession = activeCheckIn.buoiTap._id.toString() === buoiTapId.toString();
+
+            console.log(`❌ QR Check-in blocked: User ${hoiVienId} already has active check-in for session ${activeCheckIn.buoiTap._id}`);
+            console.log(`   - Is same session: ${isSameSession}`);
+            console.log(`   - Requested buoiTapId: ${buoiTapId}`);
+
+            if (isSameSession) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Bạn đã check-in buổi tập "${buoiTapInfo?.tenBuoiTap || 'N/A'}" rồi. Vui lòng check-out trước khi check-in lại.`,
+                    activeCheckIn: {
+                        buoiTapId: activeCheckIn.buoiTap._id,
+                        buoiTapName: buoiTapInfo?.tenBuoiTap || 'N/A',
+                        checkInTime: activeCheckIn.checkInTime,
+                        checkInTimeFormatted: timeStr
+                    }
+                });
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    message: `Bạn đang có buổi tập chưa check-out. Vui lòng check-out buổi tập "${buoiTapInfo?.tenBuoiTap || 'N/A'}" (Check-in lúc ${timeStr}) trước khi check-in buổi tập mới. Không thể check-in nhiều ca cùng lúc.`,
+                    activeCheckIn: {
+                        buoiTapId: activeCheckIn.buoiTap._id,
+                        buoiTapName: buoiTapInfo?.tenBuoiTap || 'N/A',
+                        checkInTime: activeCheckIn.checkInTime,
+                        checkInTimeFormatted: timeStr
+                    }
+                });
+            }
+        }
+
         // Check if session exists and member is registered
         const buoiTap = await BuoiTap.findById(buoiTapId)
             .populate('chiNhanh', 'tenChiNhanh diaChi')
@@ -789,20 +881,6 @@ exports.checkInWithQR = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 message: 'Bạn chưa đăng ký buổi tập này'
-            });
-        }
-
-        // Check if already checked in
-        const existingRecord = await CheckInRecord.findOne({
-            hoiVien: hoiVienId,
-            buoiTap: buoiTapId,
-            checkOutTime: null
-        });
-
-        if (existingRecord) {
-            return res.status(400).json({
-                success: false,
-                message: 'Bạn đã check-in buổi tập này rồi'
             });
         }
 

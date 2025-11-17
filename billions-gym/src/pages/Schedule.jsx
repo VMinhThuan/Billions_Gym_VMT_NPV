@@ -1371,7 +1371,15 @@ const Schedule = () => {
                                                                         <span className="status-text past">Đã qua</span>
                                                                     )}
                                                                     {status === 'empty' && (
-                                                                        <span className="status-text empty">Trống</span>
+                                                                        <span className="status-text empty">
+                                                                            {/* Với các gói bình thường: chỉ hiển thị "Trống".
+                                                                                Với gói Weekend Gym: giải thích rõ chỉ được đăng ký Thứ 7 & Chủ nhật */}
+                                                                            {registrationEligibility?.activePackage?.tenGoiTap &&
+                                                                                (registrationEligibility.activePackage.tenGoiTap.toLowerCase().includes('weekend') ||
+                                                                                    registrationEligibility.activePackage.tenGoiTap.toLowerCase().includes('cuối tuần'))
+                                                                                ? 'Chỉ áp dụng cho Thứ 7 & Chủ nhật'
+                                                                                : 'Trống'}
+                                                                        </span>
                                                                     )}
                                                                     {status === 'available' && (
                                                                         <span className="status-text available">
