@@ -225,11 +225,19 @@ exports.register = async (req, res) => {
             return res.status(409).json({ success: false, message: 'Số điện thoại đã tồn tại trong hệ thống.' });
         }
 
+        // Kiểm tra trùng email nếu có
+        if (email && email.trim()) {
+            const existingEmail = await NguoiDung.findOne({ email: email.trim() });
+            if (existingEmail) {
+                return res.status(409).json({ success: false, message: 'Email đã tồn tại trong hệ thống.' });
+            }
+        }
+
         // Tạo người dùng
         const nguoiDung = await NguoiDung.create({
             hoTen,
             sdt,
-            email: email || undefined,
+            email: email && email.trim() ? email.trim() : undefined,
             gioiTinh: 'Khac',
             vaiTro
         });
@@ -241,6 +249,26 @@ exports.register = async (req, res) => {
 
         return res.status(201).json({ success: true, message: 'Đăng ký thành công', nguoiDung });
     } catch (error) {
+        console.error('Register error:', error);
+        
+        // Xử lý duplicate key error (MongoDB error code 11000)
+        if (error.code === 11000) {
+            const duplicateField = Object.keys(error.keyPattern || {})[0];
+            if (duplicateField === 'email') {
+                return res.status(409).json({ success: false, message: 'Email đã tồn tại trong hệ thống.' });
+            }
+            if (duplicateField === 'sdt') {
+                return res.status(409).json({ success: false, message: 'Số điện thoại đã tồn tại trong hệ thống.' });
+            }
+            return res.status(409).json({ success: false, message: 'Thông tin đã tồn tại trong hệ thống.' });
+        }
+        
+        // Xử lý validation error
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors || {}).map(e => e.message).join(', ');
+            return res.status(400).json({ success: false, message: messages || 'Dữ liệu không hợp lệ.' });
+        }
+        
         return res.status(500).json({ success: false, message: 'Lỗi server khi đăng ký', error: error.message });
     }
 };

@@ -87,17 +87,45 @@ const Register = () => {
 
             const result = await authAPI.register(registerData);
 
-            if (result.success) {
+            if (result && result.success) {
                 showSuccess('Đăng ký thành công! Vui lòng đăng nhập để tiếp tục.');
                 setTimeout(() => {
                     navigate('/login');
                 }, 2000);
             } else {
-                showError(result.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+                // Xử lý lỗi 409 (Conflict) - số điện thoại đã tồn tại
+                const errorMessage = result?.message || 'Đăng ký thất bại. Vui lòng thử lại.';
+                showError(errorMessage);
+
+                // Nếu lỗi về số điện thoại trùng, highlight field đó
+                if (errorMessage.includes('số điện thoại') || errorMessage.includes('Số điện thoại')) {
+                    setErrors({ sdt: errorMessage });
+                } else if (errorMessage.includes('email') || errorMessage.includes('Email')) {
+                    setErrors({ email: errorMessage });
+                } else {
+                    setErrors({ general: errorMessage });
+                }
             }
         } catch (error) {
             console.error('Register error:', error);
-            showError(error.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+            // Xử lý các loại lỗi khác nhau
+            let errorMessage = 'Đăng ký thất bại. Vui lòng thử lại.';
+            
+            if (error.message) {
+                errorMessage = error.message;
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.response?.data?.error) {
+                errorMessage = error.response.data.error;
+            }
+            
+            // Nếu là lỗi server (500), hiển thị thông báo thân thiện hơn
+            if (errorMessage.includes('Server error') || errorMessage.includes('Lỗi server') || errorMessage.includes('500')) {
+                errorMessage = 'Lỗi hệ thống. Vui lòng thử lại sau hoặc liên hệ hỗ trợ nếu vấn đề vẫn tiếp tục.';
+            }
+            
+            showError(errorMessage);
+            setErrors({ general: errorMessage });
         } finally {
             setIsLoading(false);
         }
@@ -143,10 +171,10 @@ const Register = () => {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-2">
-                        {/* Error Messages */}
-                        {Object.keys(errors).length > 0 && (
+                        {/* General Error Messages */}
+                        {errors.general && (
                             <div className="w-3/5 mx-auto mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm">
-                                {Object.values(errors)[0]}
+                                {errors.general}
                             </div>
                         )}
 
@@ -157,8 +185,11 @@ const Register = () => {
                                 value={formData.hoTen}
                                 onChange={handleChange}
                                 placeholder={content.fullName}
-                                className="w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm"
+                                className={`w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm ${errors.hoTen ? 'border-2 border-red-500' : ''}`}
                             />
+                            {errors.hoTen && (
+                                <p className="w-3/5 mx-auto mt-1 text-red-600 text-xs">{errors.hoTen}</p>
+                            )}
                         </div>
 
                         <div className="h-[15px]"></div>
@@ -170,8 +201,11 @@ const Register = () => {
                                 value={formData.email}
                                 onChange={handleChange}
                                 placeholder={content.email}
-                                className="w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm"
+                                className={`w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm ${errors.email ? 'border-2 border-red-500' : ''}`}
                             />
+                            {errors.email && (
+                                <p className="w-3/5 mx-auto mt-1 text-red-600 text-xs">{errors.email}</p>
+                            )}
                         </div>
 
                         <div className="h-[15px]"></div>
@@ -183,8 +217,11 @@ const Register = () => {
                                 value={formData.sdt}
                                 onChange={handleChange}
                                 placeholder={content.phoneNumber}
-                                className="w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm"
+                                className={`w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm ${errors.sdt ? 'border-2 border-red-500' : ''}`}
                             />
+                            {errors.sdt && (
+                                <p className="w-3/5 mx-auto mt-1 text-red-600 text-xs">{errors.sdt}</p>
+                            )}
                         </div>
 
                         <div className="h-[15px]"></div>
@@ -196,8 +233,11 @@ const Register = () => {
                                 value={formData.matKhau}
                                 onChange={handleChange}
                                 placeholder={content.password}
-                                className="w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm"
+                                className={`w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm ${errors.matKhau ? 'border-2 border-red-500' : ''}`}
                             />
+                            {errors.matKhau && (
+                                <p className="w-3/5 mx-auto mt-1 text-red-600 text-xs">{errors.matKhau}</p>
+                            )}
                         </div>
 
                         <div className="h-[15px]"></div>
@@ -209,8 +249,11 @@ const Register = () => {
                                 value={formData.xacNhanMatKhau}
                                 onChange={handleChange}
                                 placeholder={content.confirmPassword}
-                                className="w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm"
+                                className={`w-3/5 mx-auto block px-3 py-3 glass-input rounded-lg placeholder-gray-500 text-sm ${errors.xacNhanMatKhau ? 'border-2 border-red-500' : ''}`}
                             />
+                            {errors.xacNhanMatKhau && (
+                                <p className="w-3/5 mx-auto mt-1 text-red-600 text-xs">{errors.xacNhanMatKhau}</p>
+                            )}
                         </div>
 
                         <div className="h-[15px]"></div>

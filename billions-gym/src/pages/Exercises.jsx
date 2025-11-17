@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import api from '../services/api';
+import api, { apiRequest } from '../services/api';
+import { authUtils } from '../utils/auth';
 import './Exercises.css';
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
@@ -93,25 +94,52 @@ const Exercises = () => {
                     return;
                 }
 
-                // Nếu đã đăng nhập, load từ backend
-                console.log('📡 Đang gọi API backend...');
-                const response = await api.api.get('/watch-history');
-
-                if (response && response.data) {
-                    // Convert array format to Set format
-                    const progressData = response.data;
-                    const result = {};
-                    Object.keys(progressData).forEach(templateId => {
-                        result[templateId] = new Set(progressData[templateId]);
+                // Load từ localStorage trước (nhanh, luôn có)
+                const result = {};
+                try {
+                    const keys = Object.keys(localStorage);
+                    keys.forEach(key => {
+                        if (key.startsWith('watched_exercises_')) {
+                            const templateId = key.replace('watched_exercises_', '');
+                            const watchedArray = JSON.parse(localStorage.getItem(key) || '[]');
+                            result[templateId] = new Set(watchedArray);
+                        }
                     });
-                    setWatchedExercises(result);
-                    console.log('✅ Đã tải tiến độ từ backend:', result);
-                    console.log('📈 Số template có tiến độ:', Object.keys(result).length);
+                    console.log('✅ Đã tải tiến độ từ localStorage:', Object.keys(result).length, 'templates');
+                } catch (e) {
+                    console.warn('⚠️ Không thể load từ localStorage:', e);
                 }
+
+                // Nếu đã đăng nhập, load từ backend và merge
+                if (token) {
+                    try {
+                        console.log('📡 Đang gọi API backend...');
+                        const response = await api.api.get('/watch-history');
+
+                        if (response && response.data) {
+                            // Convert array format to Set format và merge với localStorage
+                            const progressData = response.data;
+                            Object.keys(progressData).forEach(templateId => {
+                                const backendArray = progressData[templateId] || [];
+                                if (result[templateId]) {
+                                    // Merge: kết hợp cả local và backend
+                                    backendArray.forEach(id => result[templateId].add(id));
+                                } else {
+                                    result[templateId] = new Set(backendArray);
+                                }
+                            });
+                            console.log('✅ Đã merge tiến độ từ backend:', Object.keys(progressData).length, 'templates');
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ Không thể load từ backend (sử dụng local):', e);
+                        // Không hiển thị alert - chỉ dùng localStorage
+                    }
+                }
+
+                setWatchedExercises(result);
+                console.log('📈 Tổng số template có tiến độ:', Object.keys(result).length);
             } catch (e) {
-                console.error('❌ Failed to load watch progress from backend:', e);
-                // Nếu lỗi backend, hiển thị thông báo
-                alert('Không thể tải tiến độ xem từ server. Vui lòng thử lại sau.');
+                console.error('❌ Lỗi khi load tiến độ:', e);
             } finally {
                 setIsLoadingProgress(false);
             }
@@ -120,18 +148,8 @@ const Exercises = () => {
         fetchWatchProgress();
     }, []);
 
-    // Đánh dấu video đã xem - CHỈ lưu vào backend
+    // Đánh dấu video đã xem - Lưu vào backend và localStorage (fallback)
     const markAsWatched = async (templateId, exerciseId) => {
-        const token = localStorage.getItem('token');
-
-        if (!token) {
-            // Nếu chưa đăng nhập, yêu cầu đăng nhập
-            alert('Vui lòng đăng nhập để lưu tiến độ xem video!');
-            // Có thể redirect đến trang login
-            // window.location.href = '/login';
-            return;
-        }
-
         console.log('🎯 Đánh dấu đã xem:', { templateId, exerciseId });
 
         // Cập nhật UI ngay lập tức (optimistic update)
@@ -144,24 +162,48 @@ const Exercises = () => {
             return updated;
         });
 
-        // Lưu vào backend
+        // Lưu vào localStorage làm fallback (luôn lưu để không mất dữ liệu)
         try {
-            await api.api.post('/watch-history/mark', {
-                templateId,
-                exerciseId
-            });
-            console.log('✅ Đã lưu tiến độ vào backend - đồng bộ giữa các thiết bị');
+            const storageKey = `watched_exercises_${templateId}`;
+            const existing = localStorage.getItem(storageKey);
+            const watchedSet = existing ? new Set(JSON.parse(existing)) : new Set();
+            watchedSet.add(exerciseId);
+            localStorage.setItem(storageKey, JSON.stringify([...watchedSet]));
+            console.log('✅ Đã lưu vào localStorage');
         } catch (e) {
-            console.error('❌ Không thể lưu tiến độ:', e);
-            // Rollback UI nếu API fail
-            setWatchedExercises(prev => {
-                const updated = { ...prev };
-                if (updated[templateId]) {
-                    updated[templateId].delete(exerciseId);
+            console.warn('⚠️ Không thể lưu vào localStorage:', e);
+        }
+
+        // Lưu vào backend nếu có token (silent - không hiển thị lỗi nếu fail)
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                // Sử dụng dontClearTokenOn401=true để không bị logout khi lỗi 401
+                // Vì watch-history là endpoint không critical, có thể fail mà không ảnh hưởng app
+                const response = await apiRequest('/watch-history/mark', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        templateId,
+                        exerciseId
+                    }),
+                    requireAuth: true,
+                    dontClearTokenOn401: true // Không xóa token khi 401 - để user không bị logout
+                });
+                console.log('✅ Đã lưu tiến độ vào backend:', response);
+            } catch (e) {
+                console.error('❌ Không thể lưu tiến độ vào backend:', e);
+
+                // Nếu lỗi 401, token không bị xóa nhờ dontClearTokenOn401=true
+                // Chỉ log warning, không làm phiền user
+                if (e.message && (e.message.includes('Session expired') || e.message.includes('Unauthorized'))) {
+                    console.warn('⚠️ Không thể lưu tiến độ vào backend - Tiến độ đã được lưu local, sẽ sync khi có thể');
                 }
-                return updated;
-            });
-            alert('Không thể lưu tiến độ. Vui lòng kiểm tra kết nối mạng!');
+
+                // KHÔNG rollback UI - giữ nguyên trạng thái đã click
+                // Dữ liệu đã được lưu trong localStorage
+            }
+        } else {
+            console.log('ℹ️ Chưa đăng nhập - Tiến độ chỉ được lưu local');
         }
     };
 
@@ -222,11 +264,70 @@ const Exercises = () => {
 
             setLoading(true);
             try {
-                const [tplResponse, trainersResponse] = await Promise.all([
-                    api.api.get('/session-templates/public'),
-                    api.api.get('/user/pt')
-                ]);
+                const user = authUtils.getUser();
+                let branchId = null;
 
+                // Thử lấy từ cache trước (nhanh nhất)
+                const cachedBranchId = localStorage.getItem('user_branchId');
+                if (cachedBranchId) {
+                    branchId = cachedBranchId;
+                } else {
+                    // Thử lấy từ user object
+                    if (user?.maChiNhanh) {
+                        branchId = user.maChiNhanh;
+                    } else if (user?.chiNhanh?._id) {
+                        branchId = user.chiNhanh._id;
+                    }
+
+                    // Cache branchId nếu tìm thấy
+                    if (branchId) {
+                        localStorage.setItem('user_branchId', branchId);
+                    }
+                }
+
+                // Load templates và PT ngay lập tức (không đợi active package)
+                // Nếu có branchId thì filter, không có thì load tất cả
+                const ptApiUrl = branchId ? `/user/pt?branchId=${branchId}` : '/user/pt';
+                console.log('📡 Loading PT for branchId:', branchId || 'all');
+
+                // Load song song: templates, PT, và active package (nếu cần)
+                const loadPromises = [
+                    api.api.get('/session-templates/public'),
+                    api.api.get(ptApiUrl)
+                ];
+
+                // Chỉ load active package nếu chưa có branchId và có user._id
+                if (!branchId && user?._id) {
+                    loadPromises.push(
+                        api.api.get(`/chitietgoitap/hoi-vien/${user._id}/active`)
+                            .then(activePackage => {
+                                let foundBranchId = null;
+                                if (activePackage?.branchId?._id) {
+                                    foundBranchId = activePackage.branchId._id;
+                                } else if (activePackage?.branchId) {
+                                    foundBranchId = typeof activePackage.branchId === 'string'
+                                        ? activePackage.branchId
+                                        : activePackage.branchId._id;
+                                }
+                                if (foundBranchId) {
+                                    localStorage.setItem('user_branchId', foundBranchId);
+                                    return foundBranchId;
+                                }
+                                return null;
+                            })
+                            .catch(e => {
+                                console.warn('Không thể load active package để lấy branchId:', e);
+                                return null;
+                            })
+                    );
+                }
+
+                const results = await Promise.all(loadPromises);
+                const tplResponse = results[0];
+                const trainersResponse = results[1];
+                const newBranchId = results[2] || null;
+
+                // Xử lý templates trước (không phụ thuộc branchId)
                 let tpl = [];
                 if (tplResponse) {
                     if (Array.isArray(tplResponse)) {
@@ -244,6 +345,7 @@ const Exercises = () => {
                     safeSetStorage('workout_templates', tpl, ['_id', 'ten', 'moTa', 'hinhAnh']);
                 }
 
+                // Xử lý trainers
                 let trainers = [];
                 if (trainersResponse) {
                     if (Array.isArray(trainersResponse)) {
@@ -255,7 +357,30 @@ const Exercises = () => {
                     }
                 }
 
-                if (Array.isArray(trainers) && trainers.length > 0) {
+                // Nếu có branchId mới từ active package và đã load PT tất cả, reload PT với filter (async, không block)
+                if (!branchId && newBranchId && trainers.length > 0) {
+                    // Set PT tất cả trước để UI hiển thị ngay
+                    setPts(trainers.slice(0, 6));
+                    safeSetStorage('workout_trainers', trainers, ['_id', 'hoTen', 'chuyenMon']);
+
+                    // Reload PT với filter sau (không block UI)
+                    console.log('📡 Found branchId from active package, reloading filtered PT in background...');
+                    api.api.get(`/user/pt?branchId=${newBranchId}`)
+                        .then(filteredTrainers => {
+                            if (filteredTrainers) {
+                                const filtered = Array.isArray(filteredTrainers)
+                                    ? filteredTrainers
+                                    : (filteredTrainers.data || []);
+                                setPts(filtered.slice(0, 6));
+                                safeSetStorage('workout_trainers', filtered, ['_id', 'hoTen', 'chuyenMon']);
+                                console.log('✅ Đã cập nhật PT theo chi nhánh');
+                            }
+                        })
+                        .catch(e => {
+                            console.warn('Failed to reload filtered PT:', e);
+                        });
+                } else if (Array.isArray(trainers) && trainers.length > 0) {
+                    // Nếu đã có branchId từ đầu hoặc không cần filter
                     setPts(trainers.slice(0, 6));
                     safeSetStorage('workout_trainers', trainers, ['_id', 'hoTen', 'chuyenMon']);
                 }
@@ -351,13 +476,7 @@ const Exercises = () => {
             <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
             <div className={`min-h-screen bg-[#0a0a0a] workout-page ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'} pb-10`}>
-                {/* Loading state: show spinner until data loads */}
-                {loading ? (
-                    <div className="exercises-loading">
-                        <div className="loading-spinner" aria-hidden="true"></div>
-                        <p className="text-[#da2128] mt-3">Đang tải dữ liệu...</p>
-                    </div>
-                ) : null}
+
 
                 <div className="w-full flex gap-4 pl-8 pr-6 mt-12">
                     {banners.length ? banners.map((b, idx) => (
@@ -484,7 +603,7 @@ const Exercises = () => {
                                                     </div>
                                                     <div className="w-full bg-gray-700 rounded-full h-1.5">
                                                         <div
-                                                            className="bg-gradient-to-r from-[#da2128] to-[#ff3a3a] h-1.5 rounded-full transition-all duration-300"
+                                                            className="bg-gradient-to-r from-[#da2128] to-[#ff3a3a] h-1.5 rounded-full transition-all duration-150 ease-out"
                                                             style={{ width: `${getProgress(t)}%` }}
                                                         ></div>
                                                     </div>
@@ -547,13 +666,6 @@ const Exercises = () => {
                                                                     src={getVideoUrl(selectedExercise)}
                                                                     controls
                                                                     className="w-full aspect-video"
-                                                                    onEnded={() => {
-                                                                        // Tự động lưu khi xem xong video
-                                                                        if (selectedTemplate && selectedExercise._id) {
-                                                                            console.log('🎬 Video ended - Auto saving progress');
-                                                                            markAsWatched(selectedTemplate._id, selectedExercise._id);
-                                                                        }
-                                                                    }}
                                                                 >
                                                                     Trình duyệt không hỗ trợ video.
                                                                 </video>
@@ -604,7 +716,13 @@ const Exercises = () => {
                                                         {filteredExercises.map((exercise, index) => (
                                                             <div
                                                                 key={exercise._id || index}
-                                                                onClick={() => setSelectedExercise(exercise)}
+                                                                onClick={() => {
+                                                                    setSelectedExercise(exercise);
+                                                                    // Đánh dấu video đã xem ngay khi click (luôn đánh dấu, không check)
+                                                                    if (selectedTemplate && exercise._id) {
+                                                                        markAsWatched(selectedTemplate._id, exercise._id);
+                                                                    }
+                                                                }}
                                                                 className={`flex items-center gap-3 p-2 rounded cursor-pointer transition ${selectedExercise?._id === exercise._id
                                                                     ? 'bg-[#da2128] bg-opacity-20 border border-[#da2128]'
                                                                     : 'hover:bg-gray-800'

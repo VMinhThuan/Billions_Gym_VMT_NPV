@@ -1,0 +1,105 @@
+/* Workouts Page Styles */
+
+.workout-page {
+    min-height: 100vh;
+    transition: margin-left 0.3s ease;
+}
+
+.workout-page.sidebar-expanded {
+    margin-left: 250px;
+}
+
+.workout-page.sidebar-collapsed {
+    margin-left: 80px;
+}
+
+@media (max-width: 1024px) {
+    .workout-page.sidebar-expanded,
+    .workout-page.sidebar-collapsed {
+        margin-left: 0;
+    }
+}
+
+/* Custom checkbox styling */
+input[type="checkbox"]:checked {
+    background-color: #92A3FD;
+    border-color: #92A3FD;
+}
+
+input[type="radio"]:checked {
+    background-color: #92A3FD;
+    border-color: #92A3FD;
+}
+
+/* Smooth transitions */
+.workout-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.workout-card:hover {
+    transform: translateY(-4px);
+}
+
+/* Loading spinner */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Range slider styling */
+.slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.slider-thumb::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #92A3FD;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(146, 163, 253, 0.3);
+}
+
+.slider-thumb::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #92A3FD;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 4px rgba(146, 163, 253, 0.3);
+}
+
+.slider-thumb::-webkit-slider-runnable-track {
+    height: 4px;
+    background: linear-gradient(to right, #92A3FD 0%, #92A3FD var(--value), #F7F8F8 var(--value), #F7F8F8 100%);
+    border-radius: 2px;
+}
+
+.slider-thumb::-moz-range-track {
+    height: 4px;
+    background: #F7F8F8;
+    border-radius: 2px;
+}
+
+.slider-thumb::-moz-range-progress {
+    height: 4px;
+    background: #92A3FD;
+    border-radius: 2px;
+}
+
+/* Text truncate */
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}

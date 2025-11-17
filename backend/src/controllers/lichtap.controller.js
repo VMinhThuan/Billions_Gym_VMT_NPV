@@ -60,8 +60,13 @@ exports.getAvailableSessions = async (req, res) => {
             console.log('🏢 Branch IDs in BuoiTap collection:', distinctBranchIds);
 
             // Query BuoiTap collection with correct field names
+            // Thêm filter theo ngày để chỉ lấy sessions trong tuần
             const query = {
                 chiNhanh: chiNhanhId,
+                ngayTap: {
+                    $gte: startDate,
+                    $lte: endDate
+                },
                 trangThai: { $in: ['CHUAN_BI', 'DANG_DIEN_RA'] }
             };
             console.log('🔎 MongoDB Query:', JSON.stringify(query, null, 2));
@@ -76,6 +81,10 @@ exports.getAvailableSessions = async (req, res) => {
                 console.log('⚠️ No sessions for requested branch, using first available branch:', distinctBranchIds[0]);
                 actualQuery = {
                     chiNhanh: distinctBranchIds[0],
+                    ngayTap: {
+                        $gte: startDate,
+                        $lte: endDate
+                    },
                     trangThai: { $in: ['CHUAN_BI', 'DANG_DIEN_RA'] }
                 };
             }
@@ -147,7 +156,65 @@ exports.getAvailableSessions = async (req, res) => {
             }).filter(Boolean);
 
             // Lọc theo ràng buộc gói tập
-            const filteredSessions = mapped.filter(buoi => isSessionAllowedForPackage(buoi, goiTap));
+            // LƯU Ý: isSessionAllowedForPackage sẽ:
+            // - Chỉ áp dụng ràng buộc cho các gói đặc biệt (Weekend Gym, Morning, Evening)
+            // - Return true cho TẤT CẢ các gói khác (cho phép đăng ký từ T2 đến CN)
+            console.log(`🔍 [Package Filter] Before filter: ${mapped.length} sessions`);
+            const tenGoiTap = goiTap.tenGoiTap.toLowerCase();
+            const isWeekendPackage = tenGoiTap.includes('weekend') || tenGoiTap.includes('cuối tuần');
+
+            if (isWeekendPackage) {
+                console.log(`🔍 [Weekend Gym] Filtering sessions for Weekend Gym package (ID: ${goiTap._id})`);
+                mapped.forEach((buoi, index) => {
+                    const allowed = isSessionAllowedForPackage(buoi, goiTap);
+                    console.log(`🔍 [Weekend Gym] Session ${index + 1}:`, {
+                        tenBuoiTap: buoi.tenBuoiTap,
+                        ngay: buoi.ngay,
+                        ngayType: typeof buoi.ngay,
+                        allowed,
+                        thuTrongTuan: allowed ? 'N/A' : (() => {
+                            const ngayTapValue = buoi.ngayTap || buoi.ngay;
+                            let ngayTap;
+                            if (ngayTapValue instanceof Date) {
+                                const year = ngayTapValue.getFullYear();
+                                const month = ngayTapValue.getMonth();
+                                const day = ngayTapValue.getDate();
+                                ngayTap = new Date(year, month, day, 12, 0, 0);
+                            } else {
+                                const tempDate = new Date(ngayTapValue);
+                                const year = tempDate.getFullYear();
+                                const month = tempDate.getMonth();
+                                const day = tempDate.getDate();
+                                ngayTap = new Date(year, month, day, 12, 0, 0);
+                            }
+                            const thu = ngayTap.getDay();
+                            return thu + ' (' + ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][thu] + ')';
+                        })()
+                    });
+                });
+            } else {
+                console.log(`🔍 [Package Filter] Non-restricted package (${goiTap.tenGoiTap}), allowing all sessions`);
+            }
+
+            // Filter sessions: Weekend Gym chỉ cho phép T7-CN, các gói khác cho phép tất cả
+            const filteredSessions = mapped.filter(buoi => {
+                const allowed = isSessionAllowedForPackage(buoi, goiTap);
+                if (!allowed) {
+                    console.log('🚫 [Filter] Session bị loại bỏ:', {
+                        tenBuoiTap: buoi.tenBuoiTap,
+                        ngayTap: buoi.ngayTap || buoi.ngay,
+                        goiTapId: goiTap._id,
+                        tenGoiTap: goiTap.tenGoiTap
+                    });
+                }
+                return allowed;
+            });
+            console.log(`🔍 [Package Filter] After filter: ${filteredSessions.length} sessions (from ${mapped.length} total)`);
+            console.log(`🔍 [Package Filter] Package info:`, {
+                goiTapId: goiTap._id,
+                tenGoiTap: goiTap.tenGoiTap,
+                isWeekendPackage: (goiTap.tenGoiTap || '').toLowerCase().includes('weekend') || (goiTap.tenGoiTap || '').toLowerCase().includes('cuối tuần')
+            });
 
             // Thêm cờ có thể đăng ký (chỉ những buổi chưa bắt đầu và còn chỗ)
             const sessionsWithStatus = filteredSessions.map(buoi => ({
@@ -233,6 +300,50 @@ exports.registerSession = async (req, res) => {
                 success: false,
                 message: 'Bạn đã đăng ký buổi tập này'
             });
+        }
+
+        // Kiểm tra gói tập của hội viên và validate ràng buộc
+        const activePackage = await ChiTietGoiTap.findOne({
+            $or: [
+                { maHoiVien: userId },
+                { nguoiDungId: userId }
+            ],
+            $or: [
+                { trangThaiThanhToan: 'DA_THANH_TOAN' },
+                { trangThaiDangKy: 'HOAN_THANH' }
+            ]
+        })
+            .populate('maGoiTap')
+            .populate('goiTapId')
+            .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+
+        if (activePackage) {
+            const goiTap = activePackage.goiTapId || activePackage.maGoiTap;
+            if (goiTap) {
+                // Kiểm tra buổi tập có phù hợp với gói tập không
+                const buoiTapForCheck = {
+                    gioBatDau: buoiTap.gioBatDau || '00:00',
+                    ngayTap: buoiTap.ngayTap
+                };
+
+                if (!isSessionAllowedForPackage(buoiTapForCheck, goiTap)) {
+                    const tenGoiTap = goiTap.tenGoiTap.toLowerCase();
+                    let errorMessage = 'Buổi tập này không phù hợp với gói tập của bạn';
+
+                    if (tenGoiTap.includes('weekend') || tenGoiTap.includes('cuối tuần')) {
+                        errorMessage = 'Gói Weekend Gym chỉ cho phép đăng ký vào Thứ 7 và Chủ nhật';
+                    } else if (tenGoiTap.includes('morning') || tenGoiTap.includes('sáng')) {
+                        errorMessage = 'Gói Morning Fitness chỉ cho phép đăng ký vào khung giờ sáng (05:00-11:00)';
+                    } else if (tenGoiTap.includes('evening') || tenGoiTap.includes('tối')) {
+                        errorMessage = 'Gói Evening chỉ cho phép đăng ký vào khung giờ tối (17:00-22:00)';
+                    }
+
+                    return res.status(400).json({
+                        success: false,
+                        message: errorMessage
+                    });
+                }
+            }
         }
 
         // Thêm hội viên vào buổi tập
@@ -500,6 +611,49 @@ exports.createWorkoutSchedule = async (req, res) => {
             });
         }
 
+        // Lấy thông tin gói tập để kiểm tra ràng buộc
+        const goiTap = await GoiTap.findById(goiTapId);
+        if (!goiTap) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy gói tập'
+            });
+        }
+
+        // Validate tất cả các buổi tập có phù hợp với gói tập không
+        for (const buoi of danhSachBuoiTap) {
+            const buoiTap = await BuoiTap.findById(buoi.buoiTapId);
+            if (!buoiTap) {
+                return res.status(404).json({
+                    success: false,
+                    message: `Không tìm thấy buổi tập với ID: ${buoi.buoiTapId}`
+                });
+            }
+
+            const buoiTapForCheck = {
+                gioBatDau: buoiTap.gioBatDau || buoi.gioBatDau || '00:00',
+                ngayTap: buoiTap.ngayTap || new Date(buoi.ngayTap)
+            };
+
+            if (!isSessionAllowedForPackage(buoiTapForCheck, goiTap)) {
+                const tenGoiTap = goiTap.tenGoiTap.toLowerCase();
+                let errorMessage = 'Một số buổi tập không phù hợp với gói tập của bạn';
+
+                if (tenGoiTap.includes('weekend') || tenGoiTap.includes('cuối tuần')) {
+                    errorMessage = 'Gói Weekend Gym chỉ cho phép đăng ký vào Thứ 7 và Chủ nhật';
+                } else if (tenGoiTap.includes('morning') || tenGoiTap.includes('sáng')) {
+                    errorMessage = 'Gói Morning Fitness chỉ cho phép đăng ký vào khung giờ sáng (05:00-11:00)';
+                } else if (tenGoiTap.includes('evening') || tenGoiTap.includes('tối')) {
+                    errorMessage = 'Gói Evening chỉ cho phép đăng ký vào khung giờ tối (17:00-22:00)';
+                }
+
+                return res.status(400).json({
+                    success: false,
+                    message: errorMessage
+                });
+            }
+        }
+
         // Tính ngày kết thúc tuần
         const startDate = new Date(tuanBatDau);
         const endDate = new Date(startDate);
@@ -693,25 +847,96 @@ exports.getAllSchedules = async (req, res) => {
 function isSessionAllowedForPackage(buoiTap, goiTap) {
     const tenGoiTap = goiTap.tenGoiTap.toLowerCase();
     const gioBatDau = parseInt(buoiTap.gioBatDau.split(':')[0]);
-    const ngayTap = new Date(buoiTap.ngayTap);
-    const thuTrongTuan = ngayTap.getDay(); // 0 = Chủ nhật, 1 = Thứ 2, ...
+
+    // Lấy ngày tập - có thể là 'ngayTap' hoặc 'ngay' tùy vào context
+    const ngayTapValue = buoiTap.ngayTap || buoiTap.ngay;
+
+    // Debug: Log thông tin gói tập để kiểm tra
+    const isWeekendPackage = tenGoiTap.includes('weekend') || tenGoiTap.includes('cuối tuần');
+    if (!isWeekendPackage) {
+        // Nếu không phải Weekend Gym, return true ngay lập tức (cho phép tất cả)
+        console.log('✅ [Package Check] Non-restricted package, allowing session:', {
+            goiTapId: goiTap._id,
+            tenGoiTap: goiTap.tenGoiTap,
+            sessionId: buoiTap._id,
+            tenBuoiTap: buoiTap.tenBuoiTap,
+            ngayTap: ngayTapValue
+        });
+        return true;
+    }
+
+    // Xử lý ngày tập - đảm bảo lấy đúng ngày theo timezone local (Vietnam UTC+7)
+    let ngayTap;
+    if (ngayTapValue instanceof Date) {
+        // Nếu là Date object từ MongoDB, có thể là UTC
+        // Lấy local date components để tránh timezone issues
+        // Sử dụng getFullYear, getMonth, getDate thay vì UTC để lấy theo local timezone
+        const year = ngayTapValue.getFullYear();
+        const month = ngayTapValue.getMonth();
+        const day = ngayTapValue.getDate();
+        ngayTap = new Date(year, month, day, 12, 0, 0); // Set giữa trưa để tránh timezone shift
+    } else if (typeof ngayTapValue === 'string') {
+        // Nếu là string ISO (có T hoặc có timezone), parse cẩn thận
+        if (ngayTapValue.includes('T') || ngayTapValue.includes('Z') || ngayTapValue.includes('+')) {
+            // ISO string với time - lấy phần date và tạo local date
+            const dateStr = ngayTapValue.split('T')[0];
+            const [year, month, day] = dateStr.split('-').map(Number);
+            ngayTap = new Date(year, month - 1, day, 12, 0, 0); // Month is 0-indexed, set giữa trưa
+        } else if (ngayTapValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Format YYYY-MM-DD
+            const [year, month, day] = ngayTapValue.split('-').map(Number);
+            ngayTap = new Date(year, month - 1, day, 12, 0, 0);
+        } else {
+            // Fallback: parse như bình thường và normalize
+            const tempDate = new Date(ngayTapValue);
+            const year = tempDate.getFullYear();
+            const month = tempDate.getMonth();
+            const day = tempDate.getDate();
+            ngayTap = new Date(year, month, day, 12, 0, 0);
+        }
+    } else {
+        // Fallback: parse và normalize
+        const tempDate = new Date(ngayTapValue);
+        const year = tempDate.getFullYear();
+        const month = tempDate.getMonth();
+        const day = tempDate.getDate();
+        ngayTap = new Date(year, month, day, 12, 0, 0);
+    }
+
+    // Lấy thứ trong tuần (0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7)
+    const thuTrongTuan = ngayTap.getDay();
 
     // Ràng buộc cho gói Morning Fitness
     if (tenGoiTap.includes('morning') || tenGoiTap.includes('sáng')) {
         return gioBatDau >= 5 && gioBatDau <= 11;
     }
 
-    // Ràng buộc cho gói Weekend Gym
+    // Ràng buộc cho gói Weekend Gym (chỉ cho phép Thứ 7 và Chủ nhật)
+    // LƯU Ý: Chỉ áp dụng cho gói có tên chứa "weekend" hoặc "cuối tuần"
+    // Các gói khác sẽ return true ở cuối hàm (cho phép đăng ký từ T2 đến CN)
     if (tenGoiTap.includes('weekend') || tenGoiTap.includes('cuối tuần')) {
-        return thuTrongTuan === 6 || thuTrongTuan === 0; // Thứ 7 hoặc Chủ nhật
+        // Thứ 7 = 6, Chủ nhật = 0
+        const isWeekend = thuTrongTuan === 6 || thuTrongTuan === 0;
+        console.log('🔍 [Weekend Gym Check]', {
+            tenGoiTap,
+            goiTapId: goiTap._id,
+            ngayTapOriginal: ngayTapValue,
+            ngayTapParsed: ngayTap.toISOString(),
+            thuTrongTuan,
+            isWeekend,
+            ngayTapType: typeof ngayTapValue,
+            dayName: ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][thuTrongTuan]
+        });
+        return isWeekend;
     }
 
-    // Ràng buộc cho gói Evening
+    // Ràng buộc cho gói Evening (chỉ cho phép khung giờ tối)
     if (tenGoiTap.includes('evening') || tenGoiTap.includes('tối')) {
         return gioBatDau >= 17 && gioBatDau <= 22;
     }
 
-    // Gói khác không có ràng buộc
+    // Các gói khác KHÔNG có ràng buộc - cho phép đăng ký từ T2 đến CN
+    // Bao gồm: Basic, Premium, VIP, và các gói khác không phải Weekend/Morning/Evening
     return true;
 }
 
@@ -818,17 +1043,15 @@ exports.checkRegistrationEligibility = async (req, res) => {
             }))
         });
 
-        // TEST: Đơn giản hóa query - tìm gói tập đã thanh toán, không cần HOAN_THANH
-        // Tìm tất cả gói tập của user, sau đó filter trong code
-        let activePackage = await ChiTietGoiTap.findOne({
+        // Tìm gói tập đang hoạt động của user
+        // Ưu tiên: 1) Gói chưa hết hạn, 2) Gói có trạng thái hoạt động, 3) Gói mới nhất
+        const currentTime = new Date();
+
+        // Lấy tất cả gói tập của user và filter trong code để tìm gói đang hoạt động tốt nhất
+        const allUserPackages = await ChiTietGoiTap.find({
             $or: [
                 { maHoiVien: userId },
                 { nguoiDungId: userId }
-            ],
-            // Chỉ cần đã thanh toán hoặc đã hoàn tất
-            $or: [
-                { trangThaiThanhToan: 'DA_THANH_TOAN' },
-                { trangThaiDangKy: 'HOAN_THANH' }
             ]
         })
             .populate('maGoiTap')
@@ -836,19 +1059,50 @@ exports.checkRegistrationEligibility = async (req, res) => {
             .populate('branchId')
             .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
 
-        // Nếu không tìm thấy với điều kiện trên, thử tìm bất kỳ gói tập nào của user
-        if (!activePackage) {
-            activePackage = await ChiTietGoiTap.findOne({
-                $or: [
-                    { maHoiVien: userId },
-                    { nguoiDungId: userId }
-                ]
-            })
-                .populate('maGoiTap')
-                .populate('goiTapId')
-                .populate('branchId')
-                .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+        // Filter và sắp xếp gói tập theo độ ưu tiên
+        let activePackage = null;
+
+        // Ưu tiên 1: Gói chưa hết hạn và có trạng thái hoạt động
+        const validPackages = allUserPackages.filter(pkg => {
+            const isPaid = pkg.trangThaiThanhToan === 'DA_THANH_TOAN' || pkg.trangThaiDangKy === 'HOAN_THANH';
+            const isActive = !pkg.trangThaiSuDung || ['DANG_HOAT_DONG', 'DANG_SU_DUNG', 'DANG_KICH_HOAT'].includes(pkg.trangThaiSuDung);
+            const notExpired = !pkg.ngayKetThuc || new Date(pkg.ngayKetThuc) >= currentTime;
+            return isPaid && isActive && notExpired;
+        });
+
+        if (validPackages.length > 0) {
+            // Ưu tiên gói mới nhất (đã sort ở trên)
+            activePackage = validPackages[0];
+        } else {
+            // Nếu không có gói hợp lệ, lấy gói mới nhất bất kỳ
+            activePackage = allUserPackages[0] || null;
         }
+
+        console.log('📦 [Backend] Package selection logic:', {
+            userId,
+            totalPackages: allUserPackages.length,
+            validPackagesCount: validPackages.length,
+            selectedPackage: activePackage ? {
+                _id: activePackage._id,
+                tenGoiTap: activePackage.goiTapId?.tenGoiTap || activePackage.maGoiTap?.tenGoiTap,
+                goiTapId: activePackage.goiTapId?._id || activePackage.maGoiTap?._id,
+                trangThaiThanhToan: activePackage.trangThaiThanhToan,
+                trangThaiDangKy: activePackage.trangThaiDangKy,
+                trangThaiSuDung: activePackage.trangThaiSuDung,
+                ngayKetThuc: activePackage.ngayKetThuc,
+                isExpired: activePackage.ngayKetThuc ? new Date(activePackage.ngayKetThuc) < currentTime : false
+            } : null,
+            allPackages: allUserPackages.map(p => ({
+                _id: p._id,
+                tenGoiTap: p.goiTapId?.tenGoiTap || p.maGoiTap?.tenGoiTap,
+                goiTapId: p.goiTapId?._id || p.maGoiTap?._id,
+                trangThaiThanhToan: p.trangThaiThanhToan,
+                trangThaiDangKy: p.trangThaiDangKy,
+                trangThaiSuDung: p.trangThaiSuDung,
+                ngayKetThuc: p.ngayKetThuc,
+                isExpired: p.ngayKetThuc ? new Date(p.ngayKetThuc) < currentTime : false
+            }))
+        });
 
         console.log('📦 [Backend] Active package check:', {
             userId,
@@ -1017,6 +1271,29 @@ exports.checkRegistrationEligibility = async (req, res) => {
             } : null
         });
 
+        // Log thông tin gói tập đang được trả về
+        const returnedPackage = activePackage ? {
+            _id: activePackage._id,
+            goiTapId: activePackage.goiTapId?._id || activePackage.maGoiTap?._id,
+            chiNhanhId: activePackage.branchId?._id,
+            tenGoiTap: activePackage.goiTapId?.tenGoiTap || activePackage.maGoiTap?.tenGoiTap,
+            trangThaiDangKy: activePackage.trangThaiDangKy,
+            trangThaiSuDung: activePackage.trangThaiSuDung
+        } : null;
+
+        console.log('📦 [Backend] Returning activePackage to frontend:', {
+            userId,
+            returnedPackage,
+            isWeekendPackage: returnedPackage?.tenGoiTap?.toLowerCase().includes('weekend') || returnedPackage?.tenGoiTap?.toLowerCase().includes('cuối tuần'),
+            allPackages: allPackages.map(p => ({
+                _id: p._id,
+                tenGoiTap: p.goiTapId?.tenGoiTap || p.maGoiTap?.tenGoiTap,
+                goiTapId: p.goiTapId?._id || p.maGoiTap?._id,
+                trangThaiDangKy: p.trangThaiDangKy,
+                trangThaiSuDung: p.trangThaiSuDung
+            }))
+        });
+
         return res.json({
             success: true,
             canRegister,
@@ -1034,14 +1311,7 @@ exports.checkRegistrationEligibility = async (req, res) => {
             isRegistrationTime,
             hasExistingSchedule: !!existingSchedule,
             hasCompletedPackage: hasValidPackage,
-            activePackage: activePackage ? {
-                _id: activePackage._id,
-                goiTapId: activePackage.goiTapId?._id || activePackage.maGoiTap?._id,
-                chiNhanhId: activePackage.branchId?._id,
-                tenGoiTap: activePackage.goiTapId?.tenGoiTap || activePackage.maGoiTap?.tenGoiTap,
-                trangThaiDangKy: activePackage.trangThaiDangKy,
-                trangThaiSuDung: activePackage.trangThaiSuDung
-            } : null
+            activePackage: returnedPackage
         });
 
     } catch (error) {

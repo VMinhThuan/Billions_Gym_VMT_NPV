@@ -4,6 +4,7 @@ import { authUtils } from '../../utils/auth';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import NotificationIcon from '../NotificationIcon';
+import CheckInButton from '../checkin/CheckInButton';
 
 const Header = ({ onNavigateToLogin, onNavigateToRegister, fullScreen = false }) => {
     const navigate = useNavigate();
@@ -154,6 +155,13 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister, fullScreen = false })
                         <div className="hidden xs:block sm:block">
                             <NotificationIcon />
                         </div>
+
+                        {/* Check-in Button - Only show when authenticated */}
+                        {isAuthenticated && (
+                            <div className="hidden sm:block">
+                                <CheckInButton variant="primary" />
+                            </div>
+                        )}
 
                         <div className="relative" ref={languageDropdownRef}>
                             <button
