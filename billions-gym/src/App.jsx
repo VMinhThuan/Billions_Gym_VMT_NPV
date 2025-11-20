@@ -15,6 +15,7 @@ import './styles/responsive.css'
 import './styles/header-responsive.css'
 import ProfileScreen from './pages/Profile'
 import ProfileEdit from './pages/ProfileEdit'
+import UserProfile from './pages/UserProfile'
 import ActivePackage from './pages/ActivePackage'
 import Schedule from './pages/Schedule'
 import CheckInOut from './pages/CheckInOut'
@@ -117,7 +118,8 @@ const AppContent = () => {
             <Route path="/package-workflow/:registrationId" element={<PackageWorkflow />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path='/profile' element={<ProfileScreen />} />
+            <Route path='/profile' element={<UserProfile />} />
+            <Route path='/profile/old' element={<ProfileScreen />} />
             <Route path='/profile/edit' element={<ProfileEdit />} />
             <Route path='/active-package' element={<ActivePackage />} />
             <Route path='/schedule' element={<Schedule />} />

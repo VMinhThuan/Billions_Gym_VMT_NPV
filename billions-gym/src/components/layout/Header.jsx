@@ -210,7 +210,24 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister, fullScreen = false })
                                             <div className="font-medium">{user?.hoTen || content.user}</div>
                                             <div className="text-gray-500 text-xs break-words whitespace-normal max-w-[10rem] sm:max-w-[11rem] leading-4 sm:leading-5">{user?.email || user?.sdt || ''}</div>
                                         </div>
-                                        <button onClick={handleLogout} className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-100 transition-colors">{content.logout}</button>
+                                        <button
+                                            onClick={() => {
+                                                setIsDropdownOpen(false);
+                                                navigate('/profile');
+                                            }}
+                                            className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                            Xem hồ sơ
+                                        </button>
+                                        <button onClick={handleLogout} className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                            </svg>
+                                            {content.logout}
+                                        </button>
                                     </div>
                                 )}
                             </div>
