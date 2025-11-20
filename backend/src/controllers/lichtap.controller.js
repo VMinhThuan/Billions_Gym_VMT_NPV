@@ -653,11 +653,42 @@ exports.getAvailableSessionsThisWeek = async (req, res) => {
             // Kiểm tra còn chỗ
             if (bt.daDay) return false;
 
-            // Kiểm tra hội viên chưa đăng ký
+            // Kiểm tra hội viên chưa đăng ký buổi tập cụ thể này trong BuoiTap.danhSachHoiVien
             const isRegistered = bt.danhSachHoiVien.some(
                 member => member.hoiVien.toString() === userId.toString()
             );
             if (isRegistered) return false;
+
+            // Kiểm tra xem người dùng đã đăng ký khung giờ này trong LichTap chưa
+            // Lấy ngày và giờ của buổi tập hiện tại
+            const btNgayTap = new Date(bt.ngayTap);
+            const btNgayTapStr = btNgayTap.toISOString().split('T')[0]; // YYYY-MM-DD
+            const btGioBatDau = bt.gioBatDau || '00:00';
+
+            // Kiểm tra trong LichTap xem đã có buổi tập nào cùng ngày và cùng khung giờ chưa
+            if (lichTap && lichTap.danhSachBuoiTap && lichTap.danhSachBuoiTap.length > 0) {
+                const hasConflictingSession = lichTap.danhSachBuoiTap.some(scheduledBuoi => {
+                    const scheduledNgayTap = new Date(scheduledBuoi.ngayTap);
+                    const scheduledNgayTapStr = scheduledNgayTap.toISOString().split('T')[0];
+                    const scheduledGioBatDau = scheduledBuoi.gioBatDau || '00:00';
+
+                    // Kiểm tra cùng ngày và cùng khung giờ
+                    const isSameDay = btNgayTapStr === scheduledNgayTapStr;
+                    const isSameTimeSlot = btGioBatDau === scheduledGioBatDau;
+
+                    return isSameDay && isSameTimeSlot && scheduledBuoi.trangThai !== 'HUY';
+                });
+
+                if (hasConflictingSession) {
+                    console.log('🚫 [available-sessions-this-week] Session filtered - already registered same time slot:', {
+                        sessionId: bt._id,
+                        tenBuoiTap: bt.tenBuoiTap,
+                        ngayTap: btNgayTapStr,
+                        gioBatDau: btGioBatDau
+                    });
+                    return false;
+                }
+            }
 
             // Áp dụng ràng buộc theo gói (Weekend Gym chỉ T7/CN, Morning/Evening theo khung giờ...)
             if (goiTapForFilter) {
