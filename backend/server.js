@@ -100,6 +100,7 @@ const aiRouter = require('./src/routes/ai.route');
 const faceRouter = require('./src/routes/face.route');
 const checkinRouter = require('./src/routes/checkin.route');
 const watchHistoryRouter = require('./src/routes/watchHistory.routes');
+const statisticsRouter = require('./src/routes/statistics.route');
 
 app.use('/api/auth', authRouter);
 // app.use('/api/users', userRouter);
@@ -134,6 +135,7 @@ app.use('/api/ai', aiRouter);
 app.use('/api/face', faceRouter);
 app.use('/api/checkin', checkinRouter);
 app.use('/api/watch-history', watchHistoryRouter);
+app.use('/api/statistics', statisticsRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

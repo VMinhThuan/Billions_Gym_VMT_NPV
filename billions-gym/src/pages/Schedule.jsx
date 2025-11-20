@@ -389,6 +389,75 @@ const Schedule = () => {
         return slotDate < now;
     };
 
+    // Kiểm tra khung giờ đã đăng ký chưa (trong scheduleData)
+    const isTimeSlotAlreadyRegistered = (dayDate, timeSlot) => {
+        if (!scheduleData || scheduleData.length === 0) {
+            console.log('⚠️ [TimeSlot Check] No schedule data');
+            return false;
+        }
+        if (!dayDate || !timeSlot) return false;
+
+        try {
+            const dayDateObj = new Date(dayDate);
+            if (isNaN(dayDateObj.getTime())) return false;
+            const dayDateStr = dayDateObj.toISOString().split('T')[0];
+
+            console.log('🔍 [TimeSlot Check] Checking time slot:', {
+                dayDateStr,
+                timeSlot: timeSlot.label,
+                totalScheduleData: scheduleData.length,
+                sampleScheduleData: scheduleData[0]
+            });
+
+            const found = scheduleData.some(registeredSession => {
+                try {
+                    const sessionDateValue = registeredSession.ngay || registeredSession.ngayTap || registeredSession.date;
+                    if (!sessionDateValue) return false;
+
+                    const sessionDate = new Date(sessionDateValue);
+                    if (isNaN(sessionDate.getTime())) return false;
+
+                    const sessionDateStr = sessionDate.toISOString().split('T')[0];
+                    const sessionTime = registeredSession.gioBatDau ? registeredSession.gioBatDau.substring(0, 5) : '';
+
+                    const isSameDay = dayDateStr === sessionDateStr;
+                    const isSameTimeSlot = sessionTime >= timeSlot.start && sessionTime < timeSlot.end;
+                    const isNotCancelled = registeredSession.trangThai !== 'HUY';
+
+                    if (isSameDay && sessionTime && timeSlot.start) {
+                        console.log('🔍 [TimeSlot Check] Matching day found:', {
+                            sessionDateStr,
+                            sessionTime,
+                            timeSlotRange: `${timeSlot.start}-${timeSlot.end}`,
+                            isSameTimeSlot,
+                            isNotCancelled,
+                            trangThai: registeredSession.trangThai
+                        });
+                    }
+
+                    if (isSameDay && isSameTimeSlot && isNotCancelled) {
+                        console.log('✅ [TimeSlot Check] Found registered time slot:', {
+                            dayDateStr,
+                            sessionDateStr,
+                            timeSlot: timeSlot.label,
+                            sessionTime,
+                            tenBuoiTap: registeredSession.tenBuoiTap,
+                            trangThai: registeredSession.trangThai
+                        });
+                    }
+
+                    return isSameDay && isSameTimeSlot && isNotCancelled;
+                } catch (err) {
+                    return false;
+                }
+            });
+
+            return found;
+        } catch (err) {
+            return false;
+        }
+    };
+
     // Kiểm tra session đã đăng ký chưa (dựa vào scheduleData)
     // CHỈ kiểm tra session cụ thể, không chặn toàn bộ ngày
     const isSessionAlreadyRegistered = (sessionId) => {
@@ -431,6 +500,11 @@ const Schedule = () => {
             return 'past';
         }
 
+        // Kiểm tra khung giờ đã đăng ký
+        if (isTimeSlotAlreadyRegistered(dayDate, timeSlot)) {
+            return 'registered';
+        }
+
         const sessionsInSlot = getSessionsForTimeSlot(dayDate, timeSlot);
         const hasSelectedSession = sessionsInSlot.some(session =>
             selectedSessionsToAdd.includes(session._id.toString())
@@ -450,6 +524,11 @@ const Schedule = () => {
     // Handle time slot click - mở modal để chọn session
     const handleTimeSlotClick = async (dayDate, timeSlot) => {
         if (isTimeSlotInPast(dayDate, timeSlot)) {
+            return;
+        }
+
+        // Không cho click vào khung giờ đã đăng ký
+        if (isTimeSlotAlreadyRegistered(dayDate, timeSlot)) {
             return;
         }
 
@@ -701,6 +780,7 @@ const Schedule = () => {
         setSelectedSessionsToAdd([]);
         // Refresh schedule data để có thông tin mới nhất về sessions đã đăng ký
         await fetchScheduleData();
+        console.log('📊 [Add Session Modal] scheduleData loaded:', scheduleData.length, 'sessions');
         loadAvailableSessionsThisWeek();
     };
 
@@ -1362,7 +1442,7 @@ const Schedule = () => {
                                                         return (
                                                             <div
                                                                 key={timeSlot.id}
-                                                                className={`time-slot-card ${status}`}
+                                                                className={`time-slot-card ${status} ${status === 'registered' ? 'disabled' : ''}`}
                                                                 onClick={() => handleTimeSlotClick(day.date, timeSlot)}
                                                             >
                                                                 <div className="time-slot-time">{timeSlot.label}</div>
@@ -1370,8 +1450,19 @@ const Schedule = () => {
                                                                     {status === 'past' && (
                                                                         <span className="status-text past">Đã qua</span>
                                                                     )}
+                                                                    {status === 'registered' && (
+                                                                        <span className="status-text registered">Đã chọn</span>
+                                                                    )}
                                                                     {status === 'empty' && (
-                                                                        <span className="status-text empty">Trống</span>
+                                                                        <span className="status-text empty">
+                                                                            {/* Với các gói bình thường: chỉ hiển thị "Trống".
+                                                                                Với gói Weekend Gym: giải thích rõ chỉ được đăng ký Thứ 7 & Chủ nhật */}
+                                                                            {registrationEligibility?.activePackage?.tenGoiTap &&
+                                                                                (registrationEligibility.activePackage.tenGoiTap.toLowerCase().includes('weekend') ||
+                                                                                    registrationEligibility.activePackage.tenGoiTap.toLowerCase().includes('cuối tuần'))
+                                                                                ? 'Chỉ áp dụng cho Thứ 7 & Chủ nhật'
+                                                                                : 'Trống'}
+                                                                        </span>
                                                                     )}
                                                                     {status === 'available' && (
                                                                         <span className="status-text available">

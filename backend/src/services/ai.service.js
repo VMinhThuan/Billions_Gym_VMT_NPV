@@ -21,7 +21,7 @@ const BaoCao = require('../models/BaoCao');
 const ThongBao = require('../models/ThongBao');
 const PackageRegistration = require('../models/PackageRegistration');
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyDy_5Xo6Ob5rKjC8D-LvqxZliok0yFGUjo';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyAGnazb2y6mKo_FLwQjwomWXM2V3030nfo';
 
 if (!GEMINI_API_KEY) {
     console.warn('⚠️ GEMINI_API_KEY không được cấu hình trong .env');

@@ -19,6 +19,8 @@ import ActivePackage from './pages/ActivePackage'
 import Schedule from './pages/Schedule'
 import CheckInOut from './pages/CheckInOut'
 import Exercises from './pages/Exercises'
+import BodyMetrics from './pages/BodyMetrics'
+import Nutrition from './pages/Nutrition'
 import BubbleChat from './components/BubbleChat'
 
 const AppContent = () => {
@@ -34,6 +36,9 @@ const AppContent = () => {
       const isAuth = authUtils.isAuthenticated();
       setIsAuthenticated(isAuth);
       setIsLoading(false);
+      if (!isAuth && location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/register') {
+        navigate('/');
+      }
     };
 
     checkAuth();
@@ -43,11 +48,14 @@ const AppContent = () => {
       if (isAuthenticated && !isAuth) {
         setIsAuthenticated(false);
         showSessionExpired();
+        if (location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/register') {
+          navigate('/');
+        }
       }
     }, 5 * 60 * 1000);
 
     return () => clearInterval(authCheckInterval);
-  }, [isAuthenticated, showSessionExpired]);
+  }, [isAuthenticated, showSessionExpired, location.pathname, navigate]);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -116,6 +124,8 @@ const AppContent = () => {
             <Route path='/checkin-out' element={<CheckInOut />} />
             <Route path='/workouts' element={<Exercises />} />
             <Route path='/exercises' element={<Exercises />} />
+            <Route path='/body-metrics' element={<BodyMetrics />} />
+            <Route path='/nutrition' element={<Nutrition />} />
           </Routes>
 
           {/* Bubble Chat AI - Only show for authenticated users */}

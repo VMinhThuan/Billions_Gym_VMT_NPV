@@ -105,20 +105,20 @@ const Sidebar = ({ isOpen, onClose }) => {
             path: '/body-metrics',
             description: 'Theo dõi chỉ số sức khỏe'
         },
-        {
-            id: 'payments',
-            label: 'Thanh toán',
-            icon: 'credit-card',
-            path: '/payments',
-            description: 'Lịch sử thanh toán'
-        },
-        {
-            id: 'reviews',
-            label: 'Đánh giá',
-            icon: 'star',
-            path: '/reviews',
-            description: 'Đánh giá trải nghiệm'
-        },
+        // {
+        //     id: 'payments',
+        //     label: 'Thanh toán',
+        //     icon: 'credit-card',
+        //     path: '/payments',
+        //     description: 'Lịch sử thanh toán'
+        // },
+        // {
+        //     id: 'reviews',
+        //     label: 'Đánh giá',
+        //     icon: 'star',
+        //     path: '/reviews',
+        //     description: 'Đánh giá trải nghiệm'
+        // },
     ];
 
     const getIcon = (iconName) => {

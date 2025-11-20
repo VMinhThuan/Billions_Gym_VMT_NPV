@@ -16,10 +16,11 @@ import PackageWorkflowManager from '../components/PackageWorkflow/PackageWorkflo
 import TrainerAvailabilityManager from '../components/PackageWorkflow/TrainerAvailabilityManager';
 import PackageRegistrationManager from '../components/PackageRegistrationManager';
 import '../components/PackageRegistrationManager.css';
+import StatisticsPage from './StatisticsPage';
 
 type Stat = { label: string; value: string; trend?: 'up' | 'down'; sub?: string };
 
-type SectionKey = 'overview' | 'members' | 'pt' | 'packages' | 'schedules' | 'sessions' | 'exercises' | 'body_metrics' | 'nutrition' | 'payments' | 'notifications' | 'feedback' | 'reports' | 'ai_suggestions' | 'appointments' | 'package_workflow' | 'trainer_availability' | 'package_registrations' | 'templates';
+type SectionKey = 'overview' | 'members' | 'pt' | 'packages' | 'schedules' | 'sessions' | 'exercises' | 'body_metrics' | 'nutrition' | 'payments' | 'notifications' | 'feedback' | 'reports' | 'ai_suggestions' | 'appointments' | 'package_workflow' | 'trainer_availability' | 'package_registrations' | 'templates' | 'statistics';
 
 interface HoiVien {
     _id: string;
@@ -635,6 +636,10 @@ const AdminDashboard = () => {
                         <CalendarIcon className="nav-icon" />
                         <span>Đăng ký gói tập</span>
                     </a>
+                    <a className={`nav-item ${section === 'statistics' ? 'active' : ''}`} href="#/admin/statistics" aria-label="Thống kê">
+                        <ActivityIcon className="nav-icon" />
+                        <span>Thống kê</span>
+                    </a>
                 </nav>
             </aside>
 
@@ -739,6 +744,7 @@ const AdminDashboard = () => {
                     {section === 'package_workflow' && <PackageWorkflowPage />}
                     {section === 'trainer_availability' && <TrainerAvailabilityPage />}
                     {section === 'package_registrations' && <PackageRegistrationManager />}
+                    {section === 'statistics' && <StatisticsPage />}
                 </div>
             </main>
         </div>
