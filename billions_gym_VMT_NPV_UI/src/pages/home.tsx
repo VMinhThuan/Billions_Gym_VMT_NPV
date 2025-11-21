@@ -60,27 +60,7 @@ const HomePage = () => {
         <>
             <Header />
             {/* Admin Login Button */}
-            <Button
-                className="admin-login-btn"
-                variant="secondary"
-                size="small"
-                onClick={() => {
-                    if (window.confirm('Đăng nhập vai trò Admin và mở Dashboard?')) {
-                        setIsLoading(true);
-                        setTimeout(() => {
-                            if (window.location.hash) {
-                                window.location.hash = '/login';
-                            } else {
-                                window.history.pushState({}, '', '/login');
-                                window.dispatchEvent(new PopStateEvent('popstate'));
-                            }
-                            setIsLoading(false);
-                        }, 1000);
-                    }
-                }}
-            >
-                Đăng nhập Admin
-            </Button>
+
             <main className="main-content">
                 {/* Banner Carousel */}
                 <section className="banner-carousel">

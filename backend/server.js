@@ -38,6 +38,24 @@ mongoose.connect(process.env.MONGODB_URI, {
         } else {
             console.log(`Trạng thái MongoDB: ${dbState} (0=disconnected, 1=connected, 2=connecting, 3=disconnecting)`);
         }
+
+        // Khởi động service tự động check-out
+        const autoCheckoutService = require('./src/services/autoCheckout.service');
+
+        // Chạy ngay lần đầu sau 30 giây (để đảm bảo server đã sẵn sàng)
+        setTimeout(async () => {
+            console.log('[Auto Check-out] Chạy lần đầu tiên...');
+            await autoCheckoutService.autoCheckoutExpiredSessions();
+        }, 30000);
+
+        // Chạy định kỳ mỗi 10 phút (600000 ms)
+        const AUTO_CHECKOUT_INTERVAL = 10 * 60 * 1000; // 10 phút
+        setInterval(async () => {
+            console.log('[Auto Check-out] Chạy định kỳ...');
+            await autoCheckoutService.autoCheckoutExpiredSessions();
+        }, AUTO_CHECKOUT_INTERVAL);
+
+        console.log(`[Auto Check-out] Đã khởi động service tự động check-out (chạy mỗi ${AUTO_CHECKOUT_INTERVAL / 1000 / 60} phút)`);
     })
     .catch(err => {
         console.error('Lỗi kết nối MongoDB:', err.message);
@@ -101,6 +119,7 @@ const faceRouter = require('./src/routes/face.route');
 const checkinRouter = require('./src/routes/checkin.route');
 const watchHistoryRouter = require('./src/routes/watchHistory.routes');
 const statisticsRouter = require('./src/routes/statistics.route');
+const yearlyGoalsRouter = require('./src/routes/yearlyGoals.route');
 
 app.use('/api/auth', authRouter);
 // app.use('/api/users', userRouter);
@@ -136,6 +155,7 @@ app.use('/api/face', faceRouter);
 app.use('/api/checkin', checkinRouter);
 app.use('/api/watch-history', watchHistoryRouter);
 app.use('/api/statistics', statisticsRouter);
+app.use('/api/yearly-goals', yearlyGoalsRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

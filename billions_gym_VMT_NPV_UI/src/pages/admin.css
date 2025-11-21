@@ -866,7 +866,7 @@
 
 .admin-content {
     flex: 1;
-    padding: 24px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
     gap: 24px;

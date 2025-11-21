@@ -3098,7 +3098,7 @@
     grid-template-columns: 120px repeat(7, 1fr);
     background: #1e293b;
     border-bottom: 2px solid #334155;
-    min-width: 800px;
+    min-width: 120px;
 }
 
 .time-column-header {

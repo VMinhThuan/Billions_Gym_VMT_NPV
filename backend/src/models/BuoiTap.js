@@ -71,7 +71,11 @@ const BuoiTapSchema = new mongoose.Schema({
     },
     ghiChu: {
         type: String
-    }
+    },
+    baiTap: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'BaiTap'
+    }]
 }, {
     timestamps: true
 });

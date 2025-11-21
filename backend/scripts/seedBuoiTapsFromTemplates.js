@@ -53,19 +53,19 @@ const assignPTsToWorkouts = (ptList, numWorkouts) => {
 // ⚙️ Tạo CaSlots cho chi nhánh nếu chưa có
 const ensureCaSlotsExist = async (chiNhanh, targetMonth, targetYear) => {
     const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
-    
+
     for (let day = 1; day <= daysInMonth; day++) {
         const ngayTap = new Date(targetYear, targetMonth - 1, day);
-        
+
         // Kiểm tra xem ngày này đã có CaSlots chưa
-        const existingSlots = await CaSlot.find({ 
-            chiNhanh: chiNhanh._id, 
+        const existingSlots = await CaSlot.find({
+            chiNhanh: chiNhanh._id,
             ngay: {
                 $gte: new Date(ngayTap.getFullYear(), ngayTap.getMonth(), ngayTap.getDate()),
                 $lt: new Date(ngayTap.getFullYear(), ngayTap.getMonth(), ngayTap.getDate() + 1)
             }
         });
-        
+
         if (existingSlots.length < 8) {
             // Tạo thiếu CaSlots cho ngày này
             for (const slot of CA_SLOTS) {
@@ -88,16 +88,16 @@ const ensureCaSlotsExist = async (chiNhanh, targetMonth, targetYear) => {
 const generateMonthlyWorkouts = async (month, year) => {
     try {
         console.log(`🚀 Bắt đầu tạo lịch tập cho tháng ${month}/${year}`);
-        
+
         const templates = await TemplateBuoiTap.find();
         if (!templates.length) {
             throw new Error('Không có template buổi tập trong DB');
         }
         console.log(`📚 Loaded ${templates.length} templates`);
-        
+
         // Log template names để debug
         console.log('📋 Templates available:');
-        templates.forEach((t, i) => console.log(`   ${i+1}. ${t.ten} (${t.loai}) - ${t.doKho}`));
+        templates.forEach((t, i) => console.log(`   ${i + 1}. ${t.ten} (${t.loai}) - ${t.doKho}`));
 
         const chinhanhs = await ChiNhanh.find();
         if (!chinhanhs.length) {
@@ -106,7 +106,7 @@ const generateMonthlyWorkouts = async (month, year) => {
         console.log(`🏢 Loaded ${chinhanhs.length} chi nhánh`);
 
         // Xóa dữ liệu cũ của tháng (nếu có)
-        const deleteResult = await BuoiTap.deleteMany({ 
+        const deleteResult = await BuoiTap.deleteMany({
             $expr: {
                 $and: [
                     { $eq: [{ $month: "$ngayTap" }, month] },
@@ -118,7 +118,7 @@ const generateMonthlyWorkouts = async (month, year) => {
 
         for (const cn of chinhanhs) {
             console.log(`🏋️ Đang xử lý chi nhánh: ${cn.tenChiNhanh}`);
-            
+
             const ptList = await PT.find({ chinhanh: cn._id });
             if (!ptList.length) {
                 console.log(`⚠️ Bỏ qua ${cn.tenChiNhanh} (không có PT)`);
@@ -137,9 +137,9 @@ const generateMonthlyWorkouts = async (month, year) => {
 
             for (let day = 1; day <= daysInMonth; day++) {
                 const ngayTap = new Date(year, month - 1, day);
-                
+
                 // Lấy CaSlots cho ngày cụ thể
-                const dailyCaSlots = await CaSlot.find({ 
+                const dailyCaSlots = await CaSlot.find({
                     chiNhanh: cn._id,
                     ngay: {
                         $gte: new Date(ngayTap.getFullYear(), ngayTap.getMonth(), ngayTap.getDate()),
@@ -154,34 +154,34 @@ const generateMonthlyWorkouts = async (month, year) => {
 
                 for (let caIndex = 0; caIndex < dailyCaSlots.length; caIndex++) {
                     const ca = dailyCaSlots[caIndex];
-                    
+
                     // Chọn 10 templates KHÁC NHAU cho ca này
                     // Sử dụng offset để đảm bảo mỗi ca có set templates khác nhau
                     const selectedTemplates = [];
                     const usedTemplateIds = new Set();
-                    
+
                     let templateIndex = (caIndex * 2) % dailyShuffledTemplates.length;
-                    
+
                     while (selectedTemplates.length < 10 && selectedTemplates.length < templates.length) {
                         const template = dailyShuffledTemplates[templateIndex % dailyShuffledTemplates.length];
-                        
+
                         if (!usedTemplateIds.has(template._id.toString())) {
                             selectedTemplates.push(template);
                             usedTemplateIds.add(template._id.toString());
                         }
-                        
+
                         templateIndex++;
-                        
+
                         // Tránh vòng lặp vô hạn
                         if (templateIndex > dailyShuffledTemplates.length * 2) break;
                     }
-                    
+
                     // Nếu không đủ 10 templates unique, lấy thêm từ đầu
                     while (selectedTemplates.length < 10) {
-                        const remainingTemplates = dailyShuffledTemplates.filter(t => 
+                        const remainingTemplates = dailyShuffledTemplates.filter(t =>
                             !usedTemplateIds.has(t._id.toString())
                         );
-                        
+
                         if (remainingTemplates.length === 0) {
                             // Nếu hết templates unique, reset và lấy lại
                             usedTemplateIds.clear();
@@ -192,7 +192,7 @@ const generateMonthlyWorkouts = async (month, year) => {
                             usedTemplateIds.add(template._id.toString());
                         }
                     }
-                    
+
                     const ptAssignments = assignPTsToWorkouts(ptList, selectedTemplates.length);
 
                     const buoiTaps = selectedTemplates.map((tpl, i) => ({
@@ -206,19 +206,20 @@ const generateMonthlyWorkouts = async (month, year) => {
                         soLuongHienTai: 0,
                         trangThai: 'CHUAN_BI',
                         moTa: `${tpl.ten} - ${tpl.loai} (${tpl.doKho})`,
-                        ghiChu: `Template: ${tpl.ten}`
+                        ghiChu: `Template: ${tpl.ten}`,
+                        baiTap: tpl.baiTap || [] // Thêm baiTap từ template
                     }));
 
                     await BuoiTap.insertMany(buoiTaps);
-                    
+
                     // Log để debug
                     if (day === 1 && caIndex === 0) {
                         console.log(`   🔍 Ca đầu tiên có các buổi tập:`);
-                        selectedTemplates.forEach((t, i) => console.log(`      ${i+1}. ${t.ten} (${t.loai})`));
+                        selectedTemplates.forEach((t, i) => console.log(`      ${i + 1}. ${t.ten} (${t.loai})`));
                     }
                 }
             }
-            
+
             console.log(`✅ Hoàn tất chi nhánh ${cn.tenChiNhanh}: ${daysInMonth * 8 * 10} buổi tập`);
         }
 
@@ -233,7 +234,7 @@ const generateMonthlyWorkouts = async (month, year) => {
 
         console.log(`🎯 Hoàn tất tạo lịch tập cho tháng ${month}/${year}!`);
         console.log(`📈 Tổng cộng: ${totalSessions} buổi tập đã được tạo`);
-        
+
     } catch (err) {
         console.error('❌ Lỗi khi tạo lịch tập:', err);
         throw err;
@@ -253,7 +254,7 @@ async function run() {
     await mongoose.disconnect();
 }
 
-run().catch(err => { 
-    console.error('❌ Seed error', err); 
-    process.exit(1); 
+run().catch(err => {
+    console.error('❌ Seed error', err);
+    process.exit(1);
 });

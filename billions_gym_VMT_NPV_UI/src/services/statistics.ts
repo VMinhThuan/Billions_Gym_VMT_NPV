@@ -78,6 +78,60 @@ export interface ExpiringPackages {
     };
 }
 
+export interface RecentRegistration {
+    _id: string;
+    hoTen: string;
+    goiTap: string;
+    chiNhanh?: string;
+    ptPhuTrach?: string;
+    thoiGianDangKy: string;
+}
+
+export interface RealtimeCheckIn {
+    _id: string;
+    hoiVien: {
+        _id: string;
+        hoTen: string;
+    };
+    buoiTap?: {
+        _id: string;
+        tenBuoiTap?: string;
+    };
+    chiNhanh?: {
+        _id: string;
+        tenChiNhanh?: string;
+    };
+    checkInTime: string;
+    checkOutTime?: string;
+}
+
+export interface PTScheduleEntry {
+    _id: string;
+    pt: {
+        _id: string;
+        hoTen: string;
+    };
+    hoiVien: {
+        _id: string;
+        hoTen: string;
+    };
+    goiTap?: {
+        _id: string;
+        tenGoiTap?: string;
+    };
+    thoiGianBatDau: string;
+    thoiGianKetThuc: string;
+    trangThai?: string;
+}
+
+export interface RevenueHeatmapEntry {
+    id: string;
+    label: string;
+    subLabel?: string;
+    value: number;
+    changePercent?: number;
+}
+
 export interface RevenueStats {
     hienTai: {
         doanhThu: number;
@@ -156,6 +210,51 @@ export interface MemberStatusStats {
     }>;
 }
 
+export interface BranchRegistrationStat {
+    branchId: string;
+    branchName: string;
+    total: number;
+    previousTotal: number;
+    changePercent: number;
+    trend: 'up' | 'down' | 'flat';
+}
+
+export interface RenewPackageStat {
+    packageId: string;
+    packageName: string;
+    renewCount: number;
+    previousCount: number;
+    changePercent: number;
+    trend: 'up' | 'down' | 'flat';
+}
+
+export interface ConversionStatsData {
+    totalTrials: number;
+    converted: number;
+    conversionRate: number;
+    previousRate: number;
+    changePercent: number;
+    trend: 'up' | 'down' | 'flat';
+}
+
+export interface AgeDistributionEntry {
+    group: string;
+    count: number;
+    percentage: number;
+}
+
+export interface PackageDurationRevenueEntry {
+    duration: string;
+    revenue: number;
+    registrations: number;
+}
+
+export interface PeakHourEntry {
+    hour: number;
+    label: string;
+    count: number;
+}
+
 export interface OverallStats {
     hoiVienTheoChiNhanh: MemberStatsByBranch[];
     hoiVienMoi: NewMemberStats;
@@ -165,6 +264,17 @@ export interface OverallStats {
     pt: PTStats;
     checkIn: CheckInStats;
     trangThaiHoiVien: MemberStatusStats;
+    branchRegistrations: BranchRegistrationStat[];
+    renewPackages: RenewPackageStat[];
+    conversionStats: ConversionStatsData;
+    ageDistribution: AgeDistributionEntry[];
+    packageDurationRevenue: PackageDurationRevenueEntry[];
+    peakHours: PeakHourEntry[];
+    recentRegistrations?: RecentRegistration[];
+    recentCheckIns?: RealtimeCheckIn[];
+    ptSchedulesToday?: PTScheduleEntry[];
+    revenueHeatmap?: RevenueHeatmapEntry[];
+    checkInTimeline?: Array<{ label: string; value: number }>;
 }
 
 // API functions
@@ -222,6 +332,44 @@ export const statisticsApi = {
     // Thống kê check-in
     getCheckInStats: async (): Promise<CheckInStats> => {
         const response = await api.get('/api/statistics/checkin');
+        return response.data;
+    }
+};
+
+// Interface cho mục tiêu năm
+export interface YearlyGoals {
+    _id?: string;
+    nam: number;
+    hoiVienMoi: number;
+    doanhThu: number;
+    checkIn: number;
+    goiTap: number;
+    hoiVienDangHoatDong: number;
+    tyLeGiaHan: number;
+    nguoiTao?: string;
+    nguoiCapNhat?: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+// API cho mục tiêu năm
+export const yearlyGoalsApi = {
+    // Lấy mục tiêu năm hiện tại
+    getCurrentYearGoals: async (): Promise<YearlyGoals> => {
+        const response = await api.get('/api/yearly-goals/current');
+        return response.data;
+    },
+
+    // Cập nhật mục tiêu năm hiện tại
+    updateYearlyGoals: async (goals: Partial<YearlyGoals>): Promise<YearlyGoals> => {
+        const response = await api.put('/api/yearly-goals/current', goals);
+        // Backend trả về { message, goals }
+        return response.data.goals || response.data;
+    },
+
+    // Lấy tất cả mục tiêu các năm
+    getAllYearlyGoals: async (): Promise<YearlyGoals[]> => {
+        const response = await api.get('/api/yearly-goals/all');
         return response.data;
     }
 };
