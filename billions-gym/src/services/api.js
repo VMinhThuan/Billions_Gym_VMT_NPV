@@ -266,6 +266,69 @@ export const nutritionAPI = {
             }),
         });
     },
+    // Generate nutrition plan với Gemini AI
+    generatePlan: async (goal, calories, period, preferences = '', mealType = '', date = null) => {
+        return apiRequest('/nutrition/plan', {
+            method: 'POST',
+            body: JSON.stringify({
+                goal,
+                calories: parseInt(calories),
+                period,
+                preferences,
+                mealType,
+                date: date || new Date().toISOString().split('T')[0] // Default to today if not provided
+            }),
+        });
+    },
+    // Lấy plan mới nhất
+    getLatestPlan: async () => {
+        return apiRequest('/nutrition/plan/latest');
+    },
+    // Lấy tất cả meals từ database
+    getAllMeals: async (params = {}) => {
+        const queryParams = new URLSearchParams(params).toString();
+        const url = queryParams ? `/nutrition/meals?${queryParams}` : '/nutrition/meals';
+        return apiRequest(url);
+    },
+    // Lấy featured, popular, recommended meals
+    getFeaturedMeals: async () => {
+        return apiRequest('/nutrition/meals/featured');
+    },
+    // Thêm meal vào user meal plan
+    addMealToPlan: async (mealId, mealType, date = null) => {
+        return apiRequest('/nutrition/meals/add-to-plan', {
+            method: 'POST',
+            body: JSON.stringify({
+                mealId,
+                mealType,
+                date: date || new Date().toISOString().split('T')[0]
+            }),
+        });
+    },
+    // Lấy user meal plan cho một ngày
+    getMyMeals: async (date = null) => {
+        const queryParams = date ? `?date=${date}` : '';
+        return apiRequest(`/nutrition/my-meals${queryParams}`);
+    },
+    // Lấy user meal plan cho một tuần
+    getMyMealsWeek: async (startDate = null) => {
+        const queryParams = startDate ? `?startDate=${startDate}` : '';
+        return apiRequest(`/nutrition/my-meals/week${queryParams}`);
+    },
+    // Xóa món ăn khỏi user meal plan
+    removeMealFromPlan: async (date, mealType, mealIndex) => {
+        return apiRequest('/nutrition/my-meals/remove', {
+            method: 'DELETE',
+            body: JSON.stringify({ date, mealType, mealIndex }),
+        });
+    },
+    // Thêm món ăn vào ngày khác (duplicate)
+    duplicateMeal: async (mealId, targetDate, mealType) => {
+        return apiRequest('/nutrition/my-meals/duplicate', {
+            method: 'POST',
+            body: JSON.stringify({ mealId, targetDate, mealType }),
+        });
+    },
 };
 export const bodyMetricsAPI = {
     getBodyMetrics: async (memberId, limit = null) => {

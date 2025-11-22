@@ -7,11 +7,29 @@ const PORT = process.env.PORT || 4000;
 
 console.log('urrl', process.env.FRONTEND_URL);
 
+// CORS configuration - allow localhost for development
+const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.FRONTEND_URL_CLIENT,
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+].filter(Boolean); // Remove undefined values
+
 app.use(cors({
-    origin: [
-        process.env.FRONTEND_URL,
-        process.env.FRONTEND_URL_CLIENT,
-    ],
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -120,6 +138,7 @@ const checkinRouter = require('./src/routes/checkin.route');
 const watchHistoryRouter = require('./src/routes/watchHistory.routes');
 const statisticsRouter = require('./src/routes/statistics.route');
 const yearlyGoalsRouter = require('./src/routes/yearlyGoals.route');
+const nutritionPlanRouter = require('./src/routes/nutritionPlan.route');
 
 app.use('/api/auth', authRouter);
 // app.use('/api/users', userRouter);
@@ -156,6 +175,7 @@ app.use('/api/checkin', checkinRouter);
 app.use('/api/watch-history', watchHistoryRouter);
 app.use('/api/statistics', statisticsRouter);
 app.use('/api/yearly-goals', yearlyGoalsRouter);
+app.use('/api/nutrition', nutritionPlanRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -174,6 +194,9 @@ app.get('/health', (req, res) => {
     });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+    console.log(`Nutrition API: http://localhost:${PORT}/api/nutrition/plan`);
+    console.log(`CORS enabled for: ${allowedOrigins.join(', ')}`);
 });

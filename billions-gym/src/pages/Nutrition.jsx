@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { MagnifyingGlass, Funnel, Plus, Star, ChartBar, Clock } from '@phosphor-icons/react';
+import { MagnifyingGlass, Funnel, Plus, Star, ChartBar, Clock, Sparkle, X, Calendar } from '@phosphor-icons/react';
 import Header from '../components/layout/Header';
 import Sidebar from '../components/layout/Sidebar';
+import { nutritionAPI } from '../services/api';
 import './Nutrition.css';
 
 const Nutrition = () => {
@@ -15,126 +16,268 @@ const Nutrition = () => {
     const [viewMode, setViewMode] = useState('grid');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [showAIPanel, setShowAIPanel] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [aiRequest, setAiRequest] = useState({
+        goal: '',
+        calories: '1800',
+        selectedDate: new Date().toISOString().split('T')[0], // Default: today
+        preferences: ''
+    });
+    const [selectedMeal, setSelectedMeal] = useState(null); // For meal detail modal
+    const [showMealModal, setShowMealModal] = useState(false);
+    const [activeTab, setActiveTab] = useState('ingredients'); // 'ingredients', 'instructions', 'video'
 
-    // Mock data based on Figma design and backend models
+    // Load data from API
     useEffect(() => {
-        // Featured menu data
-        setFeaturedMenu({
-            id: '1',
-            name: 'Gà Tây Nướng Với Măng Tây Hấp Và Gạo Lứt',
-            category: 'Bữa trưa',
-            rating: 4.8,
-            reviews: 125,
-            image: '/placeholder-menu.jpg',
-            difficulty: 'Trung bình',
-            healthScore: 85,
-            cookDuration: '10 phút',
-            totalSteps: 4,
+        loadNutritionData();
+    }, [selectedCategory]); // Reload when category changes
+
+    const loadNutritionData = async () => {
+        try {
+            // Load featured, popular, recommended meals from database
+            const featuredResult = await nutritionAPI.getFeaturedMeals();
+            if (featuredResult.success && featuredResult.data) {
+                const { featured, popular, recommended } = featuredResult.data;
+
+                if (featured) {
+                    setFeaturedMenu(mapMealToMenu(featured));
+                } else {
+                    setFeaturedMenu(null);
+                }
+
+                if (popular && popular.length > 0) {
+                    setPopularMenus(popular.map(mapMealToMenu));
+                } else {
+                    setPopularMenus([]);
+                }
+
+                if (recommended && recommended.length > 0) {
+                    setRecommendedMenus(recommended.map(mapMealToMenu));
+                } else {
+                    setRecommendedMenus([]);
+                }
+            } else {
+                // No featured meals available
+                setFeaturedMenu(null);
+                setPopularMenus([]);
+                setRecommendedMenus([]);
+            }
+
+            // Load all meals
+            const mealsResult = await nutritionAPI.getAllMeals({
+                limit: 50,
+                mealType: selectedCategory !== 'Tất cả' ? selectedCategory : undefined
+            });
+
+            if (mealsResult.success && mealsResult.data) {
+                // Filter by category on frontend as well to ensure accuracy
+                let filteredMeals = mealsResult.data;
+                if (selectedCategory !== 'Tất cả') {
+                    filteredMeals = mealsResult.data.filter(meal => {
+                        const mealType = meal.mealType || meal.category;
+                        return mealType === selectedCategory;
+                    });
+                }
+                setMenus(filteredMeals.map(mapMealToMenu));
+            } else {
+                setMenus([]);
+            }
+        } catch (error) {
+            console.error('Error loading nutrition data:', error);
+            // Set empty states instead of mock data
+            setFeaturedMenu(null);
+            setPopularMenus([]);
+            setRecommendedMenus([]);
+            setMenus([]);
+        }
+    };
+
+    const mapMealToMenu = (meal) => {
+        // Map both Gemini meal format and DB Meal model to UI format
+        const categoryMap = {
+            'Bữa sáng': 'Bữa sáng',
+            'Bữa trưa': 'Bữa trưa',
+            'Bữa tối': 'Bữa tối',
+            'Ăn nhẹ': 'Ăn nhẹ',
+            'Phụ 1': 'Phụ 1',
+            'Phụ 2': 'Phụ 2',
+            'Phụ 3': 'Phụ 3'
+        };
+
+        const difficultyMap = {
+            'Dễ': 'Dễ',
+            'Trung bình': 'Trung bình',
+            'Khó': 'Khó'
+        };
+
+        // Handle both DB model (with _id) and Gemini response (with id)
+        const mealId = meal._id || meal.id;
+        const mealName = meal.name;
+        const mealType = meal.mealType;
+        const nutrition = meal.nutrition || {};
+
+        // Handle different nutrition formats
+        const calories = nutrition.caloriesKcal || meal.caloriesKcal || meal.calories || 450;
+        const carbs = nutrition.carbsGrams || meal.carbsGrams || meal.carbs || 40;
+        const proteins = nutrition.proteinGrams || meal.proteinGrams || meal.proteins || 35;
+        const fats = nutrition.fatGrams || meal.fatGrams || meal.fats || 12;
+
+        return {
+            id: mealId,
+            _id: mealId, // Keep _id for DB operations
+            name: mealName,
+            category: categoryMap[mealType] || mealType || 'Bữa trưa',
+            mealType: mealType, // Keep original mealType
+            rating: meal.rating || 4.8,
+            reviews: meal.ratingCount || meal.reviews || 125,
+            image: meal.image || '/placeholder-menu.jpg',
+            difficulty: difficultyMap[meal.difficulty] || meal.difficulty || 'Trung bình',
+            healthScore: meal.healthScore || 85,
+            cookDuration: `${meal.cookingTimeMinutes || 10} phút`,
+            totalSteps: meal.stepCount || 4,
+            description: meal.description || '',
+            ingredients: meal.ingredients || [],
+            instructions: meal.instructions || [],
+            cookingVideoUrl: meal.cookingVideoUrl || '',
             nutrition: {
-                calories: 450,
-                carbs: 40,
-                proteins: 35,
-                fats: 12
+                calories: calories,
+                carbs: carbs,
+                proteins: proteins,
+                fats: fats
             }
-        });
+        };
+    };
 
-        // All menus data
-        setMenus([
-            {
-                id: '2',
-                name: 'Tacos Tôm Nướng Với Xoài Salsa',
-                category: 'Ăn nhẹ',
-                image: '/placeholder-menu.jpg',
-                difficulty: 'Trung bình',
-                healthScore: 8,
-                nutrition: {
-                    calories: 400,
-                    carbs: '45g',
-                    proteins: '28g',
-                    fats: '12g'
+    const handleAddToMealPlan = async (meal) => {
+        try {
+            const mealId = meal._id || meal.id;
+            const mealType = meal.mealType || meal.category;
+
+            if (!mealId) {
+                alert('Không thể thêm món ăn: thiếu ID');
+                return;
+            }
+
+            const result = await nutritionAPI.addMealToPlan(mealId, mealType);
+
+            if (result.success) {
+                alert('Đã thêm món ăn vào thực đơn của bạn!');
+            } else {
+                alert('Lỗi: ' + (result.message || 'Không thể thêm món ăn'));
+            }
+        } catch (error) {
+            console.error('Error adding meal to plan:', error);
+            alert('Lỗi: ' + (error.message || 'Không thể thêm món ăn vào thực đơn'));
+        }
+    };
+
+    const handleMealClick = (meal) => {
+        setSelectedMeal(meal);
+        setShowMealModal(true);
+        setActiveTab('ingredients'); // Reset to first tab when opening modal
+    };
+
+    // Convert YouTube URL to embed format
+    const getYouTubeEmbedUrl = (url) => {
+        if (!url) return null;
+
+        // Handle different YouTube URL formats
+        let videoId = null;
+
+        // Format: https://www.youtube.com/watch?v=VIDEO_ID
+        const watchMatch = url.match(/[?&]v=([^&]+)/);
+        if (watchMatch) {
+            videoId = watchMatch[1];
+        }
+
+        // Format: https://youtu.be/VIDEO_ID
+        const shortMatch = url.match(/youtu\.be\/([^?&]+)/);
+        if (shortMatch) {
+            videoId = shortMatch[1];
+        }
+
+        // Format: https://www.youtube.com/embed/VIDEO_ID
+        const embedMatch = url.match(/embed\/([^?&]+)/);
+        if (embedMatch) {
+            videoId = embedMatch[1];
+        }
+
+        if (videoId) {
+            return `https://www.youtube.com/embed/${videoId}`;
+        }
+
+        return null;
+    };
+
+
+    const handleGeneratePlan = async () => {
+        if (!aiRequest.goal || !aiRequest.calories) {
+            alert('Vui lòng điền đầy đủ thông tin: mục tiêu và calories');
+            return;
+        }
+
+        setIsGenerating(true);
+        try {
+            // Validate date - must be today or future
+            const selectedDate = new Date(aiRequest.selectedDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            selectedDate.setHours(0, 0, 0, 0);
+
+            if (selectedDate < today) {
+                alert('Vui lòng chọn ngày hôm nay hoặc ngày tương lai');
+                return;
+            }
+
+            console.log('Generating plan with:', aiRequest);
+            const result = await nutritionAPI.generatePlan(
+                aiRequest.goal,
+                aiRequest.calories,
+                'daily', // Always daily
+                aiRequest.preferences,
+                '',
+                aiRequest.selectedDate // Pass selected date
+            );
+
+            console.log('Plan generation result:', result);
+
+            if (result && result.success && result.data) {
+                setShowAIPanel(false);
+                alert('Đã tạo thực đơn thành công! Vui lòng xem trong trang "Bữa ăn của tôi".');
+                // Reset AI request form
+                setAiRequest({
+                    goal: '',
+                    calories: '1800',
+                    selectedDate: new Date().toISOString().split('T')[0],
+                    preferences: ''
+                });
+            } else {
+                const errorMsg = result?.message || 'Không thể tạo kế hoạch';
+                console.error('Plan generation failed:', result);
+                alert('Lỗi: ' + errorMsg);
+            }
+        } catch (error) {
+            console.error('Error generating plan:', error);
+            let errorMessage = 'Không thể tạo kế hoạch dinh dưỡng';
+
+            if (error.message) {
+                if (error.message.includes('CONNECTION_REFUSED') || error.message.includes('fetch')) {
+                    errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra:\n1. Backend server có đang chạy không?\n2. Server có chạy ở port 4000 không?\n3. Kiểm tra console của backend để xem có lỗi gì không.';
+                } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+                    errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+                } else if (error.message.includes('Network')) {
+                    errorMessage = 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối internet.';
+                } else {
+                    errorMessage = error.message;
                 }
-            },
-            {
-                id: '3',
-                name: 'Gà Nướng Với Quinoa Và Cải Xoăn',
-                category: 'Bữa tối',
-                image: '/placeholder-menu.jpg',
-                difficulty: 'Trung bình',
-                healthScore: 9,
-                nutrition: {
-                    calories: 480,
-                    carbs: '50g',
-                    proteins: '40g',
-                    fats: '15g'
-                }
             }
-        ]);
 
-        // Popular menus
-        setPopularMenus([
-            {
-                id: '4',
-                name: 'Salad Hy Lạp Với Phô Mai Feta Và Ô Liu',
-                category: 'Bữa trưa',
-                rating: 4.9,
-                image: '/placeholder-menu.jpg'
-            },
-            {
-                id: '5',
-                name: 'Sinh Tố Protein Việt Quất',
-                category: 'Bữa sáng',
-                rating: 4.8,
-                image: '/placeholder-menu.jpg'
-            },
-            {
-                id: '6',
-                name: 'Cá Hồi Nướng Với Chanh Và Măng Tây',
-                category: 'Bữa tối',
-                rating: 4.9,
-                image: '/placeholder-menu.jpg'
-            }
-        ]);
-
-        // Recommended menus
-        setRecommendedMenus([
-            {
-                id: '7',
-                name: 'Yến Mạch Với Bơ Hạnh Nhân Và Quả Mọng',
-                category: 'Bữa sáng',
-                nutrition: {
-                    calories: '350 kcal',
-                    carbs: '45g',
-                    proteins: '12g',
-                    fats: '14g'
-                },
-                image: '/placeholder-menu.jpg'
-            },
-            {
-                id: '8',
-                name: 'Bánh Cuốn Gà Với Bơ Và Rau Bina',
-                category: 'Bữa trưa',
-                nutrition: {
-                    calories: '450 kcal',
-                    carbs: '40g',
-                    proteins: '30g',
-                    fats: '18g'
-                },
-                image: '/placeholder-menu.jpg'
-            },
-            {
-                id: '9',
-                name: 'Salad Quinoa Với Rau Củ Nướng Và Phô Mai Feta',
-                category: 'Bữa tối',
-                nutrition: {
-                    calories: '400 kcal',
-                    carbs: '50g',
-                    proteins: '15g',
-                    fats: '12g'
-                },
-                image: '/placeholder-menu.jpg'
-            }
-        ]);
-    }, []);
+            alert('Lỗi: ' + errorMessage);
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     useEffect(() => {
         const handleSidebarToggle = (event) => {
@@ -189,12 +332,239 @@ const Nutrition = () => {
                         <button className="btn-filter">
                             <Funnel size={22} weight="regular" />
                         </button>
-                        {/* <button className="btn-add-menu">
-                            <Plus size={20} weight="bold" />
-                            Thêm Món
-                        </button> */}
+                        <button
+                            className="btn-ai-assistant"
+                            onClick={() => setShowAIPanel(!showAIPanel)}
+                            style={{
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '10px 20px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                fontWeight: '500'
+                            }}
+                        >
+                            <Sparkle size={20} weight="fill" />
+                            <span>AI Trợ Lý</span>
+                        </button>
                     </div>
                 </div>
+
+                {/* AI Nutrition Assistant Panel */}
+                {showAIPanel && (
+                    <div style={{
+                        position: 'fixed',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        background: '#1a1a1a',
+                        border: '1px solid #333',
+                        borderRadius: '16px',
+                        padding: '24px',
+                        zIndex: 1000,
+                        width: '90%',
+                        maxWidth: '500px',
+                        boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ color: 'white', fontSize: '20px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Sparkle size={24} weight="fill" color="#667eea" />
+                                AI Nutrition Assistant
+                            </h2>
+                            <button
+                                onClick={() => setShowAIPanel(false)}
+                                style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer' }}
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div>
+                                <label style={{ color: '#ccc', fontSize: '14px', marginBottom: '8px', display: 'block' }}>
+                                    Mục tiêu dinh dưỡng *
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="VD: Giảm cân, tăng cơ, duy trì..."
+                                    value={aiRequest.goal}
+                                    onChange={(e) => setAiRequest({ ...aiRequest, goal: e.target.value })}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        background: '#2a2a2a',
+                                        border: '1px solid #444',
+                                        borderRadius: '8px',
+                                        color: 'white',
+                                        fontSize: '14px'
+                                    }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ color: '#ccc', fontSize: '14px', marginBottom: '8px', display: 'block' }}>
+                                    Calories mỗi ngày (kcal) *
+                                </label>
+                                <input
+                                    type="number"
+                                    placeholder="1800"
+                                    value={aiRequest.calories}
+                                    onChange={(e) => setAiRequest({ ...aiRequest, calories: e.target.value })}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        background: '#2a2a2a',
+                                        border: '1px solid #444',
+                                        borderRadius: '8px',
+                                        color: 'white',
+                                        fontSize: '14px'
+                                    }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ color: '#ccc', fontSize: '14px', marginBottom: '8px', display: 'block' }}>
+                                    Chọn ngày
+                                </label>
+                                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                                    <button
+                                        onClick={() => {
+                                            const today = new Date().toISOString().split('T')[0];
+                                            setAiRequest({ ...aiRequest, selectedDate: today });
+                                        }}
+                                        style={{
+                                            flex: 1,
+                                            padding: '10px',
+                                            background: aiRequest.selectedDate === new Date().toISOString().split('T')[0] ? '#667eea' : '#2a2a2a',
+                                            border: '1px solid #444',
+                                            borderRadius: '8px',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontSize: '14px'
+                                        }}
+                                    >
+                                        Hôm nay
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const tomorrow = new Date();
+                                            tomorrow.setDate(tomorrow.getDate() + 1);
+                                            setAiRequest({ ...aiRequest, selectedDate: tomorrow.toISOString().split('T')[0] });
+                                        }}
+                                        style={{
+                                            flex: 1,
+                                            padding: '10px',
+                                            background: (() => {
+                                                const tomorrow = new Date();
+                                                tomorrow.setDate(tomorrow.getDate() + 1);
+                                                return aiRequest.selectedDate === tomorrow.toISOString().split('T')[0] ? '#667eea' : '#2a2a2a';
+                                            })(),
+                                            border: '1px solid #444',
+                                            borderRadius: '8px',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontSize: '14px'
+                                        }}
+                                    >
+                                        Ngày mai
+                                    </button>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#2a2a2a', padding: '10px', borderRadius: '8px', border: '1px solid #444' }}>
+                                    <Calendar size={18} weight="regular" color="#999" />
+                                    <input
+                                        type="date"
+                                        value={aiRequest.selectedDate}
+                                        min={new Date().toISOString().split('T')[0]}
+                                        onChange={(e) => setAiRequest({ ...aiRequest, selectedDate: e.target.value })}
+                                        style={{
+                                            flex: 1,
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: 'white',
+                                            fontSize: '14px',
+                                            outline: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ color: '#ccc', fontSize: '14px', marginBottom: '8px', display: 'block' }}>
+                                    Sở thích / Yêu cầu đặc biệt (tùy chọn)
+                                </label>
+                                <textarea
+                                    placeholder="VD: Ăn chay, không thích cá, ưu tiên món Việt..."
+                                    value={aiRequest.preferences}
+                                    onChange={(e) => setAiRequest({ ...aiRequest, preferences: e.target.value })}
+                                    rows={3}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        background: '#2a2a2a',
+                                        border: '1px solid #444',
+                                        borderRadius: '8px',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        resize: 'vertical'
+                                    }}
+                                />
+                            </div>
+
+                            <button
+                                onClick={handleGeneratePlan}
+                                disabled={isGenerating}
+                                style={{
+                                    width: '100%',
+                                    padding: '14px',
+                                    background: isGenerating ? '#555' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    cursor: isGenerating ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '10px'
+                                }}
+                            >
+                                {isGenerating ? (
+                                    <>
+                                        <div style={{ width: '20px', height: '20px', border: '2px solid #fff', borderTop: 'none', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                                        <span>Đang tạo kế hoạch...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkle size={20} weight="fill" />
+                                        <span>Tạo Kế Hoạch Dinh Dưỡng</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Overlay khi mở AI panel */}
+                {showAIPanel && (
+                    <div
+                        onClick={() => setShowAIPanel(false)}
+                        style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(0,0,0,0.7)',
+                            zIndex: 999
+                        }}
+                    />
+                )}
 
                 <div className="nutrition-content">
                     {/* Main Content */}
@@ -203,7 +573,7 @@ const Nutrition = () => {
                         {featuredMenu && (
                             <div className="featured-menu-section">
                                 <h2 className='flex justify-between items-center mb-4 text-white font-semibold text-lg'>Món Nổi Bật</h2>
-                                <div className="featured-menu-card">
+                                <div className="featured-menu-card" onClick={() => handleMealClick(featuredMenu)} style={{ cursor: 'pointer' }}>
                                     <div className="featured-main">
                                         <div className="featured-image">
                                             <div className="image-placeholder"></div>
@@ -269,7 +639,12 @@ const Nutrition = () => {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <button className="btn-add-meal-plan text-white">Thêm vào thực đơn</button>
+                                            <button
+                                                className="btn-add-meal-plan text-white"
+                                                onClick={() => handleAddToMealPlan(featuredMenu)}
+                                            >
+                                                Thêm vào thực đơn
+                                            </button>
                                         </div>
                                     </div>
                                     <div className="featured-nutrition">
@@ -402,7 +777,7 @@ const Nutrition = () => {
 
                             <div className="menu-list">
                                 {menus.map(menu => (
-                                    <div key={menu.id} className="menu-card">
+                                    <div key={menu.id} className="menu-card" onClick={() => handleMealClick(menu)} style={{ cursor: 'pointer' }}>
                                         <div className="menu-image">
                                             <div className="image-placeholder"></div>
                                         </div>
@@ -480,7 +855,12 @@ const Nutrition = () => {
                                                         <span>{menu.nutrition.fats} fats</span>
                                                     </div>
                                                 </div>
-                                                <button className="btn-add-small">Thêm vào thực đơn</button>
+                                                <button
+                                                    className="btn-add-small"
+                                                    onClick={() => handleAddToMealPlan(menu)}
+                                                >
+                                                    Thêm vào thực đơn
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -496,14 +876,17 @@ const Nutrition = () => {
                             <h2 className='flex justify-between items-center mb-4 text-white font-semibold text-lg'>Món phổ biến</h2>
                             <div className="popular-menu-list">
                                 {popularMenus.map(menu => (
-                                    <div key={menu.id} className="popular-menu-item">
+                                    <div key={menu.id} className="popular-menu-item" onClick={() => handleMealClick(menu)} style={{ cursor: 'pointer' }}>
                                         <div className="popular-image">
                                             <div className="image-placeholder"></div>
                                         </div>
                                         <div className="popular-info">
                                             <div className="popular-header">
                                                 <h4>{menu.name}</h4>
-                                                <button className="btn-add-mini">
+                                                <button
+                                                    className="btn-add-mini"
+                                                    onClick={() => handleAddToMealPlan(menu)}
+                                                >
                                                     <Plus size={18} weight="bold" />
                                                 </button>
                                             </div>
@@ -528,7 +911,7 @@ const Nutrition = () => {
                             <h2 className='flex justify-between items-center mb-4 text-white font-semibold text-lg'>Món được đề xuất</h2>
                             <div className="recommended-menu-list">
                                 {recommendedMenus.map(menu => (
-                                    <div key={menu.id} className="recommended-menu-item">
+                                    <div key={menu.id} className="recommended-menu-item" onClick={() => handleMealClick(menu)} style={{ cursor: 'pointer' }}>
                                         <div className="recommended-main">
                                             <div className="recommended-image">
                                                 <div className="image-placeholder"></div>
@@ -539,7 +922,10 @@ const Nutrition = () => {
                                                     <span className="recommended-category" style={{ backgroundColor: getCategoryColor(menu.category) }}>
                                                         {menu.category}
                                                     </span>
-                                                    <button className="btn-add-tiny">
+                                                    <button
+                                                        className="btn-add-tiny"
+                                                        onClick={() => handleAddToMealPlan(menu)}
+                                                    >
                                                         <Plus size={16} weight="bold" />
                                                     </button>
                                                 </div>
@@ -583,6 +969,161 @@ const Nutrition = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Meal Detail Modal */}
+            {showMealModal && selectedMeal && (
+                <>
+                    {/* Overlay */}
+                    <div
+                        className="meal-modal-overlay"
+                        onClick={() => setShowMealModal(false)}
+                    />
+
+                    {/* Modal Content */}
+                    <div className="meal-modal">
+                        <div className="meal-modal-header">
+                            <div className="meal-modal-title-section">
+                                <h2>{selectedMeal.name}</h2>
+                                {selectedMeal.description && (
+                                    <p className="meal-modal-description">{selectedMeal.description}</p>
+                                )}
+                            </div>
+                            <button
+                                className="meal-modal-close"
+                                onClick={() => setShowMealModal(false)}
+                            >
+                                <X size={24} weight="bold" />
+                            </button>
+                        </div>
+
+                        {/* Tab Navigation */}
+                        <div className="meal-modal-tabs">
+                            <button
+                                className={`meal-tab ${activeTab === 'ingredients' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('ingredients')}
+                            >
+                                Nguyên liệu
+                            </button>
+                            <button
+                                className={`meal-tab ${activeTab === 'instructions' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('instructions')}
+                            >
+                                Hướng dẫn nấu
+                            </button>
+                            <button
+                                className={`meal-tab ${activeTab === 'video' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('video')}
+                                disabled={!selectedMeal.cookingVideoUrl}
+                            >
+                                Video hướng dẫn
+                            </button>
+                        </div>
+
+                        {/* Tab Content */}
+                        <div className="meal-modal-content">
+                            {activeTab === 'ingredients' && selectedMeal.ingredients && selectedMeal.ingredients.length > 0 && (
+                                <div className="meal-tab-content">
+                                    <ul className="ingredients-list">
+                                        {selectedMeal.ingredients.map((ingredient, index) => (
+                                            <li key={index} className="ingredient-item">
+                                                <span className="ingredient-name">{ingredient.name}</span>
+                                                {ingredient.amount && ingredient.unit && (
+                                                    <span className="ingredient-amount">
+                                                        {ingredient.amount} {ingredient.unit}
+                                                    </span>
+                                                )}
+                                                {ingredient.notes && (
+                                                    <span className="ingredient-notes">{ingredient.notes}</span>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {activeTab === 'instructions' && selectedMeal.instructions && selectedMeal.instructions.length > 0 && (
+                                <div className="meal-tab-content">
+                                    <ol className="instructions-list">
+                                        {selectedMeal.instructions.map((instruction, index) => (
+                                            <li key={index} className="instruction-item">
+                                                <span className="instruction-number">{index + 1}</span>
+                                                <span className="instruction-text">{instruction}</span>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                </div>
+                            )}
+
+                            {activeTab === 'video' && selectedMeal.cookingVideoUrl && (
+                                <div className="meal-tab-content">
+                                    <div className="video-container">
+                                        {getYouTubeEmbedUrl(selectedMeal.cookingVideoUrl) ? (
+                                            <iframe
+                                                width="100%"
+                                                height="500"
+                                                src={getYouTubeEmbedUrl(selectedMeal.cookingVideoUrl)}
+                                                title="Cooking Video"
+                                                frameBorder="0"
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                allowFullScreen
+                                                onError={(e) => {
+                                                    console.error('Video load error:', e);
+                                                    e.target.style.display = 'none';
+                                                    const errorDiv = document.createElement('div');
+                                                    errorDiv.className = 'video-error';
+                                                    errorDiv.innerHTML = `
+                                                        <p style="color: #999; text-align: center; padding: 20px;">
+                                                            Video không có sẵn hoặc không hoạt động.<br/>
+                                                            <a href="${selectedMeal.cookingVideoUrl}" target="_blank" rel="noopener noreferrer" style="color: #667eea; text-decoration: underline;">
+                                                                Mở video trên YouTube
+                                                            </a>
+                                                        </p>
+                                                    `;
+                                                    e.target.parentElement.appendChild(errorDiv);
+                                                }}
+                                            />
+                                        ) : (
+                                            <div className="video-error">
+                                                <p style="color: #999; text-align: center; padding: 20px;">
+                                                    Video không có sẵn hoặc không hoạt động.<br />
+                                                    {selectedMeal.cookingVideoUrl && (
+                                                        <a
+                                                            href={selectedMeal.cookingVideoUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            style={{ color: '#667eea', textDecoration: 'underline' }}
+                                                        >
+                                                            Mở video trên YouTube
+                                                        </a>
+                                                    )}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'ingredients' && (!selectedMeal.ingredients || selectedMeal.ingredients.length === 0) && (
+                                <div className="meal-tab-content empty-state">
+                                    <p>Chưa có thông tin nguyên liệu</p>
+                                </div>
+                            )}
+
+                            {activeTab === 'instructions' && (!selectedMeal.instructions || selectedMeal.instructions.length === 0) && (
+                                <div className="meal-tab-content empty-state">
+                                    <p>Chưa có hướng dẫn nấu</p>
+                                </div>
+                            )}
+
+                            {activeTab === 'video' && !selectedMeal.cookingVideoUrl && (
+                                <div className="meal-tab-content empty-state">
+                                    <p>Chưa có video hướng dẫn</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </>
+            )}
         </>
     );
 };

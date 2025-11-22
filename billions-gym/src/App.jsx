@@ -22,6 +22,7 @@ import CheckInOut from './pages/CheckInOut'
 import Exercises from './pages/Exercises'
 import BodyMetrics from './pages/BodyMetrics'
 import Nutrition from './pages/Nutrition'
+import MyMeals from './pages/MyMeals'
 import BubbleChat from './components/BubbleChat'
 
 const AppContent = () => {
@@ -128,6 +129,7 @@ const AppContent = () => {
             <Route path='/exercises' element={<Exercises />} />
             <Route path='/body-metrics' element={<BodyMetrics />} />
             <Route path='/nutrition' element={<Nutrition />} />
+            <Route path='/my-meals' element={<MyMeals />} />
           </Routes>
 
           {/* Bubble Chat AI - Only show for authenticated users */}
