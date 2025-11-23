@@ -866,7 +866,7 @@
 
 .admin-content {
     flex: 1;
-    padding: 24px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
     gap: 24px;
@@ -8518,4 +8518,45 @@ html body * .recharts-legend-item:nth-child(3) text {
     .sessions-cards-grid {
         grid-template-columns: 1fr;
     }
+}
+
+/* Nutrition Admin Page */
+.nutrition-admin-page {
+    padding: 0;
+    background: transparent;
+}
+
+.nutrition-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 0 24px;
+    border-bottom: 0.0625rem solid var(--glass-border);
+    background: transparent;
+}
+
+.nutrition-tab {
+    padding: 16px 24px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    top: 1px;
+}
+
+.nutrition-tab:hover {
+    color: #fff;
+}
+
+.nutrition-tab.active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+}
+
+.nutrition-content {
+    padding: 0;
 }

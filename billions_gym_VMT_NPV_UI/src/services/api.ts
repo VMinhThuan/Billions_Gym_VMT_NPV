@@ -86,8 +86,8 @@ export const api = {
         request<T>(path, { method: 'POST', body, requireAuth }),
     put: <T = any>(path: string, body?: any, requireAuth = true) =>
         request<T>(path, { method: 'PUT', body, requireAuth }),
-    delete: <T = any>(path: string, requireAuth = true) =>
-        request<T>(path, { method: 'DELETE', requireAuth }),
+    delete: <T = any>(path: string, options?: { query?: Record<string, any>; requireAuth?: boolean }) =>
+        request<T>(path, { method: 'DELETE', query: options?.query, requireAuth: options?.requireAuth ?? true }),
 
     // Authentication endpoints
     login: async (credentials: { email?: string; sdt?: string; matKhau: string }) => {
@@ -104,6 +104,45 @@ export const api = {
 
     logout: () => {
         auth.clearToken();
+    },
+
+    // Nutrition endpoints
+    nutrition: {
+        // Meal management
+        getAllMeals: (query?: { mealType?: string; search?: string; limit?: number; page?: number }) =>
+            api.get<{ success: boolean; data: any[] }>('/api/nutrition/meals', query),
+        getMealById: (id: string) =>
+            api.get<{ success: boolean; data: any }>(`/api/nutrition/meals/${id}`),
+        createMeal: (meal: any) =>
+            api.post<{ success: boolean; data: any }>('/api/nutrition/meals', meal),
+        updateMeal: (id: string, meal: any) =>
+            api.put<{ success: boolean; data: any }>(`/api/nutrition/meals/${id}`, meal),
+        deleteMeal: (id: string) =>
+            api.delete<{ success: boolean }>(`/api/nutrition/meals/${id}`),
+
+        // Member meal plan management
+        getMemberMealPlans: (query?: { memberId?: string; date?: string; startDate?: string; endDate?: string }) =>
+            api.get<{ success: boolean; data: any[] }>('/api/nutrition/member-meal-plans', query),
+        getMemberMealPlan: (memberId: string, date: string) =>
+            api.get<{ success: boolean; data: any }>(`/api/nutrition/member-meal-plans/${memberId}`, { date }),
+        addMealToMemberPlan: (memberId: string, mealId: string, mealType: string, date: string) =>
+            api.post<{ success: boolean }>('/api/nutrition/member-meal-plans/add', {
+                memberId,
+                mealId,
+                mealType,
+                date
+            }),
+        removeMealFromMemberPlan: (memberId: string, date: string, mealType: string, mealIndex: number) =>
+            api.delete<{ success: boolean }>('/api/nutrition/member-meal-plans/remove', {
+                query: {
+                    memberId,
+                    date,
+                    mealType,
+                    mealIndex: mealIndex.toString()
+                }
+            }),
+        updateMemberMealPlan: (memberId: string, date: string, plan: any) =>
+            api.put<{ success: boolean }>(`/api/nutrition/member-meal-plans/${memberId}`, { date, plan }),
     }
 };
 

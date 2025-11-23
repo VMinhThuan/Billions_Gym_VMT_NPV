@@ -1065,9 +1065,456 @@ const processChatMessage = async (message, userContext, conversationHistory = []
     }
 };
 
+/**
+ * Generate nutrition plan với Gemini AI
+ * @param {Object} request - Request object với goal, calories, period, preferences
+ * @param {Object} userContext - User context từ getUserContext
+ * @returns {Promise<Object>} Nutrition plan data
+ */
+const generateNutritionPlan = async (request, userContext) => {
+    try {
+        if (!genAI) {
+            throw new Error('Gemini API không được khởi tạo. Vui lòng kiểm tra API key.');
+        }
+
+        if (!model) {
+            throw new Error('Gemini model không được khởi tạo. Vui lòng kiểm tra model name.');
+        }
+
+        const { goal, calories, period, preferences, mealType, date } = request;
+        const periodDays = period === 'weekly' ? 7 : 1;
+
+        // Get target date from request or use today
+        let targetDate = new Date();
+        if (date) {
+            targetDate = new Date(date);
+            if (isNaN(targetDate.getTime())) {
+                targetDate = new Date(); // Fallback to today if invalid
+            }
+        }
+        targetDate.setHours(0, 0, 0, 0);
+
+        // Tạo prompt chi tiết cho Gemini với đầy đủ thuộc tính
+        const prompt = `Bạn là chuyên gia dinh dưỡng AI. Tạo một kế hoạch dinh dưỡng ${period === 'weekly' ? '7 ngày' : '1 ngày'} cho mục tiêu "${goal}".
+
+YÊU CẦU:
+- Tổng calories mỗi ngày: ${calories} kcal
+- Số ngày: ${periodDays} ngày
+- Mục tiêu: ${goal}
+- Sở thích/ưu tiên: ${preferences || 'Không có'}
+- Loại bữa ăn: ${mealType || 'Tất cả các bữa'}
+
+ĐỊNH DẠNG JSON BẮT BUỘC (phải trả về đúng format này với ĐẦY ĐỦ thuộc tính):
+{
+  "planType": "${period}",
+  "days": [
+    {
+      "date": "YYYY-MM-DD",
+      "meals": [
+        {
+          "id": "unique-id",
+          "name": "Tên món ăn bằng tiếng Việt",
+          "description": "Mô tả ngắn gọn về món ăn",
+          "image": "https://images.unsplash.com/photo-XXXXX?w=800",
+          "mealType": "Bữa sáng" | "Phụ 1" | "Bữa trưa" | "Phụ 2" | "Bữa tối" | "Phụ 3",
+          "difficulty": "Dễ" | "Trung bình" | "Khó",
+          "cookingTimeMinutes": 15,
+          "healthScore": 85,
+          "stepCount": 4,
+          "caloriesKcal": 450,
+          "carbsGrams": 40,
+          "proteinGrams": 35,
+          "fatGrams": 12,
+          "fiberGrams": 4,
+          "sugarGrams": 2,
+          "sodiumMg": 350,
+          "rating": 4.8,
+          "ratingCount": 125,
+          "tags": ["low-fat", "high-protein", "balanced"],
+          "cuisineType": "Vietnamese" | "Western" | "Mediterranean" | "Mexican" | "Asian",
+          "dietaryRestrictions": ["vegetarian"] | ["vegan"] | ["gluten-free"] | [] | ...,
+          "allergens": ["nuts"] | ["dairy"] | ["shellfish"] | [] | ...,
+          "ingredients": [
+            {
+              "name": "Tên nguyên liệu",
+              "amount": 150,
+              "unit": "g" | "ml" | "cái" | "quả",
+              "notes": "Ghi chú nếu có"
+            }
+          ],
+          "instructions": [
+            "Bước 1: Mô tả chi tiết",
+            "Bước 2: Mô tả chi tiết",
+            "Bước 3: Mô tả chi tiết"
+          ],
+          "cookingVideoUrl": "https://www.youtube.com/watch?v=VIDEO_ID",
+          "isFeatured": false,
+          "isPopular": false,
+          "isRecommended": false
+        }
+      ]
+    }
+  ]
+}
+
+QUY TẮC QUAN TRỌNG:
+1. Mỗi ngày PHẢI có ĐẦY ĐỦ 6 bữa ăn theo thứ tự:
+   - Bữa sáng (bắt buộc)
+   - Phụ 1 (bắt buộc - bữa phụ giữa sáng và trưa)
+   - Bữa trưa (bắt buộc)
+   - Phụ 2 (bắt buộc - bữa phụ giữa trưa và tối)
+   - Bữa tối (bắt buộc)
+   - Phụ 3 (bắt buộc - bữa phụ buổi tối)
+   - KHÔNG được bỏ sót bất kỳ bữa nào. Mỗi ngày phải có đúng 6 bữa.
+   - Ví dụ: Một ngày phải có: [Bữa sáng, Phụ 1, Bữa trưa, Phụ 2, Bữa tối, Phụ 3] - không được thiếu bất kỳ bữa nào.
+2. Tổng calories mỗi ngày phải gần đúng ${calories} kcal (±50 kcal)
+   - Phân bổ calories: Bữa sáng (~25%), Phụ 1 (~10%), Bữa trưa (~30%), Phụ 2 (~10%), Bữa tối (~20%), Phụ 3 (~5%)
+3. Phân bổ macros hợp lý: Protein 25-35%, Carbs 40-50%, Fat 20-30%
+4. Đánh dấu 1 món là isFeatured: true cho mỗi ngày (món nổi bật nhất)
+5. Đánh dấu 2-3 món là isPopular: true (món phổ biến)
+6. Đánh dấu 2-3 món là isRecommended: true (món được đề xuất)
+7. Health score từ 70-100
+8. Rating từ 4.5-5.0
+9. Rating count từ 50-200
+10. Tên món ăn phải bằng tiếng Việt, mô tả ngắn gọn
+11. Difficulty: "Dễ" cho món đơn giản, "Trung bình" cho món thông thường, "Khó" cho món phức tạp
+12. Cooking time từ 5-60 phút
+13. Step count từ 3-8 bước
+14. PHẢI có đầy đủ: ingredients (ít nhất 3-5 nguyên liệu), instructions (ít nhất 3-6 bước)
+15. Tags phải phù hợp với món ăn (ví dụ: high-protein, low-fat, balanced, keto, etc.)
+16. CuisineType phù hợp với món ăn (Vietnamese cho món Việt, Western cho món Tây, etc.)
+17. DietaryRestrictions và allergens phải chính xác (nếu món có sữa thì allergens phải có "dairy")
+18. FiberGrams, sugarGrams, sodiumMg phải hợp lý (fiber 2-10g, sugar 0-25g, sodium 100-600mg)
+19. image: PHẢI là URL hình ảnh từ Unsplash với format: https://source.unsplash.com/800x600/?KEYWORD. 
+    - Món gà/chicken: https://source.unsplash.com/800x600/?chicken,food,healthy
+    - Món cá/salmon/fish: https://source.unsplash.com/800x600/?salmon,fish,food,healthy
+    - Món thịt bò/beef/steak: https://source.unsplash.com/800x600/?beef,steak,food
+    - Salad/rau: https://source.unsplash.com/800x600/?salad,vegetables,healthy
+    - Cơm/rice: https://source.unsplash.com/800x600/?rice,bowl,food
+    - Sinh tố/smoothie: https://source.unsplash.com/800x600/?smoothie,drink,healthy
+    - Yến mạch/oats: https://source.unsplash.com/800x600/?oats,breakfast,healthy
+    - Quinoa: https://source.unsplash.com/800x600/?quinoa,healthy,food
+    - Tôm/shrimp: https://source.unsplash.com/800x600/?shrimp,seafood,food
+    - Taco: https://source.unsplash.com/800x600/?taco,mexican,food
+    - Bữa sáng: https://source.unsplash.com/800x600/?breakfast,food,healthy
+    - Bữa trưa: https://source.unsplash.com/800x600/?lunch,food,healthy
+    - Bữa tối: https://source.unsplash.com/800x600/?dinner,food,healthy
+    - Mặc định: https://source.unsplash.com/800x600/?food,healthy,meal
+20. cookingVideoUrl: PHẢI là link YouTube THỰC SỰ HOẠT ĐỘNG về nấu ăn. 
+    - Tìm kiếm video YouTube phù hợp với món ăn (ví dụ: "cách nấu [tên món]", "how to cook [tên món]", "recipe [tên món]")
+    - Sử dụng format: https://www.youtube.com/watch?v=VIDEO_ID hoặc https://youtu.be/VIDEO_ID
+    - Video phải là video thực sự tồn tại trên YouTube và về chủ đề nấu ăn
+    - Có thể sử dụng các video ID phổ biến về nấu ăn (đã kiểm tra hoạt động):
+      * Món gà/chicken: 9jzWDr24UHQ, K4DyBUG242c, dQw4w9WgXcQ
+      * Món cá/salmon: 4vGcH0yKkqA, K4DyBUG242c
+      * Món thịt bò/beef: 9jzWDr24UHQ, K4DyBUG242c
+      * Salad/rau/vegetables: SPCYmW0i6hU, K4DyBUG242c
+      * Cơm/rice dishes: 9jzWDr24UHQ, K4DyBUG242c
+      * Sinh tố/smoothie: K4DyBUG242c
+      * Món Việt Nam: K4DyBUG242c, 9jzWDr24UHQ
+    - HOẶC tìm video YouTube thực sự phù hợp với món ăn cụ thể (miễn là về nấu ăn)
+    - Nếu không tìm được video phù hợp, để trống (empty string "") thay vì dùng video không hợp lệ
+    - KHÔNG được tạo video ID giả. PHẢI sử dụng video ID thực sự từ YouTube.
+
+TRẢ VỀ CHỈ JSON, KHÔNG CÓ TEXT KHÁC.`;
+
+        // Gọi Gemini với JSON mode
+        let result;
+        let response;
+        let jsonText;
+
+        try {
+            result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 32768, // Tăng lên 32768 để xử lý weekly plan (7 ngày x 6 bữa)
+                    responseMimeType: 'application/json'
+                }
+            });
+
+            response = await result.response;
+            jsonText = response.text();
+
+            if (!jsonText || jsonText.trim().length === 0) {
+                throw new Error('Gemini trả về response rỗng');
+            }
+        } catch (geminiError) {
+            console.error('Error calling Gemini API:', geminiError);
+            console.error('Error details:', {
+                name: geminiError.name,
+                message: geminiError.message,
+                code: geminiError.code,
+                stack: geminiError.stack
+            });
+            throw new Error('Lỗi khi gọi Gemini API: ' + (geminiError.message || 'Không xác định'));
+        }
+
+        // Parse JSON response
+        let planData;
+        try {
+            // Loại bỏ markdown code blocks nếu có
+            let cleanedJson = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
+            planData = JSON.parse(cleanedJson);
+        } catch (parseError) {
+            console.error('Error parsing Gemini JSON response:', parseError);
+            console.error('Parse error details:', {
+                message: parseError.message,
+                name: parseError.name
+            });
+            console.error('Raw response length:', jsonText.length);
+            console.error('Raw response (first 500 chars):', jsonText.substring(0, 500));
+            console.error('Raw response (last 1000 chars):', jsonText.substring(Math.max(0, jsonText.length - 1000)));
+
+            // Extract error position from error message
+            let errorPosition = null;
+            const positionMatch = parseError.message.match(/position (\d+)/);
+            if (positionMatch) {
+                errorPosition = parseInt(positionMatch[1]);
+                console.log(`Error at position: ${errorPosition}`);
+            }
+
+            // Thử fix JSON bị cắt
+            try {
+                let fixedJson = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
+                // Nếu có error position, cắt đến vị trí đó và thử fix
+                if (errorPosition && errorPosition < fixedJson.length) {
+                    // Tìm vị trí hợp lệ gần nhất trước error position
+                    let cutPosition = errorPosition;
+
+                    // Tìm dấu phẩy hoặc dấu đóng ngoặc gần nhất trước error
+                    for (let i = errorPosition - 1; i >= Math.max(0, errorPosition - 100); i--) {
+                        if (fixedJson[i] === ',' || fixedJson[i] === '}' || fixedJson[i] === ']') {
+                            cutPosition = i + 1;
+                            break;
+                        }
+                    }
+
+                    // Cắt JSON đến vị trí hợp lệ
+                    fixedJson = fixedJson.substring(0, cutPosition);
+
+                    // Đóng các dấu ngoặc còn thiếu
+                    const openBraces = (fixedJson.match(/\{/g) || []).length;
+                    const closeBraces = (fixedJson.match(/\}/g) || []).length;
+                    const openBrackets = (fixedJson.match(/\[/g) || []).length;
+                    const closeBrackets = (fixedJson.match(/\]/g) || []).length;
+
+                    // Đóng các dấu ngoặc còn thiếu theo thứ tự đúng
+                    let closingChars = '';
+                    for (let i = 0; i < openBrackets - closeBrackets; i++) {
+                        closingChars += ']';
+                    }
+                    for (let i = 0; i < openBraces - closeBraces; i++) {
+                        closingChars += '}';
+                    }
+
+                    fixedJson += closingChars;
+                    console.log(`Đã cắt JSON tại vị trí ${cutPosition} và đóng ${closingChars.length} dấu ngoặc`);
+                } else {
+                    // Nếu không có error position, thử fix bằng cách đóng tất cả dấu ngoặc
+                    const openBraces = (fixedJson.match(/\{/g) || []).length;
+                    const closeBraces = (fixedJson.match(/\}/g) || []).length;
+                    const openBrackets = (fixedJson.match(/\[/g) || []).length;
+                    const closeBrackets = (fixedJson.match(/\]/g) || []).length;
+
+                    // Tìm vị trí cắt hợp lệ (tìm dấu đóng ngoặc cuối cùng)
+                    const lastBrace = fixedJson.lastIndexOf('}');
+                    const lastBracket = fixedJson.lastIndexOf(']');
+                    const lastValidChar = Math.max(lastBrace, lastBracket);
+
+                    if (lastValidChar > fixedJson.length / 2) {
+                        fixedJson = fixedJson.substring(0, lastValidChar + 1);
+
+                        // Đóng các dấu ngoặc còn thiếu
+                        let closingChars = '';
+                        for (let i = 0; i < openBrackets - closeBrackets; i++) {
+                            closingChars += ']';
+                        }
+                        for (let i = 0; i < openBraces - closeBraces; i++) {
+                            closingChars += '}';
+                        }
+
+                        fixedJson += closingChars;
+                        console.log(`Đã cắt JSON tại vị trí ${lastValidChar} và đóng ${closingChars.length} dấu ngoặc`);
+                    }
+                }
+
+                // Thử parse lại
+                planData = JSON.parse(fixedJson);
+                console.log('✅ Đã parse thành công sau khi fix JSON bị cắt');
+
+                // Validate structure
+                if (!planData.days || !Array.isArray(planData.days)) {
+                    throw new Error('JSON đã fix nhưng thiếu days array');
+                }
+
+                // Nếu là weekly plan và bị cắt, có thể một số ngày bị thiếu
+                if (planData.planType === 'weekly' && planData.days.length < 7) {
+                    console.warn(`⚠️ Weekly plan chỉ có ${planData.days.length}/7 ngày. Có thể response bị cắt.`);
+                }
+
+            } catch (recoveryError) {
+                console.error('❌ Không thể recover JSON:', recoveryError);
+                console.error('Recovery error:', recoveryError.message);
+
+                // Log thêm thông tin để debug
+                if (errorPosition) {
+                    const contextStart = Math.max(0, errorPosition - 100);
+                    const contextEnd = Math.min(jsonText.length, errorPosition + 100);
+                    console.error('Context around error:', jsonText.substring(contextStart, contextEnd));
+                }
+
+                throw new Error('Không thể parse response từ Gemini. Response có vẻ bị cắt. Length: ' + jsonText.length + '. Error: ' + parseError.message);
+            }
+        }
+
+        // Validate và normalize data
+        if (!planData) {
+            throw new Error('Response từ Gemini là null hoặc undefined');
+        }
+
+        if (!planData.days || !Array.isArray(planData.days)) {
+            console.error('Invalid planData structure:', JSON.stringify(planData, null, 2));
+            throw new Error('Response không đúng format: thiếu days array. PlanData: ' + JSON.stringify(planData).substring(0, 200));
+        }
+
+        if (planData.days.length === 0) {
+            throw new Error('Response không có ngày nào trong plan');
+        }
+
+        // Normalize dates nếu chưa có hoặc không hợp lệ
+        // For daily plans, use the target date from request
+        planData.days = planData.days.map((day, index) => {
+            if (!day.date) {
+                // Use target date from request for daily plans
+                if (period === 'daily') {
+                    day.date = targetDate.toISOString().split('T')[0];
+                } else {
+                    // For weekly, calculate from target date
+                    const date = new Date(targetDate);
+                    date.setDate(date.getDate() + index);
+                    day.date = date.toISOString().split('T')[0];
+                }
+            } else {
+                // Validate date format
+                const testDate = new Date(day.date);
+                if (isNaN(testDate.getTime())) {
+                    // Invalid date, use target date + index
+                    if (period === 'daily') {
+                        day.date = targetDate.toISOString().split('T')[0];
+                    } else {
+                        const date = new Date(targetDate);
+                        date.setDate(date.getDate() + index);
+                        day.date = date.toISOString().split('T')[0];
+                    }
+                } else {
+                    // Ensure format is YYYY-MM-DD
+                    const date = new Date(day.date);
+                    day.date = date.toISOString().split('T')[0];
+                }
+            }
+            return day;
+        });
+
+        // Validate và normalize meals
+        planData.days.forEach(day => {
+            if (!day.meals || !Array.isArray(day.meals)) {
+                day.meals = [];
+            }
+
+            day.meals = day.meals.map((meal, idx) => {
+                // Normalize ingredients - ensure array format with name field
+                let normalizedIngredients = [];
+                if (meal.ingredients) {
+                    if (Array.isArray(meal.ingredients)) {
+                        normalizedIngredients = meal.ingredients
+                            .filter(ing => ing !== null && ing !== undefined)
+                            .map(ing => {
+                                if (typeof ing === 'string') {
+                                    return { name: ing };
+                                }
+                                if (typeof ing === 'object' && ing.name) {
+                                    return {
+                                        name: String(ing.name),
+                                        amount: ing.amount ? Number(ing.amount) : undefined,
+                                        unit: ing.unit ? String(ing.unit) : undefined,
+                                        notes: ing.notes ? String(ing.notes) : undefined
+                                    };
+                                }
+                                return null;
+                            })
+                            .filter(ing => ing !== null);
+                    }
+                }
+
+                // Normalize instructions - ensure array of strings
+                let normalizedInstructions = [];
+                if (meal.instructions) {
+                    if (Array.isArray(meal.instructions)) {
+                        normalizedInstructions = meal.instructions
+                            .filter(inst => inst !== null && inst !== undefined)
+                            .map(inst => String(inst).trim())
+                            .filter(inst => inst.length > 0);
+                    } else if (typeof meal.instructions === 'string') {
+                        normalizedInstructions = meal.instructions
+                            .split(/[\n\.]/)
+                            .map(inst => inst.trim())
+                            .filter(inst => inst.length > 0);
+                    }
+                }
+
+                // Đảm bảo tất cả fields cần thiết có giá trị (đầy đủ như seed data)
+                return {
+                    id: meal.id || `meal-${day.date}-${idx}`,
+                    name: meal.name || 'Món ăn',
+                    description: meal.description || '',
+                    mealType: meal.mealType || 'Bữa trưa',
+                    difficulty: meal.difficulty || 'Trung bình',
+                    cookingTimeMinutes: meal.cookingTimeMinutes || 15,
+                    healthScore: meal.healthScore || 80,
+                    stepCount: meal.stepCount || 4,
+                    caloriesKcal: meal.caloriesKcal || 400,
+                    carbsGrams: meal.carbsGrams || 40,
+                    proteinGrams: meal.proteinGrams || 30,
+                    fatGrams: meal.fatGrams || 12,
+                    fiberGrams: meal.fiberGrams || 0,
+                    sugarGrams: meal.sugarGrams || 0,
+                    sodiumMg: meal.sodiumMg || 0,
+                    rating: meal.rating || 4.8,
+                    ratingCount: meal.ratingCount || 100,
+                    tags: Array.isArray(meal.tags) ? meal.tags : [],
+                    cuisineType: meal.cuisineType || 'Vietnamese',
+                    dietaryRestrictions: Array.isArray(meal.dietaryRestrictions) ? meal.dietaryRestrictions : [],
+                    allergens: Array.isArray(meal.allergens) ? meal.allergens : [],
+                    ingredients: normalizedIngredients,
+                    instructions: normalizedInstructions,
+                    cookingVideoUrl: meal.cookingVideoUrl || '',
+                    isFeatured: meal.isFeatured || false,
+                    isPopular: meal.isPopular || false,
+                    isRecommended: meal.isRecommended || false
+                };
+            });
+        });
+
+        return {
+            success: true,
+            plan: planData,
+            generatedAt: new Date().toISOString()
+        };
+    } catch (error) {
+        console.error('Error generating nutrition plan:', error);
+        throw error;
+    }
+};
+
 module.exports = {
     processChatMessage,
     processQuery,
     search,
-    getUserContext
+    getUserContext,
+    generateNutritionPlan
 };

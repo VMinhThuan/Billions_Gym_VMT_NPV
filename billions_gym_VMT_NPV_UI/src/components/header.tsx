@@ -7,6 +7,8 @@ const Header = () => {
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [showSearchResults, setShowSearchResults] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+
 
     // Mock search results - in real app, this would come from API
     const mockSearchResults = [
@@ -171,10 +173,50 @@ const Header = () => {
                         )}
                     </div>
 
+                    <button onClick={() => {
+                        if (window.confirm('Đăng nhập vai trò Admin và mở Dashboard?')) {
+                            setIsLoading(true);
+                            setTimeout(() => {
+                                if (window.location.hash) {
+                                    window.location.hash = '/login';
+                                } else {
+                                    window.history.pushState({}, '', '/login');
+                                    window.dispatchEvent(new PopStateEvent('popstate'));
+                                }
+                                setIsLoading(false);
+                            }, 1000);
+                        }
+                    }} className="cta-button-1">
+                        ĐĂNG NHẬP ADMIN
+                    </button>
+
                     {/* Call-to-Action Button */}
                     <button className="cta-button">
                         TẬP THỬ MIỄN PHÍ
                     </button>
+
+
+                    {/* <button
+                        className="admin-login-btn"
+                        variant="secondary"
+                        size="small" xr
+                        onClick={() => {
+                            if (window.confirm('Đăng nhập vai trò Admin và mở Dashboard?')) {
+                                setIsLoading(true);
+                                setTimeout(() => {
+                                    if (window.location.hash) {
+                                        window.location.hash = '/login';
+                                    } else {
+                                        window.history.pushState({}, '', '/login');
+                                        window.dispatchEvent(new PopStateEvent('popstate'));
+                                    }
+                                    setIsLoading(false);
+                                }, 1000);
+                            }
+                        }}
+                    >
+                        Đăng nhập Admin
+                    </button> */}
                 </div>
             </div>
 
