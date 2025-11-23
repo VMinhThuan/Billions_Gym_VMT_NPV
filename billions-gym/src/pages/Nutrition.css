@@ -7,6 +7,385 @@ html {
   max-width: 100vw;
 }
 
+/* Tab Navigation */
+.nutrition-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid #2a2a2a;
+  padding-bottom: 0;
+}
+
+.nutrition-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #8A8C90;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: -1px;
+}
+
+.nutrition-tab:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nutrition-tab.active {
+  color: #FFFFFF;
+  border-bottom-color: #da2128;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nutrition-tab svg {
+  flex-shrink: 0;
+}
+
+/* Tab Content */
+.nutrition-tab-content {
+  width: 100%;
+}
+
+.nutrition-tab-panel {
+  padding: 24px 0;
+}
+
+.tab-panel-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin-bottom: 24px;
+}
+
+/* Plans Tab */
+.plans-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.plan-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 24px;
+  transition: all 0.3s ease;
+}
+
+.plan-card:hover {
+  border-color: #da2128;
+  transform: translateY(-2px);
+}
+
+.plan-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.plan-header h3 {
+  font-family: 'Poppins', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0;
+}
+
+.plan-header svg {
+  color: #da2128;
+}
+
+.plan-description {
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  color: #8A8C90;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.btn-view-plan,
+.btn-create-plan {
+  width: 100%;
+  padding: 12px 20px;
+  background: #da2128;
+  border: none;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-view-plan:hover,
+.btn-create-plan:hover {
+  background: #b81d23;
+  transform: translateY(-1px);
+}
+
+/* Info Tab */
+.info-articles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.info-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 24px;
+  transition: all 0.3s ease;
+}
+
+.info-card:hover {
+  border-color: #da2128;
+  transform: translateY(-2px);
+}
+
+.info-card svg {
+  color: #da2128;
+  margin-bottom: 16px;
+}
+
+.info-card h3 {
+  font-family: 'Poppins', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0 0 12px 0;
+}
+
+.info-card p {
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  color: #8A8C90;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Calculator Tab */
+.calculator-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.calculator-form {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #FFFFFF;
+  margin-bottom: 8px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 12px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #da2128;
+}
+
+.form-group input::placeholder {
+  color: #8A8C90;
+}
+
+.btn-calculate {
+  width: 100%;
+  padding: 14px;
+  background: #da2128;
+  border: none;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-family: 'Poppins', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 8px;
+}
+
+.btn-calculate:hover {
+  background: #b81d23;
+  transform: translateY(-1px);
+}
+
+.calculator-result {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.calculator-result h3 {
+  font-family: 'Poppins', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0 0 20px 0;
+}
+
+.result-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #2a2a2a;
+  border-radius: 8px;
+}
+
+.result-label {
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  color: #8A8C90;
+}
+
+.result-value {
+  font-family: 'Poppins', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+/* Stats Tab */
+.stats-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.stats-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.stats-card svg {
+  color: #da2128;
+  margin-bottom: 16px;
+}
+
+.stats-card h3 {
+  font-family: 'Poppins', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0 0 20px 0;
+}
+
+.stats-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #2a2a2a;
+  border-radius: 8px;
+}
+
+.stat-item span:first-child {
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  color: #8A8C90;
+}
+
+.stat-item span:last-child {
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.stats-note {
+  grid-column: 1 / -1;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.stats-note p {
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  color: #8A8C90;
+  text-align: center;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .nutrition-tabs {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .nutrition-tab {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .calculator-container {
+    grid-template-columns: 1fr;
+  }
+
+  .plans-container,
+  .info-articles,
+  .stats-container {
+    grid-template-columns: 1fr;
+  }
+}
+
 .nutrition-page {
   min-height: 100vh;
   background-color: #0a0a0a;
@@ -251,6 +630,14 @@ html {
   border-radius: 14px;
   overflow: hidden;
   flex-shrink: 0;
+  position: relative;
+}
+
+.featured-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px;
 }
 
 .image-placeholder {
@@ -578,6 +965,14 @@ html {
   border-radius: 16px;
   overflow: hidden;
   flex-shrink: 0;
+  position: relative;
+}
+
+.menu-card .menu-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 16px;
 }
 
 .menu-content {
@@ -678,12 +1073,17 @@ html {
   border-radius: 6px;
   background: #FFE6B5;
   opacity: 0.4;
-  transition: opacity 0.2s;
+  transition: all 0.3s ease;
 }
 
 .score-segment.active {
-  background: #FFA257;
   opacity: 1;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+}
+
+.score-value .score {
+  font-weight: 700;
+  transition: color 0.3s ease;
 }
 
 .menu-content h3 {
@@ -800,6 +1200,14 @@ html {
   border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
+  position: relative;
+}
+
+.popular-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
 }
 
 .popular-info {
@@ -923,6 +1331,14 @@ html {
   border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
+  position: relative;
+}
+
+.recommended-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
 }
 
 .recommended-info {

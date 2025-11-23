@@ -24,11 +24,23 @@ router.get('/my-meals', authMiddleware, nutritionPlanController.getMyMeals);
 // GET /api/nutrition/my-meals/week - Lấy user meal plan cho một tuần
 router.get('/my-meals/week', authMiddleware, nutritionPlanController.getMyMealsWeek);
 
+// GET /api/nutrition/member-meal-plans/:memberId - Lấy meal plan của một member (for admin)
+router.get('/member-meal-plans/:memberId', authMiddleware, nutritionPlanController.getMemberMealPlan);
+
 // DELETE /api/nutrition/my-meals/remove - Xóa món ăn khỏi user meal plan
 router.delete('/my-meals/remove', authMiddleware, nutritionPlanController.removeMealFromPlan);
 
 // POST /api/nutrition/my-meals/duplicate - Thêm món ăn vào ngày khác (duplicate)
 router.post('/my-meals/duplicate', authMiddleware, nutritionPlanController.duplicateMeal);
+
+// GET /api/nutrition/member-meal-plans/:memberId - Lấy meal plan của một member (for admin)
+router.get('/member-meal-plans/:memberId', authMiddleware, nutritionPlanController.getMemberMealPlan);
+
+// POST /api/nutrition/member-meal-plans/add - Thêm meal vào member plan (for admin)
+router.post('/member-meal-plans/add', authMiddleware, nutritionPlanController.addMealToMemberPlan);
+
+// DELETE /api/nutrition/member-meal-plans/remove - Xóa meal khỏi member plan (for admin)
+router.delete('/member-meal-plans/remove', authMiddleware, nutritionPlanController.removeMealFromMemberPlan);
 
 module.exports = router;
 

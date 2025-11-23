@@ -17,6 +17,8 @@ import TrainerAvailabilityManager from '../components/PackageWorkflow/TrainerAva
 import PackageRegistrationManager from '../components/PackageRegistrationManager';
 import '../components/PackageRegistrationManager.css';
 import StatisticsPage from './StatisticsPage';
+import MealManager from '../components/Nutrition/MealManager';
+import MemberMealPlanManager from '../components/Nutrition/MemberMealPlanManager';
 
 type Stat = { label: string; value: string; trend?: 'up' | 'down'; sub?: string };
 
@@ -6591,77 +6593,29 @@ const BodyMetricsPage = () => {
 };
 
 const NutritionPage = () => {
-    const [show, setShow] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [rows, setRows] = useState<any[]>([]);
-
-    useEffect(() => {
-        let mounted = true;
-        (async () => {
-            try {
-                setIsLoading(true);
-                const data = await api.get('/api/dinhduong');
-                if (mounted && Array.isArray(data)) setRows(data);
-            } catch (e) {
-                console.error('Error fetching nutrition:', e);
-                setRows([]);
-            } finally {
-                if (mounted) setIsLoading(false);
-            }
-        })();
-        return () => { mounted = false; };
-    }, []);
+    const [activeTab, setActiveTab] = useState<'meals' | 'plans'>('meals');
 
     return (
-        <Card className="panel">
-            <div className="toolbar">
-                <div className="toolbar-left"><h2>Dinh dưỡng</h2></div>
-                <div className="toolbar-right">
-                    <Button variant="primary" onClick={() => setShow(true)}>Tạo mới</Button>
-                </div>
+        <div className="nutrition-admin-page">
+            <div className="nutrition-tabs">
+                <button
+                    className={`nutrition-tab ${activeTab === 'meals' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('meals')}
+                >
+                    Quản Lý Món Ăn
+                </button>
+                <button
+                    className={`nutrition-tab ${activeTab === 'plans' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('plans')}
+                >
+                    Quản Lý Thực Đơn Hội Viên
+                </button>
             </div>
-            <table className="table">
-                <thead>
-                    <tr>
-                        <th>Hội viên</th>
-                        <th>Bữa ăn</th>
-                        <th>Lượng calo</th>
-                        <th>Ngày gợi ý</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.map(r => (
-                        <tr key={r._id}>
-                            <td>{r.hoiVien}</td>
-                            <td>{r.buaAn}</td>
-                            <td>{r.luongCalo} kcal</td>
-                            <td>{r.ngayGoiY ? new Date(r.ngayGoiY).toLocaleDateString('vi-VN') : 'N/A'}</td>
-                            <td className="row-actions">
-                                <button className="btn btn-secondary" onClick={() => setShow(true)}>✏️ Sửa</button>
-                                <button className="btn btn-danger" onClick={() => setRows(rows.filter(x => x._id !== r._id))}>🗑️ Xóa</button>
-                            </td>
-                        </tr>
-                    ))}
-
-                </tbody>
-            </table>
-            {rows.length === 0 && !isLoading && (
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '1rem' }}>🥗</div>
-                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '0.5rem' }}>Chưa có gợi ý dinh dưỡng</div>
-                    <div style={{ fontSize: '14px' }}>Tạo gợi ý dinh dưỡng đầu tiên</div>
-                </div>
-            )}
-            {show && <EntityForm title="Dinh dưỡng" fields={[
-                { name: 'hoiVien', label: 'Hội viên' },
-                { name: 'buaAn', label: 'Bữa ăn' },
-                { name: 'luongCalo', label: 'Lượng calo' }
-            ]} onClose={() => setShow(false)} onSave={async (val) => {
-                setRows([{ _id: `nutrition_${Date.now()}`, ...val, ngayGoiY: new Date() }, ...rows]);
-                setShow(false);
-            }} />}
-        </Card>
+            <div className="nutrition-content">
+                {activeTab === 'meals' && <MealManager />}
+                {activeTab === 'plans' && <MemberMealPlanManager />}
+            </div>
+        </div>
     );
 };
 

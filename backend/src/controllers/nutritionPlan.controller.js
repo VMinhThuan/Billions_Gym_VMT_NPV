@@ -662,13 +662,22 @@ exports.getAllMeals = async (req, res) => {
         const { mealType, goal, search, limit = 50, skip = 0 } = req.query;
 
         // Build query: chỉ hiển thị meals public hoặc do user này tạo
+        // Public meals: isAIRecommended không tồn tại, false, hoặc null
+        // User's AI meals: isAIRecommended = true AND createdBy = userId
         const query = {
             status: 'ACTIVE',
             $or: [
-                { isAIRecommended: { $ne: true } }, // Public meals (không phải AI-generated)
-                { isAIRecommended: true, createdBy: userId } // AI-generated nhưng do user này tạo
+                // Public meals (không phải AI-generated)
+                { isAIRecommended: { $exists: false } },
+                { isAIRecommended: false },
+                { isAIRecommended: null },
+                // AI-generated meals nhưng do user này tạo
+                { isAIRecommended: true, createdBy: userId }
             ]
         };
+
+        console.log('getAllMeals - User ID:', userId);
+        console.log('getAllMeals - Query:', JSON.stringify(query, null, 2));
 
         // Add mealType filter
         if (mealType && mealType !== 'Tất cả') {
@@ -704,6 +713,16 @@ exports.getAllMeals = async (req, res) => {
             .sort({ rating: -1, ratingCount: -1 });
 
         const total = await Meal.countDocuments(query);
+
+        console.log(`getAllMeals - Found ${meals.length} meals (total: ${total}) for user ${userId}`);
+        if (meals.length > 0) {
+            console.log(`getAllMeals - First meal:`, {
+                name: meals[0].name,
+                mealType: meals[0].mealType,
+                isAIRecommended: meals[0].isAIRecommended,
+                createdBy: meals[0].createdBy
+            });
+        }
 
         res.json({
             success: true,
@@ -877,6 +896,88 @@ exports.addMealToPlan = async (req, res) => {
  * Lấy user meal plan cho một ngày
  * GET /api/nutrition/my-meals?date=YYYY-MM-DD
  */
+// Get meal plan for a specific member (for admin)
+exports.getMemberMealPlan = async (req, res) => {
+    try {
+        const { memberId } = req.params;
+        const { date } = req.query;
+
+        if (!memberId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Member ID is required'
+            });
+        }
+
+        const targetDate = date ? new Date(date) : new Date();
+        targetDate.setHours(0, 0, 0, 0);
+
+        const userMealPlan = await UserMealPlan.findOne({
+            hoiVien: memberId,
+            date: targetDate
+        }).populate({
+            path: 'meals.buaSang.meal meals.phu1.meal meals.buaTrua.meal meals.phu2.meal meals.buaToi.meal meals.phu3.meal',
+            model: 'Meal'
+        });
+
+        if (!userMealPlan) {
+            return res.json({
+                success: true,
+                data: {
+                    date: targetDate,
+                    meals: {
+                        buaSang: [],
+                        phu1: [],
+                        buaTrua: [],
+                        phu2: [],
+                        buaToi: [],
+                        phu3: []
+                    },
+                    totalNutrition: {
+                        calories: 0,
+                        carbs: 0,
+                        protein: 0,
+                        fat: 0
+                    }
+                }
+            });
+        }
+
+        // Calculate total nutrition
+        const totalNutrition = {
+            calories: userMealPlan.totalCalories || 0,
+            carbs: userMealPlan.totalCarb || 0,
+            protein: userMealPlan.totalProtein || 0,
+            fat: userMealPlan.totalTotalFat || 0
+        };
+
+        return res.json({
+            success: true,
+            data: {
+                _id: userMealPlan._id,
+                hoiVien: userMealPlan.hoiVien,
+                date: userMealPlan.date,
+                meals: {
+                    buaSang: userMealPlan.meals.buaSang || [],
+                    phu1: userMealPlan.meals.phu1 || [],
+                    buaTrua: userMealPlan.meals.buaTrua || [],
+                    phu2: userMealPlan.meals.phu2 || [],
+                    buaToi: userMealPlan.meals.buaToi || [],
+                    phu3: userMealPlan.meals.phu3 || []
+                },
+                totalNutrition
+            }
+        });
+    } catch (error) {
+        console.error('Error getting member meal plan:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi khi lấy thực đơn của hội viên',
+            error: error.message
+        });
+    }
+};
+
 exports.getMyMeals = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -1097,6 +1198,193 @@ exports.getMyMealsWeek = async (req, res) => {
  * Xóa món ăn khỏi user meal plan
  * DELETE /api/nutrition/my-meals/remove
  */
+// Add meal to member plan (for admin)
+exports.addMealToMemberPlan = async (req, res) => {
+    try {
+        const { memberId, mealId, mealType, date } = req.body;
+
+        if (!memberId || !mealId || !mealType) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu memberId, mealId hoặc mealType'
+            });
+        }
+
+        // Validate meal exists
+        const meal = await Meal.findById(mealId);
+        if (!meal) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy món ăn'
+            });
+        }
+
+        // Map mealType to plan field
+        const mealTypeMap = {
+            'Bữa sáng': 'buaSang',
+            'Phụ 1': 'phu1',
+            'Bữa trưa': 'buaTrua',
+            'Phụ 2': 'phu2',
+            'Bữa tối': 'buaToi',
+            'Phụ 3': 'phu3',
+            'buaSang': 'buaSang',
+            'phu1': 'phu1',
+            'buaTrua': 'buaTrua',
+            'phu2': 'phu2',
+            'buaToi': 'buaToi',
+            'phu3': 'phu3'
+        };
+
+        const planField = mealTypeMap[mealType] || 'buaTrua';
+        const targetDate = date ? new Date(date) : new Date();
+        targetDate.setHours(0, 0, 0, 0);
+
+        // Find or create user meal plan for the date
+        let userMealPlan = await UserMealPlan.findOne({
+            hoiVien: memberId,
+            date: targetDate
+        });
+
+        if (!userMealPlan) {
+            userMealPlan = new UserMealPlan({
+                hoiVien: memberId,
+                date: targetDate,
+                meals: {
+                    buaSang: [],
+                    phu1: [],
+                    buaTrua: [],
+                    phu2: [],
+                    buaToi: [],
+                    phu3: []
+                },
+                totalCalories: 0,
+                totalCarb: 0,
+                totalProtein: 0,
+                totalTotalFat: 0
+            });
+        }
+
+        // Add meal to appropriate field
+        userMealPlan.meals[planField].push({
+            meal: mealId,
+            source: 'USER_SELECTED',
+            mealType: mealType,
+            addedAt: new Date()
+        });
+
+        // Update total nutrition
+        userMealPlan.totalCalories = (userMealPlan.totalCalories || 0) + (meal.nutrition?.caloriesKcal || 0);
+        userMealPlan.totalCarb = (userMealPlan.totalCarb || 0) + (meal.nutrition?.carbsGrams || 0);
+        userMealPlan.totalProtein = (userMealPlan.totalProtein || 0) + (meal.nutrition?.proteinGrams || 0);
+        userMealPlan.totalTotalFat = (userMealPlan.totalTotalFat || 0) + (meal.nutrition?.fatGrams || 0);
+
+        await userMealPlan.save();
+
+        // Populate meal data
+        await userMealPlan.populate({
+            path: 'meals.buaSang.meal meals.phu1.meal meals.buaTrua.meal meals.phu2.meal meals.buaToi.meal meals.phu3.meal',
+            model: 'Meal'
+        });
+
+        res.json({
+            success: true,
+            message: 'Đã thêm món ăn vào thực đơn của hội viên',
+            data: userMealPlan
+        });
+    } catch (error) {
+        console.error('Error adding meal to member plan:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi khi thêm món ăn vào thực đơn của hội viên',
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+};
+
+// Remove meal from member plan (for admin)
+exports.removeMealFromMemberPlan = async (req, res) => {
+    try {
+        const { memberId, date, mealType, mealIndex } = req.query;
+
+        if (!memberId || !date || !mealType || mealIndex === undefined) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin: memberId, date, mealType, và mealIndex là bắt buộc'
+            });
+        }
+
+        const targetDate = new Date(date);
+        targetDate.setHours(0, 0, 0, 0);
+
+        const userMealPlan = await UserMealPlan.findOne({
+            hoiVien: memberId,
+            date: targetDate
+        });
+
+        if (!userMealPlan) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy thực đơn cho ngày này'
+            });
+        }
+
+        const mealTypeMap = {
+            'buaSang': 'buaSang',
+            'phu1': 'phu1',
+            'buaTrua': 'buaTrua',
+            'phu2': 'phu2',
+            'buaToi': 'buaToi',
+            'phu3': 'phu3'
+        };
+
+        const planField = mealTypeMap[mealType];
+        if (!planField) {
+            return res.status(400).json({
+                success: false,
+                message: 'Loại bữa ăn không hợp lệ'
+            });
+        }
+
+        const meals = userMealPlan.meals[planField];
+        const mealIndexNum = parseInt(mealIndex);
+        if (mealIndexNum < 0 || mealIndexNum >= meals.length) {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ số món ăn không hợp lệ'
+            });
+        }
+
+        // Get meal to calculate nutrition
+        const mealToRemove = await Meal.findById(meals[mealIndexNum].meal);
+
+        // Remove meal from array
+        meals.splice(mealIndexNum, 1);
+
+        // Update total nutrition
+        if (mealToRemove && mealToRemove.nutrition) {
+            userMealPlan.totalCalories = Math.max(0, (userMealPlan.totalCalories || 0) - (mealToRemove.nutrition.caloriesKcal || 0));
+            userMealPlan.totalCarb = Math.max(0, (userMealPlan.totalCarb || 0) - (mealToRemove.nutrition.carbsGrams || 0));
+            userMealPlan.totalProtein = Math.max(0, (userMealPlan.totalProtein || 0) - (mealToRemove.nutrition.proteinGrams || 0));
+            userMealPlan.totalTotalFat = Math.max(0, (userMealPlan.totalTotalFat || 0) - (mealToRemove.nutrition.fatGrams || 0));
+        }
+
+        await userMealPlan.save();
+
+        res.json({
+            success: true,
+            message: 'Đã xóa món ăn khỏi thực đơn của hội viên',
+            data: userMealPlan
+        });
+    } catch (error) {
+        console.error('Error removing meal from member plan:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi khi xóa món ăn khỏi thực đơn của hội viên',
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+};
+
 exports.removeMealFromPlan = async (req, res) => {
     try {
         const userId = req.user.id;
