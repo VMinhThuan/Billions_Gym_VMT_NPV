@@ -1161,6 +1161,18 @@ function isToday(date) {
  */
 exports.checkRegistrationEligibility = async (req, res) => {
     try {
+        // Kiểm tra role - chỉ Hội viên mới có thể đăng ký lịch tập
+        if (req.user.vaiTro !== 'HoiVien') {
+            return res.json({
+                success: true,
+                canRegister: false,
+                hasCompletedPackage: false,
+                isRegistrationTime: false,
+                message: 'Chức năng này chỉ dành cho Hội viên',
+                userRole: req.user.vaiTro
+            });
+        }
+
         const userId = req.user.id;
 
         // Kiểm tra hội viên có gói tập đang hoạt động VÀ đã hoàn tất việc đăng ký gói tập

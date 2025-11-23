@@ -1499,6 +1499,166 @@
     margin-bottom: 20px;
 }
 
+/* Week Schedule Table - New Design */
+.week-schedule-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 20px;
+    background: #0a0a0a;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #333;
+}
+
+.schedule-table-header {
+    display: grid;
+    grid-template-columns: 150px repeat(7, 1fr);
+    background: #0a0a0a;
+    border-bottom: 2px solid #333;
+}
+
+.time-slot-header {
+    padding: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    text-align: center;
+    background: #141414;
+    border-right: 1px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.day-header-cell {
+    padding: 12px;
+    text-align: center;
+    border-right: 1px solid #333;
+    background: #141414;
+}
+
+.day-header-cell:last-child {
+    border-right: none;
+}
+
+.day-header-cell .day-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #da2128;
+    margin-bottom: 4px;
+}
+
+.day-header-cell .day-date {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.schedule-table-row {
+    display: grid;
+    grid-template-columns: 150px repeat(7, 1fr);
+    border-bottom: 1px solid #333;
+}
+
+.schedule-table-row:last-child {
+    border-bottom: none;
+}
+
+.time-slot-cell {
+    padding: 16px;
+    font-weight: 500;
+    color: #ffffff;
+    text-align: center;
+    background: #141414;
+    border-right: 1px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.day-cell {
+    padding: 12px;
+    border-right: 1px solid #333;
+    background: #0a0a0a;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.day-cell:last-child {
+    border-right: none;
+}
+
+.day-cell.has-sessions {
+    background: #141414;
+    cursor: pointer;
+}
+
+.day-cell.has-sessions:hover {
+    background: #1a1a1a;
+    border-color: #da2128;
+}
+
+.day-cell.has-selected {
+    background: rgba(218, 33, 40, 0.1);
+    border-color: #da2128;
+}
+
+.day-cell.has-selected::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(218, 33, 40, 0.05);
+    border-radius: 4px;
+}
+
+.no-sessions-slot {
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.time-slot-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+}
+
+.session-count-badge {
+    background: #3b82f6;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.day-cell.has-selected .session-count-badge {
+    background: #10b981;
+}
+
+.selected-indicator {
+    width: 20px;
+    height: 20px;
+    background: #da2128;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+}
+
 .week-registration-modal .week-day-column {
     background: #0a0a0a;
     border: 1px solid #333;

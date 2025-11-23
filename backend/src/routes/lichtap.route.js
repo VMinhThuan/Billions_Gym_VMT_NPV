@@ -10,8 +10,8 @@ const allUsers = ['HoiVien', 'PT', 'OngChu'];
 // Lấy tất cả lịch tập (cho dashboard)
 router.get('/', auth, authorize(allUsers), lichTapController.getAllSchedules);
 
-// Kiểm tra điều kiện đăng ký lịch tập tuần sau
-router.get('/check-registration-eligibility', auth, authorize(hoiVien), lichTapController.checkRegistrationEligibility);
+// Kiểm tra điều kiện đăng ký lịch tập tuần sau (chỉ dành cho Hội viên)
+router.get('/check-registration-eligibility', auth, lichTapController.checkRegistrationEligibility);
 
 // Lấy các buổi tập khả dụng cho chi nhánh, tuần và gói cụ thể
 router.get('/available-sessions', auth, authorize(hoiVien), lichTapController.getAvailableSessions);

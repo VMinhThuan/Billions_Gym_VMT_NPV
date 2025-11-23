@@ -1,8 +1,10 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const http = require('http');
 require('dotenv').config();
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 4000;
 
 console.log('urrl', process.env.FRONTEND_URL);
@@ -34,6 +36,10 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Serve static files from uploads directory
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 mongoose.connect(process.env.MONGODB_URI, {
     serverSelectionTimeoutMS: 5000, // Timeout after 5 seconds instead of 10
@@ -139,6 +145,15 @@ const watchHistoryRouter = require('./src/routes/watchHistory.routes');
 const statisticsRouter = require('./src/routes/statistics.route');
 const yearlyGoalsRouter = require('./src/routes/yearlyGoals.route');
 const nutritionPlanRouter = require('./src/routes/nutritionPlan.route');
+const ptRouter = require('./src/routes/pt.route');
+const ptChatRouter = require('./src/routes/pt-chat.route');
+const ptStatisticsRouter = require('./src/routes/pt-statistics.route');
+const ptWorkScheduleRouter = require('./src/routes/pt-work-schedule.route');
+const ptReviewsRouter = require('./src/routes/pt-reviews.route');
+const ptWorkHistoryRouter = require('./src/routes/pt-work-history.route');
+const ptProfileRouter = require('./src/routes/pt-profile.route');
+const ptReportsRouter = require('./src/routes/pt-reports.route');
+const ptTemplatesRouter = require('./src/routes/pt-templates.route');
 
 app.use('/api/auth', authRouter);
 // app.use('/api/users', userRouter);
@@ -176,6 +191,20 @@ app.use('/api/watch-history', watchHistoryRouter);
 app.use('/api/statistics', statisticsRouter);
 app.use('/api/yearly-goals', yearlyGoalsRouter);
 app.use('/api/nutrition', nutritionPlanRouter);
+app.use('/api/pt', ptRouter);
+app.use('/api/pt/chat', ptChatRouter);
+app.use('/api/pt/statistics', ptStatisticsRouter);
+app.use('/api/pt/work-schedule', ptWorkScheduleRouter);
+app.use('/api/pt/reviews', ptReviewsRouter);
+app.use('/api/pt/work-history', ptWorkHistoryRouter);
+app.use('/api/pt/profile', ptProfileRouter);
+app.use('/api/pt/reports', ptReportsRouter);
+app.use('/api/pt/templates', ptTemplatesRouter);
+
+// Initialize WebSocket
+const websocketService = require('./src/services/websocket.service');
+websocketService.initializeSocketIO(server);
+console.log('WebSocket service initialized');
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -194,7 +223,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/health`);
     console.log(`Nutrition API: http://localhost:${PORT}/api/nutrition/plan`);
