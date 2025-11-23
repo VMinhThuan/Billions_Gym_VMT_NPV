@@ -310,19 +310,19 @@
     border-top: 1px solid #333;
 }
 
-.nutrition-item {
+.my-meals-page .nutrition-item {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-.nutrition-label {
+.my-meals-page .nutrition-label {
     font-size: 11px;
     color: #999;
     text-transform: uppercase;
 }
 
-.nutrition-value {
+.my-meals-page .nutrition-value {
     font-size: 14px;
     font-weight: 600;
     color: white;

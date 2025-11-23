@@ -749,7 +749,7 @@ html {
   font-size: 14px;
   font-weight: 600;
   line-height: 1.25;
-  color: #555555;
+  color: #fefcfb;
 }
 
 .btn-add-meal-plan {
@@ -781,7 +781,7 @@ html {
   flex-shrink: 0;
 }
 
-.nutrition-item {
+.featured-nutrition .nutrition-item {
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -791,19 +791,19 @@ html {
   flex: 1;
 }
 
-.nutrition-item.calories {
+.featured-nutrition .nutrition-item.calories {
   background-color: #C2E66E;
 }
 
-.nutrition-item.carbs {
+.featured-nutrition .nutrition-item.carbs {
   background-color: #FFCB65;
 }
 
-.nutrition-item.proteins {
+.featured-nutrition .nutrition-item.proteins {
   background-color: #FFA257;
 }
 
-.nutrition-item.fats {
+.featured-nutrition .nutrition-item.fats {
   background-color: #E1E1E2;
 }
 
