@@ -142,6 +142,14 @@ const Schedule = () => {
 
         const checkRegistrationEligibility = async () => {
             try {
+                // Chỉ kiểm tra nếu user là Hội viên
+                const userRole = authUtils.getUserRole();
+                if (userRole !== 'HoiVien') {
+                    console.log('⏭️ [Schedule] User is not HoiVien, skipping registration check');
+                    setCanRegister(false);
+                    return;
+                }
+
                 console.log('🔄 [Schedule] Checking registration eligibility at:', new Date().toLocaleTimeString('vi-VN'));
                 const response = await api.get('/lichtap/check-registration-eligibility');
                 console.log('📋 [Schedule] Registration eligibility response:', response);
@@ -1912,7 +1920,33 @@ const WeekRegistrationModal = ({ onClose, nextWeekStart, registrationEligibility
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
+    const [showSessionModal, setShowSessionModal] = useState(false);
+    const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+    const [selectedSessionsInCurrentModal, setSelectedSessionsInCurrentModal] = useState([]);
+    const [currentTime, setCurrentTime] = useState(new Date());
     const userId = authUtils.getUserId();
+
+    // Time slots definition
+    const TIME_SLOTS = [
+        { id: 1, start: '06:00', end: '08:00', label: '06:00 - 08:00' },
+        { id: 2, start: '08:00', end: '10:00', label: '08:00 - 10:00' },
+        { id: 3, start: '10:00', end: '12:00', label: '10:00 - 12:00' },
+        { id: 4, start: '13:00', end: '15:00', label: '13:00 - 15:00' },
+        { id: 5, start: '15:00', end: '17:00', label: '15:00 - 17:00' },
+        { id: 6, start: '17:00', end: '19:00', label: '17:00 - 19:00' },
+        { id: 7, start: '19:00', end: '21:00', label: '19:00 - 21:00' },
+        { id: 8, start: '21:00', end: '23:00', label: '21:00 - 23:00' }
+    ];
+
+    // Update current time for countdown
+    useEffect(() => {
+        if (showSessionModal) {
+            const interval = setInterval(() => {
+                setCurrentTime(new Date());
+            }, 1000);
+            return () => clearInterval(interval);
+        }
+    }, [showSessionModal]);
 
     const loadAvailableSessions = async () => {
         if (!nextWeekStart || !registrationEligibility?.activePackage) return;
@@ -1995,19 +2029,234 @@ const WeekRegistrationModal = ({ onClose, nextWeekStart, registrationEligibility
         });
     };
 
-    const toggleSessionSelection = (session) => {
-        setSelectedSessions(prev => {
-            const isSelected = prev.some(s => s._id === session._id);
-            if (isSelected) {
-                return prev.filter(s => s._id !== session._id);
-            } else {
-                return [...prev, session];
-            }
+    // Get sessions for a specific time slot and day
+    const getSessionsForTimeSlot = (date, timeSlot) => {
+        const daySessions = getSessionsForDay(date);
+        return daySessions.filter(session => {
+            const sessionStart = session.gioBatDau || '00:00';
+            const sessionEnd = session.gioKetThuc || '00:00';
+            // Check if session time matches time slot
+            return (sessionStart >= timeSlot.start && sessionStart < timeSlot.end) ||
+                (timeSlot.start >= sessionStart && timeSlot.start < sessionEnd);
         });
     };
 
-    const isSessionSelected = (sessionId) => {
-        return selectedSessions.some(s => s._id === sessionId);
+    // Format time helper
+    const formatTime = (timeString) => {
+        return timeString ? timeString.substring(0, 5) : '';
+    };
+
+    // Enhanced countdown function with detailed time breakdown
+    const getDetailedCountdown = (ngay, gioBatDau, gioKetThuc) => {
+        const now = currentTime;
+        const sessionDate = new Date(ngay);
+        const [hours, minutes] = gioBatDau.split(':').map(Number);
+        const [endHours, endMinutes] = gioKetThuc.split(':').map(Number);
+
+        const startTime = new Date(sessionDate);
+        startTime.setHours(hours, minutes, 0, 0);
+
+        const endTime = new Date(sessionDate);
+        endTime.setHours(endHours, endMinutes, 0, 0);
+
+        const timeDiff = startTime.getTime() - now.getTime();
+        const endTimeDiff = endTime.getTime() - now.getTime();
+
+        // Session has ended
+        if (endTimeDiff <= 0) {
+            return {
+                status: 'finished',
+                text: 'ĐÃ KẾT THÚC',
+                color: '#6B7280',
+                icon: '✅',
+                isFinished: true,
+                isOngoing: false,
+                days: 0,
+                hours: 0,
+                minutes: 0,
+                seconds: 0
+            };
+        }
+
+        // Session is ongoing
+        if (timeDiff <= 0 && endTimeDiff > 0) {
+            return {
+                status: 'ongoing',
+                text: 'ĐANG DIỄN RA',
+                color: '#FF914D',
+                icon: '🔥',
+                isOngoing: true,
+                isFinished: false,
+                days: 0,
+                hours: 0,
+                minutes: 0,
+                seconds: 0
+            };
+        }
+
+        // Session hasn't started yet
+        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        const hours24 = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const mins = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        const secs = Math.floor((timeDiff % (1000 * 60)) / 1000);
+
+        let status = 'upcoming';
+        let color = '#00FFC6';
+        let icon = '⏳';
+        let label = 'Bắt đầu sau:';
+
+        // Critical timing - less than 10 minutes
+        if (timeDiff <= 10 * 60 * 1000) {
+            status = 'critical';
+            color = '#FF6B6B';
+            icon = '🚨';
+            label = 'Sắp bắt đầu trong:';
+        }
+        // Urgent - less than 1 hour
+        else if (timeDiff <= 60 * 60 * 1000) {
+            status = 'urgent';
+            color = '#FF914D';
+            icon = '⚡';
+            label = 'Sắp diễn ra trong:';
+        }
+        // Soon - less than 24 hours (but more than 1 hour)
+        else if (timeDiff <= 24 * 60 * 60 * 1000) {
+            status = 'soon';
+            color = '#00FFC6';
+            icon = '⏰';
+            label = 'Sắp tới trong:';
+        }
+
+        return {
+            status,
+            text: '',
+            color,
+            icon,
+            label,
+            days,
+            hours: hours24,
+            minutes: mins,
+            seconds: secs,
+            isCritical: status === 'critical',
+            isUrgent: status === 'urgent',
+            isSoon: status === 'soon',
+            isFinished: false,
+            isOngoing: false
+        };
+    };
+
+    // Get workout difficulty and type styling
+    const getWorkoutTypeInfo = (sessionName, description, template) => {
+        const name = sessionName?.toLowerCase() || '';
+        const desc = description?.toLowerCase() || '';
+
+        let type = 'Workout';
+        let difficulty = 'Trung bình';
+        let icon = '🔥';
+
+        if (name.includes('push')) {
+            type = 'Strength';
+            icon = '💪';
+        } else if (name.includes('pull')) {
+            type = 'Strength';
+            icon = '🏋️';
+        } else if (name.includes('leg')) {
+            type = 'Strength';
+            icon = '🦵';
+        } else if (name.includes('cardio')) {
+            type = 'Cardio';
+            icon = '❤️';
+        } else if (name.includes('mobility') || name.includes('flexibility')) {
+            type = 'Mobility';
+            icon = '🤸';
+        } else if (name.includes('core')) {
+            type = 'Core';
+            icon = '🎯';
+        }
+
+        // Determine difficulty from description
+        if (desc.includes('de') || desc.includes('easy')) {
+            difficulty = 'Dễ';
+        } else if (desc.includes('kho') || desc.includes('hard')) {
+            difficulty = 'Khó';
+        } else if (desc.includes('trung_binh') || desc.includes('medium')) {
+            difficulty = 'Trung bình';
+        }
+
+        return { type, difficulty, icon };
+    };
+
+    // Handle time slot click - mở modal để chọn session
+    const handleTimeSlotClick = (dayDate, timeSlot) => {
+        const sessionsInSlot = getSessionsForTimeSlot(dayDate, timeSlot);
+
+        if (sessionsInSlot.length === 0) {
+            return;
+        }
+
+        // Lấy tên ngày trong tuần
+        const dayInfo = weekDaysList.find(d => d.date.toDateString() === dayDate.toDateString());
+
+        // Lấy sessions đã chọn trong ca này
+        const sessionIdsInSlot = sessionsInSlot.map(s => s._id.toString());
+        const sessionsInThisSlot = selectedSessions
+            .filter(s => sessionIdsInSlot.includes(s._id.toString()))
+            .map(s => s._id.toString());
+
+        // Set state cho modal hiện tại
+        setSelectedSessionsInCurrentModal(sessionsInThisSlot);
+
+        // Mở modal để chọn session
+        setSelectedTimeSlot({
+            dayDate,
+            timeSlot,
+            sessions: sessionsInSlot,
+            dayName: dayInfo?.dayName || ''
+        });
+        setShowSessionModal(true);
+    };
+
+    // Handle session select trong modal
+    const handleSessionSelect = (session) => {
+        if (session.coTheDangKy === false) {
+            return;
+        }
+
+        if (!selectedTimeSlot) {
+            return;
+        }
+
+        const isSelected = selectedSessions.some(s => s._id === session._id);
+
+        if (isSelected) {
+            // Bỏ chọn
+            setSelectedSessions(prev => prev.filter(s => s._id !== session._id));
+            setSelectedSessionsInCurrentModal(prev => prev.filter(id => id !== session._id.toString()));
+        } else {
+            // Chọn session - chỉ cho phép 1 session trong mỗi ca
+            // Tìm các session khác trong cùng ca này và bỏ chọn chúng
+            const otherSessionsInSlot = selectedTimeSlot.sessions
+                .filter(s => s._id.toString() !== session._id.toString())
+                .map(s => s._id.toString());
+
+            // Cập nhật state modal (chỉ cho ca hiện tại)
+            setSelectedSessionsInCurrentModal([session._id.toString()]);
+
+            // Cập nhật state tổng (bỏ chọn các session khác trong ca này, thêm session mới)
+            setSelectedSessions(prev => {
+                // Bỏ chọn các session khác trong ca này
+                const filtered = prev.filter(s => !otherSessionsInSlot.includes(s._id.toString()));
+                // Thêm session mới
+                return [...filtered, session];
+            });
+        }
+    };
+
+    // Đóng modal chọn session
+    const closeSessionModal = () => {
+        setShowSessionModal(false);
+        setSelectedTimeSlot(null);
+        setSelectedSessionsInCurrentModal([]);
     };
 
     const handleSubmit = async () => {
@@ -2085,45 +2334,53 @@ const WeekRegistrationModal = ({ onClose, nextWeekStart, registrationEligibility
                             <p>Đang tải danh sách buổi tập...</p>
                         </div>
                     ) : (
-                        <div className="week-calendar-grid">
-                            {weekDaysList.map((day, index) => {
-                                const daySessions = getSessionsForDay(day.date);
-                                return (
-                                    <div key={index} className="week-day-column">
-                                        <div className="day-header">
-                                            <div className="day-name">{day.dayShort}</div>
-                                            <div className="day-date">{day.date.getDate()}/{day.date.getMonth() + 1}</div>
-                                        </div>
-                                        <div className="day-sessions">
-                                            {daySessions.length === 0 ? (
-                                                <div className="no-sessions">Không có buổi tập</div>
-                                            ) : (
-                                                daySessions.map(session => (
-                                                    <div
-                                                        key={session._id}
-                                                        className={`session-card ${isSessionSelected(session._id) ? 'selected' : ''}`}
-                                                        onClick={() => toggleSessionSelection(session)}
-                                                    >
-                                                        <div className="session-time">
-                                                            {session.gioBatDau} - {session.gioKetThuc}
+                        <div className="week-schedule-table">
+                            {/* Header row with day names */}
+                            <div className="schedule-table-header">
+                                <div className="time-slot-header">Ca tập</div>
+                                {weekDaysList.map((day, index) => (
+                                    <div key={index} className="day-header-cell">
+                                        <div className="day-name">{day.dayShort}</div>
+                                        <div className="day-date">{day.date.getDate()}/{day.date.getMonth() + 1}</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Time slot rows */}
+                            {TIME_SLOTS.map((timeSlot) => (
+                                <div key={timeSlot.id} className="schedule-table-row">
+                                    <div className="time-slot-cell">{timeSlot.label}</div>
+                                    {weekDaysList.map((day, dayIndex) => {
+                                        const sessionsInSlot = getSessionsForTimeSlot(day.date, timeSlot);
+                                        const hasSelectedSession = selectedSessions.some(s => {
+                                            const sessionDate = new Date(s.ngay);
+                                            return sessionDate.toDateString() === day.date.toDateString() &&
+                                                sessionsInSlot.some(slotSession => slotSession._id === s._id);
+                                        });
+
+                                        return (
+                                            <div
+                                                key={dayIndex}
+                                                className={`day-cell ${sessionsInSlot.length > 0 ? 'has-sessions' : ''} ${hasSelectedSession ? 'has-selected' : ''}`}
+                                                onClick={() => sessionsInSlot.length > 0 && handleTimeSlotClick(day.date, timeSlot)}
+                                            >
+                                                {sessionsInSlot.length === 0 ? (
+                                                    <div className="no-sessions-slot">-</div>
+                                                ) : (
+                                                    <div className="time-slot-content">
+                                                        <div className="session-count-badge">
+                                                            {sessionsInSlot.length} buổi
                                                         </div>
-                                                        <div className="session-title">{session.tenBuoiTap || 'Buổi tập'}</div>
-                                                        <div className="session-pt">
-                                                            PT: {session.ptPhuTrach?.hoTen || 'Chưa có PT'}
-                                                        </div>
-                                                        <div className="session-slots">
-                                                            Còn {session.conChoTrong} chỗ trống
-                                                        </div>
-                                                        {isSessionSelected(session._id) && (
-                                                            <div className="session-checkmark">✓</div>
+                                                        {hasSelectedSession && (
+                                                            <div className="selected-indicator">✓</div>
                                                         )}
                                                     </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ))}
                         </div>
                     )}
 
@@ -2146,6 +2403,227 @@ const WeekRegistrationModal = ({ onClose, nextWeekStart, registrationEligibility
                     </button>
                 </div>
             </div>
+
+            {/* Modal chọn buổi tập trong ca */}
+            {showSessionModal && selectedTimeSlot && (
+                <div className="modal-overlay" onClick={closeSessionModal} style={{ zIndex: 10001 }}>
+                    <div className="modal-content session-selection-modal max-w-6xl w-full" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Chọn buổi tập</h2>
+                            <div className="modal-subtitle">
+                                {selectedTimeSlot.dayName} - {selectedTimeSlot.timeSlot.label}
+                            </div>
+                            <button className="modal-close" onClick={closeSessionModal}>×</button>
+                        </div>
+
+                        <div className="modal-body w-full max-w-6xl mx-auto px-6">
+                            {selectedTimeSlot.sessions.length > 0 ? (
+                                <div className="w-full">
+                                    {/* Info message about single selection per time slot */}
+                                    <div className="flex items-center gap-2 mb-6 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                        <span className="text-blue-400">ℹ️</span>
+                                        <span className="text-[#dadada] text-sm">Bạn chỉ có thể chọn 1 buổi tập trong mỗi ca</span>
+                                    </div>
+
+                                    {/* Grid Layout: 3 cards per row on desktop */}
+                                    <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+                                        {selectedTimeSlot.sessions.map(session => {
+                                            const sessionIdStr = session._id.toString();
+                                            const isSelected = selectedSessionsInCurrentModal.includes(sessionIdStr);
+                                            const cannotRegister = session.coTheDangKy === false;
+
+                                            // Check if there's another session selected in this time slot
+                                            const hasSelectedInTimeSlot = selectedSessionsInCurrentModal.some(selectedId => {
+                                                return selectedId !== sessionIdStr;
+                                            });
+
+                                            const isDisabledDueToSelection = hasSelectedInTimeSlot && !isSelected;
+                                            const isDisabled = isDisabledDueToSelection || cannotRegister;
+
+                                            const sessionStatusInfo = getDetailedCountdown(session.ngayTap || session.ngay, session.gioBatDau, session.gioKetThuc);
+                                            const workoutTypeInfo = getWorkoutTypeInfo(session.tenBuoiTap, session.moTa, session.templateBuoiTap);
+
+                                            // Get day name from session date
+                                            const sessionDate = new Date(session.ngayTap || session.ngay);
+                                            const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                                            const dayName = dayNames[sessionDate.getDay()];
+
+                                            // Format time
+                                            const timeLabel = `${formatTime(session.gioBatDau)} - ${formatTime(session.gioKetThuc)}`;
+
+                                            // Available slots
+                                            const availableSlots = (session.soLuongToiDa || 0) - (session.soLuongHienTai || 0);
+
+                                            // Check if upcoming (not finished and not ongoing)
+                                            const isUpcoming = !sessionStatusInfo.isFinished && !sessionStatusInfo.isOngoing;
+
+                                            // Check if session is soon (within 24 hours) - for "SẮP DIỄN RA" badge
+                                            const isUpcomingSoon = isUpcoming && (sessionStatusInfo.isSoon || sessionStatusInfo.isUrgent || sessionStatusInfo.isCritical);
+
+                                            // Get PT image or placeholder
+                                            const ptImage = session.ptPhuTrach?.anhDaiDien || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80';
+
+                                            return (
+                                                <div
+                                                    key={session._id}
+                                                    className={`w-full h-full flex flex-col bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 overflow-hidden cursor-pointer relative ${isSelected ? 'ring-2 ring-blue-500' : ''
+                                                        } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    onClick={() => !isDisabled && handleSessionSelect(session)}
+                                                >
+                                                    {/* Image Container with Badges and Favorite */}
+                                                    <div className="relative w-full aspect-video overflow-hidden">
+                                                        <img
+                                                            src={ptImage}
+                                                            alt={session.tenBuoiTap || 'Buổi tập'}
+                                                            className="w-full h-full object-cover opacity-90"
+                                                        />
+                                                        <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
+                                                            {isUpcomingSoon && (
+                                                                <span className="bg-[#EF4444] text-white text-xs font-bold px-3 py-1 rounded-full">
+                                                                    SẮP DIỄN RA
+                                                                </span>
+                                                            )}
+                                                            <span className="bg-[#8B5CF6] text-white text-xs font-bold px-3 py-1 rounded-full">
+                                                                {workoutTypeInfo.difficulty}
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            className="absolute top-3 right-3 bg-black/40 backdrop-blur-md p-2 rounded-full text-white hover:bg-black/60 transition-all z-10"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                // TODO: Implement favorite functionality
+                                                            }}
+                                                        >
+                                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Card Content */}
+                                                    <div className="p-5 flex-1 flex flex-col">
+                                                        <h3 className="text-lg font-semibold text-white mb-1 line-clamp-2 min-h-[3.5rem] flex-shrink-0">
+                                                            {session.tenBuoiTap || 'Buổi tập'} – PT {session.ptPhuTrach?.hoTen || 'N/A'}
+                                                        </h3>
+                                                        <p className="text-[#A1A1A1] text-sm mb-4 line-clamp-1 min-h-[1.25rem] flex-shrink-0">
+                                                            Loại: {workoutTypeInfo.type} · Slot: {session.soLuongHienTai || 0}/{session.soLuongToiDa || 0}
+                                                        </p>
+                                                        <div className="flex items-center justify-between text-gray-300 text-sm mb-4 min-h-[1.5rem] flex-shrink-0">
+                                                            <div className="flex items-center gap-1">
+                                                                <span>📅</span>
+                                                                <span>{dayName}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <span>⏰</span>
+                                                                <span>{timeLabel}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <span>🎟</span>
+                                                                <span>{availableSlots} slot</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Real-time Countdown */}
+                                                        <div className="mb-4 p-3 bg-black/30 rounded-lg border border-[#2A2A2A] flex-shrink-0 h-[110px] flex flex-col justify-center">
+                                                            {sessionStatusInfo.isFinished ? (
+                                                                <div className="flex items-center justify-center gap-2 h-full">
+                                                                    <span className="text-xl">✅</span>
+                                                                    <span className="text-gray-400 text-sm font-medium">ĐÃ KẾT THÚC</span>
+                                                                </div>
+                                                            ) : sessionStatusInfo.isOngoing ? (
+                                                                <div className="flex items-center justify-center gap-2 h-full">
+                                                                    <span className="text-2xl">🔥</span>
+                                                                    <span className="text-white font-semibold">ĐANG DIỄN RA</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="w-full h-full flex flex-col justify-center">
+                                                                    <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+                                                                        <span className="text-xl">{sessionStatusInfo.icon}</span>
+                                                                        <span className="text-white text-xs font-semibold uppercase">
+                                                                            {sessionStatusInfo.label || 'Bắt đầu sau:'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 text-white flex-shrink-0">
+                                                                        {sessionStatusInfo.days > 0 && (
+                                                                            <div className="flex flex-col items-center">
+                                                                                <span className="text-lg font-bold">{sessionStatusInfo.days.toString().padStart(2, '0')}</span>
+                                                                                <span className="text-xs text-gray-400">NGÀY</span>
+                                                                            </div>
+                                                                        )}
+                                                                        {(sessionStatusInfo.days > 0 || sessionStatusInfo.hours > 0) && (
+                                                                            <div className="flex flex-col items-center">
+                                                                                <span className="text-lg font-bold">{sessionStatusInfo.hours.toString().padStart(2, '0')}</span>
+                                                                                <span className="text-xs text-gray-400">GIỜ</span>
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="flex flex-col items-center">
+                                                                            <span className="text-lg font-bold">{sessionStatusInfo.minutes.toString().padStart(2, '0')}</span>
+                                                                            <span className="text-xs text-gray-400">PHÚT</span>
+                                                                        </div>
+                                                                        <div className="flex flex-col items-center">
+                                                                            <span className="text-lg font-bold">{sessionStatusInfo.seconds.toString().padStart(2, '0')}</span>
+                                                                            <span className="text-xs text-gray-400">GIÂY</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="flex-1"></div>
+
+                                                        <button
+                                                            className={`w-full bg-black text-white py-2 rounded-xl font-medium hover:bg-[#2A2A2A] transition disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ${isSelected ? 'bg-green-600 hover:bg-green-700' : ''
+                                                                }`}
+                                                            disabled={isDisabled || availableSlots <= 0 || sessionStatusInfo.isFinished}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (!isDisabled && availableSlots > 0 && !sessionStatusInfo.isFinished) {
+                                                                    handleSessionSelect(session);
+                                                                }
+                                                            }}
+                                                        >
+                                                            {isSelected ? (
+                                                                '✓ Đã chọn'
+                                                            ) : availableSlots <= 0 ? (
+                                                                'Đã đầy'
+                                                            ) : sessionStatusInfo.isFinished ? (
+                                                                'Đã kết thúc'
+                                                            ) : (
+                                                                'Đăng ký buổi tập'
+                                                            )}
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Disabled Overlay */}
+                                                    {isDisabled && (
+                                                        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-20">
+                                                            <span className="text-white text-sm font-medium">
+                                                                {cannotRegister ? 'Không thể đăng ký buổi tập này' : 'Đã chọn buổi khác trong ca này'}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="empty-sessions text-center py-12">
+                                    <div className="text-5xl mb-4">📅</div>
+                                    <h4 className="text-white text-lg font-semibold mb-2">Không có buổi tập trong ca này</h4>
+                                    <p className="text-gray-400 text-sm">Hiện tại chưa có buổi tập nào được tổ chức trong khung giờ này.</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="modal-footer">
+                            <button className="btn-secondary" onClick={closeSessionModal}>
+                                Đóng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -105,7 +105,9 @@ const Login = () => {
             showLoginSuccess();
 
             setTimeout(() => {
-                navigate('/home');
+                // Redirect theo role
+                const redirectPath = authUtils.redirectByRole();
+                navigate(redirectPath);
             }, 1000);
         } catch (error) {
             const errorMessage = error.message || API_MESSAGES.ERROR;

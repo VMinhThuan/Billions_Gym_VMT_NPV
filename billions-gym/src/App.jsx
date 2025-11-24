@@ -24,6 +24,14 @@ import BodyMetrics from './pages/BodyMetrics'
 import Nutrition from './pages/Nutrition'
 import MyMeals from './pages/MyMeals'
 import BubbleChat from './components/BubbleChat'
+// PT Pages
+import PTDashboard from './pages/pt/PTDashboard'
+import PTSchedule from './pages/pt/PTSchedule'
+import PTStudents from './pages/pt/PTStudents'
+import PTStudentDetail from './pages/pt/PTStudentDetail'
+import PTSessions from './pages/pt/PTSessions'
+import PTAssignExercises from './pages/pt/PTAssignExercises'
+import PTChat from './pages/pt/PTChat'
 
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -130,6 +138,14 @@ const AppContent = () => {
             <Route path='/body-metrics' element={<BodyMetrics />} />
             <Route path='/nutrition' element={<Nutrition />} />
             <Route path='/my-meals' element={<MyMeals />} />
+            {/* PT Routes */}
+            <Route path='/pt/dashboard' element={<PTDashboard />} />
+            <Route path='/pt/schedule' element={<PTSchedule />} />
+            <Route path='/pt/students' element={<PTStudents />} />
+            <Route path='/pt/students/:id' element={<PTStudentDetail />} />
+            <Route path='/pt/sessions' element={<PTSessions />} />
+            <Route path='/pt/assign-exercises' element={<PTAssignExercises />} />
+            <Route path='/pt/chat' element={<PTChat />} />
           </Routes>
 
           {/* Bubble Chat AI - Only show for authenticated users */}

@@ -106,6 +106,12 @@ const NotificationIcon = () => {
     const checkAndCreateScheduleNotification = async () => {
         if (!user?._id) return;
 
+        // Chỉ kiểm tra nếu user là Hội viên
+        const userRole = authUtils.getUserRole();
+        if (userRole !== 'HoiVien') {
+            return;
+        }
+
         try {
             // Gọi API check-registration-eligibility để tự động tạo notification nếu đủ điều kiện
             await api.get('/lichtap/check-registration-eligibility');
