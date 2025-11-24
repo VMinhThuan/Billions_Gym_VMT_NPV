@@ -59,14 +59,13 @@
 }
 
 .date-nav-btn:hover {
-    background: #333;
-    border-color: #667eea;
-    color: #667eea;
+    background: #da2128;
+    border-color: #da2128;
+    color: white;
 }
 
 .date-today-btn {
-    background: #667eea;
-    border: 1px solid #667eea;
+    background: #da2128;
     color: #fff;
     padding: 10px 16px;
     border-radius: 8px;
@@ -77,8 +76,8 @@
 }
 
 .date-today-btn:hover {
-    background: #5568d3;
-    border-color: #5568d3;
+    background: rgb(218, 33, 40, 0.8);
+    border-color: none;
 }
 
 .date-picker {
@@ -96,8 +95,8 @@
 }
 
 .date-picker:hover {
-    border-color: #667eea;
-    background: #1f1f1f;
+    border-color: #da2128;
+    background: #da2128;
 }
 
 .date-display-text {
