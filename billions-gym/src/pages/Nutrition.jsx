@@ -38,6 +38,8 @@ const Nutrition = () => {
     const [showMealModal, setShowMealModal] = useState(false);
     const [activeTab, setActiveTab] = useState('ingredients'); // 'ingredients', 'instructions', 'video' - for meal modal
     const [activePageTab, setActivePageTab] = useState('menu'); // 'menu', 'plans', 'info', 'calculator', 'stats' - for page tabs
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(20);
 
     // Load data from API
     useEffect(() => {
@@ -218,8 +220,12 @@ const Nutrition = () => {
         return sorted;
     }, [allMenus, selectedCategory, searchQuery, sortBy, filters]);
 
-    // Get menus for display (apply view mode)
-    const menus = filteredAndSortedMenus;
+    // Get menus for display with pagination
+    const totalPages = Math.ceil(filteredAndSortedMenus.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedMenus = filteredAndSortedMenus.slice(startIndex, endIndex);
+    const menus = selectedCategory === 'Tất cả' ? paginatedMenus : filteredAndSortedMenus;
 
     const mapMealToMenu = (meal) => {
         // Map both Gemini meal format and DB Meal model to UI format
@@ -471,6 +477,20 @@ const Nutrition = () => {
         setSortBy(option);
         setShowSortDropdown(false);
     };
+
+    const toggleFilterPanel = () => {
+        setShowFilterPanel(!showFilterPanel);
+    };
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Reset current page when category or filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedCategory, searchQuery, sortBy, filters]);
 
     const handleFilterChange = (key, value) => {
         setFilters(prev => ({
@@ -766,7 +786,8 @@ const Nutrition = () => {
                                             color: 'white',
                                             fontSize: '14px',
                                             outline: 'none',
-                                            cursor: 'pointer'
+                                            cursor: 'pointer',
+                                            colorScheme: 'dark'
                                         }}
                                     />
                                 </div>
@@ -1169,9 +1190,9 @@ const Nutrition = () => {
                                     <div className="section-header">
                                         <h2 className='flex justify-between items-center mb-4 text-white font-semibold text-lg'>Tất cả món ăn</h2>
                                         <div className="section-actions">
-                                            <button className="btn-filter-small">
+                                            <button className="btn-filter-small" onClick={toggleFilterPanel}>
                                                 <Funnel size={14} weight="regular" />
-                                                Lọc
+                                                Lọc {getActiveFilterCount() > 0 && `(${getActiveFilterCount()})`}
                                             </button>
                                             <div className="view-toggle">
                                                 <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')}>
@@ -1273,6 +1294,99 @@ const Nutrition = () => {
                                         </div>
                                     </div>
 
+                                    {/* Filter Panel */}
+                                    {showFilterPanel && (
+                                        <div className="filter-panel" style={{
+                                            background: '#1a1a1a',
+                                            border: '1px solid #333',
+                                            borderRadius: '12px',
+                                            padding: '20px',
+                                            marginBottom: '20px'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                                <h3 style={{ color: '#fff', fontSize: '16px', fontWeight: 600, margin: 0 }}>Bộ lọc</h3>
+                                                <button onClick={() => setShowFilterPanel(false)} style={{ background: 'transparent', border: 'none', color: '#999', cursor: 'pointer' }}>
+                                                    <X size={20} />
+                                                </button>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', color: '#999', fontSize: '12px', marginBottom: '8px' }}>Độ khó</label>
+                                                    <select value={filters.difficulty} onChange={(e) => setFilters({ ...filters, difficulty: e.target.value })} style={{
+                                                        width: '100%',
+                                                        padding: '10px',
+                                                        background: '#2a2a2a',
+                                                        border: '1px solid #444',
+                                                        borderRadius: '8px',
+                                                        color: '#fff',
+                                                        fontSize: '14px'
+                                                    }}>
+                                                        <option value="Tất cả">Tất cả</option>
+                                                        <option value="Dễ">Dễ</option>
+                                                        <option value="Trung bình">Trung bình</option>
+                                                        <option value="Khó">Khó</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', color: '#999', fontSize: '12px', marginBottom: '8px' }}>Calo tối thiểu</label>
+                                                    <input type="number" value={filters.minCalories} onChange={(e) => setFilters({ ...filters, minCalories: e.target.value })} placeholder="0" style={{
+                                                        width: '100%',
+                                                        padding: '10px',
+                                                        background: '#2a2a2a',
+                                                        border: '1px solid #444',
+                                                        borderRadius: '8px',
+                                                        color: '#fff',
+                                                        fontSize: '14px'
+                                                    }} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', color: '#999', fontSize: '12px', marginBottom: '8px' }}>Calo tối đa</label>
+                                                    <input type="number" value={filters.maxCalories} onChange={(e) => setFilters({ ...filters, maxCalories: e.target.value })} placeholder="2000" style={{
+                                                        width: '100%',
+                                                        padding: '10px',
+                                                        background: '#2a2a2a',
+                                                        border: '1px solid #444',
+                                                        borderRadius: '8px',
+                                                        color: '#fff',
+                                                        fontSize: '14px'
+                                                    }} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', color: '#999', fontSize: '12px', marginBottom: '8px' }}>Điểm sức khỏe tối thiểu</label>
+                                                    <input type="number" value={filters.minHealthScore} onChange={(e) => setFilters({ ...filters, minHealthScore: e.target.value })} placeholder="0" min="0" max="100" style={{
+                                                        width: '100%',
+                                                        padding: '10px',
+                                                        background: '#2a2a2a',
+                                                        border: '1px solid #444',
+                                                        borderRadius: '8px',
+                                                        color: '#fff',
+                                                        fontSize: '14px'
+                                                    }} />
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                                                <button onClick={resetFilters} style={{
+                                                    padding: '10px 20px',
+                                                    background: '#2a2a2a',
+                                                    border: '1px solid #444',
+                                                    borderRadius: '8px',
+                                                    color: '#fff',
+                                                    fontSize: '14px',
+                                                    cursor: 'pointer'
+                                                }}>Xóa bộ lọc</button>
+                                                <button onClick={() => setShowFilterPanel(false)} style={{
+                                                    padding: '10px 20px',
+                                                    background: '#da2128',
+                                                    border: 'none',
+                                                    borderRadius: '8px',
+                                                    color: '#fff',
+                                                    fontSize: '14px',
+                                                    cursor: 'pointer'
+                                                }}>Áp dụng</button>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {menus.length === 0 ? (
                                         <div style={{
                                             textAlign: 'center',
@@ -1301,7 +1415,12 @@ const Nutrition = () => {
                                         </div>
                                     ) : (
                                         <>
-                                            <div className={`menu-list ${viewMode === 'list' ? 'list-view' : ''}`}>
+                                            <div className={`menu-list ${viewMode === 'grid' ? 'grid-view' : 'list-view'}`} style={{
+                                                display: viewMode === 'grid' ? 'grid' : 'flex',
+                                                gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(350px, 1fr))' : 'unset',
+                                                flexDirection: viewMode === 'list' ? 'column' : 'unset',
+                                                gap: '16px'
+                                            }}>
                                                 {menus.map(menu => (
                                                     <div key={menu.id} className="menu-card" onClick={() => handleMealClick(menu)} style={{ cursor: 'pointer' }}>
                                                         <div className="menu-image">
@@ -1410,6 +1529,66 @@ const Nutrition = () => {
                                                     </div>
                                                 ))}
                                             </div>
+
+                                            {/* Pagination - only show for 'Tất cả' category */}
+                                            {selectedCategory === 'Tất cả' && totalPages > 1 && (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    marginTop: '32px',
+                                                    paddingTop: '24px',
+                                                    borderTop: '1px solid #333'
+                                                }}>
+                                                    <button
+                                                        className="pagination-button"
+                                                        onClick={() => handlePageChange(currentPage - 1)}
+                                                        disabled={currentPage === 1}
+                                                    >
+                                                        Trước
+                                                    </button>
+
+                                                    {[...Array(totalPages)].map((_, index) => {
+                                                        const page = index + 1;
+                                                        // Show first page, last page, current page, and pages around current
+                                                        if (
+                                                            page === 1 ||
+                                                            page === totalPages ||
+                                                            (page >= currentPage - 1 && page <= currentPage + 1)
+                                                        ) {
+                                                            return (
+                                                                <button
+                                                                    key={page}
+                                                                    className={`pagination-button ${currentPage === page ? 'active' : ''}`}
+                                                                    onClick={() => handlePageChange(page)}
+                                                                >
+                                                                    {page}
+                                                                </button>
+                                                            );
+                                                        } else if (
+                                                            page === currentPage - 2 ||
+                                                            page === currentPage + 2
+                                                        ) {
+                                                            return <span key={page} className="pagination-ellipsis">...</span>;
+                                                        }
+                                                        return null;
+                                                    })}
+
+                                                    <button
+                                                        className="pagination-button"
+                                                        onClick={() => handlePageChange(currentPage + 1)}
+                                                        disabled={currentPage === totalPages}
+                                                    >
+                                                        Sau
+                                                    </button>
+
+                                                    <span className="pagination-info">
+                                                        Trang {currentPage} / {totalPages}
+                                                    </span>
+                                                </div>
+                                            )}
+
                                             {menus.length > 0 && (
                                                 <div style={{
                                                     marginTop: '24px',
