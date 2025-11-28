@@ -67,6 +67,49 @@
     border-bottom: 2px solid rgba(102, 126, 234, 0.3);
 }
 
+.gender-selector {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 25px;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+}
+
+.gender-selector span {
+    color: #e0e0e0;
+    font-weight: 600;
+}
+
+.gender-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.gender-buttons button {
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.gender-buttons button.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: transparent;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.gender-buttons button:not(.active):hover {
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
 .input-group {
     margin-bottom: 25px;
 }
@@ -199,13 +242,10 @@
 /* Action Buttons */
 .action-buttons {
     margin-top: 30px;
-    display: flex;
-    gap: 15px;
 }
 
-.btn-save,
-.btn-history {
-    flex: 1;
+.btn-save {
+    width: 100%;
     padding: 14px 24px;
     border: none;
     border-radius: 12px;
@@ -213,9 +253,6 @@
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-}
-
-.btn-save {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: #fff;
     box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
@@ -230,17 +267,6 @@
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;
-}
-
-.btn-history {
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-}
-
-.btn-history:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
 }
 
 /* 3D Model Panel */
@@ -316,19 +342,41 @@
 }
 
 /* History Panel */
-.history-panel {
+.history-inline {
     margin-top: 30px;
     background: rgba(255, 255, 255, 0.03);
-    border-radius: 20px;
-    padding: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    animation: fadeIn 0.5s ease;
+    border-radius: 16px;
+    padding: 20px 24px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.history-panel h2 {
+.history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.history-header h3 {
     color: #fff;
-    font-size: 1.5rem;
-    margin-bottom: 20px;
+    font-size: 1.2rem;
+    margin: 0;
+}
+
+.history-toggle {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.history-toggle:hover {
+    background: rgba(255, 255, 255, 0.12);
 }
 
 .history-list {
@@ -337,15 +385,19 @@
     gap: 15px;
 }
 
+.history-list.compact {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
 .no-history {
     text-align: center;
     color: #a0a0a0;
-    padding: 40px;
+    padding: 20px;
 }
 
 .history-item {
     background: rgba(255, 255, 255, 0.03);
-    padding: 20px;
+    padding: 18px;
     border-radius: 12px;
     border-left: 4px solid #667eea;
     transition: all 0.3s ease;
@@ -365,7 +417,7 @@
 
 .history-metrics {
     display: flex;
-    gap: 15px;
+    gap: 12px;
     flex-wrap: wrap;
 }
 

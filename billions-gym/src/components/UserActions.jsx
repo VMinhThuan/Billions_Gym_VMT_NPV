@@ -20,7 +20,8 @@ export default function UserActions({
     activePackage = null,
     nextSessions = [],
     notifications = [],
-    loadingPackage = false
+    loadingPackage = false,
+    packageStatusMessage = ''
 }) {
     const navigate = useNavigate();
     const [bodyMetrics, setBodyMetrics] = useState(null);
@@ -116,7 +117,7 @@ export default function UserActions({
     const handleAction = (action) => {
         switch (action) {
             case 'subscribe':
-                navigate('/packages');
+                navigate('/active-package');
                 break;
             case 'book-pt':
                 navigate('/booking');
@@ -149,6 +150,21 @@ export default function UserActions({
                     <h1 className="text-4xl font-bold text-white">Chào mừng trở lại!</h1>
                 </div>
             </div>
+
+            {!loadingPackage && packageStatusMessage && (
+                <div className="bg-gradient-to-r from-[#2b2b2b] via-[#1f1f1f] to-[#111] border border-white/5 rounded-2xl p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-[0_15px_35px_rgba(0,0,0,0.35)]">
+                    <div>
+                        <p className="text-base text-white/90 font-semibold mb-1">Bạn chưa có gói tập hoạt động</p>
+                        <p className="text-sm text-gray-400">{packageStatusMessage}</p>
+                    </div>
+                    <button
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ff512f] to-[#dd2476] text-white font-semibold shadow-lg hover:scale-[1.02] transition-transform"
+                        onClick={() => handleAction('subscribe')}
+                    >
+                        Đăng ký gói tập
+                    </button>
+                </div>
+            )}
 
             {/* Main Grid Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

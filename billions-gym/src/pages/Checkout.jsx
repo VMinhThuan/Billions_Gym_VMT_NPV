@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import './Checkout.css';
 import zaloLogo from '../assets/icons/zalopay.svg';
 import momoLogo from '../assets/icons/momo.png';
+import { formatDurationUnitLabel } from '../utils/duration';
 
 const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const { id } = useParams();
@@ -87,8 +88,39 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
             }
         };
 
+        const fetchMemberLocation = () => {
+            try {
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                if (user.latitude && user.longitude) {
+                    setUserCoords({ lat: user.latitude, lng: user.longitude });
+                    return true;
+                }
+            } catch (err) {
+                console.warn('Không đọc được toạ độ từ localStorage:', err);
+            }
+            return false;
+        };
+
+        let hasCoords = false;
+
         if (id) {
             fetchPackageData();
+            hasCoords = fetchMemberLocation();
+        }
+
+        if (!hasCoords && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setUserCoords({
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    });
+                },
+                (error) => {
+                    console.warn('Không lấy được vị trí thiết bị:', error.message);
+                },
+                { enableHighAccuracy: true, timeout: 8000 }
+            );
         }
     }, [id]);
 
@@ -393,6 +425,7 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     let firstName = '';
                     let lastName = '';
                     let phone = '';
+                    let email = '';
 
                     if (user.hoTen) {
                         // If hoTen exists, split it
@@ -407,13 +440,14 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
 
                     // Handle phone field variations
                     phone = user.soDienThoai || user.sdt || '';
+                    email = user.email || user.emailAddress || user.username || '';
 
                     // Auto-fill user info and lock form (prevent editing)
                     const userFormData = {
                         firstName: firstName,
                         lastName: lastName,
                         phone: phone,
-                        email: '', // Không tự động điền email từ database
+                        email: email,
                         partnerPhone: ''
                     };
 
@@ -427,7 +461,7 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                         firstName: firstName.length >= 2,
                         lastName: lastName.length >= 2,
                         phone: /^[0-9]{10,11}$/.test(phone.replace(/\D/g, '')),
-                        email: user.email ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email) : false,
+                        email: email ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) : false,
                         partnerPhone: false
                     });
                 } else {
@@ -678,13 +712,9 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
 
     if (loading) {
         return (
-            <SimpleLayout onNavigateToLogin={onNavigateToLogin} onNavigateToRegister={onNavigateToRegister}>
-                <div className="checkout-loading">
-                    <div className="loading-spinner">
-                        <div className="spinner"></div>
-                    </div>
-                </div>
-            </SimpleLayout>
+            <div className="full-screen-loader" role="status" aria-live="polite">
+                <div className="spinner-large" />
+            </div>
         );
     }
 
@@ -871,7 +901,7 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                 <div className="package-summary-card">
                                     <div className="package-info">
                                         <h4>{packageData.tenGoiTap}</h4>
-                                        <p>Thời hạn: {packageData.thoiHan} {packageData.donViThoiHan.toLowerCase()}</p>
+                                        <p>Thời hạn: {packageData.thoiHan} {formatDurationUnitLabel(packageData.donViThoiHan).toLowerCase()}</p>
                                         <p>Số người tham gia: {packageData.soLuongNguoiThamGia}</p>
                                         <div className="price-info">
                                             {packageData.giaGoc && packageData.giaGoc > packageData.donGia && (
@@ -894,7 +924,9 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                         />
 
                                         {partnerLoading && (
-                                            <div className="partner-loading">Đang kiểm tra...</div>
+                                            <div className="partner-loading" aria-label="Đang kiểm tra">
+                                                <div className="spinner-inline"></div>
+                                            </div>
                                         )}
 
                                         {partnerInfo && (
@@ -990,7 +1022,7 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                 <div className="order-item">
                                     <div className="item-info">
                                         <h4>{packageData.tenGoiTap}</h4>
-                                        <p>Thời hạn: {packageData.thoiHan} {packageData.donViThoiHan.toLowerCase()}</p>
+                                        <p>Thời hạn: {packageData.thoiHan} {formatDurationUnitLabel(packageData.donViThoiHan).toLowerCase()}</p>
                                         <p>Số người: {packageData.soLuongNguoiThamGia}</p>
                                     </div>
                                 </div>

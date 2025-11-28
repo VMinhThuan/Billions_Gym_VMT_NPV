@@ -6,6 +6,7 @@ const BuoiTap = require('../models/BuoiTap');
 const LichLamViecPT = require('../models/LichLamViecPT');
 const ChiNhanh = require('../models/ChiNhanh');
 const mongoose = require('mongoose');
+const { addDuration } = require('../utils/duration.utils');
 
 // Lấy danh sách PT phù hợp sau khi đăng ký gói tập thành công
 const getAvailableTrainers = async (req, res) => {
@@ -248,19 +249,7 @@ const generateWorkoutSchedule = async (req, res) => {
         // Tính toán ngày bắt đầu và kết thúc dựa trên gói tập
         const ngayBatDau = new Date();
         // Tính ngày kết thúc dựa trên thời hạn gói tập
-        const ngayKetThuc = new Date(ngayBatDau);
-
-        // Tính toán dựa trên đơn vị thời hạn
-        if (goiTap.donViThoiHan === 'Tháng') {
-            ngayKetThuc.setMonth(ngayKetThuc.getMonth() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Ngày') {
-            ngayKetThuc.setDate(ngayKetThuc.getDate() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Năm') {
-            ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Ngay') {
-            // Xử lý trường hợp 'Ngay' thay vì 'Ngày'
-            ngayKetThuc.setDate(ngayKetThuc.getDate() + goiTap.thoiHan);
-        }
+        const ngayKetThuc = addDuration(ngayBatDau, goiTap.thoiHan, goiTap.donViThoiHan);
 
         console.log('🔍 Date calculation:', {
             ngayBatDau: ngayBatDau.toISOString(),

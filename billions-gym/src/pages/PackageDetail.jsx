@@ -6,6 +6,7 @@ import RatingSummary from '../components/RatingSummary';
 import CompareModal from '../components/CompareModal';
 import { api } from '../services/api';
 import './PackageDetail.css';
+import { formatDurationUnitLabel, normalizeDurationUnit } from '../utils/duration';
 
 const PackageDetail = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const { id } = useParams();
@@ -20,22 +21,34 @@ const PackageDetail = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const [user, setUser] = useState(null);
     const [showReviews, setShowReviews] = useState(false);
     const [selectedPackageForCompare, setSelectedPackageForCompare] = useState(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     useEffect(() => {
-        window.scrollTo(0, 0);
+        const token = localStorage.getItem('token');
+        if (!token) {
+            setIsAuthenticated(false);
+            if (onNavigateToLogin) {
+                onNavigateToLogin();
+            } else {
+                navigate('/login');
+            }
+            return;
+        }
 
+        const userData = localStorage.getItem('user');
+        if (userData) {
+            setUser(JSON.parse(userData));
+        }
+        setIsAuthenticated(true);
+    }, [navigate, onNavigateToLogin]);
+
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        window.scrollTo(0, 0);
         fetchPackageDetail();
         fetchAllPackages();
-
-        // Lấy thông tin user từ localStorage
-        const token = localStorage.getItem('token');
-        if (token) {
-            const userData = localStorage.getItem('user');
-            if (userData) {
-                setUser(JSON.parse(userData));
-            }
-        }
-    }, [id]);
+    }, [id, isAuthenticated]);
 
     const handleRatingClick = () => {
         setShowReviews(true);
@@ -107,8 +120,13 @@ const PackageDetail = ({ onNavigateToLogin, onNavigateToRegister }) => {
 
     const getDurationLabel = (thoiHan, donViThoiHan) => {
         if (thoiHan >= 36500) return '♾️ Vĩnh viễn';
-        if (thoiHan >= 365) return '📆 Theo năm';
-        return '📅 Theo tháng';
+        const normalized = normalizeDurationUnit(donViThoiHan);
+        if (normalized === 'phut') {
+            return `⚡ Thử ${thoiHan} ${formatDurationUnitLabel(donViThoiHan).toLowerCase()}`;
+        }
+        if (normalized === 'nam' || thoiHan >= 365) return '📆 Theo năm';
+        if (normalized === 'thang') return '📅 Theo tháng';
+        return '📅 Theo ngày';
     };
 
     const getPackageFeatures = (pkg) => {

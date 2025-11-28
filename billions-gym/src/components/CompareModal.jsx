@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CompareModal.css';
+import { formatDurationUnitLabel, normalizeDurationUnit } from '../utils/duration';
 
 const CompareModal = ({
     isOpen,
@@ -69,14 +70,20 @@ const CompareModal = ({
 
     const getDurationLabel = (thoiHan, donViThoiHan) => {
         if (thoiHan >= 36500) return '♾️ Vĩnh viễn';
-        if (thoiHan >= 365) return '📆 Theo năm';
-        return '📅 Theo tháng';
+        const normalized = normalizeDurationUnit(donViThoiHan);
+        if (normalized === 'phut') return `⚡ Thử ${thoiHan} ${formatDurationUnitLabel(donViThoiHan).toLowerCase()}`;
+        if (normalized === 'nam' || thoiHan >= 365) return '📆 Theo năm';
+        if (normalized === 'thang' || thoiHan >= 30) return '📅 Theo tháng';
+        return '📅 Theo ngày';
     };
 
-    const getPricePeriod = (thoiHan) => {
+    const getPricePeriod = (thoiHan, donViThoiHan) => {
         if (thoiHan >= 36500) return 'lần';
-        if (thoiHan >= 365) return 'năm';
-        return 'tháng';
+        const normalized = normalizeDurationUnit(donViThoiHan);
+        if (normalized === 'phut') return 'phút';
+        if (normalized === 'nam' || thoiHan >= 365) return 'năm';
+        if (normalized === 'thang' || thoiHan >= 30) return 'tháng';
+        return 'ngày';
     };
 
     const getBenefitsCount = (packageData) => {
@@ -217,7 +224,7 @@ const CompareModal = ({
                                             <h4 className="package-name-1">{pkg.tenGoiTap}</h4>
                                             <div className="package-price-info">
                                                 <div className="package-price">{formatPrice(pkg.donGia)}₫</div>
-                                                <div className="package-period">/{getPricePeriod(pkg.thoiHan)}</div>
+                                                <div className="package-period">/{getPricePeriod(pkg.thoiHan, pkg.donViThoiHan)}</div>
                                             </div>
                                             <button
                                                 className="view-detail-btn"

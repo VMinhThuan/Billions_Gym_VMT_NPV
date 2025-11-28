@@ -2086,3 +2086,263 @@ html {
     font-size: 13px;
   }
 }
+.goal-input-wrapper {
+  position: relative;
+}
+
+.goal-history-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #1f1f1f;
+  border: 1px solid #2f2f2f;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 1200;
+}
+
+.goal-history-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.goal-history-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+}
+
+.goal-history-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.goal-history-item:last-child {
+  border-bottom: none;
+}
+
+.goal-history-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.goal-history-goal {
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.goal-history-meta {
+  color: #b7b7b7;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.goal-history-empty {
+  padding: 18px;
+  text-align: center;
+  color: #aaa;
+  font-size: 13px;
+}
+
+.calories-note {
+  display: block;
+  color: #9c9c9c;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.add-meal-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+}
+
+.add-meal-modal {
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.add-meal-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.add-meal-modal-header h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 20px;
+}
+
+.add-meal-modal-header p {
+  margin: 4px 0 0;
+  color: #a7a7a7;
+  font-size: 14px;
+}
+
+.add-meal-close {
+  background: none;
+  border: none;
+  color: #aaaaaa;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.add-meal-close:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.add-meal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.add-meal-field label {
+  color: #dddddd;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.add-meal-field input,
+.add-meal-field select {
+  background: #1f1f1f;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 12px;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.add-meal-field select {
+  cursor: pointer;
+}
+
+.add-meal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.add-meal-actions .btn-cancel,
+.add-meal-actions .btn-confirm {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-meal-actions .btn-cancel {
+  background: #2a2a2a;
+  color: #ffffff;
+}
+
+.add-meal-actions .btn-confirm {
+  background: #da2128;
+  color: #ffffff;
+}
+
+.add-meal-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.add-meal-calendar {
+  background: #1c1c1c;
+  border: 1px solid #2f2f2f;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #ffffff;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.calendar-nav-btn {
+  background: #2a2a2a;
+  border: none;
+  color: #ffffff;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  text-align: center;
+  font-size: 12px;
+  color: #aaaaaa;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.calendar-day {
+  border: none;
+  border-radius: 10px;
+  background: #2a2a2a;
+  color: #ffffff;
+  font-size: 14px;
+  height: 40px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.calendar-day:hover:not(.disabled) {
+  background: #3a3a3a;
+}
+
+.calendar-day.selected {
+  background: #da2128;
+  color: #ffffff;
+}
+
+.calendar-day.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.calendar-day.empty {
+  background: transparent;
+  cursor: default;
+}
+
+.calendar-selected-label {
+  font-size: 13px;
+  color: #bbbbbb;
+  margin-top: 4px;
+}

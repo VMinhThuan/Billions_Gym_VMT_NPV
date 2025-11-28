@@ -19,6 +19,7 @@ import '../components/PackageRegistrationManager.css';
 import StatisticsPage from './StatisticsPage';
 import MealManager from '../components/Nutrition/MealManager';
 import MemberMealPlanManager from '../components/Nutrition/MemberMealPlanManager';
+import { convertDurationToDays, formatDurationUnitLabel } from '../utils/duration';
 
 type Stat = { label: string; value: string; trend?: 'up' | 'down'; sub?: string };
 
@@ -94,13 +95,15 @@ interface PT {
     };
 }
 
+type DonViThoiHan = 'Ngay' | 'Ngày' | 'Thang' | 'Tháng' | 'Nam' | 'Năm' | 'Phut' | 'Phút';
+
 interface GoiTap {
     _id: string;
     tenGoiTap: string;
     moTa: string;
     donGia: number;
     thoiHan: number;
-    donViThoiHan: 'Ngày' | 'Tháng' | 'Năm';
+    donViThoiHan: DonViThoiHan;
     loaiThoiHan: 'VinhVien' | 'TinhTheoNgay';
     soLuongNguoiThamGia: number;
     loaiGoiTap: 'CaNhan' | 'Nhom' | 'CongTy';
@@ -2680,12 +2683,8 @@ const PackagesPage = () => {
                 break;
             case 'duration':
                 // Convert duration to days for comparison
-                const aDays = a.donViThoiHan === 'Ngày' ? a.thoiHan :
-                    a.donViThoiHan === 'Tháng' ? a.thoiHan * 30 :
-                        a.thoiHan * 365;
-                const bDays = b.donViThoiHan === 'Ngày' ? b.thoiHan :
-                    b.donViThoiHan === 'Tháng' ? b.thoiHan * 30 :
-                        b.thoiHan * 365;
+                const aDays = convertDurationToDays(a.thoiHan, a.donViThoiHan);
+                const bDays = convertDurationToDays(b.thoiHan, b.donViThoiHan);
                 comparison = aDays - bDays;
                 break;
         }
@@ -2762,8 +2761,7 @@ const PackagesPage = () => {
                                         </span>
                                         <span className="package-duration">
                                             {pkg.loaiThoiHan === 'VinhVien' ? 'Vĩnh viễn' :
-                                                `${pkg.thoiHan} ${pkg.donViThoiHan === 'Ngày' ? 'ngày' :
-                                                    pkg.donViThoiHan === 'Tháng' ? 'tháng' : 'năm'}`}
+                                                `${pkg.thoiHan} ${formatDurationUnitLabel(pkg.donViThoiHan).toLowerCase()}`}
                                         </span>
                                     </div>
                                 </div>
@@ -2810,7 +2808,8 @@ const PackagesPage = () => {
                         name: 'donViThoiHan', label: 'Đơn vị thời hạn', options: [
                             { value: 'Ngay', label: 'Ngày' },
                             { value: 'Thang', label: 'Tháng' },
-                            { value: 'Nam', label: 'Năm' }
+                            { value: 'Nam', label: 'Năm' },
+                            { value: 'Phut', label: 'Phút' }
                         ], validation: { required: true }
                     },
                     {
@@ -3003,8 +3002,7 @@ const PackagesPage = () => {
                                                 <label>Đơn vị</label>
                                                 <input type="text" value={
                                                     viewingItem.loaiThoiHan === 'VinhVien' ? '' :
-                                                        viewingItem.donViThoiHan === 'Ngày' ? 'Ngày' :
-                                                            viewingItem.donViThoiHan === 'Tháng' ? 'Tháng' : 'Năm'
+                                                        formatDurationUnitLabel(viewingItem.donViThoiHan)
                                                 } readOnly />
                                             </div>
                                         </div>

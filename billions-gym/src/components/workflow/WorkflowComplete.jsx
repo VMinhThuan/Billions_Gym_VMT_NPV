@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './WorkflowComponents.css';
+import { formatDurationUnitLabel } from '../../utils/duration';
 
 const WorkflowComplete = ({ registration, onComplete }) => {
     const navigate = useNavigate();
@@ -77,7 +78,7 @@ const WorkflowComplete = ({ registration, onComplete }) => {
                     <div className="summary-item">
                         <span className="label">Thời hạn:</span>
                         <span className="value">
-                            {registration?.goiTapId?.thoiHan} {registration?.goiTapId?.donViThoiHan}
+                            {registration?.goiTapId?.thoiHan} {formatDurationUnitLabel(registration?.goiTapId?.donViThoiHan)}
                         </span>
                     </div>
                     <div className="summary-item">

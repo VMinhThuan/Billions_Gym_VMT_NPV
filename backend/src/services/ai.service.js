@@ -1115,7 +1115,7 @@ YÊU CẦU:
           "id": "unique-id",
           "name": "Tên món ăn bằng tiếng Việt",
           "description": "Mô tả ngắn gọn về món ăn",
-          "image": "https://images.unsplash.com/photo-XXXXX?w=800",
+          "image": "https://images.pexels.com/photos/1234567/food-photography.jpg",
           "mealType": "Bữa sáng" | "Phụ 1" | "Bữa trưa" | "Phụ 2" | "Bữa tối" | "Phụ 3",
           "difficulty": "Dễ" | "Trung bình" | "Khó",
           "cookingTimeMinutes": 15,
@@ -1185,36 +1185,37 @@ QUY TẮC QUAN TRỌNG:
 16. CuisineType phù hợp với món ăn (Vietnamese cho món Việt, Western cho món Tây, etc.)
 17. DietaryRestrictions và allergens phải chính xác (nếu món có sữa thì allergens phải có "dairy")
 18. FiberGrams, sugarGrams, sodiumMg phải hợp lý (fiber 2-10g, sugar 0-25g, sodium 100-600mg)
-19. image: PHẢI là URL hình ảnh từ Unsplash với format: https://source.unsplash.com/800x600/?KEYWORD. 
-    - Món gà/chicken: https://source.unsplash.com/800x600/?chicken,food,healthy
-    - Món cá/salmon/fish: https://source.unsplash.com/800x600/?salmon,fish,food,healthy
-    - Món thịt bò/beef/steak: https://source.unsplash.com/800x600/?beef,steak,food
-    - Salad/rau: https://source.unsplash.com/800x600/?salad,vegetables,healthy
-    - Cơm/rice: https://source.unsplash.com/800x600/?rice,bowl,food
-    - Sinh tố/smoothie: https://source.unsplash.com/800x600/?smoothie,drink,healthy
-    - Yến mạch/oats: https://source.unsplash.com/800x600/?oats,breakfast,healthy
-    - Quinoa: https://source.unsplash.com/800x600/?quinoa,healthy,food
-    - Tôm/shrimp: https://source.unsplash.com/800x600/?shrimp,seafood,food
-    - Taco: https://source.unsplash.com/800x600/?taco,mexican,food
-    - Bữa sáng: https://source.unsplash.com/800x600/?breakfast,food,healthy
-    - Bữa trưa: https://source.unsplash.com/800x600/?lunch,food,healthy
-    - Bữa tối: https://source.unsplash.com/800x600/?dinner,food,healthy
-    - Mặc định: https://source.unsplash.com/800x600/?food,healthy,meal
-20. cookingVideoUrl: PHẢI là link YouTube THỰC SỰ HOẠT ĐỘNG về nấu ăn. 
-    - Tìm kiếm video YouTube phù hợp với món ăn (ví dụ: "cách nấu [tên món]", "how to cook [tên món]", "recipe [tên món]")
-    - Sử dụng format: https://www.youtube.com/watch?v=VIDEO_ID hoặc https://youtu.be/VIDEO_ID
-    - Video phải là video thực sự tồn tại trên YouTube và về chủ đề nấu ăn
-    - Có thể sử dụng các video ID phổ biến về nấu ăn (đã kiểm tra hoạt động):
-      * Món gà/chicken: 9jzWDr24UHQ, K4DyBUG242c, dQw4w9WgXcQ
-      * Món cá/salmon: 4vGcH0yKkqA, K4DyBUG242c
-      * Món thịt bò/beef: 9jzWDr24UHQ, K4DyBUG242c
-      * Salad/rau/vegetables: SPCYmW0i6hU, K4DyBUG242c
-      * Cơm/rice dishes: 9jzWDr24UHQ, K4DyBUG242c
-      * Sinh tố/smoothie: K4DyBUG242c
-      * Món Việt Nam: K4DyBUG242c, 9jzWDr24UHQ
-    - HOẶC tìm video YouTube thực sự phù hợp với món ăn cụ thể (miễn là về nấu ăn)
-    - Nếu không tìm được video phù hợp, để trống (empty string "") thay vì dùng video không hợp lệ
-    - KHÔNG được tạo video ID giả. PHẢI sử dụng video ID thực sự từ YouTube.
+19. image: BẮT BUỘC - PHẢI là URL hình ảnh THẬT từ các trang web nấu ăn Việt Nam hoặc quốc tế, phù hợp chính xác với tên món ăn.
+KHÔNG được dùng Unsplash placeholder (source.unsplash.com) hoặc URL giả.
+PHẢI tìm kiếm và sử dụng link ảnh THẬT đại diện trực tiếp cho tên món ăn cụ thể (ví dụ: nếu món là "Cơm Gà Xé Phay", ảnh phải hiển thị cơm gà xé phay, không phải gà nướng hoặc món khác).
+Ưu tiên tìm ảnh từ các nguồn Việt Nam trước: phugiafood.com, cookpad.com, monngonmoingay.com, vnfood.vn, vietnamesefood.com.vn, hoặc các blog ẩm thực .vn như helenrecipes.com, bepmina.vn.
+Nếu không tìm thấy ở nguồn Việt, dùng nguồn quốc tế: AllRecipes.com, FoodNetwork.com, BBCGoodFood.com, SeriousEats.com, BonAppetit.com.
+Hoặc CDN ảnh thực phẩm chất lượng cao: images.pexels.com, cdn.pixabay.com, i.imgur.com, live.staticflickr.com - nhưng phải đảm bảo ảnh khớp với tên món (tìm kiếm bằng tên món để xác nhận).
+Ảnh PHẢI liên quan 100% đến tên món: sử dụng công cụ tìm kiếm hình ảnh để xác nhận (ví dụ: search "hình ảnh [tên món] Việt Nam" hoặc "recipe image [tên món]").
+Format URL hợp lệ: https://domain.com/path/to/image.jpg hoặc https://cdn.domain.com/image.png
+KHÔNG được để trống. Nếu không tìm được ảnh chính xác, chọn ảnh món tương tự có tên gần giống hoặc ảnh nguyên liệu chính, nhưng giải thích lý do trong comment.
+Ví dụ URL hợp lệ cho món Việt Nam:
+https://phugiafood.com/wp-content/uploads/2021/11/Com-ga-xe-phay-1-1024x768.jpg (Cơm Gà Xé Phay)
+https://cdn.tgdd.vn/2021/09/CookDish/cach-lam-sua-chua-hat-chia-giam-can-tot-cho-suc-khoe-avt-1200x676.jpg (Sữa Chua Không Đường với Hạt Chia)
+https://img-global.cpcdn.com/recipes/e276c175d20ca9b3/1200x630cq80/photo.jpg (Cơm Gạo Lứt, Cá Diêu Hồng Hấp Gừng)
+https://vietnamesefood.com.vn/pictures/VietnameseFood2/Grilled_Chicken_with_Honey_and_Boiled_Rice_Recipe_1.jpg (Cơm Gà Nướng Mật Ong)
+https://images.pexels.com/photos/2252616/pexels-photo-2252616.jpeg (Ảnh minh họa sinh tố chuối, nếu khớp tên)
+
+KHÔNG chấp nhận: source.unsplash.com, placeholder URLs, hoặc URL không tồn tại. Luôn kiểm tra URL hoạt động.
+QUAN TRỌNG: Sử dụng công cụ web search hoặc search_images để tìm URL ảnh thực tế dựa trên tên món chính xác, ưu tiên nguồn Việt Nam.
+
+20. cookingVideoUrl: PHẢI là link YouTube THỰC SỰ HOẠT ĐỘNG về hướng dẫn nấu món ăn, phù hợp chính xác với tên món ăn.
+Tìm kiếm video YouTube bằng query như: "cách nấu [tên món chính xác]" cho video tiếng Việt, hoặc "how to make [tên món tiếng Anh]" cho video quốc tế. TIÊU ĐỀ VIDEO PHẢI CHỨA TÊN MÓN HOẶC MÔ TẢ LIÊN QUAN TRỰC TIẾP.
+Sử dụng format: https://www.youtube.com/watch?v=VIDEO_ID hoặc https://youtu.be/VIDEO_ID
+Video phải là video HƯỚNG DẪN NẤU ĂN/RECIPE thực sự (ví dụ: tutorial nấu ăn, recipe video), không phải video ăn uống, review, nhạc, vlog, quảng cáo, hoặc không liên quan.
+Ưu tiên video tiếng Việt nếu món là Việt Nam, và tiêu đề khớp tên món (ví dụ: "Cách Làm Phở Gà Thanh Đạm Ngon Tại Nhà").
+Nếu không tìm được video đúng tên món, chọn video món tương tự (cùng loại, ví dụ: nếu "Phở Gà" thì video "Cách Nấu Phở Gà" thay vì "Phở Bò").
+Nếu vẫn không tìm được video nấu ăn phù hợp, để trống (empty string "") và giải thích lý do.
+KHÔNG được tạo video ID giả. PHẢI sử dụng video ID thực từ YouTube, xác nhận bằng công cụ web search hoặc x_search để tìm video phù hợp.
+Ví dụ video hợp lệ:
+https://www.youtube.com/watch?v=EXAMPLE_ID (Cách Nấu Phở Gà Thanh Đạm - Tiêu đề phải khớp)
+https://youtu.be/ybF0RQdDAK8 (Khoai Lang Luộc - Nếu video hướng dẫn luộc khoai lang)
+https://www.youtube.com/watch?v=w34Qnc-9KBU (Gỏi Cuốn Tôm Thịt - Video recipe gỏi cuốn)
 
 TRẢ VỀ CHỈ JSON, KHÔNG CÓ TEXT KHÁC.`;
 

@@ -96,13 +96,18 @@ export interface RealtimeCheckIn {
     buoiTap?: {
         _id: string;
         tenBuoiTap?: string;
+        gioBatDau?: string;
+        gioKetThuc?: string;
     };
     chiNhanh?: {
         _id: string;
         tenChiNhanh?: string;
     };
     checkInTime: string;
-    checkOutTime?: string;
+    checkOutTime?: string | null;
+    isCheckedOut?: boolean;
+    checkInStatus?: string;
+    checkOutStatus?: string;
 }
 
 export interface PTScheduleEntry {
@@ -332,6 +337,12 @@ export const statisticsApi = {
     // Thống kê check-in
     getCheckInStats: async (): Promise<CheckInStats> => {
         const response = await api.get('/api/statistics/checkin');
+        return response.data;
+    },
+
+    // Lấy danh sách check-in real-time hôm nay
+    getRecentCheckIns: async (): Promise<RealtimeCheckIn[]> => {
+        const response = await api.get('/api/statistics/checkin/recent');
         return response.data;
     }
 };

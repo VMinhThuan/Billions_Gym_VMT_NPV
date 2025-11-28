@@ -103,14 +103,44 @@ const BubbleChat: React.FC<BubbleChatProps> = ({ isAuthenticated = true }) => {
 
         e.preventDefault();
         e.stopPropagation();
-        setIsDragging(true);
-        const rect = bubbleRef.current?.getBoundingClientRect();
-        if (rect) {
-            setDragOffset({
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
-            });
-        }
+
+        // Kiểm tra nếu click vào bubble (không phải drag), mở chat luôn
+        const clickThreshold = 5; // pixels
+        const startX = e.clientX;
+        const startY = e.clientY;
+        let hasMoved = false;
+
+        const handleMouseMove = (moveEvent: MouseEvent) => {
+            const deltaX = Math.abs(moveEvent.clientX - startX);
+            const deltaY = Math.abs(moveEvent.clientY - startY);
+
+            // Nếu di chuyển nhiều hơn threshold, coi như drag
+            if (deltaX > clickThreshold || deltaY > clickThreshold) {
+                hasMoved = true;
+                setIsDragging(true);
+                const rect = bubbleRef.current?.getBoundingClientRect();
+                if (rect) {
+                    setDragOffset({
+                        x: moveEvent.clientX - rect.left,
+                        y: moveEvent.clientY - rect.top
+                    });
+                }
+            }
+        };
+
+        const handleMouseUp = (upEvent: MouseEvent) => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+
+            // Nếu không di chuyển, coi như click và mở chat
+            if (!hasMoved) {
+                setIsOpen(true);
+            }
+            setIsDragging(false);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
     };
 
     // Handle drag - tối ưu với requestAnimationFrame
@@ -336,9 +366,8 @@ const BubbleChat: React.FC<BubbleChatProps> = ({ isAuthenticated = true }) => {
                 onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (!isDragging) {
-                        setIsOpen(true);
-                    }
+                    // Luôn mở chat khi click vào bubble
+                    setIsOpen(true);
                 }}
                 title="Chat với AI (Ctrl+/)"
             >
@@ -389,17 +418,30 @@ const BubbleChat: React.FC<BubbleChatProps> = ({ isAuthenticated = true }) => {
                                     <div className="chat-subtitle">Billions Fitness & Gym</div>
                                 </div>
                             </div>
-                            <button
-                                className="chat-close-btn"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setIsOpen(false);
-                                }}
-                                title="Đóng (Ctrl+/)"
-                            >
-                                ✕
-                            </button>
+                            <div className="chat-header-actions">
+                                <button
+                                    className="chat-toggle-btn"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setIsOpen(false);
+                                    }}
+                                    title="Thu gọn chat"
+                                >
+                                    ▼
+                                </button>
+                                <button
+                                    className="chat-close-btn"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setIsOpen(false);
+                                    }}
+                                    title="Đóng (Ctrl+/)"
+                                >
+                                    ✕
+                                </button>
+                            </div>
                         </div>
 
                         <div className="chat-messages">

@@ -112,6 +112,33 @@ const StatisticsPage: React.FC = () => {
         fetchStatistics();
     }, []);
 
+    // Real-time polling cho check-in (cập nhật mỗi 5 giây)
+    useEffect(() => {
+        // Chỉ polling khi đang ở tab check-in hoặc overview
+        if (!stats || (activeTab !== 'checkin' && activeTab !== 'overview')) {
+            return;
+        }
+
+        const intervalId = setInterval(async () => {
+            try {
+                const recentCheckIns = await statisticsApi.getRecentCheckIns();
+                // Cập nhật stats với recentCheckIns mới
+                setStats(prevStats => {
+                    if (!prevStats) return prevStats;
+                    return {
+                        ...prevStats,
+                        recentCheckIns: recentCheckIns
+                    };
+                });
+            } catch (error) {
+                console.error('Error fetching recent check-ins:', error);
+                // Không hiển thị error để không làm gián đoạn UI
+            }
+        }, 5000); // Cập nhật mỗi 5 giây
+
+        return () => clearInterval(intervalId);
+    }, [stats, activeTab]);
+
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
@@ -3053,18 +3080,59 @@ const CheckInTab: React.FC<{ stats: OverallStats; formatNumber: (n: number) => s
                 </ChartCard>
 
                 <ChartCard title="Danh sách mới nhất">
-                    <div className="realtime-list">
+                    <div className="checkin-cards-list">
                         {recentCheckins.length === 0 && <div className="realtime-empty">Chưa có dữ liệu check-in.</div>}
                         {recentCheckins.slice(0, 5).map(item => (
-                            <div className="realtime-row" key={item._id}>
-                                <div className="realtime-avatar">{getInitials(item.hoiVien?.hoTen)}</div>
-                                <div className="realtime-info">
-                                    <strong>{item.hoiVien?.hoTen || 'Ẩn danh'}</strong>
-                                    <span>{item.buoiTap?.tenBuoiTap || 'Buổi tập'}</span>
+                            <div className="checkin-card" key={item._id}>
+                                <div className="checkin-card-header">
+                                    <div className="checkin-card-avatar">{getInitials(item.hoiVien?.hoTen)}</div>
+                                    <div className="checkin-card-title">
+                                        <div className="checkin-member-name">{item.hoiVien?.hoTen || 'Ẩn danh'}</div>
+                                        <div className="checkin-time-ago">{formatRelativeTime(item.checkInTime)}</div>
+                                    </div>
+                                    <div className={`checkin-status-badge ${(item as any).isCheckedOut ? 'checked-out' : 'checked-in'}`}>
+                                        {(item as any).isCheckedOut ? 'Đã check-out' : 'Đang tập'}
+                                    </div>
                                 </div>
-                                <div className="realtime-meta">
-                                    <span>{item.chiNhanh?.tenChiNhanh || '—'}</span>
-                                    <time>{formatRelativeTime(item.checkInTime)}</time>
+
+                                <div className="checkin-card-body">
+                                    <div className="checkin-info-row">
+                                        <span className="checkin-label">Chi nhánh</span>
+                                        <span className="checkin-value">{item.chiNhanh?.tenChiNhanh || '—'}</span>
+                                    </div>
+                                    <div className="checkin-info-row">
+                                        <span className="checkin-label">Buổi tập</span>
+                                        <span className="checkin-value">{item.buoiTap?.tenBuoiTap || '—'}</span>
+                                    </div>
+                                    <div className="checkin-info-row">
+                                        <span className="checkin-label">Khung giờ</span>
+                                        <span className="checkin-value">
+                                            {(item.buoiTap as any)?.gioBatDau && (item.buoiTap as any)?.gioKetThuc
+                                                ? `${(item.buoiTap as any).gioBatDau} - ${(item.buoiTap as any).gioKetThuc}`
+                                                : '—'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="checkin-card-footer">
+                                    <div className="checkin-time-info">
+                                        <div className="checkin-time-item">
+                                            <span className="checkin-time-label">Check-in</span>
+                                            <span className="checkin-time-value">
+                                                {item.checkInTime
+                                                    ? new Date(item.checkInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                                                    : '—'}
+                                            </span>
+                                        </div>
+                                        {item.checkOutTime && (
+                                            <div className="checkin-time-item">
+                                                <span className="checkin-time-label">Check-out</span>
+                                                <span className="checkin-time-value">
+                                                    {new Date(item.checkOutTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))}

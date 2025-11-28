@@ -21,6 +21,21 @@ import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import axios from 'axios';
 
 const { width } = Dimensions.get('window');
+const removeDiacritics = (value = '') => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const normalizeDurationUnit = (unit = '') => removeDiacritics(unit).toLowerCase();
+const formatDurationUnitLabel = (unit = '') => {
+    const normalized = normalizeDurationUnit(unit);
+    switch (normalized) {
+        case 'thang':
+            return 'Tháng';
+        case 'nam':
+            return 'Năm';
+        case 'phut':
+            return 'Phút';
+        default:
+            return 'Ngày';
+    }
+};
 
 const MembershipScreen = () => {
     const navigation = useNavigation();
@@ -117,7 +132,7 @@ const MembershipScreen = () => {
                 const transformedPackages = Array.isArray(packages) ? packages.map(pkg => ({
                     id: pkg._id,
                     name: pkg.tenGoiTap,
-                    duration: `${pkg.thoiHan} ${pkg.donViThoiHan === 'Thang' ? 'tháng' : 'ngày'}`,
+                    duration: `${pkg.thoiHan} ${formatDurationUnitLabel(pkg.donViThoiHan).toLowerCase()}`,
                     price: `${pkg.gia?.toLocaleString('vi-VN')}đ`,
                     features: pkg.moTa?.split('\n') || ['Gói tập cơ bản'],
                     popular: pkg.popular || false,

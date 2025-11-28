@@ -1,4 +1,5 @@
 const ChiTietGoiTap = require('../models/ChiTietGoiTap');
+const { addDuration } = require('../utils/duration.utils');
 const { HoiVien } = require('../models/NguoiDung');
 const GoiTap = require('../models/GoiTap');
 
@@ -58,22 +59,11 @@ const dangKyGoiTap = async (req, res) => {
             });
         }
 
-        // Tính ngày kết thúc dựa trên thời hạn gói tập
-        // Ngày kết thúc = Ngày bắt đầu + Thời hạn gói tập
-        // Áp dụng cho cả: Gói mới và Gói nâng cấp
-        const ngayKetThuc = new Date(ngayBatDau);
-
         console.log(`📅 Tính ngày kết thúc cho gói ${goiTap.tenGoiTap}`);
-        console.log(`   - Ngày bắt đầu: ${new Date(ngayBatDau).toLocaleDateString('vi-VN')}`);
+        console.log(`   - Ngày bắt đầu: ${new Date(ngayBatDau).toLocaleString('vi-VN')}`);
         console.log(`   - Thời hạn: ${goiTap.thoiHan} ${goiTap.donViThoiHan}`);
 
-        if (goiTap.donViThoiHan === 'Ngày') {
-            ngayKetThuc.setDate(ngayKetThuc.getDate() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Tháng') {
-            ngayKetThuc.setMonth(ngayKetThuc.getMonth() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Năm') {
-            ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + goiTap.thoiHan);
-        }
+        const ngayKetThuc = addDuration(ngayBatDau, goiTap.thoiHan, goiTap.donViThoiHan);
 
         console.log(`   - Ngày kết thúc: ${ngayKetThuc.toLocaleDateString('vi-VN')}`);
         console.log(`   - isUpgrade: ${isUpgrade}`);

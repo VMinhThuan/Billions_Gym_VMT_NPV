@@ -209,7 +209,9 @@ export const packageAPI = {
         return apiRequest(`${API_ENDPOINTS.GET_MY_PACKAGES}/${memberId}`);
     },
     getActivePackage: async (memberId) => {
-        return apiRequest(`${API_ENDPOINTS.GET_ACTIVE_PACKAGE}/${memberId}/active`);
+        return apiRequest(`${API_ENDPOINTS.GET_ACTIVE_PACKAGE}/${memberId}/active`, {
+            allow404: true
+        });
     },
 };
 export const workoutAPI = {
@@ -272,17 +274,26 @@ export const nutritionAPI = {
             method: 'POST',
             body: JSON.stringify({
                 goal,
-                calories: parseInt(calories),
+                calories: calories ? parseInt(calories, 10) : undefined,
                 period,
                 preferences,
                 mealType,
-                date: date || new Date().toISOString().split('T')[0] // Default to today if not provided
+                date: date || new Date().toISOString().split('T')[0]
             }),
         });
     },
     // Lấy plan mới nhất
     getLatestPlan: async () => {
         return apiRequest('/nutrition/plan/latest');
+    },
+    // Lịch sử mục tiêu dinh dưỡng đã tạo với AI
+    getGoalHistory: async () => {
+        return apiRequest('/nutrition/plan/history');
+    },
+    // Gợi ý calories dựa trên chỉ số cơ thể
+    getRecommendedCalories: async (goal = '') => {
+        const query = goal ? `?goal=${encodeURIComponent(goal)}` : '';
+        return apiRequest(`/nutrition/plan/recommend-calories${query}`);
     },
     // Lấy tất cả meals từ database
     getAllMeals: async (params = {}) => {

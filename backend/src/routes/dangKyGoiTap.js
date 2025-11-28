@@ -3,6 +3,7 @@ const router = express.Router();
 const DangKyGoiTap = require('../models/DangKyGoiTap');
 const { HoiVien } = require('../models/NguoiDung');
 const GoiTap = require('../models/GoiTap');
+const { addDuration } = require('../utils/duration.utils');
 
 // GET /api/dangkygoitap - Lấy tất cả đăng ký gói tập
 router.get('/', async (req, res) => {
@@ -178,21 +179,7 @@ router.post('/', async (req, res) => {
         // Calculate end date if not provided
         let calculatedEndDate = ngayKetThuc;
         if (!calculatedEndDate) {
-            const startDate = new Date(ngayBatDau);
-            const endDate = new Date(startDate);
-
-            switch (packageInfo.donViThoiHan) {
-                case 'Ngày':
-                    endDate.setDate(startDate.getDate() + packageInfo.thoiHan);
-                    break;
-                case 'Tháng':
-                    endDate.setMonth(startDate.getMonth() + packageInfo.thoiHan);
-                    break;
-                case 'Năm':
-                    endDate.setFullYear(startDate.getFullYear() + packageInfo.thoiHan);
-                    break;
-            }
-            calculatedEndDate = endDate;
+            calculatedEndDate = addDuration(ngayBatDau, packageInfo.thoiHan, packageInfo.donViThoiHan);
         }
 
         // Create new registration

@@ -6,6 +6,7 @@ import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
 import checkIcon from '../assets/check.svg';
 import topRightIcon from '../assets/top-right.svg';
+import { addDuration, formatDurationUnitLabel } from '../utils/duration';
 
 const ActivePackage = () => {
     const navigate = useNavigate();
@@ -88,20 +89,9 @@ const ActivePackage = () => {
 
     const getPackageData = (pkg) => pkg.maGoiTap || pkg.goiTapId;
 
-    const formatDuration = (thoiHan) => {
+    const formatDuration = (thoiHan, unit = 'Ngay') => {
         if (!thoiHan) return '';
-
-        if (thoiHan < 30) {
-            return `${thoiHan} ngày`;
-        }
-        else if (thoiHan >= 30 && thoiHan < 365) {
-            const months = Math.floor(thoiHan / 30);
-            return `${months} tháng`;
-        }
-        else {
-            const years = Math.floor(thoiHan / 365);
-            return `${years} năm`;
-        }
+        return `${thoiHan} ${formatDurationUnitLabel(unit).toLowerCase()}`;
     };
 
     if (loading) {
@@ -165,7 +155,7 @@ const ActivePackage = () => {
         name: pkg.tenGoiTap,
         description: pkg.moTa || 'Gói tập chất lượng cao với nhiều quyền lợi.',
         price: pkg.donGia?.toLocaleString('vi-VN') || '0',
-        duration: formatDuration(pkg.thoiHan),
+        duration: formatDuration(pkg.thoiHan, pkg.donViThoiHan),
         features: pkg.quyenLoi && pkg.quyenLoi.length > 0
             ? pkg.quyenLoi.map(ql => ql.tenQuyenLoi || ql.moTa || ql)
             : [
@@ -290,7 +280,7 @@ const ActivePackage = () => {
                                                     </span>
                                                     <span className="text-xl text-white">₫</span>
                                                     <span className="text-base text-gray-400">
-                                                        /{formatDuration(currentPkg.thoiHan)}
+                                                        /{formatDuration(currentPkg.thoiHan, currentPkg.donViThoiHan)}
                                                     </span>
                                                 </div>
                                                 <p className="text-xs text-gray-500 mt-2">
@@ -301,20 +291,7 @@ const ActivePackage = () => {
                                                         }
 
                                                         if (currentPackage.ngayBatDau && currentPkg.thoiHan) {
-                                                            const ngayBatDau = new Date(currentPackage.ngayBatDau);
-                                                            const thoiHan = currentPkg.thoiHan;
-                                                            const ngayKetThuc = new Date(ngayBatDau);
-
-                                                            if (currentPkg.donViThoiHan === 'Ngày') {
-                                                                ngayKetThuc.setDate(ngayKetThuc.getDate() + thoiHan);
-                                                            } else if (currentPkg.donViThoiHan === 'Tháng') {
-                                                                ngayKetThuc.setMonth(ngayKetThuc.getMonth() + thoiHan);
-                                                            } else if (currentPkg.donViThoiHan === 'Năm') {
-                                                                ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + thoiHan);
-                                                            } else {
-                                                                ngayKetThuc.setDate(ngayKetThuc.getDate() + thoiHan);
-                                                            }
-
+                                                            const ngayKetThuc = addDuration(currentPackage.ngayBatDau, currentPkg.thoiHan, currentPkg.donViThoiHan);
                                                             return ngayKetThuc.toLocaleDateString('vi-VN');
                                                         }
 

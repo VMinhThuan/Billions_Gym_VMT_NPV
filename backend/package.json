@@ -29,7 +29,8 @@
         "node-fetch": "^2.7.0",
         "os": "^0.1.2",
         "socket.io": "^4.8.1",
-        "twilio": "^5.9.0"
+        "twilio": "^5.9.0",
+        "yt-search": "^2.13.1"
     },
     "devDependencies": {
         "nodemon": "^3.1.10"
