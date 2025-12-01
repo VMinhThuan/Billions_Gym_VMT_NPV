@@ -18,29 +18,39 @@ exports.getChatRooms = async (req, res) => {
             })
             .sort({ lastMessageAt: -1 });
 
-        // Lọc và format dữ liệu
-        const formattedRooms = rooms
-            .filter(room => room.participants && room.participants.length > 0)
-            .map(room => {
-                const participants = Array.isArray(room.participants)
-                    ? room.participants
-                    : [room.participants];
+        // Lọc và format dữ liệu với unread count
+        const formattedRooms = await Promise.all(
+            rooms
+                .filter(room => room.participants && room.participants.length > 0)
+                .map(async (room) => {
+                    const participants = Array.isArray(room.participants)
+                        ? room.participants
+                        : [room.participants];
 
-                const hoiVien = participants.find(p => p._id && p._id.toString() !== ptId.toString());
+                    const hoiVien = participants.find(p => p._id && p._id.toString() !== ptId.toString());
 
-                return {
-                    _id: room._id,
-                    hoiVien: hoiVien,
-                    lastMessage: room.lastMessage,
-                    lastMessageAt: room.lastMessageAt,
-                    unreadCount: 0 // Sẽ tính sau
-                };
-            })
-            .filter(room => room.hoiVien); // Chỉ lấy rooms có hoiVien
+                    // Đếm số tin nhắn chưa đọc (tin nhắn từ hội viên mà PT chưa đọc)
+                    const unreadCount = await ChatMessage.countDocuments({
+                        room: room._id,
+                        sender: { $ne: ptId },
+                        isRead: false
+                    });
+
+                    return {
+                        _id: room._id,
+                        hoiVien: hoiVien,
+                        lastMessage: room.lastMessage,
+                        lastMessageAt: room.lastMessageAt,
+                        unreadCount: unreadCount
+                    };
+                })
+        );
+
+        const filteredRooms = formattedRooms.filter(room => room.hoiVien);
 
         res.json({
             success: true,
-            data: formattedRooms
+            data: filteredRooms
         });
     } catch (err) {
         console.error('Error in getChatRooms:', err);

@@ -3,7 +3,11 @@ import { API_CONFIG } from '../constants/api';
 import { authUtils } from '../utils/auth';
 import { apiRequest } from './api';
 
-const CHAT_API_BASE = '/pt/chat';
+// Determine chat API base based on user role
+const getChatApiBase = () => {
+    const user = authUtils.getUser();
+    return user?.vaiTro === 'PT' || user?.vaiTro === 'OngChu' ? '/pt/chat' : '/member/chat';
+};
 // Socket.IO server URL - remove /api if present, or use base URL directly
 const SOCKET_URL = API_CONFIG.BASE_URL.includes('/api')
     ? API_CONFIG.BASE_URL.replace('/api', '')
@@ -163,29 +167,46 @@ class ChatService {
 
     // API methods
     async getChatRooms() {
-        return apiRequest(`${CHAT_API_BASE}/rooms`, {
+        const apiBase = getChatApiBase();
+        return apiRequest(`${apiBase}/rooms`, {
             method: 'GET'
         });
     }
 
-    async getOrCreateRoom(hoiVienId) {
-        return apiRequest(`${CHAT_API_BASE}/rooms/${hoiVienId}`, {
+    async getOrCreateRoom(otherUserId) {
+        const apiBase = getChatApiBase();
+        return apiRequest(`${apiBase}/rooms/${otherUserId}`, {
             method: 'GET'
         });
     }
 
     async getChatMessages(roomId, params = {}) {
+        const apiBase = getChatApiBase();
+        console.log('[ChatService] Getting messages for room:', roomId, 'with params:', params);
+        console.log('[ChatService] API base:', apiBase);
+
         const queryParams = new URLSearchParams();
         if (params.page) queryParams.append('page', params.page);
         if (params.limit) queryParams.append('limit', params.limit);
 
         const queryString = queryParams.toString();
-        return apiRequest(`${CHAT_API_BASE}/rooms/${roomId}/messages${queryString ? `?${queryString}` : ''}`, {
-            method: 'GET'
-        });
+        const url = `${apiBase}/rooms/${roomId}/messages${queryString ? `?${queryString}` : ''}`;
+        console.log('[ChatService] Request URL:', url);
+
+        try {
+            const response = await apiRequest(url, {
+                method: 'GET'
+            });
+            console.log('[ChatService] Messages response:', response);
+            return response;
+        } catch (error) {
+            console.error('[ChatService] Error getting messages:', error);
+            throw error;
+        }
     }
 
     async uploadFile(file) {
+        const apiBase = getChatApiBase();
         const formData = new FormData();
         formData.append('file', file);
 
@@ -194,7 +215,7 @@ class ChatService {
             'Authorization': `Bearer ${token}`
         };
 
-        const response = await fetch(`${API_CONFIG.BASE_URL}${CHAT_API_BASE}/upload`, {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${apiBase}/upload`, {
             method: 'POST',
             headers: headers,
             body: formData

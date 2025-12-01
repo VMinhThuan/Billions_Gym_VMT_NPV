@@ -16,6 +16,13 @@ const PTSidebar = ({ isOpen, onClose }) => {
             description: 'Tổng quan lịch làm việc'
         },
         {
+            id: 'profile',
+            label: 'Hồ sơ cá nhân',
+            icon: 'user',
+            path: '/pt/profile',
+            description: 'Thông tin cá nhân PT'
+        },
+        {
             id: 'statistics',
             label: 'Thống kê',
             icon: 'bar-chart',

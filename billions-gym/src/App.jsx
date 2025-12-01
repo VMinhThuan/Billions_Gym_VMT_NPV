@@ -26,6 +26,7 @@ import MyMeals from './pages/MyMeals'
 import BubbleChat from './components/BubbleChat'
 // PT Pages
 import PTDashboard from './pages/pt/PTDashboard'
+import PTProfile from './pages/pt/PTProfile'
 import PTSchedule from './pages/pt/PTSchedule'
 import PTStudents from './pages/pt/PTStudents'
 import PTStudentDetail from './pages/pt/PTStudentDetail'
@@ -140,6 +141,7 @@ const AppContent = () => {
             <Route path='/my-meals' element={<MyMeals />} />
             {/* PT Routes */}
             <Route path='/pt/dashboard' element={<PTDashboard />} />
+            <Route path='/pt/profile' element={<PTProfile />} />
             <Route path='/pt/schedule' element={<PTSchedule />} />
             <Route path='/pt/students' element={<PTStudents />} />
             <Route path='/pt/students/:id' element={<PTStudentDetail />} />

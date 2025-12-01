@@ -4,6 +4,8 @@ import { authUtils } from '../utils/auth';
 import './Exercises.css';
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
+import ChatWindowPopup from "../components/chat/ChatWindowPopup";
+import chatService from '../services/chat.service';
 
 const VISIBLE_COUNT = 4;
 const MAX_CACHE_ITEMS = 20;
@@ -71,6 +73,10 @@ const Exercises = () => {
     const [pts, setPts] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterDifficulty, setFilterDifficulty] = useState('all');
+    const [selectedPT, setSelectedPT] = useState(null);
+    const [chatRoom, setChatRoom] = useState(null);
+    const [showChat, setShowChat] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
 
     // Lưu trữ video đã xem - sẽ fetch từ backend
     const [watchedExercises, setWatchedExercises] = useState({});
@@ -229,6 +235,47 @@ const Exercises = () => {
             window.removeEventListener('sidebar:toggle', handleSidebarToggle);
         };
     }, []);
+
+    // Lắng nghe tin nhắn mới từ PT
+    useEffect(() => {
+        chatService.connect();
+
+        const handleNewMessage = (message) => {
+            console.log('[Exercises] New message received:', message);
+            
+            const currentUser = authUtils.getUser();
+            
+            // Chỉ cập nhật unread nếu:
+            // 1. Không phải tin nhắn của mình
+            // 2. Không đang mở chat HOẶC đang mở chat nhưng không phải room này
+            if (message.sender._id !== currentUser?._id && message.sender !== currentUser?._id) {
+                if (!showChat || (chatRoom && chatRoom._id !== message.room)) {
+                    setUnreadCount(prev => prev + 1);
+                }
+            }
+        };
+
+        chatService.on('new-message', handleNewMessage);
+
+        // Load unread count khi component mount
+        const loadUnreadCount = async () => {
+            try {
+                const response = await chatService.getChatRooms();
+                if (response.success && response.data.length > 0) {
+                    const totalUnread = response.data.reduce((sum, room) => sum + (room.unreadCount || 0), 0);
+                    setUnreadCount(totalUnread);
+                }
+            } catch (error) {
+                console.error('[Exercises] Error loading unread count:', error);
+            }
+        };
+
+        loadUnreadCount();
+
+        return () => {
+            chatService.off('new-message', handleNewMessage);
+        };
+    }, [showChat, chatRoom]);
 
     useEffect(() => {
         const load = async () => {
@@ -459,6 +506,43 @@ const Exercises = () => {
         } catch (e) {
             console.error('Error loading template:', e);
         }
+    };
+
+    const handleChatWithPT = async (pt) => {
+        console.log('🔵 Starting chat with PT:', pt.hoTen);
+        try {
+            if (!chatService.socket || !chatService.socket.connected) {
+                console.log('📡 WebSocket not connected, connecting...');
+                await chatService.connect();
+            }
+
+            console.log('📞 Creating/getting chat room with PT ID:', pt._id);
+            const response = await chatService.getOrCreateRoom(pt._id);
+            console.log('✅ Chat room response:', response);
+
+            const room = response.data; // Extract room from response.data
+            console.log('✅ Chat room:', room);
+
+            setSelectedPT(pt);
+            setChatRoom(room);
+            setShowChat(true);
+            
+            // Reset unread count khi mở chat
+            setUnreadCount(0);
+        } catch (error) {
+            console.error('❌ Failed to open chat:', error);
+            alert('Không thể mở chat. Vui lòng thử lại sau.');
+        }
+    };
+
+    const handleCloseChat = () => {
+        console.log('🔴 Closing chat window');
+        setShowChat(false);
+        setSelectedPT(null);
+        setChatRoom(null);
+        
+        // Reset unread count khi đóng chat
+        setUnreadCount(0);
     };
 
     const filteredExercises = selectedTemplate?.baiTap ? selectedTemplate.baiTap.filter(exercise => {
@@ -786,10 +870,18 @@ const Exercises = () => {
                                     </div>
                                     <div className="mt-6 flex justify-end items-center gap-2">
                                         <button className="px-3 py-1.5 border border-[#da2128] rounded text-sm text-[#da2128] cursor-pointer hover:bg-[#da2128] hover:text-white hover:border-[#da2128] transition">Xem hồ sơ</button>
-                                        <button aria-label={`Message ${pt.hoTen}`} className="px-2 py-1.5 cursor-pointer border rounded text-sm flex items-center justify-center bg-[#da2128] bg-opacity-5">
+                                        <button
+                                            onClick={() => handleChatWithPT(pt)}
+                                            aria-label={`Message ${pt.hoTen}`}
+                                            className="px-2 py-1.5 cursor-pointer border rounded text-sm flex items-center justify-center bg-[#da2128] bg-opacity-5 hover:bg-opacity-10 transition relative">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="w-4 h-4 text-white" fill="#ffffff" aria-hidden="true">
                                                 <path d="M10 0c5.342 0 10 4.41 10 9.5c0 5.004-4.553 8.942-10 8.942a11.01 11.01 0 0 1-3.43-.546c-.464.45-.623.603-1.608 1.553c-.71.536-1.378.718-1.975.38c-.602-.34-.783-1.002-.66-1.874l.4-2.319C.99 14.002 0 11.842 0 9.5C0 4.41 4.657 0 10 0Zm0 1.4c-4.586 0-8.6 3.8-8.6 8.1c0 2.045.912 3.928 2.52 5.33l.02.017l.297.258l-.067.39l-.138.804l-.037.214l-.285 1.658a2.79 2.79 0 0 0-.03.337v.095c0 .005-.001.007-.002.008c.007-.01.143-.053.376-.223l2.17-2.106l.414.156a9.589 9.589 0 0 0 3.362.605c4.716 0 8.6-3.36 8.6-7.543c0-4.299-4.014-8.1-8.6-8.1ZM5.227 7.813a1.5 1.5 0 1 1 0 2.998a1.5 1.5 0 0 1 0-2.998Zm4.998 0a1.5 1.5 0 1 1 0 2.998a1.5 1.5 0 0 1 0-2.998Zm4.997 0 a1.5 1.5 0 1 1 0 2.998a1.5 1.5 0 0 1 0-2.998Z" />
                                             </svg>
+                                            {unreadCount > 0 && (
+                                                <span className="absolute -top-1 -right-1 bg-[#da2128] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                                </span>
+                                            )}
                                         </button>
                                     </div>
                                 </div>
@@ -798,6 +890,15 @@ const Exercises = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Chat Window */}
+            {showChat && selectedPT && chatRoom && (
+                <ChatWindowPopup
+                    roomId={chatRoom._id}
+                    recipient={selectedPT}
+                    onClose={handleCloseChat}
+                />
+            )}
         </>
     );
 }

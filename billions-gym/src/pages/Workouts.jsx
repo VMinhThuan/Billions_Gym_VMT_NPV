@@ -3,6 +3,7 @@ import api from '../services/api';
 import './Workouts.css';
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
+import FeaturedTrainers from "../components/chat/FeaturedTrainers";
 
 const Workouts = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -307,6 +308,11 @@ const Workouts = () => {
                                             </label>
                                         ))}
                                     </div>
+                                </div>
+
+                                {/* Featured Trainers */}
+                                <div className="mt-6">
+                                    <FeaturedTrainers />
                                 </div>
                             </div>
                         </aside>
