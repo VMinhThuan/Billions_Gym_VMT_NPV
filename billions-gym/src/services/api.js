@@ -291,6 +291,10 @@ export const nutritionAPI = {
         return apiRequest('/nutrition/plan/history');
     },
     // Gợi ý calories dựa trên chỉ số cơ thể
+    getMyMeals: async (date = null) => {
+        const url = date ? `/nutrition/my-meals?date=${date}` : '/nutrition/my-meals';
+        return apiRequest(url, { allow404: true });
+    },
     getRecommendedCalories: async (goal = '') => {
         const query = goal ? `?goal=${encodeURIComponent(goal)}` : '';
         return apiRequest(`/nutrition/plan/recommend-calories${query}`);
@@ -348,6 +352,12 @@ export const bodyMetricsAPI = {
             : `${API_ENDPOINTS.GET_BODY_METRICS}/hoivien/${memberId}`;
         return apiRequest(url);
     },
+    getMyLatest: async () => {
+        return apiRequest('/chisocothe/my/latest', { allow404: true });
+    },
+    getMyStats: async () => {
+        return apiRequest('/chisocothe/my/thongke', { allow404: true });
+    },
     createBodyMetrics: async (metricsData) => {
         return apiRequest(API_ENDPOINTS.CREATE_BODY_METRICS, {
             method: 'POST',
@@ -358,6 +368,25 @@ export const bodyMetricsAPI = {
         return apiRequest(`${API_ENDPOINTS.UPDATE_BODY_METRICS}/${id}`, {
             method: 'PUT',
             body: JSON.stringify(metricsData),
+        });
+    },
+};
+export const paymentAPI = {
+    getMyPayments: async () => {
+        return apiRequest('/thanhtoan/my', { allow404: true });
+    },
+    getPayments: async (memberId) => {
+        return apiRequest(`${API_ENDPOINTS.GET_PAYMENTS}/hoivien/${memberId}`);
+    },
+    createPayment: async (paymentData) => {
+        return apiRequest(API_ENDPOINTS.CREATE_PAYMENT, {
+            method: 'POST',
+            body: JSON.stringify(paymentData),
+        });
+    },
+    confirmPayment: async (paymentId) => {
+        return apiRequest(`${API_ENDPOINTS.CONFIRM_PAYMENT}/${paymentId}/confirm`, {
+            method: 'PUT',
         });
     },
 };
@@ -398,22 +427,6 @@ export const chatbotAPI = {
     },
     getChatHistory: async (limit = 50) => {
         return apiRequest(`${API_ENDPOINTS.GET_CHAT_HISTORY}?limit=${limit}`);
-    },
-};
-export const paymentAPI = {
-    getPayments: async (memberId) => {
-        return apiRequest(`${API_ENDPOINTS.GET_PAYMENTS}/hoivien/${memberId}`);
-    },
-    createPayment: async (paymentData) => {
-        return apiRequest(API_ENDPOINTS.CREATE_PAYMENT, {
-            method: 'POST',
-            body: JSON.stringify(paymentData),
-        });
-    },
-    confirmPayment: async (paymentId) => {
-        return apiRequest(`${API_ENDPOINTS.CONFIRM_PAYMENT}/${paymentId}/confirm`, {
-            method: 'PUT',
-        });
     },
 };
 

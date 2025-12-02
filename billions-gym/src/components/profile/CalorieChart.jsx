@@ -1,17 +1,78 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Flame } from "lucide-react";
 
-const data = [
-    { day: 'T2', calories: 2200, target: 2500 },
-    { day: 'T3', calories: 2400, target: 2500 },
-    { day: 'T4', calories: 2600, target: 2500 },
-    { day: 'T5', calories: 2300, target: 2500 },
-    { day: 'T6', calories: 2500, target: 2500 },
-    { day: 'T7', calories: 2100, target: 2500 },
-    { day: 'CN', calories: 2350, target: 2500 },
-];
+export function CalorieChart({ nutritionData }) {
+    const parseCalorieData = () => {
+        const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+        const target = nutritionData?.targetCalories || 2500;
 
-export function CalorieChart() {
+        if (!nutritionData || !nutritionData.weeklyData || !Array.isArray(nutritionData.weeklyData) || nutritionData.weeklyData.length === 0) {
+            return {
+                chartData: days.map(day => ({ day, calories: 0, target })),
+                average: 0,
+                max: 0,
+                min: 0,
+                target
+            };
+        }
+
+        const weeklyData = nutritionData.weeklyData;
+
+        // Calculate calories for each day from meals
+        const chartData = weeklyData.slice(0, 7).map((dayData, index) => {
+            let totalCalories = 0;
+
+            if (dayData.meals) {
+                const mealTypes = ['buaSang', 'phu1', 'buaTrua', 'phu2', 'buaToi', 'phu3'];
+                mealTypes.forEach(mealType => {
+                    if (dayData.meals[mealType] && Array.isArray(dayData.meals[mealType])) {
+                        dayData.meals[mealType].forEach(mealItem => {
+                            if (mealItem.meal && mealItem.meal.calories) {
+                                totalCalories += mealItem.meal.calories;
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Get day name from date
+            let dayName = days[index] || `Ngày ${index + 1}`;
+            if (dayData.date) {
+                try {
+                    const date = new Date(dayData.date);
+                    const dayOfWeek = date.getDay();
+                    dayName = days[dayOfWeek === 0 ? 6 : dayOfWeek - 1] || days[index] || `Ngày ${index + 1}`;
+                } catch (e) {
+                    // Use default
+                }
+            }
+
+            return {
+                day: dayName,
+                calories: totalCalories,
+                target
+            };
+        });
+
+        // Fill remaining days if needed
+        while (chartData.length < 7) {
+            const index = chartData.length;
+            chartData.push({
+                day: days[index] || `Ngày ${index + 1}`,
+                calories: 0,
+                target
+            });
+        }
+
+        const calories = chartData.map(d => d.calories).filter(c => c > 0);
+        const average = calories.length > 0 ? calories.reduce((a, b) => a + b, 0) / calories.length : 0;
+        const max = calories.length > 0 ? Math.max(...calories) : 0;
+        const min = calories.length > 0 ? Math.min(...calories) : 0;
+
+        return { chartData, average, max, min, target };
+    };
+
+    const { chartData, average, max, min, target } = parseCalorieData();
     return (
         <div className="bg-[#141414] rounded-xl p-6">
             <div className="flex items-center justify-between mb-6">
@@ -27,13 +88,13 @@ export function CalorieChart() {
 
                 <div className="text-right">
                     <p className="text-zinc-400 text-sm">Mục tiêu/ngày</p>
-                    <p className="font-bold text-white">2,500 kcal</p>
+                    <p className="font-bold text-white">{target.toLocaleString('vi-VN')} kcal</p>
                 </div>
             </div>
 
             <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                         <defs>
                             <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#da2128" stopOpacity={1} />
@@ -62,7 +123,7 @@ export function CalorieChart() {
                             cursor={{ fill: 'rgba(218, 33, 40, 0.1)' }}
                         />
                         <Bar dataKey="calories" radius={[8, 8, 0, 0]}>
-                            {data.map((entry, index) => (
+                            {chartData.map((entry, index) => (
                                 <Cell
                                     key={`cell-${index}`}
                                     fill={entry.calories >= entry.target ? "url(#barGradient)" : "#444"}
@@ -76,15 +137,15 @@ export function CalorieChart() {
             <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-zinc-800">
                 <div className="text-center">
                     <p className="text-zinc-400 text-sm mb-1">Trung bình</p>
-                    <p className="font-bold text-white">2,350 kcal</p>
+                    <p className="font-bold text-white">{average > 0 ? `${Math.round(average).toLocaleString('vi-VN')} kcal` : '--'}</p>
                 </div>
                 <div className="text-center">
                     <p className="text-zinc-400 text-sm mb-1">Cao nhất</p>
-                    <p className="font-bold text-[#da2128]">2,600 kcal</p>
+                    <p className="font-bold text-[#da2128]">{max > 0 ? `${max.toLocaleString('vi-VN')} kcal` : '--'}</p>
                 </div>
                 <div className="text-center">
                     <p className="text-zinc-400 text-sm mb-1">Thấp nhất</p>
-                    <p className="font-bold text-blue-400">2,100 kcal</p>
+                    <p className="font-bold text-blue-400">{min > 0 ? `${min.toLocaleString('vi-VN')} kcal` : '--'}</p>
                 </div>
             </div>
         </div>

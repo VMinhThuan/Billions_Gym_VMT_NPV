@@ -759,6 +759,7 @@ const completeWorkflow = async (req, res) => {
     try {
         console.log('🎯 completeWorkflow called with chiTietGoiTapId:', req.params.chiTietGoiTapId);
         const { chiTietGoiTapId } = req.params;
+        const { skipScheduleForReuse } = req.body || {};
 
         // Kiểm tra chi tiết gói tập
         const chiTietGoiTap = await ChiTietGoiTap.findById(chiTietGoiTapId);
@@ -779,7 +780,30 @@ const completeWorkflow = async (req, res) => {
             });
         }
 
-        // Kiểm tra xem đã hoàn thành đủ các bước chưa
+        // Nếu được phép bỏ qua kiểm tra lịch tập (khi hội viên sử dụng lại thông tin cũ)
+        if (skipScheduleForReuse) {
+            console.log('⚙️ completeWorkflow - skipScheduleForReuse=true, completing workflow using previous info');
+
+            // Yêu cầu tối thiểu: đã có PT và chi nhánh
+            if (!chiTietGoiTap.ptDuocChon || !chiTietGoiTap.branchId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Không thể hoàn tất workflow vì thiếu PT hoặc chi nhánh. Vui lòng hoàn thành các bước còn lại.'
+                });
+            }
+
+            chiTietGoiTap.trangThaiDangKy = 'HOAN_THANH';
+            chiTietGoiTap.trangThaiSuDung = chiTietGoiTap.trangThaiSuDung || 'DANG_HOAT_DONG';
+            await chiTietGoiTap.save();
+
+            return res.json({
+                success: true,
+                message: 'Đã hoàn tất workflow gói tập bằng cách sử dụng lại thông tin chi nhánh và PT trước đó.',
+                data: chiTietGoiTap
+            });
+        }
+
+        // Kiểm tra xem đã hoàn thành đủ các bước chưa (flow chuẩn)
         // 1. Đã chọn PT
         if (!chiTietGoiTap.ptDuocChon) {
             console.log('❌ PT chưa được chọn');

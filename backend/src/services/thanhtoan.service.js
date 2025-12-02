@@ -133,8 +133,20 @@ const getThanhToanById = async (id) => {
  */
 const getThanhToanByHoiVien = async (hoiVienId) => {
     return await ThanhToan.find({ hoiVien: hoiVienId })
-        .populate('maChiTietGoiTap')
-        .sort({ createdAt: -1 });
+        .populate({
+            path: 'maChiTietGoiTap',
+            populate: [
+                {
+                    path: 'goiTapId',
+                    select: 'tenGoiTap donGia thoiHan donViThoiHan'
+                },
+                {
+                    path: 'maGoiTap',
+                    select: 'tenGoiTap donGia thoiHan donViThoiHan'
+                }
+            ]
+        })
+        .sort({ ngayThanhToan: -1, createdAt: -1 });
 };
 
 /**

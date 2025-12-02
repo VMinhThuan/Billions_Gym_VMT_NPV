@@ -20,6 +20,33 @@ const PackageWorkflow = () => {
     const [branches, setBranches] = useState([]);
     const [trainers, setTrainers] = useState([]);
     const [error, setError] = useState(null);
+    const [previousPackageInfo, setPreviousPackageInfo] = useState(null);
+    const [showInfoChoiceModal, setShowInfoChoiceModal] = useState(false);
+    const [keepPreviousInfo, setKeepPreviousInfo] = useState(false);
+    const [hasHandledInfoChoice, setHasHandledInfoChoice] = useState(false);
+
+    // Kiểm tra gói hoàn tất trước đó NGAY KHI VÀO TRANG
+    useEffect(() => {
+        const checkPreviousPackage = async () => {
+            try {
+                console.log('🔍 [Workflow] Checking for previous completed package...');
+                const response = await api.get('/chitietgoitap/last-completed', {}, { requireAuth: true });
+                console.log('📦 [Workflow] Last completed package response:', response);
+
+                if (response && response.success && response.hasPreviousPackage) {
+                    setPreviousPackageInfo(response.data);
+                    console.log('✅ [Workflow] Found previous completed package:', response.data);
+                } else {
+                    console.log('ℹ️ [Workflow] No previous completed package found');
+                }
+            } catch (error) {
+                console.error('❌ [Workflow] Error checking previous package:', error);
+                // This is normal for first-time users
+            }
+        };
+
+        checkPreviousPackage();
+    }, [registrationId]);
 
     useEffect(() => {
         const init = async () => {
@@ -31,6 +58,58 @@ const PackageWorkflow = () => {
         };
         init();
     }, [registrationId]);
+
+    // Hiển thị modal khi có previousPackageInfo và workflow chưa hoàn tất
+    useEffect(() => {
+        if (!previousPackageInfo || !workflowData || hasHandledInfoChoice) {
+            return;
+        }
+
+        // Kiểm tra workflow chưa hoàn tất
+        const isNotCompleted = workflowData?.currentStep !== 'completed' &&
+            workflowData?.workflowSteps?.completed?.status !== 'completed' &&
+            workflowData?.registration?.trangThaiDangKy !== 'HOAN_THANH';
+
+        if (isNotCompleted) {
+            console.log('✅ [Workflow] Showing info choice modal - has previous package and workflow not completed', {
+                currentStep: workflowData?.currentStep,
+                trangThaiDangKy: workflowData?.registration?.trangThaiDangKy,
+                previousPackageInfo
+            });
+            setShowInfoChoiceModal(true);
+        }
+    }, [previousPackageInfo, workflowData, hasHandledInfoChoice]);
+
+    // Kiểm tra và quyết định có hiển thị modal không dựa trên workflow status
+    const checkPreviousCompletedPackage = async (workflowStatusData) => {
+        // Chỉ kiểm tra nếu đã có previousPackageInfo (đã được fetch ở useEffect đầu tiên)
+        if (!previousPackageInfo) {
+            console.log('ℹ️ [Workflow] No previous package info, skipping modal check');
+            return;
+        }
+
+        // Đơn giản hóa: Hiển thị modal nếu workflow chưa hoàn tất
+        // Không cần kiểm tra bước đầu tiên vì modal sẽ hiển thị trước khi vào workflow
+        const isNotCompleted = workflowStatusData?.currentStep !== 'completed' &&
+            workflowStatusData?.workflowSteps?.completed?.status !== 'completed' &&
+            workflowStatusData?.registration?.trangThaiDangKy !== 'HOAN_THANH';
+
+        if (isNotCompleted) {
+            console.log('✅ [Workflow] Showing info choice modal - has previous package and workflow not completed', {
+                currentStep: workflowStatusData?.currentStep,
+                trangThaiDangKy: workflowStatusData?.registration?.trangThaiDangKy,
+                isNotCompleted,
+                previousPackageInfo
+            });
+            setShowInfoChoiceModal(true);
+        } else {
+            console.log('ℹ️ [Workflow] Not showing modal - workflow already completed:', {
+                currentStep: workflowStatusData?.currentStep,
+                trangThaiDangKy: workflowStatusData?.registration?.trangThaiDangKy,
+                hasPreviousPackage: !!previousPackageInfo
+            });
+        }
+    };
 
     const fetchWorkflowStatus = async () => {
         try {
@@ -83,6 +162,81 @@ const PackageWorkflow = () => {
             : ['selectTrainer', 'createSchedule', 'completed'];
 
         return steps.indexOf(stepName);
+    };
+
+    // Xử lý khi chọn giữ thông tin từ gói cũ
+    const handleKeepPreviousInfo = async () => {
+        try {
+            if (!previousPackageInfo) return;
+
+            setLoading(true);
+            setError(null);
+
+            // 1. Cập nhật branchId
+            if (previousPackageInfo.branchId) {
+                await api.patch(`/chitietgoitap/${registrationId}/branch`, {
+                    branchId: previousPackageInfo.branchId
+                });
+            }
+
+            // 2. Cập nhật PT nếu có
+            if (previousPackageInfo.ptId) {
+                await api.post(`/package-workflow/select-trainer/${registrationId}`, {
+                    trainerId: previousPackageInfo.ptId
+                });
+            }
+
+            // 3. Nếu có cả branchId và ptId, cố gắng hoàn tất luôn workflow bằng cách bỏ qua bước tạo lịch tập
+            if (previousPackageInfo.branchId && previousPackageInfo.ptId) {
+                console.log('🔁 [Workflow] Completing workflow using previous branch & PT info...');
+                const completeResponse = await api.post(`/package-workflow/complete-workflow/${registrationId}`, {
+                    skipScheduleForReuse: true
+                });
+
+                if (completeResponse.success) {
+                    console.log('✅ [Workflow] Completed using previous info:', completeResponse);
+                    setShowInfoChoiceModal(false);
+                    setKeepPreviousInfo(true);
+                    setHasHandledInfoChoice(true);
+
+                    // Cập nhật trạng thái mới nhất rồi về trang chủ với thông báo
+                    await fetchWorkflowStatus();
+                    navigate('/', {
+                        state: {
+                            completedWorkflow: true,
+                            message: 'Đăng ký gói tập thành công! Thông tin chi nhánh và PT được giữ nguyên từ gói trước đó.'
+                        }
+                    });
+                    return;
+                } else {
+                    console.warn('⚠️ [Workflow] Could not auto-complete workflow, falling back to normal flow:', completeResponse);
+                }
+            }
+
+            // 4. Nếu không đủ dữ liệu để hoàn tất ngay, chỉ cập nhật branch/PT và chuyển sang bước tiếp theo như cũ
+            await fetchWorkflowStatus();
+            setShowInfoChoiceModal(false);
+            setKeepPreviousInfo(true);
+            setHasHandledInfoChoice(true);
+
+            // Nếu đã có cả branch và PT, có thể skip đến bước tạo lịch tập
+            if (previousPackageInfo.branchId && previousPackageInfo.ptId) {
+                // Refresh để cập nhật step
+                const status = await fetchWorkflowStatus();
+                if (status?.data?.currentStep === 'createSchedule') {
+                    setCurrentStep(2); // Bước tạo lịch tập
+                } else {
+                    setCurrentStep(1); // Bước chọn PT (nếu chưa có PT)
+                }
+            } else {
+                setCurrentStep(1); // Chuyển đến bước chọn PT
+            }
+        } catch (err) {
+            console.error('Error keeping previous info:', err);
+            setError('Lỗi khi áp dụng thông tin từ gói cũ. Vui lòng thử lại.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSelectBranch = async (branchId) => {
@@ -420,6 +574,64 @@ const PackageWorkflow = () => {
 
     return (
         <SimpleLayout>
+            {/* Modal chọn giữ/thay đổi thông tin từ gói cũ */}
+            {showInfoChoiceModal && previousPackageInfo && (
+                <div className="info-choice-modal-overlay" onClick={() => { }}>
+                    <div className="info-choice-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="info-choice-modal-header">
+                            <h2>Chọn thông tin đăng ký</h2>
+                            <button
+                                className="close-modal-btn"
+                                onClick={() => {
+                                    setShowInfoChoiceModal(false);
+                                    setKeepPreviousInfo(false);
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="info-choice-modal-content">
+                            <p className="info-choice-description">
+                                Bạn đã có gói tập hoàn tất trước đó. Bạn muốn:
+                            </p>
+                            <div className="info-choice-options">
+                                <div className="info-choice-option">
+                                    <div className="previous-info-summary">
+                                        <h4>Thông tin từ gói trước:</h4>
+                                        <ul>
+                                            <li><strong>Chi nhánh:</strong> {previousPackageInfo.branchName || 'N/A'}</li>
+                                            {previousPackageInfo.ptName && (
+                                                <li><strong>PT:</strong> {previousPackageInfo.ptName} {previousPackageInfo.ptSpecialty ? `(${previousPackageInfo.ptSpecialty})` : ''}</li>
+                                            )}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div className="info-choice-buttons">
+                                    <button
+                                        className="choice-btn keep-btn"
+                                        onClick={handleKeepPreviousInfo}
+                                        disabled={loading}
+                                    >
+                                        {loading ? 'Đang xử lý...' : '✓ Sử dụng thông tin cũ'}
+                                    </button>
+                                    <button
+                                        className="choice-btn change-btn"
+                                        onClick={() => {
+                                            setKeepPreviousInfo(false);
+                                            setShowInfoChoiceModal(false);
+                                            setHasHandledInfoChoice(true);
+                                        }}
+                                        disabled={loading}
+                                    >
+                                        ✏️ Thay đổi thông tin
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="workflow-page">
                 <div className="package-workflow-container">
                     <div className="workflow-header">

@@ -102,9 +102,23 @@ exports.getThanhToanById = async (req, res) => {
 exports.getMyThanhToan = async (req, res) => {
     try {
         const hoiVienId = req.user.id;
+        console.log(`[getMyThanhToan] Fetching payments for hoiVien: ${hoiVienId}`);
         const thanhToans = await thanhToanService.getThanhToanByHoiVien(hoiVienId);
+        console.log(`[getMyThanhToan] Found ${thanhToans.length} payments`);
+
+        // Log để debug
+        if (thanhToans.length > 0) {
+            console.log(`[getMyThanhToan] First payment:`, {
+                id: thanhToans[0]._id,
+                soTien: thanhToans[0].soTien,
+                trangThai: thanhToans[0].trangThaiThanhToan,
+                hasChiTietGoiTap: !!thanhToans[0].maChiTietGoiTap
+            });
+        }
+
         res.json(thanhToans);
     } catch (error) {
+        console.error('[getMyThanhToan] Error:', error);
         res.status(500).json({
             message: 'Lỗi server',
             error: error.message

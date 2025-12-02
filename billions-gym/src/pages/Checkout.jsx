@@ -71,6 +71,11 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const [upgradeAmount, setUpgradeAmount] = useState(0);
     const [isCheckingUpgrade, setIsCheckingUpgrade] = useState(false);
 
+    // Previous completed package info (for keeping branch/PT)
+    const [previousPackageInfo, setPreviousPackageInfo] = useState(null);
+    const [showInfoChoiceModal, setShowInfoChoiceModal] = useState(false);
+    const [keepPreviousInfo, setKeepPreviousInfo] = useState(false);
+
     // Fetch package data and user info
     useEffect(() => {
         const fetchPackageData = async () => {
@@ -198,6 +203,43 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
 
         checkExistingPackage();
     }, [packageData, isLoggedIn]);
+
+    // Check for previous completed package to show info choice modal
+    useEffect(() => {
+        const checkPreviousCompletedPackage = async () => {
+            if (!isLoggedIn || !packageData) return;
+
+            try {
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                const userId = user._id || user.id;
+                if (!userId) return;
+
+                // Check if user has a completed package before
+                const response = await api.get('/chitietgoitap/last-completed', {}, { requireAuth: true });
+
+                if (response && response.success && response.hasPreviousPackage) {
+                    setPreviousPackageInfo(response.data);
+                    setShowInfoChoiceModal(true);
+                }
+            } catch (error) {
+                console.log('No previous completed package found or error:', error);
+                // This is normal for first-time users
+            }
+        };
+
+        checkPreviousCompletedPackage();
+    }, [isLoggedIn, packageData]);
+
+    // Apply previous package info when user chooses to keep it
+    useEffect(() => {
+        if (keepPreviousInfo && previousPackageInfo && branches.length > 0) {
+            // Set branch ID
+            if (previousPackageInfo.branchId) {
+                setSelectedBranchId(previousPackageInfo.branchId);
+            }
+            // Note: PT selection will be handled in the workflow after payment
+        }
+    }, [keepPreviousInfo, previousPackageInfo, branches]);
 
     // Function to calculate upgrade amount (matching backend logic)
     const calculateUpgradeAmount = (newPackagePrice, currentPackage) => {
@@ -657,7 +699,11 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     upgradeAmount: upgradeAmount,
                     existingPackageId: existingPackage?._id,
                     giaGoiTapGoc: packageData.donGia,
-                    soTienBu: isUpgrade ? upgradeAmount : 0
+                    soTienBu: isUpgrade ? upgradeAmount : 0,
+                    // Thông tin để copy từ gói cũ
+                    keepPreviousInfo: keepPreviousInfo,
+                    previousBranchId: keepPreviousInfo && previousPackageInfo ? previousPackageInfo.branchId : null,
+                    previousPtId: keepPreviousInfo && previousPackageInfo ? previousPackageInfo.ptId : null
                 }
             };
 
@@ -735,6 +781,64 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
 
     return (
         <SimpleLayout onNavigateToLogin={onNavigateToLogin} onNavigateToRegister={onNavigateToRegister}>
+            {/* Modal chọn giữ/thay đổi thông tin từ gói cũ */}
+            {showInfoChoiceModal && previousPackageInfo && (
+                <div className="info-choice-modal-overlay" onClick={() => { }}>
+                    <div className="info-choice-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="info-choice-modal-header">
+                            <h2>Chọn thông tin đăng ký</h2>
+                            <button
+                                className="close-modal-btn"
+                                onClick={() => {
+                                    setShowInfoChoiceModal(false);
+                                    setKeepPreviousInfo(false);
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="info-choice-modal-content">
+                            <p className="info-choice-description">
+                                Bạn đã có gói tập hoàn tất trước đó. Bạn muốn:
+                            </p>
+                            <div className="info-choice-options">
+                                <div className="info-choice-option">
+                                    <div className="previous-info-summary">
+                                        <h4>Thông tin từ gói trước:</h4>
+                                        <ul>
+                                            <li><strong>Chi nhánh:</strong> {previousPackageInfo.branchName || 'N/A'}</li>
+                                            {previousPackageInfo.ptName && (
+                                                <li><strong>PT:</strong> {previousPackageInfo.ptName} {previousPackageInfo.ptSpecialty ? `(${previousPackageInfo.ptSpecialty})` : ''}</li>
+                                            )}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div className="info-choice-buttons">
+                                    <button
+                                        className="choice-btn keep-btn"
+                                        onClick={() => {
+                                            setKeepPreviousInfo(true);
+                                            setShowInfoChoiceModal(false);
+                                        }}
+                                    >
+                                        ✓ Giữ thông tin như gói trước
+                                    </button>
+                                    <button
+                                        className="choice-btn change-btn"
+                                        onClick={() => {
+                                            setKeepPreviousInfo(false);
+                                            setShowInfoChoiceModal(false);
+                                        }}
+                                    >
+                                        ✏️ Thay đổi thông tin
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="checkout-page">
                 <div className="checkout-header">
                     <button onClick={() => navigate(-1)} className="back-button">

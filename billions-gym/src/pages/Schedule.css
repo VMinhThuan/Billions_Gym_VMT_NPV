@@ -1409,10 +1409,24 @@
     transition: all 0.2s ease;
 }
 
-.add-session-btn:hover {
+.add-session-btn:hover:not(:disabled) {
     background: #059669;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.add-session-btn.disabled,
+.add-session-btn:disabled {
+    background: #6b7280;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.add-session-btn.disabled:hover,
+.add-session-btn:disabled:hover {
+    background: #6b7280;
+    transform: none;
+    box-shadow: none;
 }
 
 /* Week Registration Modal */

@@ -38,6 +38,11 @@ const Schedule = () => {
     const [showSessionModal, setShowSessionModal] = useState(false);
     const [selectedSessionsInCurrentModal, setSelectedSessionsInCurrentModal] = useState([]);
 
+    // Có thể đăng ký thêm buổi tập hay không:
+    // - Chỉ cần hội viên đã hoàn tất workflow gói tập (hasCompletedPackage = true)
+    // - KHÔNG phụ thuộc vào canRegister (canRegister dùng cho đăng ký lịch tuần sau, có giới hạn T7/CN)
+    const canAddExtraSessions = registrationEligibility?.hasCompletedPackage === true;
+
     const user = authUtils.getUser();
     const userId = authUtils.getUserId();
 
@@ -784,6 +789,18 @@ const Schedule = () => {
 
     // Mở modal đăng ký thêm buổi tập
     const handleOpenAddSessionModal = async () => {
+        // Kiểm tra điều kiện trước khi mở modal
+        if (!canAddExtraSessions) {
+            const message = registrationEligibility?.message || 'Bạn cần hoàn tất quy trình đăng ký gói tập trước khi đăng ký thêm buổi tập';
+            alert(message);
+            console.log('⚠️ [Schedule] Cannot open add session modal:', {
+                canRegister,
+                hasCompletedPackage: registrationEligibility?.hasCompletedPackage,
+                message
+            });
+            return;
+        }
+
         setShowAddSessionModal(true);
         setSelectedSessionsToAdd([]);
         // Refresh schedule data để có thông tin mới nhất về sessions đã đăng ký
@@ -1274,9 +1291,12 @@ const Schedule = () => {
                                 Đăng ký lịch tập tuần sau
                             </button>
                             <button
-                                className="add-session-btn"
+                                className={`add-session-btn ${!canAddExtraSessions ? 'disabled' : ''}`}
                                 onClick={handleOpenAddSessionModal}
-                                title="Đăng ký thêm buổi tập trong tuần này"
+                                disabled={!canAddExtraSessions}
+                                title={!canAddExtraSessions
+                                    ? (registrationEligibility?.message || 'Bạn cần hoàn tất quy trình đăng ký gói tập trước khi đăng ký thêm buổi tập')
+                                    : 'Đăng ký thêm buổi tập trong tuần này'}
                             >
                                 Đăng ký thêm buổi tập
                             </button>
