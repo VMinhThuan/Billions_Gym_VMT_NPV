@@ -527,8 +527,8 @@ const PTDashboard = () => {
                             <button
                                 onClick={() => setActiveTab('overview')}
                                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all whitespace-nowrap ${activeTab === 'overview'
-                                    ? 'bg-[#da2128] text-white shadow-lg shadow-[#da2128]/30'
-                                    : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
+                                    ? 'bg-[#da2128] text-white shadow-lg shadow-[#da2128]/30 cursor-pointer'
+                                    : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a] cursor-pointer'
                                     }`}
                             >
                                 <BarChart3 className="w-4 h-4" />
@@ -537,8 +537,8 @@ const PTDashboard = () => {
                             <button
                                 onClick={() => setActiveTab('students')}
                                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all whitespace-nowrap ${activeTab === 'students'
-                                    ? 'bg-[#da2128] text-white shadow-lg shadow-[#da2128]/30'
-                                    : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
+                                    ? 'bg-[#da2128] text-white shadow-lg shadow-[#da2128]/30 cursor-pointer'
+                                    : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a] cursor-pointer'
                                     }`}
                             >
                                 <Target className="w-4 h-4" />
@@ -548,8 +548,8 @@ const PTDashboard = () => {
                             <button
                                 onClick={() => setActiveTab('revenue')}
                                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all whitespace-nowrap ${activeTab === 'revenue'
-                                    ? 'bg-[#da2128] text-white shadow-lg shadow-[#da2128]/30'
-                                    : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
+                                    ? 'bg-[#da2128] text-white shadow-lg shadow-[#da2128]/30 cursor-pointer'
+                                    : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a] cursor-pointer'
                                     }`}
                             >
                                 <DollarSign className="w-4 h-4" />
@@ -558,8 +558,8 @@ const PTDashboard = () => {
                             <button
                                 onClick={() => setActiveTab('analytics')}
                                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all whitespace-nowrap ${activeTab === 'analytics'
-                                    ? 'bg-[#da2128] text-white shadow-lg shadow-[#da2128]/30'
-                                    : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
+                                    ? 'bg-[#da2128] text-white shadow-lg shadow-[#da2128]/30 cursor-pointer'
+                                    : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a] cursor-pointer'
                                     }`}
                             >
                                 <Activity className="w-4 h-4" />
@@ -1068,8 +1068,8 @@ const PTDashboard = () => {
                                                             <p className="text-gray-400 text-sm">{student.goiTap}</p>
                                                             <div className="flex items-center gap-2 mt-1">
                                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${student.mucTieu === 'Giảm cân' ? 'bg-blue-500/20 text-blue-400' :
-                                                                        student.mucTieu === 'Tăng cơ' ? 'bg-green-500/20 text-green-400' :
-                                                                            'bg-purple-500/20 text-purple-400'
+                                                                    student.mucTieu === 'Tăng cơ' ? 'bg-green-500/20 text-green-400' :
+                                                                        'bg-purple-500/20 text-purple-400'
                                                                     }`}>
                                                                     {student.mucTieu}
                                                                 </span>
@@ -1333,9 +1333,9 @@ const PTDashboard = () => {
                                             {analyticsData.topVIPClients.map((client, index) => (
                                                 <div key={index} className="flex items-center gap-4 bg-[#1a1a1a] rounded-xl p-4 hover:bg-[#2a2a2a] transition-all">
                                                     <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' :
-                                                            index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500' :
-                                                                index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
-                                                                    'bg-gradient-to-br from-[#da2128] to-[#ff3842]'
+                                                        index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500' :
+                                                            index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
+                                                                'bg-gradient-to-br from-[#da2128] to-[#ff3842]'
                                                         }`}>
                                                         #{index + 1}
                                                     </div>
@@ -1345,9 +1345,9 @@ const PTDashboard = () => {
                                                             <span className="text-gray-400 text-sm">{client.soBuoi} buổi</span>
                                                             <span className="text-gray-400 text-sm">•</span>
                                                             <span className={`text-xs px-2 py-0.5 rounded-full ${client.rank === 'Diamond' ? 'bg-blue-500/20 text-blue-400' :
-                                                                    client.rank === 'Platinum' ? 'bg-purple-500/20 text-purple-400' :
-                                                                        client.rank === 'Gold' ? 'bg-yellow-500/20 text-yellow-400' :
-                                                                            'bg-gray-500/20 text-gray-400'
+                                                                client.rank === 'Platinum' ? 'bg-purple-500/20 text-purple-400' :
+                                                                    client.rank === 'Gold' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                                        'bg-gray-500/20 text-gray-400'
                                                                 }`}>{client.rank}</span>
                                                         </div>
                                                     </div>
