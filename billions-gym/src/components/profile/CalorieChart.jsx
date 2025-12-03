@@ -4,9 +4,22 @@ import { Flame } from "lucide-react";
 export function CalorieChart({ nutritionData }) {
     const parseCalorieData = () => {
         const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-        const target = nutritionData?.targetCalories || 2500;
+        const target = nutritionData?.targetCalories || 0;
 
-        if (!nutritionData || !nutritionData.weeklyData || !Array.isArray(nutritionData.weeklyData) || nutritionData.weeklyData.length === 0) {
+        const weeklyEntries = (() => {
+            if (!nutritionData) return [];
+            if (Array.isArray(nutritionData.weeklyData)) return nutritionData.weeklyData;
+            if (nutritionData.weeklyData && typeof nutritionData.weeklyData === 'object') {
+                return Object.values(nutritionData.weeklyData);
+            }
+            if (Array.isArray(nutritionData.days)) return nutritionData.days;
+            if (nutritionData.days && typeof nutritionData.days === 'object') {
+                return Object.values(nutritionData.days);
+            }
+            return [];
+        })();
+
+        if (!weeklyEntries.length) {
             return {
                 chartData: days.map(day => ({ day, calories: 0, target })),
                 average: 0,
@@ -16,11 +29,15 @@ export function CalorieChart({ nutritionData }) {
             };
         }
 
-        const weeklyData = nutritionData.weeklyData;
-
         // Calculate calories for each day from meals
-        const chartData = weeklyData.slice(0, 7).map((dayData, index) => {
+        const chartData = weeklyEntries.slice(0, 7).map((dayData, index) => {
             let totalCalories = 0;
+
+            if (typeof dayData?.totalCalories === 'number') {
+                totalCalories = dayData.totalCalories;
+            } else if (dayData?.totalNutrition?.calories) {
+                totalCalories = dayData.totalNutrition.calories;
+            }
 
             if (dayData.meals) {
                 const mealTypes = ['buaSang', 'phu1', 'buaTrua', 'phu2', 'buaToi', 'phu3'];
@@ -40,8 +57,10 @@ export function CalorieChart({ nutritionData }) {
             if (dayData.date) {
                 try {
                     const date = new Date(dayData.date);
-                    const dayOfWeek = date.getDay();
-                    dayName = days[dayOfWeek === 0 ? 6 : dayOfWeek - 1] || days[index] || `Ngày ${index + 1}`;
+                    if (!Number.isNaN(date.getTime())) {
+                        const dayOfWeek = date.getDay();
+                        dayName = days[dayOfWeek === 0 ? 6 : dayOfWeek - 1] || date.toLocaleDateString('vi-VN', { weekday: 'short' });
+                    }
                 } catch (e) {
                     // Use default
                 }
