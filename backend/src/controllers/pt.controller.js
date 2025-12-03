@@ -123,6 +123,7 @@ exports.getMySessions = async (req, res) => {
             .populate('chiNhanh', 'tenChiNhanh')
             .populate('ptPhuTrach', 'hoTen')
             .populate('danhSachHoiVien.hoiVien', 'hoTen anhDaiDien')
+            .populate('baiTap', 'tenBaiTap hinhAnh hinhAnhMinhHoa videoHuongDan')
             .sort({ ngayTap: -1, gioBatDau: 1 })
             .skip(skip)
             .limit(parseInt(limit));
