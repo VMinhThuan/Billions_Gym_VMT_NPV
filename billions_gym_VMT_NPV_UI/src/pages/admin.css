@@ -5973,18 +5973,24 @@ body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper
 
 .pt-card-actions {
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
 }
 
 .pt-action-btn {
-    flex: 1;
-    padding: 8px 16px;
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+    padding: 6px 8px;
     border: none;
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .pt-action-disable {
@@ -5997,6 +6003,18 @@ body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper
     background: linear-gradient(135deg, #d97706, #b45309);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.pt-action-create-account {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    font-weight: 600;
+}
+
+.pt-action-create-account:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
 
 /* Màu sắc theo trạng thái tài khoản */
@@ -6139,6 +6157,258 @@ body .dashboard-container .chart-section:nth-of-type(4) .recharts-legend-wrapper
 
 .pt-card {
     position: relative;
+}
+
+.pt-account-panel {
+    margin-top: 24px;
+    padding: 24px;
+    border-radius: 20px;
+    background: var(--bg-card, rgba(255, 255, 255, 0.95));
+    border: 1px solid var(--border-color, rgba(226, 232, 240, 0.8));
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1);
+}
+
+.pt-account-panel-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    cursor: pointer;
+    padding: 16px;
+    margin: -16px -16px 0 -16px;
+    border-radius: 16px 16px 0 0;
+    transition: background-color 0.2s ease;
+}
+
+.pt-account-panel-header:hover {
+    background-color: rgba(99, 102, 241, 0.05);
+}
+
+.pt-account-panel-header-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    flex: 1;
+}
+
+.pt-account-panel-header h2 {
+    margin: 0 0 4px 0;
+    font-size: 20px;
+    color: var(--text-primary, #0f172a);
+}
+
+.pt-account-panel-header p {
+    margin: 0;
+    color: var(--text-secondary, #475569);
+    font-size: 14px;
+}
+
+.pt-account-password {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.12);
+    color: #1d4ed8;
+    font-weight: 600;
+}
+
+.pt-account-panel-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.pt-account-bulk-btn {
+    background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pt-account-bulk-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pt-account-bulk-btn:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+}
+
+.pt-account-list {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: slideDown 0.3s ease-out;
+}
+
+.pt-account-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    border-radius: 14px;
+    background: rgba(241, 245, 249, 0.8);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.pt-account-info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.pt-account-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #f97316, #db2777);
+    color: #fff;
+    font-weight: 700;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    text-transform: uppercase;
+}
+
+.pt-account-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pt-account-name {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.pt-account-meta {
+    margin: 4px 0 0 0;
+    color: #475569;
+    font-size: 13px;
+}
+
+.pt-account-status {
+    margin: 2px 0 0 0;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.pt-account-status.no-account {
+    color: #b91c1c;
+}
+
+.pt-account-status.has-account {
+    color: #047857;
+}
+
+.pt-account-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pt-account-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #475569;
+}
+
+.pt-account-checkbox input {
+    width: 18px;
+    height: 18px;
+    accent-color: #6366f1;
+    cursor: pointer;
+}
+
+.pt-account-create-btn {
+    background: transparent;
+    border: 1px solid #2563eb;
+    color: #2563eb;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pt-account-create-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.pt-account-create-btn:not(:disabled):hover {
+    background: #2563eb;
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.pt-account-empty {
+    text-align: center;
+    padding: 20px 0;
+    color: #475569;
+    font-size: 14px;
+}
+
+.pt-credentials-panel {
+    margin-top: 16px;
+}
+
+.pt-credentials-table-wrapper {
+    margin-top: 12px;
+    max-height: 260px;
+    overflow: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: rgba(248, 250, 252, 0.9);
+    animation: slideDown 0.3s ease-out;
+}
+
+.pt-credentials-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.pt-credentials-table thead {
+    background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.pt-credentials-table th,
+.pt-credentials-table td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+    white-space: nowrap;
+}
+
+.pt-credentials-table tbody tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.8);
+}
+
+.pt-credentials-table tbody tr:hover {
+    background-color: rgba(191, 219, 254, 0.3);
+}
+
+.pt-credentials-empty {
+    text-align: center;
+    color: #6b7280;
 }
 
 .pt-card-checkbox-wrapper {

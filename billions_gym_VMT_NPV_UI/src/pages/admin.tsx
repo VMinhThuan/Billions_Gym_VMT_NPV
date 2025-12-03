@@ -3365,6 +3365,11 @@ const PTPage = () => {
     const [newBranchId, setNewBranchId] = useState<string>('');
     const [isUpdatingBranch, setIsUpdatingBranch] = useState(false);
     const [branchSortConfig, setBranchSortConfig] = useState<{ key: 'count'; direction: 'asc' | 'desc' } | null>(null);
+    const [accountBranchFilter, setAccountBranchFilter] = useState<string>('all');
+    const [accountSelectedPTs, setAccountSelectedPTs] = useState<Set<string>>(new Set());
+    const [isCreatingAccounts, setIsCreatingAccounts] = useState(false);
+    const [isAccountPanelExpanded, setIsAccountPanelExpanded] = useState<boolean>(true);
+    const [isCredentialsPanelExpanded, setIsCredentialsPanelExpanded] = useState<boolean>(true);
 
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -3600,12 +3605,14 @@ const PTPage = () => {
         return true;
     });
 
+    const getBranchIdForPT = (pt: PT) => (pt.chinhanh ? String(pt.chinhanh) : 'no-branch');
+
     // Group PTs by branch
     const groupedByBranch = React.useMemo(() => {
         const grouped: { [key: string]: PT[] } = {};
 
         filtered.forEach(pt => {
-            const branchId = pt.chinhanh ? String(pt.chinhanh) : 'no-branch';
+            const branchId = getBranchIdForPT(pt);
             if (!grouped[branchId]) {
                 grouped[branchId] = [];
             }
@@ -3614,6 +3621,46 @@ const PTPage = () => {
 
         return grouped;
     }, [filtered]);
+
+    const filteredAccountPTs = React.useMemo(() => {
+        return rows.filter(pt => {
+            if (accountBranchFilter === 'all') return true;
+            return getBranchIdForPT(pt) === String(accountBranchFilter);
+        });
+    }, [rows, accountBranchFilter]);
+
+    useEffect(() => {
+        setAccountSelectedPTs(prev => {
+            if (prev.size === 0) return prev;
+            const allowedIds = new Set(filteredAccountPTs.map(pt => pt._id));
+            const kept = Array.from(prev).filter(id => allowedIds.has(id));
+            if (kept.length === prev.size) {
+                return prev;
+            }
+            return new Set(kept);
+        });
+    }, [filteredAccountPTs]);
+
+    const formatNgaySinhToDate = (ngaySinh?: Date | string) => {
+        if (!ngaySinh) return '';
+        const d = new Date(ngaySinh);
+        if (Number.isNaN(d.getTime())) return '';
+        return d.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    };
+
+    const formatNgaySinhToPassword = (ngaySinh?: Date | string) => {
+        if (!ngaySinh) return '';
+        const d = new Date(ngaySinh);
+        if (Number.isNaN(d.getTime())) return '';
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        return `${dd}${mm}${yyyy}`;
+    };
 
     // Toggle branch expansion
     const toggleBranch = (branchId: string) => {
@@ -3708,6 +3755,84 @@ const PTPage = () => {
     const areSomePTsInBranchSelected = (branchId: string) => {
         const ptsInBranch = groupedByBranch[branchId] || [];
         return ptsInBranch.some(pt => selectedPTs.has(pt._id));
+    };
+
+    const handleAccountSelectionToggle = (ptId: string) => {
+        setAccountSelectedPTs(prev => {
+            const next = new Set(prev);
+            if (next.has(ptId)) {
+                next.delete(ptId);
+            } else {
+                next.add(ptId);
+            }
+            return next;
+        });
+    };
+
+    const handleCreateAccounts = async (ptIds?: string[]) => {
+        const targetIds = ptIds && ptIds.length > 0 ? ptIds : Array.from(accountSelectedPTs);
+        if (targetIds.length === 0) {
+            notifications.generic.info('Chưa chọn huấn luyện viên', 'Vui lòng chọn ít nhất một PT để tạo tài khoản.');
+            return;
+        }
+
+        setIsCreatingAccounts(true);
+        const failures: { id: string; message: string }[] = [];
+        try {
+            for (const ptId of targetIds) {
+                try {
+                    await api.post(`/api/user/pt/${ptId}/account`, { defaultPassword: '1' });
+                } catch (error: any) {
+                    failures.push({
+                        id: ptId,
+                        message: error instanceof Error ? error.message : 'Không thể tạo tài khoản'
+                    });
+                }
+            }
+        } finally {
+            setIsCreatingAccounts(false);
+        }
+
+        const successCount = targetIds.length - failures.length;
+
+        if (successCount > 0) {
+            notifications.account.createSuccess();
+            notifications.generic.info('Mật khẩu mặc định', 'Các tài khoản PT mới sẽ dùng mật khẩu 1 khi đăng nhập lần đầu.');
+            setRefreshTrigger(prev => prev + 1);
+        } else {
+            notifications.account.createError(failures[0]?.message || 'Không thể tạo tài khoản');
+        }
+
+        if (failures.length > 0) {
+            const failedNames = failures.map(f => {
+                const found = rows.find(pt => pt._id === f.id);
+                return `${found ? found.hoTen : f.id}: ${f.message}`;
+            }).join('; ');
+
+            if (successCount > 0) {
+                notifications.generic.warning('Một số tài khoản chưa tạo được', failedNames);
+            } else {
+                notifications.generic.error('Tạo tài khoản thất bại', failedNames);
+            }
+        }
+    };
+
+    const handleResetPassword = async (ptId: string) => {
+        if (!window.confirm('Bạn có chắc chắn muốn đặt lại mật khẩu PT này về 1?')) {
+            return;
+        }
+        try {
+            setIsCreatingAccounts(true);
+            await api.put(`/api/user/pt/${ptId}/reset-password`, { newPassword: '1' });
+            notifications.auth.passwordChanged();
+            notifications.generic.info('Mật khẩu mới', 'PT có thể đăng nhập bằng SĐT và mật khẩu 1.');
+        } catch (error: any) {
+            console.error('Error resetting PT password:', error);
+            const msg = error instanceof Error ? error.message : 'Không thể đặt lại mật khẩu';
+            notifications.auth.passwordError(msg);
+        } finally {
+            setIsCreatingAccounts(false);
+        }
     };
 
     // Handle change branch for selected PTs
@@ -3848,6 +3973,148 @@ const PTPage = () => {
                 <button className="members-filter-clear-btn" onClick={handleClearFilters}>
                     CLEAR
                 </button>
+            </div>
+
+            {/* PT Account Creation */}
+            <div className="pt-account-panel">
+                <div className="pt-account-panel-header" onClick={() => setIsAccountPanelExpanded(!isAccountPanelExpanded)}>
+                    <div className="pt-account-panel-header-left">
+                        <span className="pt-branch-icon">{isAccountPanelExpanded ? '▼' : '▶'}</span>
+                        <div>
+                            <h2>Khởi tạo tài khoản PT theo chi nhánh</h2>
+                            <p>
+                                Danh sách bên dưới hiển thị các PT chưa có tài khoản đăng nhập. Mật khẩu mặc định:&nbsp;
+                                <span className="pt-account-password">1</span>
+                            </p>
+                        </div>
+                    </div>
+                    {isAccountPanelExpanded && (
+                        <div className="pt-account-panel-actions" onClick={(e) => e.stopPropagation()}>
+                            <select
+                                className="members-filter-dropdown"
+                                value={accountBranchFilter}
+                                onChange={e => setAccountBranchFilter(e.target.value)}
+                            >
+                                <option value="all">Tất cả chi nhánh</option>
+                                {chiNhanhs.map(branch => (
+                                    <option key={branch._id} value={branch._id}>
+                                        {branch.tenChiNhanh}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                className="pt-account-bulk-btn"
+                                onClick={() => handleCreateAccounts()}
+                                disabled={accountSelectedPTs.size === 0 || isCreatingAccounts}
+                            >
+                                {isCreatingAccounts ? 'Đang tạo...' : `Tạo tài khoản (${accountSelectedPTs.size})`}
+                            </button>
+                        </div>
+                    )}
+                </div>
+                {isAccountPanelExpanded && (
+                    <div className="pt-account-list">
+                        {filteredAccountPTs.length === 0 ? (
+                            <p className="pt-account-empty">
+                                Không có huấn luyện viên nào cần tạo tài khoản ở chi nhánh đã chọn.
+                            </p>
+                        ) : (
+                            filteredAccountPTs.map(pt => {
+                                const hasAccount = !!pt.taiKhoan?._id;
+                                const isChecked = accountSelectedPTs.has(pt._id);
+                                return (
+                                    <div key={pt._id} className="pt-account-row">
+                                        <div className="pt-account-info">
+                                            <div className="pt-account-avatar">
+                                                {pt.anhDaiDien ? (
+                                                    <img src={pt.anhDaiDien} alt={pt.hoTen} />
+                                                ) : (
+                                                    <span>{pt.hoTen.charAt(0).toUpperCase()}</span>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <p className="pt-account-name">{pt.hoTen}</p>
+                                                <p className="pt-account-meta">
+                                                    {getBranchName(getBranchIdForPT(pt))} • {pt.sdt}
+                                                </p>
+                                                <p className={`pt-account-status ${hasAccount ? 'has-account' : 'no-account'}`}>
+                                                    {hasAccount ? 'Đã có tài khoản' : 'Chưa có tài khoản'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="pt-account-row-actions">
+                                            <label className="pt-account-checkbox">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isChecked}
+                                                    onChange={() => !hasAccount && handleAccountSelectionToggle(pt._id)}
+                                                    disabled={isCreatingAccounts || hasAccount}
+                                                />
+                                                <span>Chọn</span>
+                                            </label>
+                                            <button
+                                                className="pt-account-create-btn"
+                                                onClick={() => handleCreateAccounts([pt._id])}
+                                                disabled={isCreatingAccounts || hasAccount}
+                                            >
+                                                {isCreatingAccounts ? 'Đang xử lý...' : (hasAccount ? 'Đã có tài khoản' : 'Tạo ngay')}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Phone + DOB helper list */}
+            <div className="pt-account-panel pt-credentials-panel">
+                <div className="pt-account-panel-header" onClick={() => setIsCredentialsPanelExpanded(!isCredentialsPanelExpanded)}>
+                    <div className="pt-account-panel-header-left">
+                        <span className="pt-branch-icon">{isCredentialsPanelExpanded ? '▼' : '▶'}</span>
+                        <div>
+                            <h2>Danh sách SĐT + Ngày sinh (gợi ý mật khẩu ddMMyyyy)</h2>
+                            <p>
+                                Dành cho các PT cũ dùng mật khẩu theo ngày sinh. Admin có thể tra cứu nhanh để hỗ trợ đăng nhập.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {isCredentialsPanelExpanded && (
+                    <div className="pt-credentials-table-wrapper">
+                        <table className="pt-credentials-table">
+                            <thead>
+                                <tr>
+                                    <th>Họ tên</th>
+                                    <th>Chi nhánh</th>
+                                    <th>Số điện thoại</th>
+                                    <th>Ngày sinh</th>
+                                    <th>Mật khẩu (ddMMyyyy)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filtered.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} className="pt-credentials-empty">
+                                            Không có huấn luyện viên nào với bộ lọc hiện tại.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filtered.map(pt => (
+                                        <tr key={pt._id}>
+                                            <td>{pt.hoTen}</td>
+                                            <td>{getBranchName(getBranchIdForPT(pt))}</td>
+                                            <td>{pt.sdt}</td>
+                                            <td>{formatNgaySinhToDate(pt.ngaySinh)}</td>
+                                            <td>{formatNgaySinhToPassword(pt.ngaySinh)}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
 
             {/* Action Buttons */}
@@ -4030,6 +4297,30 @@ const PTPage = () => {
                                                         <div className="pt-card-divider"></div>
 
                                                         <div className="pt-card-actions">
+                                                            <button
+                                                                className="pt-action-btn pt-action-create-account"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleCreateAccounts([pt._id]);
+                                                                }}
+                                                                disabled={isCreatingAccounts || !!pt.taiKhoan?._id}
+                                                            >
+                                                                {pt.taiKhoan?._id
+                                                                    ? 'Đã có tài khoản'
+                                                                    : (isCreatingAccounts ? 'Đang tạo...' : 'Tạo tài khoản')}
+                                                            </button>
+                                                            {pt.taiKhoan?._id && (
+                                                                <button
+                                                                    className="pt-action-btn pt-action-disable"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleResetPassword(pt._id);
+                                                                    }}
+                                                                    disabled={isCreatingAccounts}
+                                                                >
+                                                                    Reset mật khẩu về 1
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 className="pt-action-btn pt-action-disable"
                                                                 data-status={pt.taiKhoan?.trangThaiTK || 'DANG_HOAT_DONG'}
