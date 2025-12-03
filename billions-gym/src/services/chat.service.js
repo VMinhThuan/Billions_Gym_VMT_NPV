@@ -228,6 +228,13 @@ class ChatService {
 
         return response.json();
     }
+
+    async deleteChatRoom(roomId) {
+        const apiBase = getChatApiBase();
+        return apiRequest(`${apiBase}/rooms/${roomId}`, {
+            method: 'DELETE'
+        });
+    }
 }
 
 // Export singleton instance

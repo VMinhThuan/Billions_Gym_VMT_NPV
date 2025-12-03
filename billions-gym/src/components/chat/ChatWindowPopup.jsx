@@ -18,8 +18,66 @@ const ChatWindowPopup = ({ roomId, recipient, onClose }) => {
     useEffect(() => {
         if (roomId) {
             console.log('[ChatWindowPopup] Room ID changed, loading messages...');
+
+            // Ensure WebSocket is connected
+            if (!chatService.isConnected) {
+                console.log('[ChatWindowPopup] WebSocket not connected, connecting...');
+                chatService.connect();
+
+                // Wait a bit for connection to establish
+                setTimeout(() => {
+                    joinRoom();
+                }, 500);
+            } else {
+                joinRoom();
+            }
+
             loadMessages();
-            joinRoom();
+
+            const handleNewMessage = (message) => {
+                const currentUser = authUtils.getUser();
+                console.log('[ChatWindowPopup] New message received:', message, 'for roomId:', roomId);
+
+                if (message.room === roomId) {
+                    setMessages(prev => {
+                        // Kiểm tra xem tin nhắn đã tồn tại chưa (tránh duplicate từ optimistic update)
+                        const exists = prev.some(m =>
+                            m._id === message._id ||
+                            (m._id.startsWith('temp_') && m.message === message.message && m.sender._id === message.sender._id)
+                        );
+
+                        if (exists) {
+                            // Thay thế tin nhắn tạm (optimistic) bằng tin nhắn thật từ server
+                            return prev.map(m =>
+                                (m._id.startsWith('temp_') && m.message === message.message && m.sender._id === message.sender._id)
+                                    ? message
+                                    : m
+                            );
+                        }
+
+                        // Tin nhắn mới từ người khác
+                        return [...prev, message];
+                    });
+
+                    // Mark read nếu không phải tin nhắn của mình VÀ chat không bị minimize
+                    if (message.sender._id !== currentUser?._id && !isMinimized) {
+                        chatService.markRead(roomId);
+                    }
+                }
+            };
+
+            const handleUserTyping = (data) => {
+                const currentUser = authUtils.getUser();
+                if (data.roomId === roomId && data.userId !== currentUser?._id) {
+                    setTyping(true);
+                }
+            };
+
+            const handleUserStopTyping = (data) => {
+                if (data.roomId === roomId) {
+                    setTyping(false);
+                }
+            };
 
             chatService.on('new-message', handleNewMessage);
             chatService.on('user-typing', handleUserTyping);
@@ -31,7 +89,7 @@ const ChatWindowPopup = ({ roomId, recipient, onClose }) => {
                 chatService.off('user-stop-typing', handleUserStopTyping);
             };
         }
-    }, [roomId]);
+    }, [roomId, isMinimized]);
 
     useEffect(() => {
         scrollToBottom();
@@ -74,49 +132,6 @@ const ChatWindowPopup = ({ roomId, recipient, onClose }) => {
         } finally {
             console.log('[ChatWindowPopup] Loading finished');
             setLoading(false);
-        }
-    };
-
-    const handleNewMessage = (message) => {
-        const currentUser = authUtils.getUser();
-        if (message.room === roomId) {
-            setMessages(prev => {
-                // Kiểm tra xem tin nhắn đã tồn tại chưa (tránh duplicate từ optimistic update)
-                const exists = prev.some(m =>
-                    m._id === message._id ||
-                    (m._id.startsWith('temp_') && m.message === message.message && m.sender._id === message.sender._id)
-                );
-
-                if (exists) {
-                    // Thay thế tin nhắn tạm (optimistic) bằng tin nhắn thật từ server
-                    return prev.map(m =>
-                        (m._id.startsWith('temp_') && m.message === message.message && m.sender._id === message.sender._id)
-                            ? message
-                            : m
-                    );
-                }
-
-                // Tin nhắn mới từ người khác
-                return [...prev, message];
-            });
-
-            // Mark read nếu không phải tin nhắn của mình VÀ chat không bị minimize
-            if (message.sender._id !== currentUser?._id && !isMinimized) {
-                chatService.markRead(roomId);
-            }
-        }
-    };
-
-    const handleUserTyping = (data) => {
-        const currentUser = authUtils.getUser();
-        if (data.roomId === roomId && data.userId !== currentUser?._id) {
-            setTyping(true);
-        }
-    };
-
-    const handleUserStopTyping = (data) => {
-        if (data.roomId === roomId) {
-            setTyping(false);
         }
     };
 
@@ -289,18 +304,18 @@ const ChatWindowPopup = ({ roomId, recipient, onClose }) => {
                                             {msgs.map((message, index) => {
                                                 const currentUser = authUtils.getUser();
                                                 const isOwn = message.sender?._id === currentUser?._id || message.sender === currentUser?._id;
-                                                
+
                                                 // Kiểm tra xem tin nhắn trước có cùng người gửi không
                                                 const prevMessage = index > 0 ? msgs[index - 1] : null;
                                                 const prevIsOwn = prevMessage ? (prevMessage.sender?._id === currentUser?._id || prevMessage.sender === currentUser?._id) : null;
                                                 const showAvatar = !isOwn && (prevIsOwn !== false); // Hiện avatar nếu tin nhắn trước là của mình hoặc là tin nhắn đầu tiên
-                                                
+
                                                 // Kiểm tra thời gian với tin nhắn sau (thay vì tin nhắn trước)
                                                 const currentTime = formatTime(message.createdAt);
                                                 const nextMessage = index < msgs.length - 1 ? msgs[index + 1] : null;
                                                 const nextTime = nextMessage ? formatTime(nextMessage.createdAt) : null;
                                                 const showTime = currentTime !== nextTime; // Hiện thời gian nếu khác với tin nhắn sau hoặc là tin nhắn cuối
-                                                
+
                                                 return (
                                                     <div
                                                         key={message._id}
@@ -311,9 +326,9 @@ const ChatWindowPopup = ({ roomId, recipient, onClose }) => {
                                                                 showAvatar ? (
                                                                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden">
                                                                         {message.sender?.anhDaiDien ? (
-                                                                            <img 
-                                                                                src={message.sender.anhDaiDien} 
-                                                                                alt={message.sender.hoTen} 
+                                                                            <img
+                                                                                src={message.sender.anhDaiDien}
+                                                                                alt={message.sender.hoTen}
                                                                                 className="w-full h-full object-cover"
                                                                             />
                                                                         ) : (

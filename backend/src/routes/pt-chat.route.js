@@ -52,6 +52,7 @@ router.use(authorize(['PT', 'OngChu']));
 // Phòng chat
 router.get('/rooms', ptChatController.getChatRooms);
 router.get('/rooms/:hoiVienId', ptChatController.getOrCreateRoom);
+router.delete('/rooms/:roomId', ptChatController.deleteChatRoom);
 
 // Tin nhắn
 router.get('/rooms/:roomId/messages', ptChatController.getChatMessages);

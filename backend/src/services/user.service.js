@@ -261,7 +261,7 @@ const getHoiVienById = async (id) => {
 }
 
 const getPTById = async (id) => {
-    return PT.findById(id);
+    return PT.findById(id).select('+isOnline +lastActivity');
 }
 
 const updateHoiVien = async (id, data) => {
@@ -503,12 +503,14 @@ const getAllPT = async (options = {}) => {
     if (highlight) {
         const lim = parseInt(limit, 10) || 5;
         let pts = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG' })
+            .select('+isOnline +lastActivity')
             .sort({ danhGia: -1, kinhNghiem: -1 })
             .limit(lim);
 
         // Fallback to base model if no results
         if (!pts || pts.length === 0) {
             pts = await require('../models/NguoiDung').NguoiDung.find({ vaiTro: 'PT' })
+                .select('+isOnline +lastActivity')
                 .sort({ danhGia: -1, kinhNghiem: -1 })
                 .limit(lim);
         }
@@ -517,15 +519,17 @@ const getAllPT = async (options = {}) => {
 
     // Branch-specific PTs
     if (branchId) {
-        let pts = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG', chinhanh: branchId });
+        let pts = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG', chinhanh: branchId })
+            .select('+isOnline +lastActivity');
         if (!pts || pts.length === 0) {
-            pts = await require('../models/NguoiDung').NguoiDung.find({ vaiTro: 'PT', chinhanh: branchId });
+            pts = await require('../models/NguoiDung').NguoiDung.find({ vaiTro: 'PT', chinhanh: branchId })
+                .select('+isOnline +lastActivity');
         }
         return pts;
     }
 
     // Default: return all PTs
-    return PT.find();
+    return PT.find().select('+isOnline +lastActivity');
 };
 
 const searchPT = async (query) => {
@@ -536,7 +540,7 @@ const searchPT = async (query) => {
             { sdt: searchRegex },
             { email: searchRegex }
         ]
-    });
+    }).select('+isOnline +lastActivity');
 };
 
 const updatePT = async (id, data) => {

@@ -2,8 +2,43 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const ChatRoom = require('../models/ChatRoom');
 const ChatMessage = require('../models/ChatMessage');
+const { PT } = require('../models/NguoiDung');
 
 let io = null;
+
+// Store online users with their socket IDs and last activity
+const onlineUsers = new Map(); // userId -> { socketId, lastActivity, role }
+
+// Check for inactive users every minute
+setInterval(async () => {
+    const now = Date.now();
+    const inactiveTimeout = 5 * 60 * 1000; // 5 minutes
+
+    for (const [userId, userData] of onlineUsers.entries()) {
+        if (now - userData.lastActivity > inactiveTimeout) {
+            // User has been inactive for more than 5 minutes
+            if (userData.role === 'PT') {
+                try {
+                    await PT.findByIdAndUpdate(userId, {
+                        isOnline: false,
+                        lastActivity: new Date(userData.lastActivity)
+                    });
+
+                    // Broadcast PT status change
+                    io.emit('pt-status-changed', {
+                        ptId: userId,
+                        isOnline: false
+                    });
+
+                    console.log(`[WebSocket] PT ${userId} marked as offline due to inactivity`);
+                } catch (err) {
+                    console.error('[WebSocket] Error updating PT offline status:', err);
+                }
+            }
+            onlineUsers.delete(userId);
+        }
+    }
+}, 60000); // Check every minute
 
 // Khởi tạo Socket.IO server
 exports.initializeSocketIO = (server) => {
@@ -36,8 +71,51 @@ exports.initializeSocketIO = (server) => {
     io.on('connection', (socket) => {
         console.log(`[WebSocket] User connected: ${socket.userId} (${socket.userRole})`);
 
+        // Add user to online users
+        onlineUsers.set(socket.userId, {
+            socketId: socket.id,
+            lastActivity: Date.now(),
+            role: socket.userRole
+        });
+
+        // If PT connects, update their online status
+        if (socket.userRole === 'PT') {
+            PT.findByIdAndUpdate(socket.userId, {
+                isOnline: true,
+                lastActivity: new Date()
+            }).then(() => {
+                // Broadcast PT online status to all clients
+                io.emit('pt-status-changed', {
+                    ptId: socket.userId,
+                    isOnline: true
+                });
+                console.log(`[WebSocket] PT ${socket.userId} is now online`);
+            }).catch(err => {
+                console.error('[WebSocket] Error updating PT online status:', err);
+            });
+        }
+
+        // Update activity on any action
+        const updateActivity = () => {
+            const userData = onlineUsers.get(socket.userId);
+            if (userData) {
+                userData.lastActivity = Date.now();
+                onlineUsers.set(socket.userId, userData);
+            }
+
+            // Update PT lastActivity in database
+            if (socket.userRole === 'PT') {
+                PT.findByIdAndUpdate(socket.userId, {
+                    lastActivity: new Date()
+                }).catch(err => {
+                    console.error('[WebSocket] Error updating PT lastActivity:', err);
+                });
+            }
+        };
+
         // Join room với học viên
         socket.on('join-room', async (roomId) => {
+            updateActivity();
             try {
                 // Kiểm tra user có quyền truy cập room không
                 const room = await ChatRoom.findOne({
@@ -61,6 +139,7 @@ exports.initializeSocketIO = (server) => {
 
         // Gửi tin nhắn
         socket.on('send-message', async (data) => {
+            updateActivity();
             try {
                 const { roomId, message, type = 'text', fileUrl, fileName, fileSize } = data;
 
@@ -120,6 +199,7 @@ exports.initializeSocketIO = (server) => {
 
         // Typing indicator
         socket.on('typing', (data) => {
+            updateActivity();
             const { roomId } = data;
             socket.to(roomId).emit('user-typing', {
                 userId: socket.userId,
@@ -128,6 +208,7 @@ exports.initializeSocketIO = (server) => {
         });
 
         socket.on('stop-typing', (data) => {
+            updateActivity();
             const { roomId } = data;
             socket.to(roomId).emit('user-stop-typing', {
                 userId: socket.userId,
@@ -137,6 +218,7 @@ exports.initializeSocketIO = (server) => {
 
         // Đánh dấu tin nhắn đã đọc
         socket.on('mark-read', async (data) => {
+            updateActivity();
             try {
                 const { roomId } = data;
 
@@ -159,8 +241,31 @@ exports.initializeSocketIO = (server) => {
         });
 
         // Disconnect
-        socket.on('disconnect', () => {
+        socket.on('disconnect', async () => {
             console.log(`[WebSocket] User disconnected: ${socket.userId}`);
+
+            // Remove from online users
+            onlineUsers.delete(socket.userId);
+
+            // If PT disconnects, update their online status
+            if (socket.userRole === 'PT') {
+                try {
+                    await PT.findByIdAndUpdate(socket.userId, {
+                        isOnline: false,
+                        lastActivity: new Date()
+                    });
+
+                    // Broadcast PT offline status
+                    io.emit('pt-status-changed', {
+                        ptId: socket.userId,
+                        isOnline: false
+                    });
+
+                    console.log(`[WebSocket] PT ${socket.userId} is now offline`);
+                } catch (err) {
+                    console.error('[WebSocket] Error updating PT offline status:', err);
+                }
+            }
         });
     });
 

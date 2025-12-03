@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiUrl, getAuthHeaders } from '../services/api';
+import chatService from '../services/chat.service';
 
 const getLastName = (fullName) => {
     if (!fullName) return 'Hội viên';
@@ -31,6 +32,29 @@ export default function UserActions({
     const [recommendedActivities, setRecommendedActivities] = useState([]);
     const [nutritionData, setNutritionData] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        // Connect to WebSocket for real-time PT status updates
+        chatService.connect();
+
+        // Listen for PT status changes
+        const handlePTStatusChanged = ({ ptId, isOnline }) => {
+            console.log('[UserActions] PT status changed:', ptId, isOnline);
+            setTrainers(prevTrainers =>
+                prevTrainers.map(trainer =>
+                    trainer._id === ptId
+                        ? { ...trainer, isOnline }
+                        : trainer
+                )
+            );
+        };
+
+        chatService.on('pt-status-changed', handlePTStatusChanged);
+
+        return () => {
+            chatService.off('pt-status-changed', handlePTStatusChanged);
+        };
+    }, []);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -460,6 +484,13 @@ export default function UserActions({
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 17L17 7M17 7H7M17 7v10" />
                                             </svg>
                                         </button>
+                                        {/* Online/Offline Status Badge */}
+                                        <div className="absolute top-1.5 left-1.5 flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/80 backdrop-blur-sm">
+                                            <div className={`w-2 h-2 rounded-full ${trainer.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                            <span className="text-xs font-medium text-gray-800">
+                                                {trainer.isOnline ? 'Online' : 'Offline'}
+                                            </span>
+                                        </div>
                                         <div className="flex flex-col items-center">
                                             <div className={`w-24 h-24 rounded-2xl mb-3 overflow-hidden ${containerIsTransparent ? 'bg-transparent' : 'bg-white/40'}`}>
                                                 {anhDaiDien ? (

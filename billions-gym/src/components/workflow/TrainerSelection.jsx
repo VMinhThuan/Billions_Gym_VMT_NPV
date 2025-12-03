@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
+import chatService from '../../services/chat.service';
 import './WorkflowComponents.css';
 
 const TrainerSelection = ({ registrationId, selectedTrainer, onSelectTrainer, loading, registration }) => {
@@ -28,6 +29,34 @@ const TrainerSelection = ({ registrationId, selectedTrainer, onSelectTrainer, lo
 
     useEffect(() => {
         fetchAvailableTrainers();
+
+        // Connect to WebSocket for real-time PT status updates
+        chatService.connect();
+
+        // Listen for PT status changes
+        const handlePTStatusChanged = ({ ptId, isOnline }) => {
+            console.log('[TrainerSelection] PT status changed:', ptId, isOnline);
+            setAllTrainers(prevTrainers =>
+                prevTrainers.map(trainer =>
+                    trainer._id === ptId
+                        ? { ...trainer, isOnline }
+                        : trainer
+                )
+            );
+            setTrainers(prevTrainers =>
+                prevTrainers.map(trainer =>
+                    trainer._id === ptId
+                        ? { ...trainer, isOnline }
+                        : trainer
+                )
+            );
+        };
+
+        chatService.on('pt-status-changed', handlePTStatusChanged);
+
+        return () => {
+            chatService.off('pt-status-changed', handlePTStatusChanged);
+        };
     }, [registrationId]);
 
     const fetchAvailableTrainers = async () => {
@@ -208,9 +237,17 @@ const TrainerSelection = ({ registrationId, selectedTrainer, onSelectTrainer, lo
                                                     {trainer.hoTen?.charAt(0) || 'P'}
                                                 </div>
                                             )}
+                                            {/* Online/Offline Status Badge */}
+                                            <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-white rounded-full ${trainer.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                                         </div>
                                         <div className="trainer-info">
-                                            <h5 className="trainer-name">{trainer.hoTen}</h5>
+                                            <div className="flex items-center gap-2">
+                                                <h5 className="trainer-name">{trainer.hoTen}</h5>
+                                                {/* Online/Offline Text */}
+                                                <span className={`text-xs ${trainer.isOnline ? 'text-green-500' : 'text-gray-400'}`}>
+                                                    {trainer.isOnline ? '● Online' : '● Offline'}
+                                                </span>
+                                            </div>
                                             <p className="trainer-specialty">{trainer.chuyenMon || 'PT chuyên nghiệp'}</p>
                                             <div className="trainer-rating">
                                                 <span className="stars">⭐⭐⭐⭐⭐</span>

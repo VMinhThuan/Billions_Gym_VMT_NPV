@@ -97,6 +97,8 @@ const PTSchema = new mongoose.Schema({
         ref: 'ChiNhanh',
         required: true
     },
+    isOnline: { type: Boolean, default: false },
+    lastActivity: { type: Date, default: Date.now }
 });
 
 const PT = NguoiDung.discriminator('PT', PTSchema);

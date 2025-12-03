@@ -9,6 +9,7 @@ import PTReviewsList from '../../components/pt/PTReviewsList';
 import PTUpcomingSessions from '../../components/pt/PTUpcomingSessions';
 import { Users, Calendar, Star, TrendingUp, CheckCircle, UserCheck } from 'lucide-react';
 import ptService from '../../services/pt.service';
+import chatService from '../../services/chat.service';
 
 const PTProfile = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -27,8 +28,25 @@ const PTProfile = () => {
             setSidebarCollapsed(event.detail.collapsed);
         };
         window.addEventListener('sidebar:toggle', handleSidebarToggle);
-        return () => window.removeEventListener('sidebar:toggle', handleSidebarToggle);
-    }, []);
+
+        // Connect to WebSocket for real-time PT status updates
+        chatService.connect();
+
+        // Listen for PT status changes (for current PT's profile)
+        const handlePTStatusChanged = ({ ptId, isOnline }) => {
+            console.log('[PTProfile] PT status changed:', ptId, isOnline);
+            if (profile && profile._id === ptId) {
+                setProfile(prev => ({ ...prev, isOnline }));
+            }
+        };
+
+        chatService.on('pt-status-changed', handlePTStatusChanged);
+
+        return () => {
+            window.removeEventListener('sidebar:toggle', handleSidebarToggle);
+            chatService.off('pt-status-changed', handlePTStatusChanged);
+        };
+    }, [profile]);
 
     useEffect(() => {
         loadAllData();
@@ -146,8 +164,8 @@ const PTProfile = () => {
                         <button
                             onClick={() => setPeriod('week')}
                             className={`px-4 py-2 rounded-lg transition-all ${period === 'week'
-                                    ? 'bg-[#da2128] text-white'
-                                    : 'bg-[#141414] text-gray-400 border border-[#2a2a2a] hover:border-[#da2128]'
+                                ? 'bg-[#da2128] text-white'
+                                : 'bg-[#141414] text-gray-400 border border-[#2a2a2a] hover:border-[#da2128]'
                                 }`}
                         >
                             7 ngày
@@ -155,8 +173,8 @@ const PTProfile = () => {
                         <button
                             onClick={() => setPeriod('month')}
                             className={`px-4 py-2 rounded-lg transition-all ${period === 'month'
-                                    ? 'bg-[#da2128] text-white'
-                                    : 'bg-[#141414] text-gray-400 border border-[#2a2a2a] hover:border-[#da2128]'
+                                ? 'bg-[#da2128] text-white'
+                                : 'bg-[#141414] text-gray-400 border border-[#2a2a2a] hover:border-[#da2128]'
                                 }`}
                         >
                             30 ngày
@@ -164,8 +182,8 @@ const PTProfile = () => {
                         <button
                             onClick={() => setPeriod('year')}
                             className={`px-4 py-2 rounded-lg transition-all ${period === 'year'
-                                    ? 'bg-[#da2128] text-white'
-                                    : 'bg-[#141414] text-gray-400 border border-[#2a2a2a] hover:border-[#da2128]'
+                                ? 'bg-[#da2128] text-white'
+                                : 'bg-[#141414] text-gray-400 border border-[#2a2a2a] hover:border-[#da2128]'
                                 }`}
                         >
                             1 năm

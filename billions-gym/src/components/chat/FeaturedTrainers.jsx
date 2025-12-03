@@ -13,6 +13,27 @@ const FeaturedTrainers = () => {
 
     useEffect(() => {
         fetchTrainers();
+
+        // Connect to WebSocket for real-time PT status updates
+        chatService.connect();
+
+        // Listen for PT status changes
+        const handlePTStatusChanged = ({ ptId, isOnline }) => {
+            console.log('[FeaturedTrainers] PT status changed:', ptId, isOnline);
+            setTrainers(prevTrainers =>
+                prevTrainers.map(trainer =>
+                    trainer._id === ptId
+                        ? { ...trainer, isOnline }
+                        : trainer
+                )
+            );
+        };
+
+        chatService.on('pt-status-changed', handlePTStatusChanged);
+
+        return () => {
+            chatService.off('pt-status-changed', handlePTStatusChanged);
+        };
     }, []);
 
     const fetchTrainers = async () => {
@@ -107,7 +128,8 @@ const FeaturedTrainers = () => {
                                         trainer.hoTen.charAt(0).toUpperCase()
                                     )}
                                 </div>
-                                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                                {/* Online/Offline Status */}
+                                <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-white rounded-full ${trainer.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                             </div>
 
                             {/* Info */}

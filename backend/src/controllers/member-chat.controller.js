@@ -184,3 +184,38 @@ exports.getOrCreateRoom = async (req, res) => {
         res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
     }
 };
+
+// Xóa toàn bộ cuộc trò chuyện (room và messages)
+exports.deleteChatRoom = async (req, res) => {
+    try {
+        const memberId = req.user.id;
+        const { roomId } = req.params;
+
+        // Kiểm tra member có trong phòng chat không
+        const room = await ChatRoom.findOne({
+            _id: roomId,
+            participants: memberId
+        });
+
+        if (!room) {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn không có quyền xóa phòng chat này'
+            });
+        }
+
+        // Xóa tất cả tin nhắn trong phòng chat
+        await ChatMessage.deleteMany({ room: roomId });
+
+        // Xóa luôn cả phòng chat
+        await ChatRoom.findByIdAndDelete(roomId);
+
+        res.json({
+            success: true,
+            message: 'Đã xóa cuộc trò chuyện'
+        });
+    } catch (err) {
+        console.error('Error in deleteChatRoom:', err);
+        res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
+    }
+};

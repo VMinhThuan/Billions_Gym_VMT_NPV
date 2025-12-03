@@ -52,6 +52,7 @@ router.use(authorize(['HoiVien']));
 // Phòng chat - hội viên chat với PT
 router.get('/rooms', memberChatController.getChatRooms); // Lấy danh sách phòng chat của hội viên
 router.get('/rooms/:ptId', memberChatController.getOrCreateRoom); // Tạo/lấy phòng chat với PT
+router.delete('/rooms/:roomId', memberChatController.deleteChatRoom); // Xóa lịch sử chat
 
 // Tin nhắn
 router.get('/rooms/:roomId/messages', memberChatController.getChatMessages);

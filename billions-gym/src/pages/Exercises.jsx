@@ -242,9 +242,9 @@ const Exercises = () => {
 
         const handleNewMessage = (message) => {
             console.log('[Exercises] New message received:', message);
-            
+
             const currentUser = authUtils.getUser();
-            
+
             // Chỉ cập nhật unread nếu:
             // 1. Không phải tin nhắn của mình
             // 2. Không đang mở chat HOẶC đang mở chat nhưng không phải room này
@@ -526,7 +526,7 @@ const Exercises = () => {
             setSelectedPT(pt);
             setChatRoom(room);
             setShowChat(true);
-            
+
             // Reset unread count khi mở chat
             setUnreadCount(0);
         } catch (error) {
@@ -540,7 +540,7 @@ const Exercises = () => {
         setShowChat(false);
         setSelectedPT(null);
         setChatRoom(null);
-        
+
         // Reset unread count khi đóng chat
         setUnreadCount(0);
     };
