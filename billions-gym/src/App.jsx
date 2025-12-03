@@ -28,6 +28,7 @@ import BubbleChat from './components/BubbleChat'
 import PTDashboard from './pages/pt/PTDashboard'
 import PTProfile from './pages/pt/PTProfile'
 import PTSchedule from './pages/pt/PTSchedule'
+import PTWorkSchedule from './pages/pt/PTWorkSchedule'
 import PTStudents from './pages/pt/PTStudents'
 import PTStudentDetail from './pages/pt/PTStudentDetail'
 import PTSessions from './pages/pt/PTSessions'
@@ -144,6 +145,7 @@ const AppContent = () => {
             <Route path='/pt/dashboard' element={<PTDashboard />} />
             <Route path='/pt/profile' element={<PTProfile />} />
             <Route path='/pt/statistics' element={<PTStatistics />} />
+            <Route path='/pt/work-schedule' element={<PTWorkSchedule />} />
             <Route path='/pt/schedule' element={<PTSchedule />} />
             <Route path='/pt/students' element={<PTStudents />} />
             <Route path='/pt/students/:id' element={<PTStudentDetail />} />
