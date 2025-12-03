@@ -244,6 +244,48 @@ exports.deletePT = async (req, res) => {
     }
 };
 
+exports.resetPTPassword = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const newPassword = typeof req.body?.newPassword === 'string' ? req.body.newPassword : '1';
+        const taiKhoan = await userService.resetPTPassword(id, newPassword);
+        res.json({
+            message: `Đã đặt lại mật khẩu PT về ${newPassword}`,
+            taiKhoan
+        });
+    } catch (err) {
+        if (err.code === 404) {
+            return res.status(404).json({ message: err.message });
+        }
+        res.status(500).json({ message: 'Đặt lại mật khẩu PT thất bại', error: err.message });
+    }
+};
+
+exports.createPTAccount = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const defaultPassword = typeof req.body?.defaultPassword === 'string' ? req.body.defaultPassword : undefined;
+        const taiKhoan = await userService.createPTAccount(id, { defaultPassword });
+        const responsePassword = defaultPassword && defaultPassword.trim() !== '' ? defaultPassword.trim() : '1';
+        res.status(201).json({
+            message: 'Tạo tài khoản PT thành công',
+            taiKhoan,
+            defaultPassword: responsePassword
+        });
+    } catch (err) {
+        if (err.code === 404) {
+            return res.status(404).json({ message: err.message });
+        }
+        if (err.code === 400) {
+            return res.status(400).json({ message: err.message });
+        }
+        if (err.code === 409) {
+            return res.status(409).json({ message: err.message });
+        }
+        res.status(500).json({ message: 'Tạo tài khoản PT thất bại', error: err.message });
+    }
+};
+
 // Cập nhật trạng thái hội viên
 exports.updateMemberStatus = async (req, res) => {
     try {

@@ -581,6 +581,85 @@ const deletePT = async (id) => {
     return PT.findByIdAndDelete(id);
 };
 
+const resetPTPassword = async (ptId, newPassword = '1') => {
+    const pt = await PT.findById(ptId);
+    if (!pt) {
+        const err = new Error('Không tìm thấy huấn luyện viên');
+        err.code = 404;
+        throw err;
+    }
+
+    const taiKhoan = await TaiKhoan.findOne({ nguoiDung: ptId });
+    if (!taiKhoan) {
+        const err = new Error('Huấn luyện viên này chưa có tài khoản để đặt lại mật khẩu');
+        err.code = 404;
+        throw err;
+    }
+
+    const plainPassword = (typeof newPassword === 'string' && newPassword.trim() !== '')
+        ? newPassword.trim()
+        : '1';
+    const hashedPassword = await hashPassword(plainPassword);
+
+    taiKhoan.matKhau = hashedPassword;
+    await taiKhoan.save();
+
+    return {
+        _id: taiKhoan._id,
+        sdt: taiKhoan.sdt,
+        trangThaiTK: taiKhoan.trangThaiTK,
+        nguoiDung: taiKhoan.nguoiDung
+    };
+};
+
+const createPTAccount = async (ptId, options = {}) => {
+    const pt = await PT.findById(ptId);
+    if (!pt) {
+        const err = new Error('Không tìm thấy huấn luyện viên');
+        err.code = 404;
+        throw err;
+    }
+
+    if (!pt.sdt) {
+        const err = new Error('PT chưa có số điện thoại để tạo tài khoản');
+        err.code = 400;
+        throw err;
+    }
+
+    const existedByUser = await TaiKhoan.findOne({ nguoiDung: ptId });
+    if (existedByUser) {
+        const err = new Error('Huấn luyện viên này đã có tài khoản');
+        err.code = 409;
+        throw err;
+    }
+
+    const existedByPhone = await TaiKhoan.findOne({ sdt: pt.sdt });
+    if (existedByPhone) {
+        const err = new Error('Số điện thoại đã được dùng cho tài khoản khác');
+        err.code = 409;
+        throw err;
+    }
+
+    const defaultPassword = (typeof options.defaultPassword === 'string' && options.defaultPassword.trim() !== '')
+        ? options.defaultPassword.trim()
+        : '1';
+    const hashedPassword = await hashPassword(defaultPassword);
+
+    const taiKhoan = await TaiKhoan.create({
+        sdt: pt.sdt,
+        matKhau: hashedPassword,
+        nguoiDung: pt._id,
+        trangThaiTK: 'DANG_HOAT_DONG'
+    });
+
+    return {
+        _id: taiKhoan._id,
+        sdt: taiKhoan.sdt,
+        trangThaiTK: taiKhoan.trangThaiTK,
+        nguoiDung: taiKhoan.nguoiDung
+    };
+};
+
 const lockTaiKhoan = async (nguoiDungId) => {
     const tk = await TaiKhoan.findOneAndUpdate(
         { nguoiDung: nguoiDungId },
@@ -738,6 +817,8 @@ module.exports = {
     searchPT,
     updatePT,
     deletePT,
+    resetPTPassword,
+    createPTAccount,
     lockTaiKhoan,
     unlockTaiKhoan,
     checkEmailExists,
