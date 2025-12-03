@@ -6,6 +6,7 @@ import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
 import checkIcon from '../assets/check.svg';
 import topRightIcon from '../assets/top-right.svg';
+import { addDuration, formatDurationUnitLabel } from '../utils/duration';
 
 const ActivePackage = () => {
     const navigate = useNavigate();
@@ -37,6 +38,21 @@ const ActivePackage = () => {
         return () => window.removeEventListener('sidebar:toggle', handler);
     }, []);
 
+    // Helper: fetch với timeout (mặc định 10s) để tránh treo vô hạn
+    const fetchWithTimeout = async (url, options = {}, timeoutMs = 10000) => {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            return response;
+        } finally {
+            clearTimeout(id);
+        }
+    };
+
     const fetchData = async () => {
         try {
             setLoading(true);
@@ -50,16 +66,14 @@ const ActivePackage = () => {
                 return;
             }
 
-            const [activePackageResponse, allPackagesResponse] = await Promise.all([
-                fetch(getApiUrl(`/chitietgoitap/hoi-vien/${user._id}/active`), {
+            // 1) Load gói tập hiện tại (ưu tiên nhanh)
+            const activePackageResponse = await fetchWithTimeout(
+                getApiUrl(`/chitietgoitap/hoi-vien/${user._id}/active`),
+                {
                     method: 'GET',
                     headers: getAuthHeaders(true)
-                }),
-                fetch(getApiUrl('/user/goitap'), {
-                    method: 'GET',
-                    headers: getAuthHeaders(true)
-                })
-            ]);
+                }
+            );
 
             let activePackage = null;
             if (activePackageResponse.ok) {
@@ -67,41 +81,54 @@ const ActivePackage = () => {
                 setCurrentPackage(activePackage);
             } else if (activePackageResponse.status === 404) {
                 console.log('No active package found');
+                setCurrentPackage(null);
             } else {
                 throw new Error('Không thể tải thông tin gói tập hiện tại');
             }
 
-            if (!allPackagesResponse.ok) throw new Error('Không thể tải danh sách gói tập');
-            const allPackages = await allPackagesResponse.json();
-
-            const currentPrice = activePackage?.maGoiTap?.donGia || activePackage?.goiTapId?.donGia || 0;
-            const filtered = allPackages.filter(pkg => pkg.kichHoat && pkg.donGia > currentPrice);
-
-            setAvailablePackages(filtered);
-        } catch (err) {
-            console.error('Error fetching data:', err);
-            setError(err.message);
-        } finally {
+            // Kết thúc trạng thái loading chính sau khi biết gói hiện tại
             setLoading(false);
+
+            // 2) Load danh sách gói tập nâng cấp ở background (không chặn UI)
+            try {
+                // Với danh sách gói nâng cấp, không cần timeout nghiêm ngặt
+                // để tránh bị AbortError và thiếu dữ liệu nếu backend hơi chậm
+                const allPackagesResponse = await fetch(getApiUrl('/user/goitap'), {
+                    method: 'GET',
+                    headers: getAuthHeaders(true)
+                });
+
+                if (!allPackagesResponse.ok) {
+                    console.warn('Không thể tải danh sách gói tập nâng cấp');
+                    return;
+                }
+
+                const allPackages = await allPackagesResponse.json();
+                const currentPrice =
+                    activePackage?.maGoiTap?.donGia || activePackage?.goiTapId?.donGia || 0;
+                const filtered = allPackages.filter(
+                    (pkg) => pkg.kichHoat && pkg.donGia > currentPrice
+                );
+                setAvailablePackages(filtered);
+            } catch (upgradeErr) {
+                console.warn('Lỗi khi tải danh sách gói tập nâng cấp:', upgradeErr);
+            }
+        } catch (err) {
+            if (err?.name === 'AbortError') {
+                console.warn('⏱️ ActivePackage fetch timed out:', err);
+                setError('Máy chủ phản hồi chậm, vui lòng thử lại sau vài giây.');
+            } else {
+                console.error('Error fetching data:', err);
+                setError(err.message || 'Không thể tải thông tin gói tập hiện tại');
+            }
         }
     };
 
     const getPackageData = (pkg) => pkg.maGoiTap || pkg.goiTapId;
 
-    const formatDuration = (thoiHan) => {
+    const formatDuration = (thoiHan, unit = 'Ngay') => {
         if (!thoiHan) return '';
-
-        if (thoiHan < 30) {
-            return `${thoiHan} ngày`;
-        }
-        else if (thoiHan >= 30 && thoiHan < 365) {
-            const months = Math.floor(thoiHan / 30);
-            return `${months} tháng`;
-        }
-        else {
-            const years = Math.floor(thoiHan / 365);
-            return `${years} năm`;
-        }
+        return `${thoiHan} ${formatDurationUnitLabel(unit).toLowerCase()}`;
     };
 
     if (loading) {
@@ -165,7 +192,7 @@ const ActivePackage = () => {
         name: pkg.tenGoiTap,
         description: pkg.moTa || 'Gói tập chất lượng cao với nhiều quyền lợi.',
         price: pkg.donGia?.toLocaleString('vi-VN') || '0',
-        duration: formatDuration(pkg.thoiHan),
+        duration: formatDuration(pkg.thoiHan, pkg.donViThoiHan),
         features: pkg.quyenLoi && pkg.quyenLoi.length > 0
             ? pkg.quyenLoi.map(ql => ql.tenQuyenLoi || ql.moTa || ql)
             : [
@@ -177,6 +204,18 @@ const ActivePackage = () => {
         isPopular: pkg.popular || false,
         originalData: pkg
     }));
+
+    const isExpired = Boolean(currentPackage?.isExpired);
+    const expiredMessage = currentPackage?.expiredMessage || 'Gói tập của bạn đã hết hạn. Vui lòng gia hạn hoặc đăng ký gói tập mới để tiếp tục sử dụng dịch vụ.';
+
+    const scrollToPackages = () => {
+        const element = document.getElementById('packages-list');
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
 
     return (
         <>
@@ -192,7 +231,9 @@ const ActivePackage = () => {
                             </h2>
                             <p className="w-full max-w-3xl text-lg text-gray-300 text-center">
                                 {currentPkg
-                                    ? `Bạn đang sử dụng gói ${currentPkg.tenGoiTap}. Nâng cấp lên gói cao hơn để trải nghiệm thêm nhiều quyền lợi!`
+                                    ? isExpired
+                                        ? `Gói ${currentPkg.tenGoiTap} của bạn đã hết hạn. Vui lòng gia hạn hoặc chọn gói mới để tiếp tục sử dụng dịch vụ.`
+                                        : `Bạn đang sử dụng gói ${currentPkg.tenGoiTap}. Nâng cấp lên gói cao hơn để trải nghiệm thêm nhiều quyền lợi!`
                                     : 'Chọn gói tập phù hợp với nhu cầu của bạn. Không có phí ẩn, minh bạch 100%!'
                                 }
                             </p>
@@ -258,7 +299,7 @@ const ActivePackage = () => {
 
                         {/* Pricing Details Section */}
                         {(currentPackage || pricingPlans.length > 0) ? (
-                            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full" aria-label="Pricing Plans">
+                            <section id="packages-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full" aria-label="Pricing Plans">
                                 {/* Current Package Card */}
                                 {currentPackage && currentPkg && (
                                     <article
@@ -271,8 +312,8 @@ const ActivePackage = () => {
                                                         <h3 className="text-2xl font-bold text-white">
                                                             {currentPkg.tenGoiTap}
                                                         </h3>
-                                                        <span className="inline-flex items-center justify-center px-2 py-1 bg-[#da2128] rounded text-white text-xs font-bold whitespace-nowrap">
-                                                            Đang sử dụng
+                                                        <span className={`inline-flex items-center justify-center px-2 py-1 rounded text-white text-xs font-bold whitespace-nowrap ${isExpired ? 'bg-red-600' : 'bg-[#da2128]'}`}>
+                                                            {isExpired ? 'Đã hết hạn' : 'Đang sử dụng'}
                                                         </span>
                                                     </div>
                                                     <p className="text-sm text-gray-400 leading-relaxed">
@@ -280,6 +321,14 @@ const ActivePackage = () => {
                                                     </p>
                                                 </div>
                                             </div>
+
+                                            {isExpired && (
+                                                <div className="w-full rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
+                                                    <p className="text-sm text-red-200">
+                                                        {expiredMessage}
+                                                    </p>
+                                                </div>
+                                            )}
 
                                             <div className="w-full h-px bg-white/10" role="separator" />
 
@@ -290,7 +339,7 @@ const ActivePackage = () => {
                                                     </span>
                                                     <span className="text-xl text-white">₫</span>
                                                     <span className="text-base text-gray-400">
-                                                        /{formatDuration(currentPkg.thoiHan)}
+                                                        /{formatDuration(currentPkg.thoiHan, currentPkg.donViThoiHan)}
                                                     </span>
                                                 </div>
                                                 <p className="text-xs text-gray-500 mt-2">
@@ -301,20 +350,7 @@ const ActivePackage = () => {
                                                         }
 
                                                         if (currentPackage.ngayBatDau && currentPkg.thoiHan) {
-                                                            const ngayBatDau = new Date(currentPackage.ngayBatDau);
-                                                            const thoiHan = currentPkg.thoiHan;
-                                                            const ngayKetThuc = new Date(ngayBatDau);
-
-                                                            if (currentPkg.donViThoiHan === 'Ngày') {
-                                                                ngayKetThuc.setDate(ngayKetThuc.getDate() + thoiHan);
-                                                            } else if (currentPkg.donViThoiHan === 'Tháng') {
-                                                                ngayKetThuc.setMonth(ngayKetThuc.getMonth() + thoiHan);
-                                                            } else if (currentPkg.donViThoiHan === 'Năm') {
-                                                                ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + thoiHan);
-                                                            } else {
-                                                                ngayKetThuc.setDate(ngayKetThuc.getDate() + thoiHan);
-                                                            }
-
+                                                            const ngayKetThuc = addDuration(currentPackage.ngayBatDau, currentPkg.thoiHan, currentPkg.donViThoiHan);
                                                             return ngayKetThuc.toLocaleDateString('vi-VN');
                                                         }
 
@@ -356,11 +392,15 @@ const ActivePackage = () => {
                                         </ul>
 
                                         <button
-                                            disabled
-                                            className="w-full mt-auto flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-gray-600 text-gray-400 font-semibold cursor-not-allowed opacity-60"
-                                            aria-label="Gói tập hiện tại"
+                                            onClick={isExpired ? scrollToPackages : undefined}
+                                            disabled={!isExpired}
+                                            className={`w-full mt-auto flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold transition-all duration-300 ${isExpired
+                                                ? 'bg-gradient-to-r from-[#ff536b] to-[#ff536b]/70 text-white hover:opacity-90 cursor-pointer'
+                                                : 'bg-gray-600 text-gray-400 cursor-not-allowed opacity-60'
+                                                }`}
+                                            aria-label={isExpired ? 'Gia hạn hoặc đăng ký gói mới' : 'Gói tập hiện tại'}
                                         >
-                                            Gói hiện tại của bạn
+                                            {isExpired ? 'Gia hạn hoặc đăng ký gói mới' : 'Gói hiện tại của bạn'}
                                         </button>
                                     </article>
                                 )}

@@ -27,10 +27,29 @@ const PTChat = () => {
         chatService.connect();
 
         const handleNewMessage = (message) => {
+            // Cập nhật tin nhắn trong phòng đang mở
             if (selectedRoom && message.room === selectedRoom._id) {
                 setMessages(prev => [...prev, message]);
                 scrollToBottom();
+                // Mark as read ngay khi nhận tin trong phòng đang mở
+                chatService.markRead(selectedRoom._id);
             }
+
+            // Cập nhật danh sách rooms với lastMessage và unreadCount
+            setRooms(prev => prev.map(room => {
+                if (room._id === message.room) {
+                    return {
+                        ...room,
+                        lastMessage: message.message || 'Đã gửi file',
+                        lastMessageAt: message.createdAt,
+                        // Tăng unread count nếu không phải phòng đang mở và không phải tin nhắn của mình
+                        unreadCount: (selectedRoom?._id !== room._id && message.sender._id !== authUtils.getUser()?._id)
+                            ? (room.unreadCount || 0) + 1
+                            : room.unreadCount || 0
+                    };
+                }
+                return room;
+            }));
         };
 
         chatService.on('new-message', handleNewMessage);
@@ -64,11 +83,18 @@ const PTChat = () => {
 
     const handleSelectRoom = async (room) => {
         setSelectedRoom(room);
+
+        // Reset unread count cho phòng này
+        setRooms(prev => prev.map(r =>
+            r._id === room._id ? { ...r, unreadCount: 0 } : r
+        ));
+
         try {
             const response = await chatService.getChatMessages(room._id);
             if (response.success) {
                 setMessages(response.data || []);
                 chatService.joinRoom(room._id);
+                chatService.markRead(room._id);
             }
         } catch (error) {
             console.error('Error loading messages:', error);
@@ -112,8 +138,8 @@ const PTChat = () => {
                                                 key={room._id}
                                                 onClick={() => handleSelectRoom(room)}
                                                 className={`p-3 rounded-lg cursor-pointer transition ${selectedRoom?._id === room._id
-                                                        ? 'bg-[#da2128]'
-                                                        : 'bg-[#0a0a0a] hover:bg-[#2a2a2a] border border-[#2a2a2a]'
+                                                    ? 'bg-[#da2128]'
+                                                    : 'bg-[#0a0a0a] hover:bg-[#2a2a2a] border border-[#2a2a2a]'
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-3">
@@ -132,6 +158,13 @@ const PTChat = () => {
                                                         <p className="text-white font-semibold truncate">{room.hoiVien?.hoTen || 'N/A'}</p>
                                                         <p className="text-gray-400 text-sm truncate">{room.lastMessage || 'Chưa có tin nhắn'}</p>
                                                     </div>
+                                                    {room.unreadCount > 0 && (
+                                                        <div className="flex-shrink-0">
+                                                            <div className="bg-[#da2128] text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                                                                {room.unreadCount > 9 ? '9+' : room.unreadCount}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -173,8 +206,8 @@ const PTChat = () => {
                                                     >
                                                         <div
                                                             className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${isMyMessage
-                                                                    ? 'bg-[#da2128] text-white'
-                                                                    : 'bg-[#2a2a2a] text-white'
+                                                                ? 'bg-[#da2128] text-white'
+                                                                : 'bg-[#2a2a2a] text-white'
                                                                 }`}
                                                         >
                                                             {msg.type === 'image' && msg.fileUrl ? (

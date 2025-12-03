@@ -16,7 +16,7 @@ const UserNotificationSchema = new mongoose.Schema({
     },
     loaiThongBao: {
         type: String,
-        enum: ['PAYMENT_SUCCESS', 'UPGRADE_SUCCESS', 'PACKAGE_ADDED', 'WORKOUT_REMINDER', 'WORKFLOW', 'GENERAL'],
+        enum: ['PAYMENT_SUCCESS', 'UPGRADE_SUCCESS', 'PACKAGE_ADDED', 'WORKOUT_REMINDER', 'WORKFLOW', 'GOI_TAP_HET_HAN', 'GENERAL'],
         default: 'GENERAL'
     },
     // Lưu dữ liệu linh hoạt cho từng loại thông báo (registrationId, actionUrl, v.v.)

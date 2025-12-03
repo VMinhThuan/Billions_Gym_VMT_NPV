@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiUrl, getAuthHeaders } from '../services/api';
+import chatService from '../services/chat.service';
 
 const getLastName = (fullName) => {
     if (!fullName) return 'Hội viên';
@@ -20,7 +21,8 @@ export default function UserActions({
     activePackage = null,
     nextSessions = [],
     notifications = [],
-    loadingPackage = false
+    loadingPackage = false,
+    packageStatusMessage = ''
 }) {
     const navigate = useNavigate();
     const [bodyMetrics, setBodyMetrics] = useState(null);
@@ -30,6 +32,29 @@ export default function UserActions({
     const [recommendedActivities, setRecommendedActivities] = useState([]);
     const [nutritionData, setNutritionData] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        // Connect to WebSocket for real-time PT status updates
+        chatService.connect();
+
+        // Listen for PT status changes
+        const handlePTStatusChanged = ({ ptId, isOnline }) => {
+            console.log('[UserActions] PT status changed:', ptId, isOnline);
+            setTrainers(prevTrainers =>
+                prevTrainers.map(trainer =>
+                    trainer._id === ptId
+                        ? { ...trainer, isOnline }
+                        : trainer
+                )
+            );
+        };
+
+        chatService.on('pt-status-changed', handlePTStatusChanged);
+
+        return () => {
+            chatService.off('pt-status-changed', handlePTStatusChanged);
+        };
+    }, []);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -116,7 +141,7 @@ export default function UserActions({
     const handleAction = (action) => {
         switch (action) {
             case 'subscribe':
-                navigate('/packages');
+                navigate('/active-package');
                 break;
             case 'book-pt':
                 navigate('/booking');
@@ -149,6 +174,21 @@ export default function UserActions({
                     <h1 className="text-4xl font-bold text-white">Chào mừng trở lại!</h1>
                 </div>
             </div>
+
+            {!loadingPackage && packageStatusMessage && (
+                <div className="bg-gradient-to-r from-[#2b2b2b] via-[#1f1f1f] to-[#111] border border-white/5 rounded-2xl p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-[0_15px_35px_rgba(0,0,0,0.35)]">
+                    <div>
+                        <p className="text-base text-white/90 font-semibold mb-1">Bạn chưa có gói tập hoạt động</p>
+                        <p className="text-sm text-gray-400">{packageStatusMessage}</p>
+                    </div>
+                    <button
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ff512f] to-[#dd2476] text-white font-semibold shadow-lg hover:scale-[1.02] transition-transform"
+                        onClick={() => handleAction('subscribe')}
+                    >
+                        Đăng ký gói tập
+                    </button>
+                </div>
+            )}
 
             {/* Main Grid Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -444,6 +484,13 @@ export default function UserActions({
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 17L17 7M17 7H7M17 7v10" />
                                             </svg>
                                         </button>
+                                        {/* Online/Offline Status Badge */}
+                                        <div className="absolute top-1.5 left-1.5 flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/80 backdrop-blur-sm">
+                                            <div className={`w-2 h-2 rounded-full ${trainer.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                            <span className="text-xs font-medium text-gray-800">
+                                                {trainer.isOnline ? 'Online' : 'Offline'}
+                                            </span>
+                                        </div>
                                         <div className="flex flex-col items-center">
                                             <div className={`w-24 h-24 rounded-2xl mb-3 overflow-hidden ${containerIsTransparent ? 'bg-transparent' : 'bg-white/40'}`}>
                                                 {anhDaiDien ? (

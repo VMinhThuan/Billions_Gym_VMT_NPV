@@ -1,7 +1,7 @@
 import { Dumbbell, Utensils, Trophy, Calendar } from "lucide-react";
 
-export function ActivityTimeline() {
-    const activities = [
+export function ActivityTimeline({ activities }) {
+    const fallbackActivities = [
         {
             type: 'workout',
             title: 'Hoàn thành buổi tập Chest & Triceps',
@@ -37,6 +37,8 @@ export function ActivityTimeline() {
         }
     ];
 
+    const data = activities && activities.length ? activities : fallbackActivities;
+
     const getIcon = (type) => {
         switch (type) {
             case 'workout':
@@ -69,7 +71,7 @@ export function ActivityTimeline() {
             </div>
 
             <div className="space-y-4 max-h-[500px] overflow-y-auto scrollbar-hide">
-                {activities.map((activity, index) => {
+                {data.map((activity, index) => {
                     const Icon = getIcon(activity.type);
                     const gradient = getColor(activity.type);
 
@@ -79,7 +81,7 @@ export function ActivityTimeline() {
                             className="relative flex gap-4 group hover:bg-zinc-900/50 p-3 rounded-xl transition-all duration-300 cursor-pointer"
                         >
                             {/* Timeline line */}
-                            {index < activities.length - 1 && (
+                            {index < data.length - 1 && (
                                 <div className="absolute left-[22px] top-[50px] w-0.5 h-[calc(100%-30px)] bg-zinc-800"></div>
                             )}
 

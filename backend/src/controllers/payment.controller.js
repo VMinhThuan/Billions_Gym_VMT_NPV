@@ -4,6 +4,7 @@ const GoiTap = require('../models/GoiTap');
 const ChiTietGoiTap = require('../models/ChiTietGoiTap');
 const { NguoiDung } = require('../models/NguoiDung');
 const { createPaymentSuccessNotification, createUpgradeSuccessNotification, createPartnerAddedNotification, createWorkflowNotification, createPartnerWorkflowNotification } = require('./notification.controller');
+const { addDuration } = require('../utils/duration.utils');
 
 class PaymentController {
     /**
@@ -71,6 +72,24 @@ class PaymentController {
                 });
             }
 
+            // Tính ngày kết thúc dựa trên ngày bắt đầu và thời hạn gói tập
+            const startDate = paymentData.startDate ? new Date(paymentData.startDate) : new Date();
+            const ngayKetThuc = addDuration(startDate, packageInfo.thoiHan, packageInfo.donViThoiHan);
+
+            // Nếu chọn giữ thông tin từ gói cũ, copy branchId và PT
+            let finalBranchId = paymentData.branchId;
+            let finalPtId = null;
+
+            if (paymentData.keepPreviousInfo && paymentData.previousBranchId) {
+                finalBranchId = paymentData.previousBranchId;
+                console.log('✅ [MOMO] Keeping previous branch:', finalBranchId);
+            }
+
+            if (paymentData.keepPreviousInfo && paymentData.previousPtId) {
+                finalPtId = paymentData.previousPtId;
+                console.log('✅ [MOMO] Keeping previous PT:', finalPtId);
+            }
+
             // Lưu thông tin đăng ký gói tập
             const registrationData = {
                 goiTapId: packageId,
@@ -86,20 +105,57 @@ class PaymentController {
                     paymentUrl: momoResult.data.payUrl
                 },
                 thongTinKhachHang: paymentData,
-                branchId: paymentData.branchId,
-                ngayBatDau: paymentData.startDate,
+                branchId: finalBranchId,
+                ptDuocChon: finalPtId, // Copy PT từ gói cũ nếu chọn giữ
+                ngayChonPT: finalPtId ? new Date() : undefined, // Đánh dấu đã chọn PT nếu copy từ gói cũ
+                ngayBatDau: startDate,
+                ngayKetThuc: ngayKetThuc, // Tính ngày kết thúc
+                // Nếu đã copy PT và branch từ gói cũ, tự động chuyển sang bước tiếp theo
+                trangThaiDangKy: finalPtId ? 'DA_CHON_PT' : 'CHO_CHON_PT',
                 // Thêm thông tin upgrade
                 isUpgrade: paymentData.isUpgrade || false,
                 soTienBu: paymentData.soTienBu || 0,
                 giaGoiTapGoc: paymentData.giaGoiTapGoc || amount,
                 ghiChu: paymentData.isUpgrade && paymentData.existingPackageId
                     ? `Nâng cấp từ gói cũ - Số tiền bù: ${(paymentData.soTienBu || 0).toLocaleString('vi-VN')}₫`
-                    : null
+                    : (paymentData.keepPreviousInfo ? 'Giữ thông tin từ gói tập trước' : null)
             };
 
             // Lưu vào database
             const registration = new ChiTietGoiTap(registrationData);
             await registration.save();
+
+            // Tạo record ThanhToan ngay khi tạo payment request
+            try {
+                const ThanhToan = require('../models/ThanhToan');
+                const { NguoiDung } = require('../models/NguoiDung');
+
+                // Tìm hoiVien từ userId (vì HoiVien là discriminator của NguoiDung)
+                let hoiVienId = userId;
+                try {
+                    const user = await NguoiDung.findById(userId).select('_id');
+                    hoiVienId = user?._id || userId;
+                } catch (userError) {
+                    console.warn('Could not find user, using userId as hoiVienId:', userError.message);
+                }
+
+                const newPayment = new ThanhToan({
+                    hoiVien: hoiVienId,
+                    maChiTietGoiTap: registration._id,
+                    soTien: amount,
+                    ngayThanhToan: new Date(),
+                    phuongThuc: 'CHUYEN_KHOAN', // Map momo/zalopay to CHUYEN_KHOAN
+                    noiDung: `Thanh toán gói tập: ${packageInfo.tenGoiTap}`,
+                    trangThaiThanhToan: 'DANG_XU_LY', // Sẽ update thành THANH_CONG khi callback thành công
+                    isLocked: false
+                });
+
+                await newPayment.save();
+                console.log(`✅ [MOMO] Created ThanhToan record for order ${orderId}, hoiVien: ${hoiVienId}, amount: ${amount}`);
+            } catch (paymentError) {
+                console.error('❌ [MOMO] Error creating ThanhToan record:', paymentError);
+                // Không throw error để không ảnh hưởng đến flow chính
+            }
 
             // Nếu là upgrade, cập nhật gói cũ
             if (paymentData.isUpgrade && paymentData.existingPackageId) {
@@ -204,6 +260,24 @@ class PaymentController {
                 });
             }
 
+            // Tính ngày kết thúc dựa trên ngày bắt đầu và thời hạn gói tập
+            const startDate = paymentData.startDate ? new Date(paymentData.startDate) : new Date();
+            const ngayKetThuc = addDuration(startDate, packageInfo.thoiHan, packageInfo.donViThoiHan);
+
+            // Nếu chọn giữ thông tin từ gói cũ, copy branchId và PT
+            let finalBranchId = paymentData.branchId;
+            let finalPtId = null;
+
+            if (paymentData.keepPreviousInfo && paymentData.previousBranchId) {
+                finalBranchId = paymentData.previousBranchId;
+                console.log('✅ [ZALO] Keeping previous branch:', finalBranchId);
+            }
+
+            if (paymentData.keepPreviousInfo && paymentData.previousPtId) {
+                finalPtId = paymentData.previousPtId;
+                console.log('✅ [ZALO] Keeping previous PT:', finalPtId);
+            }
+
             // Lưu thông tin đăng ký gói tập
             const registrationData = {
                 goiTapId: packageId,
@@ -219,20 +293,57 @@ class PaymentController {
                     paymentUrl: zaloResult.data.order_url
                 },
                 thongTinKhachHang: paymentData,
-                branchId: paymentData.branchId,
-                ngayBatDau: paymentData.startDate,
+                branchId: finalBranchId,
+                ptDuocChon: finalPtId, // Copy PT từ gói cũ nếu chọn giữ
+                ngayChonPT: finalPtId ? new Date() : undefined, // Đánh dấu đã chọn PT nếu copy từ gói cũ
+                ngayBatDau: startDate,
+                ngayKetThuc: ngayKetThuc, // Tính ngày kết thúc
+                // Nếu đã copy PT và branch từ gói cũ, tự động chuyển sang bước tiếp theo
+                trangThaiDangKy: finalPtId ? 'DA_CHON_PT' : 'CHO_CHON_PT',
                 // Thêm thông tin upgrade
                 isUpgrade: paymentData.isUpgrade || false,
                 soTienBu: paymentData.soTienBu || 0,
                 giaGoiTapGoc: paymentData.giaGoiTapGoc || amount,
                 ghiChu: paymentData.isUpgrade && paymentData.existingPackageId
                     ? `Nâng cấp từ gói cũ - Số tiền bù: ${(paymentData.soTienBu || 0).toLocaleString('vi-VN')}₫`
-                    : null
+                    : (paymentData.keepPreviousInfo ? 'Giữ thông tin từ gói tập trước' : null)
             };
 
             // Lưu vào database
             const registration = new ChiTietGoiTap(registrationData);
             await registration.save();
+
+            // Tạo record ThanhToan ngay khi tạo payment request
+            try {
+                const ThanhToan = require('../models/ThanhToan');
+                const { NguoiDung } = require('../models/NguoiDung');
+
+                // Tìm hoiVien từ userId (vì HoiVien là discriminator của NguoiDung)
+                let hoiVienId = userId;
+                try {
+                    const user = await NguoiDung.findById(userId).select('_id');
+                    hoiVienId = user?._id || userId;
+                } catch (userError) {
+                    console.warn('Could not find user, using userId as hoiVienId:', userError.message);
+                }
+
+                const newPayment = new ThanhToan({
+                    hoiVien: hoiVienId,
+                    maChiTietGoiTap: registration._id,
+                    soTien: amount,
+                    ngayThanhToan: new Date(),
+                    phuongThuc: 'CHUYEN_KHOAN', // Map momo/zalopay to CHUYEN_KHOAN
+                    noiDung: `Thanh toán gói tập: ${packageInfo.tenGoiTap}`,
+                    trangThaiThanhToan: 'DANG_XU_LY', // Sẽ update thành THANH_CONG khi callback thành công
+                    isLocked: false
+                });
+
+                await newPayment.save();
+                console.log(`✅ [ZALOPAY] Created ThanhToan record for order ${orderId}, hoiVien: ${hoiVienId}, amount: ${amount}`);
+            } catch (paymentError) {
+                console.error('❌ [ZALOPAY] Error creating ThanhToan record:', paymentError);
+                // Không throw error để không ảnh hưởng đến flow chính
+            }
 
             // Nếu là upgrade, cập nhật gói cũ
             if (paymentData.isUpgrade && paymentData.existingPackageId) {
@@ -396,13 +507,80 @@ class PaymentController {
                 'thongTinThanhToan.ketQuaThanhToan': paymentResult
             };
 
+            // Tìm registration trước để kiểm tra ngày kết thúc
+            const registration = await ChiTietGoiTap.findOne({
+                'thongTinThanhToan.orderId': orderId
+            }).populate('goiTapId');
+
+            // Nếu chưa có ngày kết thúc và đã có ngày bắt đầu, tính lại
+            if (registration && !registration.ngayKetThuc && registration.ngayBatDau && registration.goiTapId) {
+                const ngayKetThuc = addDuration(registration.ngayBatDau, registration.goiTapId.thoiHan, registration.goiTapId.donViThoiHan);
+                updateData.ngayKetThuc = ngayKetThuc;
+                console.log(`[CALLBACK] Calculated ngayKetThuc: ${ngayKetThuc.toISOString()}`);
+            }
+
             const updatedRegistration = await ChiTietGoiTap.findOneAndUpdate(
                 { 'thongTinThanhToan.orderId': orderId },
                 updateData,
                 { new: true }
-            ).populate('goiTapId');
+            ).populate('goiTapId').populate('nguoiDungId');
 
             console.log(`Updated registration status for order ${orderId} to ${status}`);
+
+            // Cập nhật record thanh toán trong ThanhToan collection khi thanh toán thành công
+            if (status === 'DA_THANH_TOAN' && updatedRegistration) {
+                try {
+                    const ThanhToan = require('../models/ThanhToan');
+                    const existingPayment = await ThanhToan.findOne({
+                        maChiTietGoiTap: updatedRegistration._id
+                    });
+
+                    if (existingPayment) {
+                        // Cập nhật trạng thái nếu đã tồn tại (đã tạo khi tạo payment request)
+                        existingPayment.trangThaiThanhToan = 'THANH_CONG';
+                        existingPayment.ngayThanhToan = new Date();
+                        existingPayment.isLocked = true;
+                        // Cập nhật số tiền nếu có thay đổi
+                        if (updatedRegistration.thongTinThanhToan?.amount) {
+                            existingPayment.soTien = updatedRegistration.thongTinThanhToan.amount;
+                        }
+                        await existingPayment.save();
+                        console.log(`✅ [CALLBACK] Updated ThanhToan record for order ${orderId}, status: THANH_CONG, amount: ${existingPayment.soTien}`);
+                    } else {
+                        // Nếu không tìm thấy (trường hợp cũ hoặc lỗi), tạo mới
+                        console.warn(`⚠️ [CALLBACK] ThanhToan record not found for order ${orderId}, creating new one`);
+                        const { NguoiDung } = require('../models/NguoiDung');
+
+                        let hoiVienId = updatedRegistration.maHoiVien || updatedRegistration.nguoiDungId;
+                        if (!updatedRegistration.maHoiVien && updatedRegistration.nguoiDungId) {
+                            try {
+                                const user = await NguoiDung.findById(updatedRegistration.nguoiDungId).select('_id');
+                                hoiVienId = user?._id || updatedRegistration.nguoiDungId;
+                            } catch (userError) {
+                                console.warn('Could not find HoiVien from NguoiDung, using nguoiDungId:', userError.message);
+                                hoiVienId = updatedRegistration.nguoiDungId;
+                            }
+                        }
+
+                        const newPayment = new ThanhToan({
+                            hoiVien: hoiVienId,
+                            maChiTietGoiTap: updatedRegistration._id,
+                            soTien: updatedRegistration.thongTinThanhToan?.amount || updatedRegistration.soTienThanhToan || 0,
+                            ngayThanhToan: new Date(),
+                            phuongThuc: 'CHUYEN_KHOAN',
+                            noiDung: `Thanh toán gói tập: ${updatedRegistration.goiTapId?.tenGoiTap || 'N/A'}`,
+                            trangThaiThanhToan: 'THANH_CONG',
+                            isLocked: true
+                        });
+
+                        await newPayment.save();
+                        console.log(`✅ [CALLBACK] Created new ThanhToan record for order ${orderId}, hoiVien: ${hoiVienId}`);
+                    }
+                } catch (paymentError) {
+                    console.error('❌ [CALLBACK] Error creating/updating ThanhToan record:', paymentError);
+                    // Không throw error để không ảnh hưởng đến flow chính
+                }
+            }
 
             // Tạo notification khi thanh toán thành công
             if (status === 'DA_THANH_TOAN' && updatedRegistration) {
@@ -525,13 +703,80 @@ class PaymentController {
                 'thongTinThanhToan.ketQuaThanhToan': paymentResult
             };
 
+            // Tìm registration trước để kiểm tra ngày kết thúc
+            const registration = await ChiTietGoiTap.findOne({
+                'thongTinThanhToan.app_trans_id': appTransId
+            }).populate('goiTapId');
+
+            // Nếu chưa có ngày kết thúc và đã có ngày bắt đầu, tính lại
+            if (registration && !registration.ngayKetThuc && registration.ngayBatDau && registration.goiTapId) {
+                const ngayKetThuc = addDuration(registration.ngayBatDau, registration.goiTapId.thoiHan, registration.goiTapId.donViThoiHan);
+                updateData.ngayKetThuc = ngayKetThuc;
+                console.log(`[ZALO CALLBACK] Calculated ngayKetThuc: ${ngayKetThuc.toISOString()}`);
+            }
+
             const updatedRegistration = await ChiTietGoiTap.findOneAndUpdate(
                 { 'thongTinThanhToan.app_trans_id': appTransId },
                 updateData,
                 { new: true }
-            ).populate('goiTapId');
+            ).populate('goiTapId').populate('nguoiDungId');
 
             console.log(`Updated ZaloPay registration status for app_trans_id ${appTransId} to ${status}`);
+
+            // Cập nhật record thanh toán trong ThanhToan collection khi thanh toán thành công
+            if (status === 'DA_THANH_TOAN' && updatedRegistration) {
+                try {
+                    const ThanhToan = require('../models/ThanhToan');
+                    const existingPayment = await ThanhToan.findOne({
+                        maChiTietGoiTap: updatedRegistration._id
+                    });
+
+                    if (existingPayment) {
+                        // Cập nhật trạng thái nếu đã tồn tại (đã tạo khi tạo payment request)
+                        existingPayment.trangThaiThanhToan = 'THANH_CONG';
+                        existingPayment.ngayThanhToan = new Date();
+                        existingPayment.isLocked = true;
+                        // Cập nhật số tiền nếu có thay đổi
+                        if (updatedRegistration.thongTinThanhToan?.amount) {
+                            existingPayment.soTien = updatedRegistration.thongTinThanhToan.amount;
+                        }
+                        await existingPayment.save();
+                        console.log(`✅ [ZALO CALLBACK] Updated ThanhToan record for app_trans_id ${appTransId}, status: THANH_CONG, amount: ${existingPayment.soTien}`);
+                    } else {
+                        // Nếu không tìm thấy (trường hợp cũ hoặc lỗi), tạo mới
+                        console.warn(`⚠️ [ZALO CALLBACK] ThanhToan record not found for app_trans_id ${appTransId}, creating new one`);
+                        const { NguoiDung } = require('../models/NguoiDung');
+
+                        let hoiVienId = updatedRegistration.maHoiVien || updatedRegistration.nguoiDungId;
+                        if (!updatedRegistration.maHoiVien && updatedRegistration.nguoiDungId) {
+                            try {
+                                const user = await NguoiDung.findById(updatedRegistration.nguoiDungId).select('_id');
+                                hoiVienId = user?._id || updatedRegistration.nguoiDungId;
+                            } catch (userError) {
+                                console.warn('Could not find HoiVien from NguoiDung, using nguoiDungId:', userError.message);
+                                hoiVienId = updatedRegistration.nguoiDungId;
+                            }
+                        }
+
+                        const newPayment = new ThanhToan({
+                            hoiVien: hoiVienId,
+                            maChiTietGoiTap: updatedRegistration._id,
+                            soTien: updatedRegistration.thongTinThanhToan?.amount || updatedRegistration.soTienThanhToan || 0,
+                            ngayThanhToan: new Date(),
+                            phuongThuc: 'CHUYEN_KHOAN',
+                            noiDung: `Thanh toán gói tập: ${updatedRegistration.goiTapId?.tenGoiTap || 'N/A'}`,
+                            trangThaiThanhToan: 'THANH_CONG',
+                            isLocked: true
+                        });
+
+                        await newPayment.save();
+                        console.log(`✅ [ZALO CALLBACK] Created new ThanhToan record for app_trans_id ${appTransId}, hoiVien: ${hoiVienId}`);
+                    }
+                } catch (paymentError) {
+                    console.error('❌ [ZALO CALLBACK] Error creating/updating ThanhToan record:', paymentError);
+                    // Không throw error để không ảnh hưởng đến flow chính
+                }
+            }
 
             // Tạo notification khi thanh toán thành công
             if (status === 'DA_THANH_TOAN' && updatedRegistration) {

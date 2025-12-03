@@ -1,52 +1,91 @@
-import { X, CreditCard, Calendar, Tag, CheckCircle, ArrowRight } from "lucide-react";
-import { useState } from "react";
+import { X, Calendar, Tag, CheckCircle, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { api } from "../../services/api";
+import { formatDurationUnitLabel } from "../../utils/duration";
+import momoLogo from "../../assets/icons/momo.png";
+import zaloLogo from "../../assets/icons/zalopay.svg";
 
 export function RenewalModal({ isOpen, onClose }) {
-    const [selectedPlan, setSelectedPlan] = useState("pro-6");
-    const [selectedPayment, setSelectedPayment] = useState("visa");
+    const navigate = useNavigate();
+    const [plans, setPlans] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [selectedPlan, setSelectedPlan] = useState(null);
+    const [selectedPayment, setSelectedPayment] = useState("momo");
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const fetchPlans = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                // Lấy danh sách gói tập đang kích hoạt từ BE
+                const response = await api.get("/goitap", {}, false);
+                const activePackages = Array.isArray(response)
+                    ? response.filter((pkg) => pkg.kichHoat)
+                    : [];
+
+                const mappedPlans = activePackages.map((pkg) => ({
+                    id: pkg._id,
+                    name: pkg.tenGoiTap,
+                    duration: `${pkg.thoiHan} ${formatDurationUnitLabel(pkg.donViThoiHan).toLowerCase()}`,
+                    price: `${(pkg.donGia || 0).toLocaleString("vi-VN")}đ`,
+                    pricePerMonth: "",
+                    discount: "",
+                    popular: Boolean(pkg.popular),
+                    features:
+                        pkg.quyenLoi && Array.isArray(pkg.quyenLoi) && pkg.quyenLoi.length > 0
+                            ? pkg.quyenLoi.map((ql) =>
+                                typeof ql === "string"
+                                    ? ql
+                                    : ql.tenQuyenLoi || ql.moTa || ql.ten || "Quyền lợi"
+                            )
+                            : [
+                                "Tập không giới hạn",
+                                "Tư vấn dinh dưỡng",
+                                "Hỗ trợ huấn luyện viên",
+                            ],
+                }));
+
+                setPlans(mappedPlans);
+                if (mappedPlans.length > 0) {
+                    setSelectedPlan(mappedPlans[0].id);
+                }
+            } catch (err) {
+                console.error("❌ Error fetching renewal plans:", err);
+                setError("Không thể tải danh sách gói tập. Vui lòng thử lại.");
+                setPlans([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchPlans();
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
-    const plans = [
-        {
-            id: "pro-3",
-            name: "Gói Pro - 3 Tháng",
-            duration: "3 tháng",
-            price: "2,100,000đ",
-            pricePerMonth: "700,000đ/tháng",
-            features: ["Tập không giới hạn", "PT riêng 4 buổi/tháng", "Tư vấn dinh dưỡng"]
-        },
-        {
-            id: "pro-6",
-            name: "Gói Pro - 6 Tháng",
-            duration: "6 tháng",
-            price: "3,500,000đ",
-            originalPrice: "4,200,000đ",
-            discount: "Tiết kiệm 700,000đ",
-            pricePerMonth: "583,333đ/tháng",
-            popular: true,
-            features: ["Tập không giới hạn", "PT riêng 4 buổi/tháng", "Tư vấn dinh dưỡng", "Xông hơi miễn phí"]
-        },
-        {
-            id: "pro-12",
-            name: "Gói Pro - 12 Tháng",
-            duration: "12 tháng",
-            price: "6,000,000đ",
-            originalPrice: "8,400,000đ",
-            discount: "Tiết kiệm 2,400,000đ",
-            pricePerMonth: "500,000đ/tháng",
-            features: ["Tập không giới hạn", "PT riêng 4 buổi/tháng", "Tư vấn dinh dưỡng", "Xông hơi miễn phí", "Khăn tắm miễn phí"]
-        }
-    ];
-
     const paymentMethods = [
-        { id: "visa", name: "Thẻ Visa/Mastercard", icon: CreditCard, info: "****4532" },
-        { id: "transfer", name: "Chuyển khoản ngân hàng", icon: CreditCard, info: "Vietcombank" },
-        { id: "cash", name: "Tiền mặt tại quầy", icon: CreditCard, info: "GymNutrition HQ" }
+        {
+            id: "momo",
+            name: "Thanh toán qua MoMo",
+            info: "Ví điện tử MoMo",
+            logo: momoLogo,
+        },
+        {
+            id: "zalopay",
+            name: "Thanh toán qua ZaloPay",
+            info: "Ví điện tử ZaloPay",
+            logo: zaloLogo,
+        },
     ];
 
     const handleRenew = () => {
-        alert("Gia hạn thành công!");
+        if (!selectedPlan) return;
+        // Điều hướng sang trang checkout với gói và phương thức thanh toán đã chọn
+        navigate(`/checkout/${selectedPlan}?method=${selectedPayment}&source=renewal`);
         onClose();
     };
 
@@ -77,14 +116,20 @@ export function RenewalModal({ isOpen, onClose }) {
                     {/* Plan Selection */}
                     <div className="mb-8">
                         <h3 className="text-xl font-bold text-white mb-4">Chọn gói tập</h3>
+                        {loading && (
+                            <p className="text-zinc-400 text-sm mb-4">Đang tải danh sách gói tập...</p>
+                        )}
+                        {error && (
+                            <p className="text-red-400 text-sm mb-4">{error}</p>
+                        )}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {plans.map((plan) => (
                                 <div
                                     key={plan.id}
                                     onClick={() => setSelectedPlan(plan.id)}
                                     className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all duration-300 ${selectedPlan === plan.id
-                                            ? "border-[#da2128] bg-[#da2128]/5"
-                                            : "border-zinc-800 hover:border-zinc-700 bg-zinc-900/30"
+                                        ? "border-[#da2128] bg-[#da2128]/5"
+                                        : "border-zinc-800 hover:border-zinc-700 bg-zinc-900/30"
                                         }`}
                                 >
                                     {plan.popular && (
@@ -141,37 +186,34 @@ export function RenewalModal({ isOpen, onClose }) {
                     <div className="mb-6">
                         <h3 className="text-xl font-bold text-white mb-4">Phương thức thanh toán</h3>
                         <div className="space-y-3">
-                            {paymentMethods.map((method) => {
-                                const Icon = method.icon;
-                                return (
-                                    <div
-                                        key={method.id}
-                                        onClick={() => setSelectedPayment(method.id)}
-                                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 ${selectedPayment === method.id
-                                                ? "border-[#da2128] bg-[#da2128]/5"
-                                                : "border-zinc-800 hover:border-zinc-700 bg-zinc-900/30"
-                                            }`}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-zinc-800 rounded-lg">
-                                                    <Icon size={20} />
-                                                </div>
-                                                <div>
-                                                    <p className="text-white text-sm">{method.name}</p>
-                                                    <p className="text-zinc-500 text-xs">{method.info}</p>
-                                                </div>
+                            {paymentMethods.map((method) => (
+                                <div
+                                    key={method.id}
+                                    onClick={() => setSelectedPayment(method.id)}
+                                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 ${selectedPayment === method.id
+                                        ? "border-[#da2128] bg-[#da2128]/5"
+                                        : "border-zinc-800 hover:border-zinc-700 bg-zinc-900/30"
+                                        }`}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-zinc-800 rounded-lg flex items-center justify-center">
+                                                <img src={method.logo} alt={method.name} className="w-8 h-8 object-contain" />
                                             </div>
-
-                                            {selectedPayment === method.id && (
-                                                <div className="w-6 h-6 bg-[#da2128] rounded-full flex items-center justify-center">
-                                                    <CheckCircle size={16} />
-                                                </div>
-                                            )}
+                                            <div>
+                                                <p className="text-white text-sm">{method.name}</p>
+                                                <p className="text-zinc-500 text-xs">{method.info}</p>
+                                            </div>
                                         </div>
+
+                                        {selectedPayment === method.id && (
+                                            <div className="w-6 h-6 bg-[#da2128] rounded-full flex items-center justify-center">
+                                                <CheckCircle size={16} />
+                                            </div>
+                                        )}
                                     </div>
-                                );
-                            })}
+                                </div>
+                            ))}
                         </div>
                     </div>
 

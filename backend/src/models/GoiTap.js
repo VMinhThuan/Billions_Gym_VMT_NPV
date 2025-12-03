@@ -7,7 +7,7 @@ const GoiTapSchema = new mongoose.Schema({
     thoiHan: { type: Number, required: true },
     donViThoiHan: {
         type: String,
-        enum: ['Ngay', 'Thang', 'Nam'],
+        enum: ['Ngay', 'Thang', 'Nam', 'Phut'],
         default: 'Ngay',
         required: true
     },

@@ -4,6 +4,9 @@ const ptController = require('../controllers/pt.controller');
 const auth = require('../middlewares/auth.middleware');
 const authorize = require('../middlewares/role.middleware');
 
+// Public routes (không cần auth)
+router.get('/list', ptController.getPublicPTList);
+
 // Tất cả routes đều yêu cầu authentication và role PT
 router.use(auth);
 router.use(authorize(['PT', 'OngChu']));

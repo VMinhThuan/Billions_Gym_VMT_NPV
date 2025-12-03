@@ -1,22 +1,75 @@
 import { CreditCard, Calendar, Clock, CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
+import { addDuration, formatDurationUnitLabel } from '../../utils/duration';
 
-export function CurrentMembership({ onViewDetails, onRenew }) {
-    const membership = {
-        planName: "Gói Pro - 6 Tháng",
-        planType: "Pro",
-        startDate: "15/05/2025",
-        endDate: "15/11/2025",
-        daysRemaining: 5,
-        price: "3,500,000đ",
-        features: [
-            "Tập không giới hạn",
-            "Tư vấn dinh dưỡng",
-            "PT riêng 4 buổi/tháng",
-            "Phòng xông hơi miễn phí"
-        ],
-        isExpired: false,
-        imageUrl: "https://images.unsplash.com/photo-1519859660545-3dea8ddf683c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxneW0lMjBtZW1iZXJzaGlwJTIwY2FyZHxlbnwxfHx8fDE3NjM2MzMyNDJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+export function CurrentMembership({ activePackage, onViewDetails, onRenew }) {
+    // Parse active package data
+    const getPackageData = (pkg) => pkg?.maGoiTap || pkg?.goiTapId || null;
+    const pkgData = activePackage ? getPackageData(activePackage) : null;
+
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('vi-VN');
+        } catch {
+            return 'N/A';
+        }
     };
+
+    const calculateDaysRemaining = () => {
+        if (!activePackage) return 0;
+        let endDate;
+        if (activePackage.ngayKetThuc) {
+            endDate = new Date(activePackage.ngayKetThuc);
+        } else if (activePackage.ngayBatDau && pkgData?.thoiHan && pkgData?.donViThoiHan) {
+            endDate = addDuration(activePackage.ngayBatDau, pkgData.thoiHan, pkgData.donViThoiHan);
+        } else {
+            return 0;
+        }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        endDate.setHours(0, 0, 0, 0);
+        const diffTime = endDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+    };
+
+    const membership = activePackage && pkgData ? {
+        planName: pkgData.tenGoiTap || 'Gói tập',
+        planType: pkgData.tenGoiTap?.includes('Pro') ? 'Pro' : pkgData.tenGoiTap?.includes('Premium') ? 'Premium' : 'Basic',
+        startDate: formatDate(activePackage.ngayBatDau),
+        endDate: formatDate(activePackage.ngayKetThuc) || (activePackage.ngayBatDau && pkgData.thoiHan && pkgData.donViThoiHan
+            ? formatDate(addDuration(activePackage.ngayBatDau, pkgData.thoiHan, pkgData.donViThoiHan).toISOString())
+            : 'N/A'),
+        daysRemaining: calculateDaysRemaining(),
+        price: pkgData.donGia ? `${pkgData.donGia.toLocaleString('vi-VN')}₫` : 'N/A',
+        features: pkgData.quyenLoi && Array.isArray(pkgData.quyenLoi) && pkgData.quyenLoi.length > 0
+            ? pkgData.quyenLoi.map(ql => typeof ql === 'string' ? ql : (ql.tenQuyenLoi || ql.moTa || ql.ten || 'Quyền lợi'))
+            : [
+                'Tập không giới hạn',
+                'Tư vấn dinh dưỡng',
+                'Hỗ trợ huấn luyện viên',
+                'Thiết bị tập luyện hiện đại'
+            ],
+        isExpired: calculateDaysRemaining() < 0,
+        imageUrl: "https://images.unsplash.com/photo-1519859660545-3dea8ddf683c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxneW0lMjBtZW1iZXJzaGlwJTIwY2FyZHxlbnwxfHx8fDE3NjM2MzMyNDJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+    } : null;
+
+    if (!membership) {
+        return (
+            <div className="bg-[#141414] rounded-xl p-6">
+                <div className="text-center py-8">
+                    <p className="text-zinc-400 mb-4">Bạn chưa có gói tập nào</p>
+                    <button
+                        onClick={onRenew}
+                        className="bg-gradient-to-r from-[#da2128] to-[#ff4147] hover:from-[#b81d23] hover:to-[#da2128] px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105 text-white font-bold"
+                    >
+                        Đăng ký gói tập
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     const getPlanColor = (type) => {
         switch (type) {

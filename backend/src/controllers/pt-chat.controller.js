@@ -18,29 +18,39 @@ exports.getChatRooms = async (req, res) => {
             })
             .sort({ lastMessageAt: -1 });
 
-        // Lọc và format dữ liệu
-        const formattedRooms = rooms
-            .filter(room => room.participants && room.participants.length > 0)
-            .map(room => {
-                const participants = Array.isArray(room.participants)
-                    ? room.participants
-                    : [room.participants];
+        // Lọc và format dữ liệu với unread count
+        const formattedRooms = await Promise.all(
+            rooms
+                .filter(room => room.participants && room.participants.length > 0)
+                .map(async (room) => {
+                    const participants = Array.isArray(room.participants)
+                        ? room.participants
+                        : [room.participants];
 
-                const hoiVien = participants.find(p => p._id && p._id.toString() !== ptId.toString());
+                    const hoiVien = participants.find(p => p._id && p._id.toString() !== ptId.toString());
 
-                return {
-                    _id: room._id,
-                    hoiVien: hoiVien,
-                    lastMessage: room.lastMessage,
-                    lastMessageAt: room.lastMessageAt,
-                    unreadCount: 0 // Sẽ tính sau
-                };
-            })
-            .filter(room => room.hoiVien); // Chỉ lấy rooms có hoiVien
+                    // Đếm số tin nhắn chưa đọc (tin nhắn từ hội viên mà PT chưa đọc)
+                    const unreadCount = await ChatMessage.countDocuments({
+                        room: room._id,
+                        sender: { $ne: ptId },
+                        isRead: false
+                    });
+
+                    return {
+                        _id: room._id,
+                        hoiVien: hoiVien,
+                        lastMessage: room.lastMessage,
+                        lastMessageAt: room.lastMessageAt,
+                        unreadCount: unreadCount
+                    };
+                })
+        );
+
+        const filteredRooms = formattedRooms.filter(room => room.hoiVien);
 
         res.json({
             success: true,
-            data: formattedRooms
+            data: filteredRooms
         });
     } catch (err) {
         console.error('Error in getChatRooms:', err);
@@ -151,6 +161,41 @@ exports.getOrCreateRoom = async (req, res) => {
         });
     } catch (err) {
         console.error('Error in getOrCreateRoom:', err);
+        res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
+    }
+};
+
+// Xóa toàn bộ cuộc trò chuyện (room và messages)
+exports.deleteChatRoom = async (req, res) => {
+    try {
+        const ptId = req.user.id;
+        const { roomId } = req.params;
+
+        // Kiểm tra PT có trong phòng chat không
+        const room = await ChatRoom.findOne({
+            _id: roomId,
+            participants: ptId
+        });
+
+        if (!room) {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn không có quyền xóa phòng chat này'
+            });
+        }
+
+        // Xóa tất cả tin nhắn trong phòng chat
+        await ChatMessage.deleteMany({ room: roomId });
+
+        // Xóa luôn cả phòng chat
+        await ChatRoom.findByIdAndDelete(roomId);
+
+        res.json({
+            success: true,
+            message: 'Đã xóa cuộc trò chuyện'
+        });
+    } catch (err) {
+        console.error('Error in deleteChatRoom:', err);
         res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
     }
 };

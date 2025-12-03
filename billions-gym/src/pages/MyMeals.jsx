@@ -164,24 +164,33 @@ const MyMeals = () => {
         setActiveTab('ingredients');
     };
 
-    const getYouTubeEmbedUrl = (url) => {
-        if (!url) return null;
-        let videoId = null;
-        const watchMatch = url.match(/[?&]v=([^&]+)/);
-        if (watchMatch) {
-            videoId = watchMatch[1];
+    const getYouTubeEmbedUrl = (url, meal) => {
+        // Ưu tiên URL YouTube hợp lệ nếu có
+        if (url) {
+            let videoId = null;
+            const watchMatch = url.match(/[?&]v=([^&]+)/);
+            if (watchMatch) {
+                videoId = watchMatch[1];
+            }
+            const shortMatch = url.match(/youtu\.be\/([^?&]+)/);
+            if (shortMatch) {
+                videoId = shortMatch[1];
+            }
+            const embedMatch = url.match(/embed\/([^?&]+)/);
+            if (embedMatch) {
+                videoId = embedMatch[1];
+            }
+            if (videoId) {
+                return `https://www.youtube.com/embed/${videoId}`;
+            }
         }
-        const shortMatch = url.match(/youtu\.be\/([^?&]+)/);
-        if (shortMatch) {
-            videoId = shortMatch[1];
+
+        // Nếu URL trống hoặc không hợp lệ: fallback sang playlist tìm kiếm theo tên món
+        if (meal && meal.name) {
+            const query = encodeURIComponent(`cách nấu ${meal.name}`);
+            return `https://www.youtube.com/embed?listType=search&list=${query}`;
         }
-        const embedMatch = url.match(/embed\/([^?&]+)/);
-        if (embedMatch) {
-            videoId = embedMatch[1];
-        }
-        if (videoId) {
-            return `https://www.youtube.com/embed/${videoId}`;
-        }
+
         return null;
     };
 
@@ -528,11 +537,11 @@ const MyMeals = () => {
                             {activeTab === 'video' && selectedMeal.cookingVideoUrl && (
                                 <div className="meal-tab-content">
                                     <div className="video-container">
-                                        {getYouTubeEmbedUrl(selectedMeal.cookingVideoUrl) ? (
+                                        {getYouTubeEmbedUrl(selectedMeal.cookingVideoUrl, selectedMeal) ? (
                                             <iframe
                                                 width="100%"
                                                 height="500"
-                                                src={getYouTubeEmbedUrl(selectedMeal.cookingVideoUrl)}
+                                                src={getYouTubeEmbedUrl(selectedMeal.cookingVideoUrl, selectedMeal)}
                                                 title="Cooking Video"
                                                 frameBorder="0"
                                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

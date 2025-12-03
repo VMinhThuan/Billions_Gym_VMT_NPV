@@ -23,6 +23,8 @@ router.get('/taikhoan/by-phone/:sdt', auth, authorize(['OngChu']), userControlle
 
 // CRUD PT (chỉ Ông Chủ)
 router.post('/pt', auth, authorize(['OngChu']), userController.createPT);
+router.post('/pt/:id/account', auth, authorize(['OngChu']), userController.createPTAccount);
+router.put('/pt/:id/reset-password', auth, authorize(['OngChu']), userController.resetPTPassword);
 router.get('/pt', userController.getAllPT);
 router.put('/pt/:id', auth, authorize(['OngChu']), userController.updatePT);
 router.delete('/pt/:id', auth, authorize(['OngChu']), userController.deletePT);

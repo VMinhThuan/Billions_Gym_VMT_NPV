@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const chiTietGoiTapController = require('../controllers/chitietgoitap.controller');
-const { getActivePackage } = require('../controllers/dangKyGoiTap.controller');
+const { getActivePackage, getLastCompletedPackage } = require('../controllers/dangKyGoiTap.controller');
 const auth = require('../middlewares/auth.middleware');
 const authorize = require('../middlewares/role.middleware');
 
@@ -16,17 +16,20 @@ router.post('/dangky', auth, authorize(hoiVien), chiTietGoiTapController.dangkyG
 // Lấy danh sách đăng ký gói tập 
 router.get('/', chiTietGoiTapController.getAllChiTietGoiTap);
 
-// Lấy thông tin chi tiết gói tập theo ID
-router.get('/:id', chiTietGoiTapController.getChiTietGoiTapById);
-
 // Lấy thống kê đăng ký gói tập
 router.get('/stats', auth, authorize(admin), chiTietGoiTapController.getStats);
 
-// Lấy thông tin đăng ký gói tập của hội viên
+// Lấy thông tin gói tập hoàn tất trước đó (để copy thông tin chi nhánh và PT)
+router.get('/last-completed', auth, getLastCompletedPackage);
+
+// Lấy gói tập đang hoạt động (PHẢI đặt trước tất cả các route có pattern /hoivien hoặc /hoi-vien)
+router.get('/hoi-vien/:maHoiVien/active', auth, getActivePackage);
+
+// Lấy thông tin đăng ký gói tập của hội viên (đặt sau route /active)
 router.get('/hoivien/:maHoiVien', auth, chiTietGoiTapController.getChiTietGoiTapByHoiVien);
 
-// Lấy gói tập đang hoạt động (alias route)
-router.get('/hoi-vien/:maHoiVien/active', getActivePackage);
+// Lấy thông tin chi tiết gói tập theo ID (phải đặt sau các route cụ thể)
+router.get('/:id', chiTietGoiTapController.getChiTietGoiTapById);
 
 // Kiểm tra khả năng chỉnh sửa
 router.get('/:id/can-edit', auth, chiTietGoiTapController.checkEditPermission);

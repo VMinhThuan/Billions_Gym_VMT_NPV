@@ -6,6 +6,7 @@ const BuoiTap = require('../models/BuoiTap');
 const LichLamViecPT = require('../models/LichLamViecPT');
 const ChiNhanh = require('../models/ChiNhanh');
 const mongoose = require('mongoose');
+const { addDuration } = require('../utils/duration.utils');
 
 // Lấy danh sách PT phù hợp sau khi đăng ký gói tập thành công
 const getAvailableTrainers = async (req, res) => {
@@ -248,19 +249,7 @@ const generateWorkoutSchedule = async (req, res) => {
         // Tính toán ngày bắt đầu và kết thúc dựa trên gói tập
         const ngayBatDau = new Date();
         // Tính ngày kết thúc dựa trên thời hạn gói tập
-        const ngayKetThuc = new Date(ngayBatDau);
-
-        // Tính toán dựa trên đơn vị thời hạn
-        if (goiTap.donViThoiHan === 'Tháng') {
-            ngayKetThuc.setMonth(ngayKetThuc.getMonth() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Ngày') {
-            ngayKetThuc.setDate(ngayKetThuc.getDate() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Năm') {
-            ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Ngay') {
-            // Xử lý trường hợp 'Ngay' thay vì 'Ngày'
-            ngayKetThuc.setDate(ngayKetThuc.getDate() + goiTap.thoiHan);
-        }
+        const ngayKetThuc = addDuration(ngayBatDau, goiTap.thoiHan, goiTap.donViThoiHan);
 
         console.log('🔍 Date calculation:', {
             ngayBatDau: ngayBatDau.toISOString(),
@@ -770,6 +759,7 @@ const completeWorkflow = async (req, res) => {
     try {
         console.log('🎯 completeWorkflow called with chiTietGoiTapId:', req.params.chiTietGoiTapId);
         const { chiTietGoiTapId } = req.params;
+        const { skipScheduleForReuse } = req.body || {};
 
         // Kiểm tra chi tiết gói tập
         const chiTietGoiTap = await ChiTietGoiTap.findById(chiTietGoiTapId);
@@ -790,7 +780,30 @@ const completeWorkflow = async (req, res) => {
             });
         }
 
-        // Kiểm tra xem đã hoàn thành đủ các bước chưa
+        // Nếu được phép bỏ qua kiểm tra lịch tập (khi hội viên sử dụng lại thông tin cũ)
+        if (skipScheduleForReuse) {
+            console.log('⚙️ completeWorkflow - skipScheduleForReuse=true, completing workflow using previous info');
+
+            // Yêu cầu tối thiểu: đã có PT và chi nhánh
+            if (!chiTietGoiTap.ptDuocChon || !chiTietGoiTap.branchId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Không thể hoàn tất workflow vì thiếu PT hoặc chi nhánh. Vui lòng hoàn thành các bước còn lại.'
+                });
+            }
+
+            chiTietGoiTap.trangThaiDangKy = 'HOAN_THANH';
+            chiTietGoiTap.trangThaiSuDung = chiTietGoiTap.trangThaiSuDung || 'DANG_HOAT_DONG';
+            await chiTietGoiTap.save();
+
+            return res.json({
+                success: true,
+                message: 'Đã hoàn tất workflow gói tập bằng cách sử dụng lại thông tin chi nhánh và PT trước đó.',
+                data: chiTietGoiTap
+            });
+        }
+
+        // Kiểm tra xem đã hoàn thành đủ các bước chưa (flow chuẩn)
         // 1. Đã chọn PT
         if (!chiTietGoiTap.ptDuocChon) {
             console.log('❌ PT chưa được chọn');

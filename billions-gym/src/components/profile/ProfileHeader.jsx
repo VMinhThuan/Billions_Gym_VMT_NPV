@@ -1,6 +1,46 @@
-import { Camera, Edit, Settings } from "lucide-react";
+import { Camera, Edit, Settings, Star, Medal, Crown, Gem } from "lucide-react";
 
-export function ProfileHeader({ name, email, memberSince, imageUrl }) {
+export function ProfileHeader({ name, email, memberSince, imageUrl, memberRank }) {
+    const getRankLabel = () => {
+        if (!memberRank) return 'Thành viên';
+
+        const code = (memberRank.tenHang || memberRank).toString().toUpperCase();
+
+        switch (code) {
+            case 'BRONZE':
+                return 'Thành viên Đồng';
+            case 'SILVER':
+                return 'Thành viên Bạc';
+            case 'GOLD':
+                return 'Thành viên Vàng';
+            case 'PLATINUM':
+                return 'Thành viên Bạch kim';
+            case 'DIAMOND':
+                return 'Thành viên Kim cương';
+            default:
+                return memberRank.tenHienThi || 'Thành viên';
+        }
+    };
+    const getRankIcon = () => {
+        if (!memberRank) return null;
+
+        const code = (memberRank.tenHang || memberRank).toString().toUpperCase();
+
+        switch (code) {
+            case 'BRONZE':
+                return Star;
+            case 'SILVER':
+                return Medal;
+            case 'GOLD':
+                return Crown;
+            case 'PLATINUM':
+                return Gem;
+            case 'DIAMOND':
+                return Gem;
+            default:
+                return Star;
+        }
+    };
     return (
         <div className="relative bg-[#141414] rounded-2xl overflow-hidden">
             {/* Cover Image with Gradient Overlay */}
@@ -38,8 +78,12 @@ export function ProfileHeader({ name, email, memberSince, imageUrl }) {
                     <div className="flex-1 md:ml-6 mt-4 md:mt-0">
                         <div className="flex items-center gap-3">
                             <h1 className="text-3xl font-bold text-white">{name}</h1>
-                            <span className="px-3 py-1 bg-[#da2128]/20 text-[#da2128] rounded-lg text-sm border border-[#da2128]/30">
-                                Pro Member
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#da2128]/20 text-[#da2128] rounded-lg text-sm border border-[#da2128]/30">
+                                {(() => {
+                                    const Icon = getRankIcon();
+                                    return Icon ? <Icon size={14} /> : null;
+                                })()}
+                                <span>{getRankLabel()}</span>
                             </span>
                         </div>
                         <p className="text-zinc-400 mt-1">{email}</p>

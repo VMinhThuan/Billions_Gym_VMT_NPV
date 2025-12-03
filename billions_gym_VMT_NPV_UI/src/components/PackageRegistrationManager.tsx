@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { addDuration } from '../utils/duration';
 import Button from './Button';
 import Card from './Card';
 import Loading from './Loading';
@@ -400,22 +401,7 @@ const PackageRegistrationManager: React.FC<PackageRegistrationManagerProps> = ()
     };
 
     const calculateEndDate = (startDate: string, duration: number, unit: string): string => {
-        const start = new Date(startDate);
-        let endDate = new Date(start);
-
-        switch (unit) {
-            case 'Ngày':
-                endDate.setDate(start.getDate() + duration);
-                break;
-            case 'Tháng':
-                endDate.setMonth(start.getMonth() + duration);
-                break;
-            case 'Năm':
-                endDate.setFullYear(start.getFullYear() + duration);
-                break;
-        }
-
-        return endDate.toISOString();
+        return addDuration(startDate, duration, unit).toISOString();
     };
 
     const handleReactivatePackage = async (registrationId: string) => {

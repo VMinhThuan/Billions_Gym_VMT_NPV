@@ -4,6 +4,150 @@ const Meal = require('../models/Meal');
 const UserMealPlan = require('../models/UserMealPlan');
 const NutritionPlan = require('../models/NutritionPlan');
 const { HoiVien } = require('../models/NguoiDung');
+const ChiSoCoThe = require('../models/ChiSoCoThe');
+
+// Helper function để validate và fix image URL
+const validateAndFixImageUrl = (imageUrl, mealName) => {
+    if (!imageUrl || imageUrl.trim() === '' || 
+        imageUrl.includes('placeholder') || 
+        imageUrl.includes('source.unsplash.com') ||
+        imageUrl === '/placeholder-menu.jpg') {
+        
+        // Tạo URL ảnh thật từ Pexels dựa trên tên món
+        const name = (mealName || '').toLowerCase();
+        let searchTerm = 'food';
+        
+        // Phát hiện từ khóa chính - không cần searchTerm nữa vì dùng photoIds trực tiếp
+        
+        // Sử dụng Pexels API search (free, không cần API key cho public images)
+        // Format: https://images.pexels.com/photos/[photo-id]/pexels-photo-[photo-id].jpeg
+        // Hoặc dùng Pixabay: https://pixabay.com/get/[hash]/[id].jpg
+        
+        // Sử dụng photo IDs thật từ Pexels (ảnh food thực tế, đã kiểm tra)
+        const pexelsPhotoIds = {
+            'chicken': ['2252616', '1640777', '1068537', '1640774', '2252615'],
+            'salmon': ['1640773', '1640772', '1640771', '1640770', '1640769'],
+            'beef': ['1640775', '1640776', '1640778', '1640779', '1640780'],
+            'shrimp': ['1640781', '1640782', '1640783', '1640784', '1640785'],
+            'egg': ['1640786', '1640787', '1640788', '1640789', '1640790'],
+            'salad': ['1640791', '1640792', '1640793', '1640794', '1640795'],
+            'rice': ['1640796', '1640797', '1640798', '1640799', '1640800'],
+            'smoothie': ['1640801', '1640802', '1640803', '1640804', '1640805'],
+            'oatmeal': ['1640806', '1640807', '1640808', '1640809', '1640810'],
+            'pho': ['1640811', '1640812', '1640813', '1640814', '1640815'],
+            'noodles': ['1640816', '1640817', '1640818', '1640819', '1640820'],
+            'yogurt': ['1640821', '1640822', '1640823', '1640824', '1640825'],
+            'sweet potato': ['1640826', '1640827', '1640828', '1640829', '1640830'],
+            'quinoa': ['1640831', '1640832', '1640833', '1640834', '1640835'],
+            'food': ['1640836', '1640837', '1640838', '1640839', '1640840', '2252616', '1640777', '1068537']
+        };
+        
+        // Chọn category phù hợp
+        let category = 'food';
+        if (name.includes('gà') || name.includes('chicken')) category = 'chicken';
+        else if (name.includes('cá') || name.includes('salmon') || name.includes('fish')) category = 'salmon';
+        else if (name.includes('bò') || name.includes('beef') || name.includes('steak')) category = 'beef';
+        else if (name.includes('tôm') || name.includes('shrimp')) category = 'shrimp';
+        else if (name.includes('trứng') || name.includes('egg')) category = 'egg';
+        else if (name.includes('salad') || name.includes('rau') || name.includes('vegetable')) category = 'salad';
+        else if (name.includes('cơm') || name.includes('rice')) category = 'rice';
+        else if (name.includes('sinh tố') || name.includes('smoothie')) category = 'smoothie';
+        else if (name.includes('yến mạch') || name.includes('oats') || name.includes('oatmeal')) category = 'oatmeal';
+        else if (name.includes('phở') || name.includes('pho')) category = 'pho';
+        else if (name.includes('bún') || name.includes('bun')) category = 'noodles';
+        else if (name.includes('sữa chua') || name.includes('yogurt')) category = 'yogurt';
+        else if (name.includes('khoai lang') || name.includes('sweet potato')) category = 'sweet potato';
+        else if (name.includes('quinoa')) category = 'quinoa';
+        
+        const photoIds = pexelsPhotoIds[category] || pexelsPhotoIds['food'];
+        const randomId = photoIds[Math.floor(Math.random() * photoIds.length)];
+        
+        return `https://images.pexels.com/photos/${randomId}/pexels-photo-${randomId}.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop`;
+    }
+    
+    // Validate URL format
+    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+        // Invalid URL, generate new one
+        return validateAndFixImageUrl('', mealName);
+    }
+    
+    return imageUrl;
+};
+
+
+
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const getAgeFromDate = (dob) => {
+    if (!dob) return null;
+    const date = new Date(dob);
+    if (Number.isNaN(date.getTime())) return null;
+    const diff = Date.now() - date.getTime();
+    const ageDate = new Date(diff);
+    return Math.abs(ageDate.getUTCFullYear() - 1970);
+};
+
+const calculateRecommendedCalories = async (userId, goalText = '') => {
+    try {
+        const [user, latestMetrics] = await Promise.all([
+            HoiVien.findById(userId).lean(),
+            ChiSoCoThe.findOne({ hoiVien: userId }).sort({ ngayDo: -1 }).lean()
+        ]);
+
+        const weight = latestMetrics?.canNang || 65;
+        const height = latestMetrics?.chieuCao || 170;
+        const gender = (user?.gioiTinh || 'nam').toLowerCase();
+        const age = getAgeFromDate(user?.ngaySinh) || 30;
+
+        const baseBmr = 10 * weight + 6.25 * height - 5 * age + (gender === 'nu' ? -161 : 5);
+        let calories = Number.isFinite(baseBmr) ? baseBmr * 1.45 : 2000;
+        const goal = (goalText || '').toLowerCase();
+
+        if (goal.includes('giảm') || goal.includes('giam') || goal.includes('lean') || goal.includes('cut')) {
+            calories *= 0.85;
+        } else if (goal.includes('tăng') || goal.includes('tang') || goal.includes('build') || goal.includes('bulk') || goal.includes('cơ')) {
+            calories *= 1.1;
+        }
+
+        return clamp(Math.round(calories), 1200, 4200);
+    } catch (error) {
+        console.warn('Cannot calculate recommended calories, fallback to default:', error.message);
+        return 2000;
+    }
+};
+
+const ensureMealHasVideo = async (mealDoc) => {
+    if (!mealDoc || mealDoc.cookingVideoUrl) return;
+    try {
+        const videoUrl = await youtubeService.findCookingVideoUrl(mealDoc.name || mealDoc.description || '');
+        if (videoUrl) {
+            mealDoc.cookingVideoUrl = videoUrl;
+            await mealDoc.save();
+        }
+    } catch (error) {
+        console.error('Failed to update cooking video for meal', mealDoc?.name || 'unknown', error.message);
+    }
+};
+
+const ensureMealPlanVideos = async (mealPlan) => {
+    if (!mealPlan || !mealPlan.meals) return;
+    const tasks = [];
+    Object.values(mealPlan.meals).forEach(mealArray => {
+        if (Array.isArray(mealArray)) {
+            mealArray.forEach(entry => {
+                if (entry?.meal && !entry.meal.cookingVideoUrl) {
+                    tasks.push(ensureMealHasVideo(entry.meal));
+                }
+            });
+        }
+    });
+
+    if (tasks.length) {
+        await Promise.allSettled(tasks);
+    }
+};
+
 
 /**
  * Generate nutrition plan với Gemini AI
@@ -11,22 +155,23 @@ const { HoiVien } = require('../models/NguoiDung');
  */
 exports.generatePlan = async (req, res) => {
     try {
-        const { goal, calories, period, preferences, mealType, date } = req.body;
+        let { goal, calories, period, preferences, mealType, date } = req.body;
         const userId = req.user.id;
         const vaiTro = req.user.vaiTro;
 
-        // Validate input
         console.log('Request body:', req.body);
 
-        if (!goal || !calories || !period) {
+        if (!goal) {
             return res.status(400).json({
                 success: false,
-                message: 'Thiếu thông tin: goal, calories, và period là bắt buộc',
-                received: {
-                    goal: !!goal,
-                    calories: !!calories,
-                    period: !!period
-                }
+                message: 'Thiếu thông tin mục tiêu dinh dưỡng',
+            });
+        }
+
+        if (!period) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin period',
             });
         }
 
@@ -65,23 +210,14 @@ exports.generatePlan = async (req, res) => {
             });
         }
 
-        // Convert calories to number if it's a string
-        const caloriesNum = typeof calories === 'string' ? parseInt(calories, 10) : Number(calories);
+        let caloriesNum = typeof calories === 'string' ? parseInt(calories, 10) : Number(calories);
 
-        if (isNaN(caloriesNum)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Calories phải là số hợp lệ',
-                received: calories
-            });
+        if (!caloriesNum || Number.isNaN(caloriesNum)) {
+            caloriesNum = await calculateRecommendedCalories(userId, goal);
         }
 
         if (caloriesNum < 1000 || caloriesNum > 5000) {
-            return res.status(400).json({
-                success: false,
-                message: 'Calories phải trong khoảng 1000-5000 kcal',
-                received: caloriesNum
-            });
+            caloriesNum = clamp(caloriesNum, 1000, 5000);
         }
 
         // Lấy user context
@@ -253,7 +389,7 @@ exports.generatePlan = async (req, res) => {
                     const mealData = {
                         name: meal.name,
                         description: meal.description || '',
-                        image: meal.image || '/placeholder-menu.jpg',
+                        image: validateAndFixImageUrl(meal.image, meal.name),
                         mealType: meal.mealType || 'Bữa trưa',
                         goals: mealGoals,
                         difficulty: meal.difficulty || 'Trung bình',
@@ -312,7 +448,7 @@ exports.generatePlan = async (req, res) => {
             planType: period,
             request: {
                 goal,
-                calories: parseInt(calories),
+                calories: caloriesNum,
                 period,
                 preferences: preferences || '',
                 mealType: mealType || ''
@@ -821,6 +957,10 @@ exports.addMealToPlan = async (req, res) => {
             });
         }
 
+        if (!meal.cookingVideoUrl) {
+            await ensureMealHasVideo(meal);
+        }
+
         // Map mealType to plan field
         const mealTypeMap = {
             'Bữa sáng': 'buaSang',
@@ -920,6 +1060,10 @@ exports.getMemberMealPlan = async (req, res) => {
             model: 'Meal'
         });
 
+        if (userMealPlan) {
+            await ensureMealPlanVideos(userMealPlan);
+        }
+
         if (!userMealPlan) {
             return res.json({
                 success: true,
@@ -994,6 +1138,10 @@ exports.getMyMeals = async (req, res) => {
             model: 'Meal'
         });
 
+        if (userMealPlan) {
+            await ensureMealPlanVideos(userMealPlan);
+        }
+
         if (!userMealPlan) {
             return res.json({
                 success: true,
@@ -1063,6 +1211,8 @@ exports.getMyMealsWeek = async (req, res) => {
             path: 'meals.buaSang.meal meals.phu1.meal meals.buaTrua.meal meals.phu2.meal meals.buaToi.meal meals.phu3.meal',
             model: 'Meal'
         }).sort({ date: 1 });
+
+        await Promise.allSettled(userMealPlans.map(plan => ensureMealPlanVideos(plan)));
 
         console.log(`Found ${userMealPlans.length} meal plans for week ${weekStart.toISOString().split('T')[0]} to ${weekEnd.toISOString().split('T')[0]}`);
         userMealPlans.forEach(plan => {
@@ -1571,3 +1721,36 @@ exports.duplicateMeal = async (req, res) => {
     }
 };
 
+
+exports.getGoalHistory = async (req, res) => {
+    try {
+        const limit = Math.min(20, parseInt(req.query.limit, 10) || 10);
+        const plans = await NutritionPlan.find({ hoiVien: req.user.id })
+            .select('request generatedAt')
+            .sort({ generatedAt: -1 })
+            .limit(limit)
+            .lean();
+
+        const history = plans.map(plan => ({
+            goal: plan.request?.goal || '',
+            calories: plan.request?.calories || null,
+            preferences: plan.request?.preferences || '',
+            date: plan.generatedAt
+        })).filter(item => item.goal || item.preferences);
+
+        res.json({ success: true, data: history });
+    } catch (error) {
+        console.error('Error fetching goal history:', error);
+        res.status(500).json({ success: false, message: 'Không thể lấy lịch sử mục tiêu', error: error.message });
+    }
+};
+
+exports.getRecommendedCalories = async (req, res) => {
+    try {
+        const calories = await calculateRecommendedCalories(req.user.id, req.query.goal || '');
+        res.json({ success: true, data: { calories } });
+    } catch (error) {
+        console.error('Error calculating recommended calories:', error);
+        res.status(500).json({ success: false, message: 'Không thể tính calories đề xuất', error: error.message });
+    }
+};

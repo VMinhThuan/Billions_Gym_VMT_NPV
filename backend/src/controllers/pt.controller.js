@@ -3,9 +3,30 @@ const PTNote = require('../models/PTNote');
 const PTAssignment = require('../models/PTAssignment');
 const ChiSoCoThe = require('../models/ChiSoCoThe');
 const LichSuTap = require('../models/LichSuTap');
-const { HoiVien } = require('../models/NguoiDung');
+const { HoiVien, PT } = require('../models/NguoiDung');
 const BaiTap = require('../models/BaiTap');
 const mongoose = require('mongoose');
+
+// Lấy danh sách PT công khai (cho hội viên)
+exports.getPublicPTList = async (req, res) => {
+    try {
+        const { limit = 10, sort = 'rating' } = req.query;
+
+        // Lấy danh sách PT
+        const pts = await PT.find({ trangThai: 'active' })
+            .select('hoTen anhDaiDien chuyenMon soDienThoai email moTa danhGiaTrungBinh')
+            .limit(parseInt(limit))
+            .sort(sort === 'rating' ? { danhGiaTrungBinh: -1 } : { createdAt: -1 });
+
+        res.json({
+            success: true,
+            data: pts
+        });
+    } catch (err) {
+        console.error('Error in getPublicPTList:', err);
+        res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
+    }
+};
 
 // Lấy thống kê tổng quan cho PT
 exports.getPTDashboard = async (req, res) => {

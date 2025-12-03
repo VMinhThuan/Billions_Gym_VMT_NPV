@@ -14,6 +14,7 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const [loadingRank, setLoadingRank] = useState(false);
     const [activePackage, setActivePackage] = useState(null);
     const [loadingPackage, setLoadingPackage] = useState(false);
+    const [packageStatusMessage, setPackageStatusMessage] = useState('');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -91,10 +92,15 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     console.log('🔍 Formatted data:', formattedData);
                     console.log('🔍 formattedExpiry:', formattedData.formattedExpiry);
                     setActivePackage(formattedData);
+                    setPackageStatusMessage('');
+                } else if (mounted) {
+                    setActivePackage(null);
+                    setPackageStatusMessage('Bạn chưa đăng ký gói tập nào. Hãy chọn một gói phù hợp để bắt đầu luyện tập!');
                 }
             } catch (err) {
                 console.debug('No active package or failed to fetch', err);
                 setActivePackage(null);
+                setPackageStatusMessage('Chưa có gói tập hoạt động. Vui lòng đăng ký gói tập mới.');
             } finally {
                 setLoadingPackage(false);
             }
@@ -146,6 +152,7 @@ const Home = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                 nextSessions={[]}
                                 notifications={[]}
                                 loadingPackage={loadingPackage}
+                                packageStatusMessage={packageStatusMessage}
                             />
                         </div>
                     </div>

@@ -1,9 +1,31 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { MagnifyingGlass, Funnel, Plus, Star, ChartBar, Clock, Sparkle, X, Calendar, BookOpen, Calculator, List, FileText } from '@phosphor-icons/react';
 import Header from '../components/layout/Header';
 import Sidebar from '../components/layout/Sidebar';
 import { nutritionAPI } from '../services/api';
 import './Nutrition.css';
+
+const MEAL_TYPE_OPTIONS = ['Bữa sáng', 'Phụ 1', 'Bữa trưa', 'Phụ 2', 'Bữa tối', 'Phụ 3'];
+
+const WEEKDAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+
+const getLocalDateValue = (date = new Date()) => {
+    const offsetMs = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - offsetMs).toISOString().split('T')[0];
+};
+
+const deriveMealTypeLabel = (type = '') => {
+    const normalized = type.toString().toLowerCase();
+
+    if (normalized.includes('sáng') || normalized.includes('sang') || normalized.includes('breakfast')) return 'Bữa sáng';
+    if (normalized.includes('phụ 1') || normalized.includes('phu 1') || normalized.includes('snack 1')) return 'Phụ 1';
+    if (normalized.includes('phụ 2') || normalized.includes('phu 2') || normalized.includes('snack 2')) return 'Phụ 2';
+    if (normalized.includes('phụ 3') || normalized.includes('phu 3') || normalized.includes('snack 3')) return 'Phụ 3';
+    if (normalized.includes('tối') || normalized.includes('toi') || normalized.includes('dinner')) return 'Bữa tối';
+    if (normalized.includes('trưa') || normalized.includes('trua') || normalized.includes('lunch')) return 'Bữa trưa';
+
+    return 'Bữa trưa';
+};
 
 const Nutrition = () => {
     const [allMenus, setAllMenus] = useState([]); // Store all meals from API
@@ -18,6 +40,15 @@ const Nutrition = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [showAIPanel, setShowAIPanel] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [showAddMealModal, setShowAddMealModal] = useState(false);
+    const [mealToAdd, setMealToAdd] = useState(null);
+    const [addMealDate, setAddMealDate] = useState(() => getLocalDateValue());
+    const [selectedMealType, setSelectedMealType] = useState('Bữa trưa');
+    const [addingMeal, setAddingMeal] = useState(false);
+    const [calendarMonth, setCalendarMonth] = useState(() => {
+        const now = new Date();
+        return { year: now.getFullYear(), month: now.getMonth() };
+    });
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [filters, setFilters] = useState({
         difficulty: 'Tất cả',
@@ -30,16 +61,26 @@ const Nutrition = () => {
     const [showSortDropdown, setShowSortDropdown] = useState(false);
     const [aiRequest, setAiRequest] = useState({
         goal: '',
-        calories: '1800',
+        calories: '',
         selectedDate: new Date().toISOString().split('T')[0], // Default: today
         preferences: ''
     });
+    const [goalHistory, setGoalHistory] = useState([]);
+    const [showGoalHistory, setShowGoalHistory] = useState(false);
+    const goalHistoryTimeout = useRef(null);
+    const [caloriesLoading, setCaloriesLoading] = useState(false);
     const [selectedMeal, setSelectedMeal] = useState(null); // For meal detail modal
     const [showMealModal, setShowMealModal] = useState(false);
     const [activeTab, setActiveTab] = useState('ingredients'); // 'ingredients', 'instructions', 'video' - for meal modal
     const [activePageTab, setActivePageTab] = useState('menu'); // 'menu', 'plans', 'info', 'calculator', 'stats' - for page tabs
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(20);
+    const todayISO = useMemo(() => getLocalDateValue(), []);
+    const todayStart = useMemo(() => {
+        const base = new Date(todayISO);
+        base.setHours(0, 0, 0, 0);
+        return base;
+    }, [todayISO]);
 
     // Load data from API
     useEffect(() => {
@@ -296,26 +337,50 @@ const Nutrition = () => {
         };
     };
 
-    const handleAddToMealPlan = async (meal) => {
+    const openAddMealModal = (meal, event) => {
+        if (event) {
+            event.stopPropagation();
+        }
+        if (!meal) return;
+
+        setMealToAdd(meal);
+        setSelectedMealType(deriveMealTypeLabel(meal.mealType || meal.category));
+        const baseDate = new Date(todayISO);
+        setAddMealDate(getLocalDateValue(baseDate));
+        setCalendarMonth({ year: baseDate.getFullYear(), month: baseDate.getMonth() });
+        setShowAddMealModal(true);
+    };
+
+    const closeAddMealModal = () => {
+        if (addingMeal) return;
+        setShowAddMealModal(false);
+        setMealToAdd(null);
+    };
+
+    const handleAddToMealPlan = async () => {
+        if (!mealToAdd) return;
         try {
-            const mealId = meal._id || meal.id;
-            const mealType = meal.mealType || meal.category;
+            setAddingMeal(true);
+            const mealId = mealToAdd._id || mealToAdd.id;
 
             if (!mealId) {
                 alert('Không thể thêm món ăn: thiếu ID');
                 return;
             }
 
-            const result = await nutritionAPI.addMealToPlan(mealId, mealType);
+            const result = await nutritionAPI.addMealToPlan(mealId, selectedMealType, addMealDate);
 
             if (result.success) {
                 alert('Đã thêm món ăn vào thực đơn của bạn!');
+                closeAddMealModal();
             } else {
                 alert('Lỗi: ' + (result.message || 'Không thể thêm món ăn'));
             }
         } catch (error) {
             console.error('Error adding meal to plan:', error);
             alert('Lỗi: ' + (error.message || 'Không thể thêm món ăn vào thực đơn'));
+        } finally {
+            setAddingMeal(false);
         }
     };
 
@@ -359,14 +424,13 @@ const Nutrition = () => {
 
 
     const handleGeneratePlan = async () => {
-        if (!aiRequest.goal || !aiRequest.calories) {
-            alert('Vui lòng điền đầy đủ thông tin: mục tiêu và calories');
+        if (!aiRequest.goal) {
+            alert('Vui lòng nhập mục tiêu dinh dưỡng');
             return;
         }
 
         setIsGenerating(true);
         try {
-            // Validate date - must be today or future
             const selectedDate = new Date(aiRequest.selectedDate);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -380,11 +444,11 @@ const Nutrition = () => {
             console.log('Generating plan with:', aiRequest);
             const result = await nutritionAPI.generatePlan(
                 aiRequest.goal,
-                aiRequest.calories,
-                'daily', // Always daily
+                aiRequest.calories || undefined,
+                'daily',
                 aiRequest.preferences,
                 '',
-                aiRequest.selectedDate // Pass selected date
+                aiRequest.selectedDate
             );
 
             console.log('Plan generation result:', result);
@@ -392,10 +456,9 @@ const Nutrition = () => {
             if (result && result.success && result.data) {
                 setShowAIPanel(false);
                 alert('Đã tạo thực đơn thành công! Vui lòng xem trong trang "Bữa ăn của tôi".');
-                // Reset AI request form
                 setAiRequest({
                     goal: '',
-                    calories: '1800',
+                    calories: '',
                     selectedDate: new Date().toISOString().split('T')[0],
                     preferences: ''
                 });
@@ -426,6 +489,95 @@ const Nutrition = () => {
         }
     };
 
+    const fetchGoalHistory = useCallback(async () => {
+        try {
+            const response = await nutritionAPI.getGoalHistory();
+            if (response?.success && Array.isArray(response.data)) {
+                setGoalHistory(response.data);
+            } else {
+                setGoalHistory([]);
+            }
+        } catch (error) {
+            console.error('Error fetching goal history:', error);
+        }
+    }, []);
+
+    const fetchRecommendedCalories = useCallback(async (goalText) => {
+        if (!goalText || goalText.trim().length < 3) {
+            return;
+        }
+        const normalizedGoal = goalText.trim().toLowerCase();
+        try {
+            setCaloriesLoading(true);
+            const response = await nutritionAPI.getRecommendedCalories(goalText);
+            if (response?.success && response.data?.calories) {
+                setAiRequest(prev => {
+                    if (prev.goal.trim().toLowerCase() !== normalizedGoal) {
+                        return prev;
+                    }
+                    return { ...prev, calories: String(response.data.calories) };
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching recommended calories:', error);
+        } finally {
+            setCaloriesLoading(false);
+        }
+    }, []);
+
+    const handleGoalFocus = () => {
+        if (goalHistory.length === 0) {
+            fetchGoalHistory();
+        }
+        setShowGoalHistory(true);
+    };
+
+    const handleGoalBlur = () => {
+        if (goalHistoryTimeout.current) {
+            clearTimeout(goalHistoryTimeout.current);
+        }
+        goalHistoryTimeout.current = setTimeout(() => setShowGoalHistory(false), 150);
+    };
+
+    const handleGoalSelect = (item) => {
+        if (goalHistoryTimeout.current) {
+            clearTimeout(goalHistoryTimeout.current);
+        }
+        setAiRequest(prev => ({
+            ...prev,
+            goal: item.goal,
+            preferences: prev.preferences || item.preferences || ''
+        }));
+        setShowGoalHistory(false);
+        fetchRecommendedCalories(item.goal);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (goalHistoryTimeout.current) {
+                clearTimeout(goalHistoryTimeout.current);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!showAIPanel) {
+            setShowGoalHistory(false);
+            return;
+        }
+        fetchGoalHistory();
+    }, [showAIPanel, fetchGoalHistory]);
+
+    useEffect(() => {
+        if (!showAIPanel) return;
+        if (!aiRequest.goal || aiRequest.goal.trim().length < 3) {
+            setAiRequest(prev => (prev.calories ? { ...prev, calories: '' } : prev));
+            return;
+        }
+        const timer = setTimeout(() => fetchRecommendedCalories(aiRequest.goal), 500);
+        return () => clearTimeout(timer);
+    }, [aiRequest.goal, showAIPanel, fetchRecommendedCalories]);
+
     useEffect(() => {
         const handleSidebarToggle = (event) => {
             setSidebarCollapsed(event.detail.collapsed);
@@ -434,6 +586,65 @@ const Nutrition = () => {
         window.addEventListener('sidebar:toggle', handleSidebarToggle);
         return () => window.removeEventListener('sidebar:toggle', handleSidebarToggle);
     }, []);
+
+    useEffect(() => {
+        if (!showAddMealModal) return;
+        const baseDate = addMealDate ? new Date(addMealDate) : new Date(todayISO);
+        if (!Number.isNaN(baseDate.getTime())) {
+            setCalendarMonth({ year: baseDate.getFullYear(), month: baseDate.getMonth() });
+        }
+    }, [showAddMealModal, addMealDate, todayISO]);
+
+    const calendarDays = useMemo(() => {
+        const { year, month } = calendarMonth;
+        const start = new Date(year, month, 1);
+        const end = new Date(year, month + 1, 0);
+        const daysInMonth = end.getDate();
+        const firstDayIndex = (start.getDay() + 6) % 7;
+        const cells = [];
+
+        for (let i = 0; i < firstDayIndex; i++) {
+            cells.push(null);
+        }
+        for (let day = 1; day <= daysInMonth; day++) {
+            cells.push(new Date(year, month, day));
+        }
+        while (cells.length % 7 !== 0) {
+            cells.push(null);
+        }
+
+        return cells;
+    }, [calendarMonth]);
+
+    const calendarMonthLabel = useMemo(() => {
+        return new Date(calendarMonth.year, calendarMonth.month, 1).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
+    }, [calendarMonth]);
+
+    const isDateDisabled = (dateObj) => {
+        if (!dateObj) return true;
+        const candidate = new Date(dateObj);
+        candidate.setHours(0, 0, 0, 0);
+        return candidate < todayStart;
+    };
+
+    const handleMonthChange = (offset) => {
+        setCalendarMonth(prev => {
+            const target = new Date(prev.year, prev.month + offset, 1);
+            return { year: target.getFullYear(), month: target.getMonth() };
+        });
+    };
+
+    const handleDaySelect = (dateObj) => {
+        if (!dateObj || isDateDisabled(dateObj)) return;
+        setAddMealDate(getLocalDateValue(dateObj));
+    };
+
+    const formattedSelectedDate = useMemo(() => {
+        if (!addMealDate) return '';
+        const date = new Date(addMealDate);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+    }, [addMealDate]);
 
     const categories = ['Tất cả', 'Bữa sáng', 'Bữa trưa', 'Ăn nhẹ', 'Bữa tối'];
     const sortOptions = [
@@ -687,42 +898,75 @@ const Nutrition = () => {
                                 <label style={{ color: '#ccc', fontSize: '14px', marginBottom: '8px', display: 'block' }}>
                                     Mục tiêu dinh dưỡng *
                                 </label>
-                                <input
-                                    type="text"
-                                    placeholder="VD: Giảm cân, tăng cơ, duy trì..."
-                                    value={aiRequest.goal}
-                                    onChange={(e) => setAiRequest({ ...aiRequest, goal: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        padding: '12px',
-                                        background: '#2a2a2a',
-                                        border: '1px solid #444',
-                                        borderRadius: '8px',
-                                        color: 'white',
-                                        fontSize: '14px'
-                                    }}
-                                />
+                                <div className="goal-input-wrapper">
+                                    <input
+                                        type="text"
+                                        placeholder="VD: Giảm cân, tăng cơ, duy trì..."
+                                        value={aiRequest.goal}
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                        onFocus={handleGoalFocus}
+                                        onBlur={handleGoalBlur}
+                                        onChange={(e) => setAiRequest({ ...aiRequest, goal: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            background: '#2a2a2a',
+                                            border: '1px solid #444',
+                                            borderRadius: '8px',
+                                            color: 'white',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                    {showGoalHistory && (
+                                        <div className="goal-history-dropdown">
+                                            {goalHistory.length === 0 ? (
+                                                <div className="goal-history-empty">Chưa có lịch sử gần đây</div>
+                                            ) : (
+                                                goalHistory.map((item, index) => {
+                                                    const historyDate = item.date ? new Date(item.date).toLocaleDateString('vi-VN') : '';
+                                                    return (
+                                                        <div
+                                                            key={`${item.goal}-${index}`}
+                                                            className="goal-history-item"
+                                                            onMouseDown={() => handleGoalSelect(item)}
+                                                        >
+                                                            <div className="goal-history-goal">{item.goal || 'Không xác định'}</div>
+                                                            <div className="goal-history-meta">
+                                                                {item.calories ? `${item.calories} kcal` : 'Chưa rõ calories'}
+                                                                {historyDate ? ` • ${historyDate}` : ''}
+                                                            </div>
+                                                            {item.preferences && (<div className="goal-history-meta">Sở thích: {item.preferences}</div>)}
+                                                        </div>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <div>
                                 <label style={{ color: '#ccc', fontSize: '14px', marginBottom: '8px', display: 'block' }}>
-                                    Calories mỗi ngày (kcal) *
+                                    Calories gợi ý (AI tự tính)
                                 </label>
                                 <input
-                                    type="number"
-                                    placeholder="1800"
-                                    value={aiRequest.calories}
-                                    onChange={(e) => setAiRequest({ ...aiRequest, calories: e.target.value })}
+                                    type="text"
+                                    readOnly
+                                    placeholder="AI sẽ tự tính dựa trên mục tiêu và chỉ số cơ thể"
+                                    value={caloriesLoading ? 'Đang tính...' : (aiRequest.calories ? `${aiRequest.calories}` : '')}
                                     style={{
                                         width: '100%',
                                         padding: '12px',
-                                        background: '#2a2a2a',
+                                        background: '#222',
                                         border: '1px solid #444',
                                         borderRadius: '8px',
-                                        color: 'white',
-                                        fontSize: '14px'
+                                        color: caloriesLoading ? '#b5b5b5' : 'white',
+                                        fontSize: '14px',
+                                        cursor: 'not-allowed'
                                     }}
                                 />
+                                <small className="calories-note">AI dựa trên BMI, giới tính và lịch sử đo gần nhất để tính lượng calories khuyến nghị.</small>
                             </div>
 
                             <div>
@@ -777,7 +1021,7 @@ const Nutrition = () => {
                                     <input
                                         type="date"
                                         value={aiRequest.selectedDate}
-                                        min={new Date().toISOString().split('T')[0]}
+                                        min={todayISO}
                                         onChange={(e) => setAiRequest({ ...aiRequest, selectedDate: e.target.value })}
                                         style={{
                                             flex: 1,
@@ -846,6 +1090,78 @@ const Nutrition = () => {
                                     </>
                                 )}
                             </button>
+                        </div>
+                    </div>
+                )}
+
+                {showAddMealModal && mealToAdd && (
+                    <div className="add-meal-modal-overlay" onClick={closeAddMealModal}>
+                        <div className="add-meal-modal" onClick={(event) => event.stopPropagation()}>
+                            <div className="add-meal-modal-header">
+                                <div>
+                                    <h3>Thêm vào thực đơn</h3>
+                                    <p>Chọn ngày và loại bữa cho món "{mealToAdd?.name || mealToAdd?.tenMon || 'món ăn'}"</p>
+                                </div>
+                                <button className="add-meal-close" onClick={closeAddMealModal} disabled={addingMeal}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="add-meal-field">
+                                <label>Ngày thêm vào</label>
+                                <div className="add-meal-calendar">
+                                    <div className="calendar-header">
+                                        <button type="button" className="calendar-nav-btn" onClick={() => handleMonthChange(-1)}>‹</button>
+                                        <span className="calendar-month-label">{calendarMonthLabel}</span>
+                                        <button type="button" className="calendar-nav-btn" onClick={() => handleMonthChange(1)}>›</button>
+                                    </div>
+                                    <div className="calendar-weekdays">
+                                        {WEEKDAY_LABELS.map(label => (
+                                            <span key={label}>{label}</span>
+                                        ))}
+                                    </div>
+                                    <div className="calendar-grid">
+                                        {calendarDays.map((dateObj, index) => {
+                                            if (!dateObj) {
+                                                return <span key={`empty-${index}`} className="calendar-day empty" />;
+                                            }
+                                            const iso = getLocalDateValue(dateObj);
+                                            const disabled = isDateDisabled(dateObj);
+                                            const selected = iso === addMealDate;
+                                            return (
+                                                <button
+                                                    key={iso}
+                                                    type="button"
+                                                    className={`calendar-day${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}`}
+                                                    onClick={() => handleDaySelect(dateObj)}
+                                                    disabled={disabled}
+                                                >
+                                                    {dateObj.getDate()}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {formattedSelectedDate && (
+                                        <div className="calendar-selected-label">Ngày đã chọn: {formattedSelectedDate}</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="add-meal-field">
+                                <label>Loại bữa ăn</label>
+                                <select value={selectedMealType} onChange={(e) => setSelectedMealType(e.target.value)}>
+                                    {MEAL_TYPE_OPTIONS.map((option) => (
+                                        <option key={option} value={option}>{option}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="add-meal-actions">
+                                <button className="btn-cancel" onClick={closeAddMealModal} disabled={addingMeal}>Hủy</button>
+                                <button className="btn-confirm" onClick={handleAddToMealPlan} disabled={addingMeal}>
+                                    {addingMeal ? 'Đang thêm...' : 'Thêm vào ngày này'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1049,6 +1365,22 @@ const Nutrition = () => {
                                                         >
                                                             {featuredMenu.category}
                                                         </span>
+                                                        {featuredMenu.isAIRecommended && (
+                                                            <span className="badge-ai" style={{
+                                                                backgroundColor: '#6366f1',
+                                                                color: '#fff',
+                                                                padding: '4px 8px',
+                                                                borderRadius: '4px',
+                                                                fontSize: '11px',
+                                                                fontWeight: '600',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px'
+                                                            }}>
+                                                                <Sparkle size={12} weight="fill" />
+                                                                AI
+                                                            </span>
+                                                        )}
                                                         <div className="badge-rating">
                                                             <Star size={14} weight="fill" color="#FFA257" />
                                                             <span>{featuredMenu.rating}/5 ({featuredMenu.reviews} đánh giá)</span>
@@ -1103,7 +1435,7 @@ const Nutrition = () => {
                                                     </div>
                                                     <button
                                                         className="btn-add-meal-plan text-white"
-                                                        onClick={() => handleAddToMealPlan(featuredMenu)}
+                                                        onClick={(event) => openAddMealModal(featuredMenu, event)}
                                                     >
                                                         Thêm vào thực đơn
                                                     </button>
@@ -1440,6 +1772,22 @@ const Nutrition = () => {
                                                                     <span className="badge-category" style={{ backgroundColor: getCategoryColor(menu.category) }}>
                                                                         {menu.category}
                                                                     </span>
+                                                                    {menu.isAIRecommended && (
+                                                                        <span className="badge-ai" style={{
+                                                                            backgroundColor: '#6366f1',
+                                                                            color: '#fff',
+                                                                            padding: '4px 8px',
+                                                                            borderRadius: '4px',
+                                                                            fontSize: '11px',
+                                                                            fontWeight: '600',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '4px'
+                                                                        }}>
+                                                                            <Sparkle size={12} weight="fill" />
+                                                                            AI
+                                                                        </span>
+                                                                    )}
                                                                     <div className="badge-difficulty">
                                                                         <ChartBar size={12} weight="fill" />
                                                                         <span>{menu.difficulty}</span>
@@ -1520,7 +1868,7 @@ const Nutrition = () => {
                                                                 </div>
                                                                 <button
                                                                     className="btn-add-small"
-                                                                    onClick={() => handleAddToMealPlan(menu)}
+                                                                    onClick={(event) => openAddMealModal(menu, event)}
                                                                 >
                                                                     Thêm vào thực đơn
                                                                 </button>
@@ -1628,7 +1976,7 @@ const Nutrition = () => {
                                                         <h4>{menu.name}</h4>
                                                         <button
                                                             className="btn-add-mini"
-                                                            onClick={() => handleAddToMealPlan(menu)}
+                                                            onClick={(event) => openAddMealModal(menu, event)}
                                                         >
                                                             <Plus size={18} weight="bold" />
                                                         </button>
@@ -1639,9 +1987,27 @@ const Nutrition = () => {
                                                             <span className="rating">{menu.rating}</span>
                                                             <span className="rating-max">/5</span>
                                                         </div>
-                                                        <span className="popular-category" style={{ backgroundColor: getCategoryColor(menu.category) }}>
-                                                            {menu.category}
-                                                        </span>
+                                                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                            <span className="popular-category" style={{ backgroundColor: getCategoryColor(menu.category) }}>
+                                                                {menu.category}
+                                                            </span>
+                                                            {menu.isAIRecommended && (
+                                                                <span className="badge-ai" style={{
+                                                                    backgroundColor: '#6366f1',
+                                                                    color: '#fff',
+                                                                    padding: '3px 6px',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '10px',
+                                                                    fontWeight: '600',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '3px'
+                                                                }}>
+                                                                    <Sparkle size={10} weight="fill" />
+                                                                    AI
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1670,12 +2036,30 @@ const Nutrition = () => {
                                                     <div className="recommended-info">
                                                         <h4>{menu.name}</h4>
                                                         <div className="recommended-bottom">
-                                                            <span className="recommended-category" style={{ backgroundColor: getCategoryColor(menu.category) }}>
-                                                                {menu.category}
-                                                            </span>
+                                                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                                <span className="recommended-category" style={{ backgroundColor: getCategoryColor(menu.category) }}>
+                                                                    {menu.category}
+                                                                </span>
+                                                                {menu.isAIRecommended && (
+                                                                    <span className="badge-ai" style={{
+                                                                        backgroundColor: '#6366f1',
+                                                                        color: '#fff',
+                                                                        padding: '3px 6px',
+                                                                        borderRadius: '4px',
+                                                                        fontSize: '10px',
+                                                                        fontWeight: '600',
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '3px'
+                                                                    }}>
+                                                                        <Sparkle size={10} weight="fill" />
+                                                                        AI
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <button
                                                                 className="btn-add-tiny"
-                                                                onClick={() => handleAddToMealPlan(menu)}
+                                                                onClick={(event) => openAddMealModal(menu, event)}
                                                             >
                                                                 <Plus size={16} weight="bold" />
                                                             </button>

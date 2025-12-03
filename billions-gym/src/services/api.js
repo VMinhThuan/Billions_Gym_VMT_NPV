@@ -209,7 +209,9 @@ export const packageAPI = {
         return apiRequest(`${API_ENDPOINTS.GET_MY_PACKAGES}/${memberId}`);
     },
     getActivePackage: async (memberId) => {
-        return apiRequest(`${API_ENDPOINTS.GET_ACTIVE_PACKAGE}/${memberId}/active`);
+        return apiRequest(`${API_ENDPOINTS.GET_ACTIVE_PACKAGE}/${memberId}/active`, {
+            allow404: true
+        });
     },
 };
 export const workoutAPI = {
@@ -272,17 +274,30 @@ export const nutritionAPI = {
             method: 'POST',
             body: JSON.stringify({
                 goal,
-                calories: parseInt(calories),
+                calories: calories ? parseInt(calories, 10) : undefined,
                 period,
                 preferences,
                 mealType,
-                date: date || new Date().toISOString().split('T')[0] // Default to today if not provided
+                date: date || new Date().toISOString().split('T')[0]
             }),
         });
     },
     // Lấy plan mới nhất
     getLatestPlan: async () => {
         return apiRequest('/nutrition/plan/latest');
+    },
+    // Lịch sử mục tiêu dinh dưỡng đã tạo với AI
+    getGoalHistory: async () => {
+        return apiRequest('/nutrition/plan/history');
+    },
+    // Gợi ý calories dựa trên chỉ số cơ thể
+    getMyMeals: async (date = null) => {
+        const url = date ? `/nutrition/my-meals?date=${date}` : '/nutrition/my-meals';
+        return apiRequest(url, { allow404: true });
+    },
+    getRecommendedCalories: async (goal = '') => {
+        const query = goal ? `?goal=${encodeURIComponent(goal)}` : '';
+        return apiRequest(`/nutrition/plan/recommend-calories${query}`);
     },
     // Lấy tất cả meals từ database
     getAllMeals: async (params = {}) => {
@@ -337,6 +352,12 @@ export const bodyMetricsAPI = {
             : `${API_ENDPOINTS.GET_BODY_METRICS}/hoivien/${memberId}`;
         return apiRequest(url);
     },
+    getMyLatest: async () => {
+        return apiRequest('/chisocothe/my/latest', { allow404: true });
+    },
+    getMyStats: async () => {
+        return apiRequest('/chisocothe/my/thongke', { allow404: true });
+    },
     createBodyMetrics: async (metricsData) => {
         return apiRequest(API_ENDPOINTS.CREATE_BODY_METRICS, {
             method: 'POST',
@@ -347,6 +368,25 @@ export const bodyMetricsAPI = {
         return apiRequest(`${API_ENDPOINTS.UPDATE_BODY_METRICS}/${id}`, {
             method: 'PUT',
             body: JSON.stringify(metricsData),
+        });
+    },
+};
+export const paymentAPI = {
+    getMyPayments: async () => {
+        return apiRequest('/thanhtoan/my', { allow404: true });
+    },
+    getPayments: async (memberId) => {
+        return apiRequest(`${API_ENDPOINTS.GET_PAYMENTS}/hoivien/${memberId}`);
+    },
+    createPayment: async (paymentData) => {
+        return apiRequest(API_ENDPOINTS.CREATE_PAYMENT, {
+            method: 'POST',
+            body: JSON.stringify(paymentData),
+        });
+    },
+    confirmPayment: async (paymentId) => {
+        return apiRequest(`${API_ENDPOINTS.CONFIRM_PAYMENT}/${paymentId}/confirm`, {
+            method: 'PUT',
         });
     },
 };
@@ -387,22 +427,6 @@ export const chatbotAPI = {
     },
     getChatHistory: async (limit = 50) => {
         return apiRequest(`${API_ENDPOINTS.GET_CHAT_HISTORY}?limit=${limit}`);
-    },
-};
-export const paymentAPI = {
-    getPayments: async (memberId) => {
-        return apiRequest(`${API_ENDPOINTS.GET_PAYMENTS}/hoivien/${memberId}`);
-    },
-    createPayment: async (paymentData) => {
-        return apiRequest(API_ENDPOINTS.CREATE_PAYMENT, {
-            method: 'POST',
-            body: JSON.stringify(paymentData),
-        });
-    },
-    confirmPayment: async (paymentId) => {
-        return apiRequest(`${API_ENDPOINTS.CONFIRM_PAYMENT}/${paymentId}/confirm`, {
-            method: 'PUT',
-        });
     },
 };
 

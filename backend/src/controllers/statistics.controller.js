@@ -965,7 +965,15 @@ const buildConversionStats = async () => {
         const trialPackages = await GoiTap.find({
             $or: [
                 { tenGoiTap: { $regex: /trải nghiệm/i } },
-                { donViThoiHan: 'Ngay', thoiHan: { $lte: 7 } }
+                {
+                    $or: [
+                        { donViThoiHan: 'Ngay' },
+                        { donViThoiHan: 'Ngày' }
+                    ],
+                    thoiHan: { $lte: 7 }
+                },
+                { donViThoiHan: 'Phut' },
+                { donViThoiHan: 'Phút' }
             ]
         }).select('_id').lean();
 
@@ -1130,14 +1138,21 @@ const buildPackageDurationRevenueStats = async () => {
                     durationMonths: {
                         $switch: {
                             branches: [
-                                { case: { $eq: ['$goiTap.donViThoiHan', 'Thang'] }, then: '$goiTap.thoiHan' },
                                 {
-                                    case: { $eq: ['$goiTap.donViThoiHan', 'Nam'] },
+                                    case: { $in: ['$goiTap.donViThoiHan', ['Thang', 'Tháng']] },
+                                    then: '$goiTap.thoiHan'
+                                },
+                                {
+                                    case: { $in: ['$goiTap.donViThoiHan', ['Nam', 'Năm']] },
                                     then: { $multiply: ['$goiTap.thoiHan', 12] }
                                 },
                                 {
-                                    case: { $eq: ['$goiTap.donViThoiHan', 'Ngay'] },
+                                    case: { $in: ['$goiTap.donViThoiHan', ['Ngay', 'Ngày']] },
                                     then: { $divide: ['$goiTap.thoiHan', 30] }
+                                },
+                                {
+                                    case: { $in: ['$goiTap.donViThoiHan', ['Phut', 'Phút']] },
+                                    then: { $divide: ['$goiTap.thoiHan', 43200] } // 60 * 24 * 30
                                 }
                             ],
                             default: 1
@@ -1278,6 +1293,90 @@ const callStatsFunction = async (fn, req) => {
 };
 
 // Tổng hợp tất cả thống kê
+// Lấy danh sách check-in real-time (hôm nay)
+exports.getRecentCheckIns = async (req, res) => {
+    try {
+        const checkIns = await getRecentCheckIns();
+        res.json({
+            success: true,
+            data: checkIns
+        });
+    } catch (error) {
+        console.error('Error in getRecentCheckIns:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi lấy danh sách check-in real-time',
+            error: error.message
+        });
+    }
+};
+
+const getRecentCheckIns = async () => {
+    try {
+        const now = new Date();
+        // Lấy tất cả check-in hôm nay (theo múi giờ Việt Nam UTC+7)
+        const vietnamOffset = 7 * 60; // 7 giờ * 60 phút
+        const utcNow = new Date(now.getTime() - (now.getTimezoneOffset() * 60 * 1000));
+        const vietnamNow = new Date(utcNow.getTime() + (vietnamOffset * 60 * 1000));
+
+        const startOfDay = new Date(vietnamNow);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        const startOfDayUTC = new Date(startOfDay.getTime() - (vietnamOffset * 60 * 1000));
+
+        const endOfDay = new Date(vietnamNow);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        const endOfDayUTC = new Date(endOfDay.getTime() - (vietnamOffset * 60 * 1000));
+
+        // Lấy tất cả check-in hôm nay, bao gồm cả đang check-in (chưa check-out)
+        const checkInRecords = await CheckInRecord.find({
+            checkInTime: {
+                $gte: startOfDayUTC,
+                $lte: endOfDayUTC
+            }
+        })
+            .populate({
+                path: 'hoiVien',
+                select: 'hoTen sdt'
+            })
+            .populate({
+                path: 'buoiTap',
+                select: 'tenBuoiTap gioBatDau gioKetThuc ngayTap',
+                populate: {
+                    path: 'chiNhanh',
+                    select: 'tenChiNhanh diaChi'
+                }
+            })
+            .sort({ checkInTime: -1 })
+            .limit(100); // Giới hạn 100 bản ghi mới nhất
+
+        return checkInRecords.map(record => ({
+            _id: record._id,
+            hoiVien: {
+                _id: record.hoiVien._id,
+                hoTen: record.hoiVien.hoTen
+            },
+            buoiTap: record.buoiTap ? {
+                _id: record.buoiTap._id,
+                tenBuoiTap: record.buoiTap.tenBuoiTap,
+                gioBatDau: record.buoiTap.gioBatDau,
+                gioKetThuc: record.buoiTap.gioKetThuc
+            } : null,
+            chiNhanh: record.buoiTap?.chiNhanh ? {
+                _id: record.buoiTap.chiNhanh._id,
+                tenChiNhanh: record.buoiTap.chiNhanh.tenChiNhanh
+            } : null,
+            checkInTime: record.checkInTime,
+            checkOutTime: record.checkOutTime || null,
+            isCheckedOut: !!record.checkOutTime,
+            checkInStatus: record.checkInStatus,
+            checkOutStatus: record.checkOutStatus
+        }));
+    } catch (error) {
+        console.error('Error in getRecentCheckIns:', error);
+        return [];
+    }
+};
+
 exports.getOverallStats = async (req, res) => {
     try {
         const [
@@ -1294,7 +1393,8 @@ exports.getOverallStats = async (req, res) => {
             conversionData,
             ageDistributionData,
             durationRevenueData,
-            peakHourData
+            peakHourData,
+            recentCheckIns
         ] = await Promise.all([
             callStatsFunction(exports.getMemberStatsByBranch, {}),
             callStatsFunction(exports.getNewMemberStats, {}),
@@ -1309,7 +1409,8 @@ exports.getOverallStats = async (req, res) => {
             buildConversionStats(),
             buildAgeDistributionStats(),
             buildPackageDurationRevenueStats(),
-            buildPeakHourStats()
+            buildPeakHourStats(),
+            getRecentCheckIns()
         ]);
 
         res.json({
@@ -1335,7 +1436,8 @@ exports.getOverallStats = async (req, res) => {
                 },
                 ageDistribution: ageDistributionData || [],
                 packageDurationRevenue: durationRevenueData || [],
-                peakHours: peakHourData || []
+                peakHours: peakHourData || [],
+                recentCheckIns: recentCheckIns || []
             }
         });
     } catch (error) {

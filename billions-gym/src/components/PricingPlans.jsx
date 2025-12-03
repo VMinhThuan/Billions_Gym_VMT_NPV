@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
+import { formatDurationUnitLabel } from '../utils/duration';
 
 const PricingPlans = ({ onComparePackage, onPackagesLoaded }) => {
     const navigate = useNavigate();
@@ -158,7 +159,7 @@ const PricingPlans = ({ onComparePackage, onPackagesLoaded }) => {
                 'Kế hoạch tập luyện cá nhân hóa',
                 'Hướng dẫn dinh dưỡng cơ bản',
                 'Truy cập lớp tập nhóm',
-                `Thời hạn: ${pkg.thoiHan} ${pkg.donViThoiHan.toLowerCase()}`
+                `Thời hạn: ${pkg.thoiHan} ${formatDurationUnitLabel(pkg.donViThoiHan).toLowerCase()}`
             ];
         } else if (pkg.loaiGoiTap === 'Nhom') {
             return [
@@ -167,7 +168,7 @@ const PricingPlans = ({ onComparePackage, onPackagesLoaded }) => {
                 'Huấn luyện dinh dưỡng toàn diện',
                 'Truy cập chương trình tập nâng cao',
                 'Phân tích thành phần cơ thể',
-                `Thời hạn: ${pkg.thoiHan} ${pkg.donViThoiHan.toLowerCase()}`
+                `Thời hạn: ${pkg.thoiHan} ${formatDurationUnitLabel(pkg.donViThoiHan).toLowerCase()}`
             ];
         } else {
             return [
@@ -176,7 +177,7 @@ const PricingPlans = ({ onComparePackage, onPackagesLoaded }) => {
                 'Kiểm tra hàng tuần với huấn luyện viên',
                 'Truy cập tất cả tính năng nền tảng',
                 'Giảm giá thiết bị độc quyền',
-                `Thời hạn: ${pkg.thoiHan} ${pkg.donViThoiHan.toLowerCase()}`
+                `Thời hạn: ${pkg.thoiHan} ${formatDurationUnitLabel(pkg.donViThoiHan).toLowerCase()}`
             ];
         }
     };
@@ -256,7 +257,7 @@ const PricingPlans = ({ onComparePackage, onPackagesLoaded }) => {
                                         <div className="price-period">
                                             {selectedPeriod === 'monthly' ? 'THÁNG' :
                                                 selectedPeriod === 'yearly' ? 'NĂM' :
-                                                    selectedPeriod === 'lifetime' ? 'LẦN' : pkg.donViThoiHan.toUpperCase()}
+                                                    selectedPeriod === 'lifetime' ? 'LẦN' : formatDurationUnitLabel(pkg.donViThoiHan).toUpperCase()}
                                         </div>
                                     </div>
                                 </div>

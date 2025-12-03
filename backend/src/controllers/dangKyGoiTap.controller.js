@@ -1,4 +1,5 @@
 const ChiTietGoiTap = require('../models/ChiTietGoiTap');
+const { addDuration } = require('../utils/duration.utils');
 const { HoiVien } = require('../models/NguoiDung');
 const GoiTap = require('../models/GoiTap');
 
@@ -58,22 +59,11 @@ const dangKyGoiTap = async (req, res) => {
             });
         }
 
-        // Tính ngày kết thúc dựa trên thời hạn gói tập
-        // Ngày kết thúc = Ngày bắt đầu + Thời hạn gói tập
-        // Áp dụng cho cả: Gói mới và Gói nâng cấp
-        const ngayKetThuc = new Date(ngayBatDau);
-
         console.log(`📅 Tính ngày kết thúc cho gói ${goiTap.tenGoiTap}`);
-        console.log(`   - Ngày bắt đầu: ${new Date(ngayBatDau).toLocaleDateString('vi-VN')}`);
+        console.log(`   - Ngày bắt đầu: ${new Date(ngayBatDau).toLocaleString('vi-VN')}`);
         console.log(`   - Thời hạn: ${goiTap.thoiHan} ${goiTap.donViThoiHan}`);
 
-        if (goiTap.donViThoiHan === 'Ngày') {
-            ngayKetThuc.setDate(ngayKetThuc.getDate() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Tháng') {
-            ngayKetThuc.setMonth(ngayKetThuc.getMonth() + goiTap.thoiHan);
-        } else if (goiTap.donViThoiHan === 'Năm') {
-            ngayKetThuc.setFullYear(ngayKetThuc.getFullYear() + goiTap.thoiHan);
-        }
+        const ngayKetThuc = addDuration(ngayBatDau, goiTap.thoiHan, goiTap.donViThoiHan);
 
         console.log(`   - Ngày kết thúc: ${ngayKetThuc.toLocaleDateString('vi-VN')}`);
         console.log(`   - isUpgrade: ${isUpgrade}`);
@@ -246,18 +236,116 @@ const getHoiVienByGoiTap = async (req, res) => {
 };
 
 // Lấy gói tập đang hoạt động của hội viên
+// Lấy thông tin gói tập hoàn tất trước đó (để copy thông tin chi nhánh và PT)
+const getLastCompletedPackage = async (req, res) => {
+    try {
+        const userId = req.user?.id || req.params.userId;
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin người dùng'
+            });
+        }
+
+        console.log('🔍 getLastCompletedPackage - Looking for last completed package for user:', userId);
+
+        // Tìm gói tập đã thanh toán (DA_THANH_TOAN) và đã hoàn tất workflow (HOAN_THANH)
+        // Và đã có cả chi nhánh + PT (để có thể reuse đầy đủ thông tin)
+        // Nếu không có, fallback lần lượt xuống các mức ưu tiên thấp hơn
+        const completedPackageWithHOAN_THANH = await ChiTietGoiTap.findOne({
+            $or: [
+                { maHoiVien: userId },
+                { nguoiDungId: userId }
+            ],
+            trangThaiThanhToan: 'DA_THANH_TOAN',
+            trangThaiDangKy: 'HOAN_THANH',
+            branchId: { $exists: true, $ne: null },
+            ptDuocChon: { $exists: true, $ne: null }
+        })
+            .populate('branchId', 'tenChiNhanh diaChi')
+            .populate('ptDuocChon', 'hoTen chuyenMon danhGia anhDaiDien')
+            .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+
+        let completedPackage = completedPackageWithHOAN_THANH;
+
+        // Nếu không tìm thấy gói HOAN_THANH, tìm gói đã thanh toán và có cả branchId + PT
+        if (!completedPackage) {
+            completedPackage = await ChiTietGoiTap.findOne({
+                $or: [
+                    { maHoiVien: userId },
+                    { nguoiDungId: userId }
+                ],
+                trangThaiThanhToan: 'DA_THANH_TOAN',
+                branchId: { $exists: true, $ne: null },
+                ptDuocChon: { $exists: true, $ne: null }
+            })
+                .populate('branchId', 'tenChiNhanh diaChi')
+                .populate('ptDuocChon', 'hoTen chuyenMon danhGia anhDaiDien')
+                .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+        }
+
+        // Nếu vẫn không tìm thấy, tìm bất kỳ gói nào đã thanh toán (kể cả gói thử)
+        if (!completedPackage) {
+            completedPackage = await ChiTietGoiTap.findOne({
+                $or: [
+                    { maHoiVien: userId },
+                    { nguoiDungId: userId }
+                ],
+                trangThaiThanhToan: 'DA_THANH_TOAN'
+            })
+                .populate('branchId', 'tenChiNhanh diaChi')
+                .populate('ptDuocChon', 'hoTen chuyenMon danhGia anhDaiDien')
+                .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+        }
+
+        if (!completedPackage) {
+            return res.status(200).json({
+                success: true,
+                hasPreviousPackage: false,
+                message: 'Không tìm thấy gói tập hoàn tất trước đó'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            hasPreviousPackage: true,
+            data: {
+                branchId: completedPackage.branchId?._id || completedPackage.branchId,
+                branchName: completedPackage.branchId?.tenChiNhanh || null,
+                ptId: completedPackage.ptDuocChon?._id || null,
+                ptName: completedPackage.ptDuocChon?.hoTen || null,
+                ptSpecialty: completedPackage.ptDuocChon?.chuyenMon || null
+            }
+        });
+    } catch (error) {
+        console.error('Error in getLastCompletedPackage:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server',
+            error: error.message
+        });
+    }
+};
+
 const getActivePackage = async (req, res) => {
     try {
         const { maHoiVien } = req.params;
 
         console.log('🔍 getActivePackage - Looking for active package for member:', maHoiVien);
 
-        // Tìm gói tập đang hoạt động
-        const activePackage = await ChiTietGoiTap.findOne({
+        const baseMatch = {
             $or: [
                 { maHoiVien: maHoiVien },
                 { nguoiDungId: maHoiVien }
             ],
+            trangThaiSuDung: { $ne: 'DA_NANG_CAP' },
+            trangThaiDangKy: { $ne: 'DA_NANG_CAP' }
+        };
+
+        // Tìm gói tập đang hoạt động
+        const activePackage = await ChiTietGoiTap.findOne({
+            ...baseMatch,
             $and: [
                 {
                     $or: [
@@ -270,27 +358,42 @@ const getActivePackage = async (req, res) => {
                         { ngayKetThuc: { $gte: new Date() } },
                         { ngayKetThuc: { $exists: false } }
                     ]
-                },
-                {
-                    trangThaiSuDung: { $ne: 'DA_NANG_CAP' },
-                    trangThaiDangKy: { $ne: 'DA_NANG_CAP' }
                 }
             ]
         })
             .populate('maGoiTap')
             .populate('goiTapId')
-            .sort({ ngayDangKy: -1, thoiGianDangKy: -1 }); // Lấy gói mới nhất
+            .populate('ptDuocChon', 'hoTen chuyenMon danhGia anhDaiDien')
+            .populate('branchId', 'tenChiNhanh')
+            .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
 
-        console.log('🔍 getActivePackage - Found package:', activePackage ? 'Yes' : 'No');
         if (activePackage) {
-            console.log('GetActivePackage - Package details:', activePackage);
+            console.log('✅ getActivePackage - Active package found');
+            return res.json({
+                ...activePackage.toObject(),
+                isExpired: false
+            });
         }
 
-        if (!activePackage) {
-            return res.status(404).json({ message: 'Không có gói tập đang hoạt động' });
+        // Nếu không có gói hoạt động, tìm gói mới nhất (kể cả đã hết hạn) để thông báo
+        const latestPackage = await ChiTietGoiTap.findOne(baseMatch)
+            .populate('maGoiTap')
+            .populate('goiTapId')
+            .populate('ptDuocChon', 'hoTen chuyenMon danhGia anhDaiDien')
+            .populate('branchId', 'tenChiNhanh')
+            .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+
+        if (latestPackage) {
+            const isExpired = latestPackage.ngayKetThuc ? new Date(latestPackage.ngayKetThuc) < new Date() : false;
+            console.log('⚠️ getActivePackage - No active package, returning latest package with expired status');
+            return res.status(200).json({
+                ...latestPackage.toObject(),
+                isExpired,
+                expiredMessage: isExpired ? 'Gói tập của bạn đã hết hạn. Vui lòng gia hạn hoặc đăng ký gói tập mới.' : 'Gói tập hiện tại không còn hoạt động.'
+            });
         }
 
-        res.json(activePackage);
+        return res.status(404).json({ message: 'Không có gói tập nào được tìm thấy' });
     } catch (error) {
         console.error('Error in getActivePackage:', error);
         res.status(500).json({ message: 'Lỗi server', error: error.message });
@@ -861,6 +964,7 @@ module.exports = {
     getDangKyByHoiVien,
     getHoiVienByGoiTap,
     getActivePackage,
+    getLastCompletedPackage,
     kichHoatLaiGoiTap,
     capNhatThanhToan,
     huyDangKy,

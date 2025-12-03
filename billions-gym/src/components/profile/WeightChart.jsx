@@ -1,17 +1,73 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { TrendingDown } from "lucide-react";
 
-const data = [
-    { month: 'T1', weight: 85, target: 82 },
-    { month: 'T2', weight: 84, target: 81 },
-    { month: 'T3', weight: 82, target: 80 },
-    { month: 'T4', weight: 81, target: 79 },
-    { month: 'T5', weight: 80, target: 78 },
-    { month: 'T6', weight: 78, target: 77 },
-    { month: 'T7', weight: 78, target: 76 },
-];
+export function WeightChart({ bodyStats, bodyMetrics }) {
+    const parseWeightData = () => {
+        if (!bodyStats || !bodyStats.lichSuChiSo) {
+            // Fallback to bodyMetrics if available
+            if (bodyMetrics) {
+                return {
+                    chartData: [{
+                        month: 'Hiện tại',
+                        weight: bodyMetrics.canNang || 0,
+                        target: bodyMetrics.mucTieuCanNang || 0
+                    }],
+                    startWeight: bodyMetrics.canNang || 0,
+                    currentWeight: bodyMetrics.canNang || 0,
+                    targetWeight: bodyMetrics.mucTieuCanNang || 0,
+                    totalChange: 0
+                };
+            }
+            return {
+                chartData: [],
+                startWeight: 0,
+                currentWeight: 0,
+                targetWeight: 0,
+                totalChange: 0
+            };
+        }
 
-export function WeightChart() {
+        const history = Array.isArray(bodyStats.lichSuChiSo) ? bodyStats.lichSuChiSo : [];
+        const months = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+        // Get last 7 records, reverse to show oldest to newest
+        const recentHistory = history.slice(0, 7).reverse();
+        const chartData = recentHistory.map((record, index) => {
+            const weight = record.canNang || 0;
+            const target = record.mucTieuCanNang || bodyStats?.chiSoHienTai?.mucTieuCanNang || bodyMetrics?.mucTieuCanNang || 0;
+            return {
+                month: months[index] || `T${index + 1}`,
+                weight,
+                target
+            };
+        });
+
+        // Fill remaining months if needed
+        while (chartData.length < 7) {
+            const index = chartData.length;
+            chartData.push({
+                month: months[index] || `T${index + 1}`,
+                weight: bodyStats?.chiSoHienTai?.canNang || bodyMetrics?.canNang || 0,
+                target: bodyStats?.chiSoHienTai?.mucTieuCanNang || bodyMetrics?.mucTieuCanNang || 0
+            });
+        }
+
+        const oldest = history.length > 0 ? history[history.length - 1] : null;
+        const latest = history.length > 0 ? history[0] : bodyStats?.chiSoHienTai;
+        const startWeight = oldest?.canNang || latest?.canNang || bodyMetrics?.canNang || 0;
+        const currentWeight = latest?.canNang || bodyMetrics?.canNang || startWeight;
+        const targetWeight = latest?.mucTieuCanNang || bodyMetrics?.mucTieuCanNang || 0;
+        const totalChange = currentWeight - startWeight;
+
+        return { chartData, startWeight, currentWeight, targetWeight, totalChange };
+    };
+
+    const { chartData, startWeight, currentWeight, targetWeight, totalChange } = parseWeightData();
+
+    // Calculate Y-axis domain
+    const allWeights = chartData.map(d => d.weight).filter(w => w > 0);
+    const minWeight = allWeights.length > 0 ? Math.min(...allWeights) - 5 : 70;
+    const maxWeight = allWeights.length > 0 ? Math.max(...allWeights) + 5 : 90;
     return (
         <div className="bg-[#141414] rounded-xl p-6">
             <div className="flex items-center justify-between mb-6">
@@ -39,7 +95,7 @@ export function WeightChart() {
 
             <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                         <defs>
                             <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#da2128" stopOpacity={0.4} />
@@ -55,7 +111,7 @@ export function WeightChart() {
                         <YAxis
                             stroke="#666"
                             style={{ fontSize: '12px', fontFamily: 'Poppins' }}
-                            domain={[75, 86]}
+                            domain={[minWeight, maxWeight]}
                         />
                         <Tooltip
                             contentStyle={{
@@ -89,15 +145,17 @@ export function WeightChart() {
             <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-zinc-800">
                 <div className="text-center">
                     <p className="text-zinc-400 text-sm mb-1">Bắt đầu</p>
-                    <p className="font-bold text-white">85 kg</p>
+                    <p className="font-bold text-white">{startWeight > 0 ? `${startWeight} kg` : '--'}</p>
                 </div>
                 <div className="text-center">
                     <p className="text-zinc-400 text-sm mb-1">Hiện tại</p>
-                    <p className="font-bold text-[#da2128]">78 kg</p>
+                    <p className="font-bold text-[#da2128]">{currentWeight > 0 ? `${currentWeight} kg` : '--'}</p>
                 </div>
                 <div className="text-center">
-                    <p className="text-zinc-400 text-sm mb-1">Đã giảm</p>
-                    <p className="font-bold text-green-400">-7 kg</p>
+                    <p className="text-zinc-400 text-sm mb-1">{totalChange > 0 ? 'Đã tăng' : 'Đã giảm'}</p>
+                    <p className={`font-bold ${totalChange > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                        {totalChange !== 0 ? `${totalChange > 0 ? '+' : ''}${totalChange.toFixed(1)} kg` : '--'}
+                    </p>
                 </div>
             </div>
         </div>

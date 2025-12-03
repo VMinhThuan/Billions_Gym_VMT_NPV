@@ -26,12 +26,14 @@ import MyMeals from './pages/MyMeals'
 import BubbleChat from './components/BubbleChat'
 // PT Pages
 import PTDashboard from './pages/pt/PTDashboard'
+import PTProfile from './pages/pt/PTProfile'
 import PTSchedule from './pages/pt/PTSchedule'
 import PTStudents from './pages/pt/PTStudents'
 import PTStudentDetail from './pages/pt/PTStudentDetail'
 import PTSessions from './pages/pt/PTSessions'
 import PTAssignExercises from './pages/pt/PTAssignExercises'
 import PTChat from './pages/pt/PTChat'
+import PTStatistics from './pages/pt/PTStatistics'
 
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -140,6 +142,8 @@ const AppContent = () => {
             <Route path='/my-meals' element={<MyMeals />} />
             {/* PT Routes */}
             <Route path='/pt/dashboard' element={<PTDashboard />} />
+            <Route path='/pt/profile' element={<PTProfile />} />
+            <Route path='/pt/statistics' element={<PTStatistics />} />
             <Route path='/pt/schedule' element={<PTSchedule />} />
             <Route path='/pt/students' element={<PTStudents />} />
             <Route path='/pt/students/:id' element={<PTStudentDetail />} />

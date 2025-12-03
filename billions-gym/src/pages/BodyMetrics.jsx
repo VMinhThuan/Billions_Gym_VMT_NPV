@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei';
 import Header from '../components/layout/Header';
@@ -8,7 +8,7 @@ import { bodyMetricsAPI } from '../services/api';
 import './BodyMetrics.css';
 
 // Component mô hình 3D con người chi tiết cao
-const HumanModel = ({ height = 170, weight = 70, chest = 90, waist = 75, hips = 95 }) => {
+const HumanModel = ({ gender = 'male', height = 170, weight = 70, chest = 90, waist = 75, hips = 95 }) => {
     // Tính toán tỷ lệ dựa trên chiều cao và cân nặng
     const heightScale = height / 170;
     const weightScale = Math.pow(weight / 70, 0.33);
@@ -16,13 +16,40 @@ const HumanModel = ({ height = 170, weight = 70, chest = 90, waist = 75, hips = 
     const waistScale = waist / 75;
     const hipScale = hips / 95;
 
-    // Màu sắc thực tế
-    const skinColor = "#d4a574"; // Màu da tự nhiên
-    const shirtColor = "#5b9bd5"; // Màu áo xanh dương
-    const pantsColor = "#c19a6b"; // Màu quần kaki
-    const shoesColor = "#4a4a4a"; // Màu giày xám đen
-    const hairColor = "#2c2c2c"; // Màu tóc đen
-    const beltColor = "#3d3d3d"; // Màu thắt lưng
+    const isFemale = gender === 'female';
+    const isMale = !isFemale;
+    const palette = useMemo(() => isFemale ? ({
+        skin: '#f7d7c7',
+        shirt: '#ff7eb3',
+        pants: '#352e5a',
+        shoes: '#130f2a',
+        hair: '#3b2b2b',
+        accent: '#ffc1d3'
+    }) : ({
+        skin: '#dbb192',
+        shirt: '#45b8ff',
+        pants: '#19233c',
+        shoes: '#050608',
+        hair: '#0b0b0b',
+        accent: '#4cf0c3'
+    }), [isFemale]);
+
+    const proportions = useMemo(() => ({
+        torsoWidth: isFemale ? 0.38 : 0.52,
+        shoulderSphere: isFemale ? 0.1 : 0.13,
+        waistMultiplier: isFemale ? 0.78 : 0.95,
+        hipMultiplier: isFemale ? 1.18 : 0.9
+    }), [isFemale]);
+
+    const skinColor = palette.skin;
+    const shirtColor = palette.shirt;
+    const pantsColor = palette.pants;
+    const shoesColor = palette.shoes;
+    const hairColor = palette.hair;
+    const beltColor = palette.accent;
+
+    const adjustedWaist = waistScale * proportions.waistMultiplier;
+    const adjustedHip = hipScale * proportions.hipMultiplier;
 
     return (
         <group>
@@ -45,6 +72,30 @@ const HumanModel = ({ height = 170, weight = 70, chest = 90, waist = 75, hips = 
                     roughness={0.8}
                 />
             </mesh>
+
+            {isFemale && (
+                <>
+                    <mesh position={[0, 1.62 * heightScale, -0.05 * weightScale]}>
+                        <cylinderGeometry args={[0.06 * weightScale, 0.035 * weightScale, 0.3 * heightScale, 16]} />
+                        <meshStandardMaterial color={hairColor} roughness={0.75} />
+                    </mesh>
+                    <mesh position={[0, 1.42 * heightScale, -0.06 * weightScale]}>
+                        <boxGeometry args={[0.36 * chestScale * weightScale, 0.34 * heightScale, 0.06 * weightScale]} />
+                        <meshStandardMaterial color={hairColor} roughness={0.85} opacity={0.95} transparent />
+                    </mesh>
+                    <mesh position={[0, 1.72 * heightScale, 0]}>
+                        <torusGeometry args={[0.14 * weightScale, 0.014 * weightScale, 12, 32]} />
+                        <meshStandardMaterial color={palette.accent} roughness={0.45} />
+                    </mesh>
+                </>
+            )}
+
+            {isMale && (
+                <mesh position={[0, 1.7 * heightScale, 0]}>
+                    <torusGeometry args={[0.14 * weightScale, 0.015 * weightScale, 8, 32]} />
+                    <meshStandardMaterial color={palette.accent} roughness={0.5} />
+                </mesh>
+            )}
 
             {/* Mắt trái */}
             <mesh position={[-0.045 * weightScale, 1.67 * heightScale, 0.115 * weightScale]}>
@@ -110,27 +161,71 @@ const HumanModel = ({ height = 170, weight = 70, chest = 90, waist = 75, hips = 
                 <meshStandardMaterial color="#4a8bc2" roughness={0.4} />
             </mesh>
 
+            {isMale && (
+                <>
+                    <mesh position={[0, 1.3 * heightScale, 0.12 * chestScale * weightScale]}>
+                        <boxGeometry args={[0.36 * chestScale * weightScale, 0.14 * heightScale, 0.12 * weightScale]} />
+                        <meshStandardMaterial color={shirtColor} roughness={0.4} metalness={0.1} />
+                    </mesh>
+                    <mesh position={[0, 1.08 * heightScale, 0.13 * chestScale * weightScale]}>
+                        <boxGeometry args={[0.22 * chestScale * weightScale, 0.18 * heightScale, 0.09 * weightScale]} />
+                        <meshStandardMaterial color={shirtColor} roughness={0.35} metalness={0.05} />
+                    </mesh>
+                </>
+            )}
+
+            {isFemale && (
+                <>
+                    <mesh position={[0, 1.25 * heightScale, 0]}>
+                        <cylinderGeometry args={[0.38 * chestScale * weightScale, 0.34 * chestScale * weightScale, 0.26 * heightScale, 24]} />
+                        <meshStandardMaterial color={shirtColor} roughness={0.45} />
+                    </mesh>
+                    <mesh position={[0, 0.92 * heightScale, 0]}>
+                        <cylinderGeometry args={[0.30 * adjustedHip * weightScale, 0.28 * adjustedHip * weightScale, 0.32 * heightScale, 28]} />
+                        <meshStandardMaterial color={pantsColor} roughness={0.48} />
+                    </mesh>
+                </>
+            )}
+
             {/* ===== THÂN GIỮA - BỤNG ===== */}
             <mesh position={[0, 1.0 * heightScale, 0]}>
-                <cylinderGeometry args={[0.19 * waistScale * weightScale, 0.21 * chestScale * weightScale, 0.28 * heightScale, 20]} />
+                <cylinderGeometry args={[0.19 * adjustedWaist * weightScale, 0.21 * chestScale * weightScale, 0.28 * heightScale, 20]} />
                 <meshStandardMaterial color={shirtColor} roughness={0.5} />
             </mesh>
+            {isMale && (
+                <>
+                    <mesh position={[0, 1.25 * heightScale, 0.12 * chestScale * weightScale]}>
+                        <boxGeometry args={[proportions.torsoWidth * chestScale * weightScale, 0.16 * heightScale, 0.26 * weightScale]} />
+                        <meshStandardMaterial color={shirtColor} emissive="#1a6fd1" emissiveIntensity={0.18} roughness={0.4} />
+                    </mesh>
+                    <mesh position={[0, 1.03 * heightScale, 0.14 * chestScale * weightScale]}>
+                        <boxGeometry args={[0.28 * chestScale * weightScale, 0.18 * heightScale, 0.12 * weightScale]} />
+                        <meshStandardMaterial color="#111726" roughness={0.7} opacity={0.35} transparent />
+                    </mesh>
+                </>
+            )}
+            {isFemale && (
+                <mesh position={[0, 0.95 * heightScale, 0]}>
+                    <cylinderGeometry args={[0.24 * adjustedHip * weightScale, 0.24 * adjustedHip * weightScale, 0.05 * heightScale, 32]} />
+                    <meshStandardMaterial color={palette.accent} roughness={0.35} />
+                </mesh>
+            )}
 
             {/* ===== THÂN DƯỚI - QUẦN ===== */}
             {/* Hông */}
             <mesh position={[0, 0.75 * heightScale, 0]}>
-                <cylinderGeometry args={[0.23 * hipScale * weightScale, 0.2 * waistScale * weightScale, 0.2 * heightScale, 20]} />
+                <cylinderGeometry args={[0.23 * adjustedHip * weightScale, 0.2 * adjustedWaist * weightScale, 0.2 * heightScale, 20]} />
                 <meshStandardMaterial color={pantsColor} roughness={0.6} />
             </mesh>
 
             {/* Thắt lưng */}
             <mesh position={[0, 0.85 * heightScale, 0]}>
-                <cylinderGeometry args={[0.21 * waistScale * weightScale, 0.21 * waistScale * weightScale, 0.03 * heightScale, 20]} />
+                <cylinderGeometry args={[0.21 * adjustedWaist * weightScale, 0.21 * adjustedWaist * weightScale, 0.03 * heightScale, 20]} />
                 <meshStandardMaterial color={beltColor} metalness={0.3} />
             </mesh>
 
             {/* Khóa thắt lưng */}
-            <mesh position={[0, 0.85 * heightScale, 0.22 * waistScale * weightScale]}>
+            <mesh position={[0, 0.85 * heightScale, 0.22 * adjustedWaist * weightScale]}>
                 <boxGeometry args={[0.05, 0.04, 0.01]} />
                 <meshStandardMaterial color="#888888" metalness={0.8} roughness={0.2} />
             </mesh>
@@ -151,9 +246,16 @@ const HumanModel = ({ height = 170, weight = 70, chest = 90, waist = 75, hips = 
             {/* ===== TAY TRÁI ===== */}
             {/* Tay trái trên (áo) */}
             <mesh position={[-0.32 * chestScale * weightScale, 1.15 * heightScale, 0]} rotation={[0, 0, 0.15]}>
-                <cylinderGeometry args={[0.050 * weightScale, 0.060 * weightScale, 0.27 * heightScale, 16]} />
+                <cylinderGeometry args={[0.050 * weightScale * (isMale ? 1.2 : 0.9), 0.060 * weightScale * (isMale ? 1.15 : 0.9), 0.27 * heightScale, 16]} />
                 <meshStandardMaterial color={shirtColor} roughness={0.5} />
             </mesh>
+
+            {isMale && (
+                <mesh position={[-0.35 * chestScale * weightScale, 1.09 * heightScale, 0]} rotation={[0, 0, 0.1]}>
+                    <sphereGeometry args={[0.06 * weightScale, 16, 16]} />
+                    <meshStandardMaterial color={shirtColor} roughness={0.45} />
+                </mesh>
+            )}
 
             {/* Khuỷu tay trái */}
             <mesh position={[-0.36 * chestScale * weightScale, 0.98 * heightScale, 0]}>
@@ -163,7 +265,7 @@ const HumanModel = ({ height = 170, weight = 70, chest = 90, waist = 75, hips = 
 
             {/* Cẳng tay trái */}
             <mesh position={[-0.40 * chestScale * weightScale, 0.75 * heightScale, 0]} rotation={[0, 0, 0.1]}>
-                <cylinderGeometry args={[0.042 * weightScale, 0.050 * weightScale, 0.27 * heightScale, 16]} />
+                <cylinderGeometry args={[0.042 * weightScale * (isMale ? 1.15 : 0.9), 0.050 * weightScale * (isMale ? 1.1 : 0.9), 0.27 * heightScale, 16]} />
                 <meshStandardMaterial color={skinColor} roughness={0.7} />
             </mesh>
 
@@ -173,12 +275,35 @@ const HumanModel = ({ height = 170, weight = 70, chest = 90, waist = 75, hips = 
                 <meshStandardMaterial color={skinColor} roughness={0.7} />
             </mesh>
 
+            {/* Tạ tay trái */}
+            <group position={[-0.43 * chestScale * weightScale, 0.55 * heightScale, 0]}>
+                <mesh>
+                    <boxGeometry args={[0.14 * weightScale, 0.02 * heightScale, 0.02 * weightScale]} />
+                    <meshStandardMaterial color={palette.accent} roughness={0.4} />
+                </mesh>
+                <mesh position={[0.08 * weightScale, 0, 0]}>
+                    <cylinderGeometry args={[0.045 * weightScale, 0.045 * weightScale, 0.06 * heightScale, 12]} />
+                    <meshStandardMaterial color={shoesColor} roughness={0.5} />
+                </mesh>
+                <mesh position={[-0.08 * weightScale, 0, 0]}>
+                    <cylinderGeometry args={[0.045 * weightScale, 0.045 * weightScale, 0.06 * heightScale, 12]} />
+                    <meshStandardMaterial color={shoesColor} roughness={0.5} />
+                </mesh>
+            </group>
+
             {/* ===== TAY PHẢI ===== */}
             {/* Tay phải trên (áo) */}
             <mesh position={[0.32 * chestScale * weightScale, 1.15 * heightScale, 0]} rotation={[0, 0, -0.15]}>
                 <cylinderGeometry args={[0.050 * weightScale, 0.060 * weightScale, 0.27 * heightScale, 16]} />
                 <meshStandardMaterial color={shirtColor} roughness={0.5} />
             </mesh>
+
+            {isMale && (
+                <mesh position={[0.35 * chestScale * weightScale, 1.09 * heightScale, 0]} rotation={[0, 0, -0.1]}>
+                    <sphereGeometry args={[0.06 * weightScale, 16, 16]} />
+                    <meshStandardMaterial color={shirtColor} roughness={0.45} />
+                </mesh>
+            )}
 
             {/* Khuỷu tay phải */}
             <mesh position={[0.36 * chestScale * weightScale, 0.98 * heightScale, 0]}>
@@ -198,10 +323,26 @@ const HumanModel = ({ height = 170, weight = 70, chest = 90, waist = 75, hips = 
                 <meshStandardMaterial color={skinColor} roughness={0.7} />
             </mesh>
 
+            {/* Tạ tay phải */}
+            <group position={[0.43 * chestScale * weightScale, 0.55 * heightScale, 0]}>
+                <mesh>
+                    <boxGeometry args={[0.14 * weightScale, 0.02 * heightScale, 0.02 * weightScale]} />
+                    <meshStandardMaterial color={palette.accent} roughness={0.4} />
+                </mesh>
+                <mesh position={[0.08 * weightScale, 0, 0]}>
+                    <cylinderGeometry args={[0.045 * weightScale, 0.045 * weightScale, 0.06 * heightScale, 12]} />
+                    <meshStandardMaterial color={shoesColor} roughness={0.5} />
+                </mesh>
+                <mesh position={[-0.08 * weightScale, 0, 0]}>
+                    <cylinderGeometry args={[0.045 * weightScale, 0.045 * weightScale, 0.06 * heightScale, 12]} />
+                    <meshStandardMaterial color={shoesColor} roughness={0.5} />
+                </mesh>
+            </group>
+
             {/* ===== CHÂN TRÁI ===== */}
             {/* Đùi trái */}
             <mesh position={[-0.10 * hipScale * weightScale, 0.44 * heightScale, 0]}>
-                <cylinderGeometry args={[0.075 * weightScale, 0.095 * weightScale, 0.38 * heightScale, 20]} />
+                <cylinderGeometry args={[0.075 * weightScale * (isMale ? 1.2 : 0.9), 0.095 * weightScale * (isMale ? 1.15 : 0.95), 0.38 * heightScale, 20]} />
                 <meshStandardMaterial color={pantsColor} roughness={0.6} />
             </mesh>
 
@@ -213,7 +354,7 @@ const HumanModel = ({ height = 170, weight = 70, chest = 90, waist = 75, hips = 
 
             {/* Ống quần trái */}
             <mesh position={[-0.10 * hipScale * weightScale, -0.02 * heightScale, 0]}>
-                <cylinderGeometry args={[0.070 * weightScale, 0.075 * weightScale, 0.36 * heightScale, 20]} />
+                <cylinderGeometry args={[0.070 * weightScale * (isMale ? 1.2 : 0.95), 0.075 * weightScale * (isMale ? 1.15 : 0.95), 0.36 * heightScale, 20]} />
                 <meshStandardMaterial color={pantsColor} roughness={0.6} />
             </mesh>
 
@@ -302,14 +443,16 @@ const HumanModel = ({ height = 170, weight = 70, chest = 90, waist = 75, hips = 
 };
 
 const BodyMetrics = () => {
+    const userId = authUtils.getUserId();
+    const userProfile = authUtils.getUser();
+
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [history, setHistory] = useState([]);
     const [showHistory, setShowHistory] = useState(false);
-
-    const userId = authUtils.getUserId();
+    const [selectedGender, setSelectedGender] = useState(() => (userProfile?.gioiTinh?.toLowerCase() === 'nu' ? 'female' : 'male'));
 
     // Các chỉ số cơ thể
     const [metrics, setMetrics] = useState({
@@ -381,7 +524,8 @@ const BodyMetrics = () => {
     const fetchLatestMetrics = async () => {
         try {
             setLoading(true);
-            const data = await bodyMetricsAPI.getBodyMetrics(userId, 1);
+            const response = await bodyMetricsAPI.getBodyMetrics(userId, 1);
+            const data = response?.data || response;
             if (data && Array.isArray(data) && data.length > 0) {
                 const latest = data[0];
                 setMetrics({
@@ -406,7 +550,8 @@ const BodyMetrics = () => {
 
     const fetchHistory = async () => {
         try {
-            const data = await bodyMetricsAPI.getBodyMetrics(userId);
+            const response = await bodyMetricsAPI.getBodyMetrics(userId);
+            const data = response?.data || response;
             if (data && Array.isArray(data)) {
                 setHistory(data);
             }
@@ -441,6 +586,7 @@ const BodyMetrics = () => {
             await bodyMetricsAPI.createBodyMetrics(metricsData);
             alert('Lưu chỉ số cơ thể thành công!');
             fetchHistory();
+            fetchLatestMetrics();
         } catch (error) {
             console.error('Error saving metrics:', error);
             alert('Lỗi khi lưu chỉ số cơ thể!');
@@ -465,6 +611,26 @@ const BodyMetrics = () => {
                         {/* Bảng nhập liệu */}
                         <div className="metrics-input-panel">
                             <h2>Thông Tin Cơ Thể</h2>
+
+                            <div className="gender-selector">
+                                <span>Giới tính mô hình</span>
+                                <div className="gender-buttons">
+                                    <button
+                                        className={selectedGender === 'male' ? 'active' : ''}
+                                        onClick={() => setSelectedGender('male')}
+                                        type="button"
+                                    >
+                                        💪 Nam
+                                    </button>
+                                    <button
+                                        className={selectedGender === 'female' ? 'active' : ''}
+                                        onClick={() => setSelectedGender('female')}
+                                        type="button"
+                                    >
+                                        🧘‍♀️ Nữ
+                                    </button>
+                                </div>
+                            </div>
 
                             <div className="input-group">
                                 <label>
@@ -626,9 +792,6 @@ const BodyMetrics = () => {
                                 <button className="btn-save" onClick={handleSave} disabled={saving}>
                                     {saving ? '💾 Đang lưu...' : '💾 Lưu chỉ số'}
                                 </button>
-                                <button className="btn-history" onClick={() => setShowHistory(!showHistory)}>
-                                    📊 {showHistory ? 'Ẩn lịch sử' : 'Xem lịch sử'}
-                                </button>
                             </div>
                         </div>
 
@@ -644,6 +807,7 @@ const BodyMetrics = () => {
 
                                     <Suspense fallback={null}>
                                         <HumanModel
+                                            gender={selectedGender}
                                             height={metrics.chieuCao}
                                             weight={metrics.canNang}
                                             chest={metrics.vongNguc}
@@ -682,33 +846,38 @@ const BodyMetrics = () => {
                                     </span>
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Lịch sử */}
-                    {showHistory && (
-                        <div className="history-panel">
-                            <h2>Lịch Sử Chỉ Số</h2>
-                            <div className="history-list">
-                                {history.length === 0 ? (
-                                    <p className="no-history">Chưa có lịch sử chỉ số</p>
-                                ) : (
-                                    history.map((item, index) => (
-                                        <div key={index} className="history-item">
-                                            <div className="history-date">
-                                                {new Date(item.ngayDo).toLocaleDateString('vi-VN')}
-                                            </div>
-                                            <div className="history-metrics">
-                                                <span>Cao: {item.chieuCao}cm</span>
-                                                <span>Nặng: {item.canNang}kg</span>
-                                                <span>BMI: {item.bmi}</span>
-                                            </div>
-                                        </div>
-                                    ))
+                            <div className="history-inline">
+                                <div className="history-header">
+                                    <h3>Lịch Sử Chỉ Số</h3>
+                                    <button className="history-toggle" onClick={() => setShowHistory(!showHistory)}>
+                                        {showHistory ? 'Ẩn lịch sử' : 'Xem lịch sử'}
+                                    </button>
+                                </div>
+                                {showHistory && (
+                                    <div className="history-list compact">
+                                        {history.length === 0 ? (
+                                            <p className="no-history">Chưa có lịch sử chỉ số</p>
+                                        ) : (
+                                            history.map((item, index) => (
+                                                <div key={index} className="history-item">
+                                                    <div className="history-date">
+                                                        {new Date(item.ngayDo).toLocaleDateString('vi-VN')}
+                                                    </div>
+                                                    <div className="history-metrics">
+                                                        <span>Cao: {item.chieuCao}cm</span>
+                                                        <span>Nặng: {item.canNang}kg</span>
+                                                        <span>BMI: {item.bmi}</span>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
-                    )}
+                    </div>
+
                 </div>
             </div>
         </>

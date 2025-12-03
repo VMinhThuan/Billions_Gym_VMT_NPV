@@ -5,6 +5,15 @@ export const authUtils = {
         return localStorage.getItem(STORAGE_KEYS.TOKEN);
     },
 
+    setUser: (user) => {
+        if (!user) return;
+        try {
+            localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+        } catch (error) {
+            console.error('Failed to set user data:', error);
+        }
+    },
+
     getUser: () => {
         const userStr = localStorage.getItem(STORAGE_KEYS.USER);
         return userStr ? JSON.parse(userStr) : null;

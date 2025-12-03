@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import './Checkout.css';
 import zaloLogo from '../assets/icons/zalopay.svg';
 import momoLogo from '../assets/icons/momo.png';
+import { formatDurationUnitLabel } from '../utils/duration';
 
 const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const { id } = useParams();
@@ -70,6 +71,11 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
     const [upgradeAmount, setUpgradeAmount] = useState(0);
     const [isCheckingUpgrade, setIsCheckingUpgrade] = useState(false);
 
+    // Previous completed package info (for keeping branch/PT)
+    const [previousPackageInfo, setPreviousPackageInfo] = useState(null);
+    const [showInfoChoiceModal, setShowInfoChoiceModal] = useState(false);
+    const [keepPreviousInfo, setKeepPreviousInfo] = useState(false);
+
     // Fetch package data and user info
     useEffect(() => {
         const fetchPackageData = async () => {
@@ -87,8 +93,39 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
             }
         };
 
+        const fetchMemberLocation = () => {
+            try {
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                if (user.latitude && user.longitude) {
+                    setUserCoords({ lat: user.latitude, lng: user.longitude });
+                    return true;
+                }
+            } catch (err) {
+                console.warn('Không đọc được toạ độ từ localStorage:', err);
+            }
+            return false;
+        };
+
+        let hasCoords = false;
+
         if (id) {
             fetchPackageData();
+            hasCoords = fetchMemberLocation();
+        }
+
+        if (!hasCoords && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setUserCoords({
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    });
+                },
+                (error) => {
+                    console.warn('Không lấy được vị trí thiết bị:', error.message);
+                },
+                { enableHighAccuracy: true, timeout: 8000 }
+            );
         }
     }, [id]);
 
@@ -166,6 +203,43 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
 
         checkExistingPackage();
     }, [packageData, isLoggedIn]);
+
+    // Check for previous completed package to show info choice modal
+    useEffect(() => {
+        const checkPreviousCompletedPackage = async () => {
+            if (!isLoggedIn || !packageData) return;
+
+            try {
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                const userId = user._id || user.id;
+                if (!userId) return;
+
+                // Check if user has a completed package before
+                const response = await api.get('/chitietgoitap/last-completed', {}, { requireAuth: true });
+
+                if (response && response.success && response.hasPreviousPackage) {
+                    setPreviousPackageInfo(response.data);
+                    setShowInfoChoiceModal(true);
+                }
+            } catch (error) {
+                console.log('No previous completed package found or error:', error);
+                // This is normal for first-time users
+            }
+        };
+
+        checkPreviousCompletedPackage();
+    }, [isLoggedIn, packageData]);
+
+    // Apply previous package info when user chooses to keep it
+    useEffect(() => {
+        if (keepPreviousInfo && previousPackageInfo && branches.length > 0) {
+            // Set branch ID
+            if (previousPackageInfo.branchId) {
+                setSelectedBranchId(previousPackageInfo.branchId);
+            }
+            // Note: PT selection will be handled in the workflow after payment
+        }
+    }, [keepPreviousInfo, previousPackageInfo, branches]);
 
     // Function to calculate upgrade amount (matching backend logic)
     const calculateUpgradeAmount = (newPackagePrice, currentPackage) => {
@@ -393,6 +467,7 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     let firstName = '';
                     let lastName = '';
                     let phone = '';
+                    let email = '';
 
                     if (user.hoTen) {
                         // If hoTen exists, split it
@@ -407,13 +482,14 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
 
                     // Handle phone field variations
                     phone = user.soDienThoai || user.sdt || '';
+                    email = user.email || user.emailAddress || user.username || '';
 
                     // Auto-fill user info and lock form (prevent editing)
                     const userFormData = {
                         firstName: firstName,
                         lastName: lastName,
                         phone: phone,
-                        email: '', // Không tự động điền email từ database
+                        email: email,
                         partnerPhone: ''
                     };
 
@@ -427,7 +503,7 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                         firstName: firstName.length >= 2,
                         lastName: lastName.length >= 2,
                         phone: /^[0-9]{10,11}$/.test(phone.replace(/\D/g, '')),
-                        email: user.email ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email) : false,
+                        email: email ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) : false,
                         partnerPhone: false
                     });
                 } else {
@@ -623,7 +699,11 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     upgradeAmount: upgradeAmount,
                     existingPackageId: existingPackage?._id,
                     giaGoiTapGoc: packageData.donGia,
-                    soTienBu: isUpgrade ? upgradeAmount : 0
+                    soTienBu: isUpgrade ? upgradeAmount : 0,
+                    // Thông tin để copy từ gói cũ
+                    keepPreviousInfo: keepPreviousInfo,
+                    previousBranchId: keepPreviousInfo && previousPackageInfo ? previousPackageInfo.branchId : null,
+                    previousPtId: keepPreviousInfo && previousPackageInfo ? previousPackageInfo.ptId : null
                 }
             };
 
@@ -678,13 +758,9 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
 
     if (loading) {
         return (
-            <SimpleLayout onNavigateToLogin={onNavigateToLogin} onNavigateToRegister={onNavigateToRegister}>
-                <div className="checkout-loading">
-                    <div className="loading-spinner">
-                        <div className="spinner"></div>
-                    </div>
-                </div>
-            </SimpleLayout>
+            <div className="full-screen-loader" role="status" aria-live="polite">
+                <div className="spinner-large" />
+            </div>
         );
     }
 
@@ -705,6 +781,64 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
 
     return (
         <SimpleLayout onNavigateToLogin={onNavigateToLogin} onNavigateToRegister={onNavigateToRegister}>
+            {/* Modal chọn giữ/thay đổi thông tin từ gói cũ */}
+            {showInfoChoiceModal && previousPackageInfo && (
+                <div className="info-choice-modal-overlay" onClick={() => { }}>
+                    <div className="info-choice-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="info-choice-modal-header">
+                            <h2>Chọn thông tin đăng ký</h2>
+                            <button
+                                className="close-modal-btn"
+                                onClick={() => {
+                                    setShowInfoChoiceModal(false);
+                                    setKeepPreviousInfo(false);
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="info-choice-modal-content">
+                            <p className="info-choice-description">
+                                Bạn đã có gói tập hoàn tất trước đó. Bạn muốn:
+                            </p>
+                            <div className="info-choice-options">
+                                <div className="info-choice-option">
+                                    <div className="previous-info-summary">
+                                        <h4>Thông tin từ gói trước:</h4>
+                                        <ul>
+                                            <li><strong>Chi nhánh:</strong> {previousPackageInfo.branchName || 'N/A'}</li>
+                                            {previousPackageInfo.ptName && (
+                                                <li><strong>PT:</strong> {previousPackageInfo.ptName} {previousPackageInfo.ptSpecialty ? `(${previousPackageInfo.ptSpecialty})` : ''}</li>
+                                            )}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div className="info-choice-buttons">
+                                    <button
+                                        className="choice-btn keep-btn"
+                                        onClick={() => {
+                                            setKeepPreviousInfo(true);
+                                            setShowInfoChoiceModal(false);
+                                        }}
+                                    >
+                                        ✓ Giữ thông tin như gói trước
+                                    </button>
+                                    <button
+                                        className="choice-btn change-btn"
+                                        onClick={() => {
+                                            setKeepPreviousInfo(false);
+                                            setShowInfoChoiceModal(false);
+                                        }}
+                                    >
+                                        ✏️ Thay đổi thông tin
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="checkout-page">
                 <div className="checkout-header">
                     <button onClick={() => navigate(-1)} className="back-button">
@@ -871,7 +1005,7 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                 <div className="package-summary-card">
                                     <div className="package-info">
                                         <h4>{packageData.tenGoiTap}</h4>
-                                        <p>Thời hạn: {packageData.thoiHan} {packageData.donViThoiHan.toLowerCase()}</p>
+                                        <p>Thời hạn: {packageData.thoiHan} {formatDurationUnitLabel(packageData.donViThoiHan).toLowerCase()}</p>
                                         <p>Số người tham gia: {packageData.soLuongNguoiThamGia}</p>
                                         <div className="price-info">
                                             {packageData.giaGoc && packageData.giaGoc > packageData.donGia && (
@@ -894,7 +1028,9 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                         />
 
                                         {partnerLoading && (
-                                            <div className="partner-loading">Đang kiểm tra...</div>
+                                            <div className="partner-loading" aria-label="Đang kiểm tra">
+                                                <div className="spinner-inline"></div>
+                                            </div>
                                         )}
 
                                         {partnerInfo && (
@@ -990,7 +1126,7 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                                 <div className="order-item">
                                     <div className="item-info">
                                         <h4>{packageData.tenGoiTap}</h4>
-                                        <p>Thời hạn: {packageData.thoiHan} {packageData.donViThoiHan.toLowerCase()}</p>
+                                        <p>Thời hạn: {packageData.thoiHan} {formatDurationUnitLabel(packageData.donViThoiHan).toLowerCase()}</p>
                                         <p>Số người: {packageData.soLuongNguoiThamGia}</p>
                                     </div>
                                 </div>

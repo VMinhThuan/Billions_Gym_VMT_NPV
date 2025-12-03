@@ -9,6 +9,12 @@ router.post('/plan', authMiddleware, nutritionPlanController.generatePlan);
 // GET /api/nutrition/plan/latest - Lấy plan mới nhất
 router.get('/plan/latest', authMiddleware, nutritionPlanController.getLatestPlan);
 
+// GET /api/nutrition/plan/history - Lấy lịch sử mục tiêu đã tạo
+router.get('/plan/history', authMiddleware, nutritionPlanController.getGoalHistory);
+
+// GET /api/nutrition/plan/recommend-calories - Gợi ý calories theo mục tiêu
+router.get('/plan/recommend-calories', authMiddleware, nutritionPlanController.getRecommendedCalories);
+
 // GET /api/nutrition/meals - Lấy tất cả meals từ database
 router.get('/meals', authMiddleware, nutritionPlanController.getAllMeals);
 

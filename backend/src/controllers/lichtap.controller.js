@@ -23,6 +23,41 @@ exports.getAvailableSessions = async (req, res) => {
                 });
             }
 
+            // Kiểm tra gói tập của user có còn hạn không
+            if (userId) {
+                const activePackage = await ChiTietGoiTap.findOne({
+                    $and: [
+                        {
+                            $or: [
+                                { maHoiVien: userId },
+                                { nguoiDungId: userId }
+                            ]
+                        },
+                        {
+                            $or: [
+                                { trangThaiThanhToan: 'DA_THANH_TOAN' },
+                                { trangThaiDangKy: 'HOAN_THANH' },
+                                { trangThaiSuDung: { $in: ['DANG_HOAT_DONG', 'DANG_SU_DUNG'] } }
+                            ]
+                        }
+                    ]
+                })
+                    .populate('goiTapId')
+                    .populate('maGoiTap')
+                    .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+
+                if (activePackage) {
+                    const currentTime = new Date();
+                    if (activePackage.ngayKetThuc && new Date(activePackage.ngayKetThuc) < currentTime) {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'Gói tập của bạn đã hết hạn. Vui lòng gia hạn hoặc đăng ký gói tập mới.',
+                            isExpired: true
+                        });
+                    }
+                }
+            }
+
             // Lấy thông tin gói tập để kiểm tra ràng buộc
             const goiTap = await GoiTap.findById(goiTapId);
             if (!goiTap) {
@@ -310,35 +345,122 @@ exports.registerSession = async (req, res) => {
             });
         }
 
-        // Kiểm tra gói tập của hội viên và validate ràng buộc
-        const activePackage = await ChiTietGoiTap.findOne({
-            $and: [
-                {
-                    $or: [
-                        { maHoiVien: userId },
-                        { nguoiDungId: userId }
-                    ]
-                },
-                {
-                    $or: [
-                        { trangThaiThanhToan: 'DA_THANH_TOAN' },
-                        { trangThaiDangKy: 'HOAN_THANH' },
-                        { trangThaiSuDung: { $in: ['DANG_HOAT_DONG', 'DANG_SU_DUNG'] } }
-                    ]
-                }
+        // 1. Lấy TẤT CẢ gói tập của hội viên, sắp xếp theo ngày đăng ký mới nhất
+        const allUserPackages = await ChiTietGoiTap.find({
+            $or: [
+                { maHoiVien: userId },
+                { nguoiDungId: userId }
             ]
         })
             .populate('maGoiTap')
             .populate('goiTapId')
             .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
 
+        // 2. Kiểm tra gói MỚI NHẤT (đã thanh toán) có đang trong quá trình đăng ký/nâng cấp chưa hoàn tất không
+        // Ưu tiên kiểm tra gói mới nhất trước, vì nếu gói mới chưa hoàn tất thì không được đăng ký lịch
+        const latestPaidPackage = allUserPackages.find(pkg =>
+            pkg.trangThaiThanhToan === 'DA_THANH_TOAN'
+        );
+
+        if (latestPaidPackage) {
+            // Nếu gói mới nhất CHƯA qua bước chọn PT (CHO_CHON_PT, DA_CHON_PT) thì CHẶN đăng ký
+            // Lưu ý: trạng thái 'DA_TAO_LICH' được xem là gần hoàn tất và được phép đăng ký buổi lẻ
+            if (latestPaidPackage.trangThaiDangKy &&
+                ['CHO_CHON_PT', 'DA_CHON_PT'].includes(latestPaidPackage.trangThaiDangKy)) {
+                const goiTapPending = latestPaidPackage.goiTapId || latestPaidPackage.maGoiTap;
+                console.log('⚠️ registerSession - Latest paid package not completed, blocking session registration:', {
+                    packageId: latestPaidPackage._id,
+                    tenGoiTap: goiTapPending?.tenGoiTap,
+                    trangThaiDangKy: latestPaidPackage.trangThaiDangKy,
+                    trangThaiSuDung: latestPaidPackage.trangThaiSuDung
+                });
+
+                return res.status(400).json({
+                    success: false,
+                    message: 'Bạn đang có gói tập mới cần hoàn tất các bước đăng ký / nâng cấp. Vui lòng hoàn tất quy trình gói tập trước khi đăng ký thêm buổi tập.',
+                    pendingPackageId: latestPaidPackage._id,
+                    trangThaiDangKy: latestPaidPackage.trangThaiDangKy
+                });
+            }
+        }
+
+        // 3. Tìm gói tập đang hoạt động và ĐÃ HOÀN TẤT (trangThaiDangKy = 'HOAN_THANH' hoặc 'DA_TAO_LICH')
+        const activePackage = allUserPackages.find(pkg => {
+            const isPaid = pkg.trangThaiThanhToan === 'DA_THANH_TOAN';
+            const isCompleted = ['HOAN_THANH', 'DA_TAO_LICH'].includes(pkg.trangThaiDangKy);
+            const isActive = !pkg.trangThaiSuDung || !['HET_HAN', 'DA_HUY'].includes(pkg.trangThaiSuDung);
+            const notExpired = !pkg.ngayKetThuc || new Date(pkg.ngayKetThuc) >= new Date();
+
+            return isPaid && isCompleted && isActive && notExpired;
+        });
+
         console.log('📦 registerSession - Active package found:', activePackage ? 'Yes' : 'No');
+
+        // Kiểm tra gói tập có tồn tại và ĐÃ HOÀN TẤT không
+        if (!activePackage) {
+            return res.status(400).json({
+                success: false,
+                message: 'Bạn chưa có gói tập đang hoạt động và đã hoàn tất. Vui lòng hoàn tất quy trình đăng ký gói tập trước khi đăng ký buổi tập.'
+            });
+        }
+
+        // Đảm bảo gói tập đã hoàn tất workflow (HOAN_THANH hoặc DA_TAO_LICH)
+        if (!['HOAN_THANH', 'DA_TAO_LICH'].includes(activePackage.trangThaiDangKy)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Gói tập của bạn chưa hoàn tất quy trình đăng ký. Vui lòng hoàn tất các bước đăng ký / nâng cấp gói tập trước khi đăng ký buổi tập.',
+                trangThaiDangKy: activePackage.trangThaiDangKy
+            });
+        }
+
+        // Kiểm tra gói tập đã hết hạn chưa
+        const currentTime = new Date();
+        if (activePackage.ngayKetThuc) {
+            const ngayKetThuc = new Date(activePackage.ngayKetThuc);
+            if (ngayKetThuc < currentTime) {
+                // Tạo notification về gói tập hết hạn (nếu chưa có)
+                try {
+                    const existingNotification = await UserNotification.findOne({
+                        userId: userId,
+                        loaiThongBao: 'GOI_TAP_HET_HAN',
+                        'duLieuLienQuan.chiTietGoiTapId': activePackage._id.toString(),
+                        daDoc: false
+                    });
+
+                    if (!existingNotification) {
+                        const goiTap = activePackage.goiTapId || activePackage.maGoiTap;
+                        await UserNotification.create({
+                            userId: userId,
+                            loaiThongBao: 'GOI_TAP_HET_HAN',
+                            tieuDe: 'Gói tập đã hết hạn',
+                            noiDung: `Gói tập "${goiTap?.tenGoiTap || 'của bạn'}" đã hết hạn. Vui lòng gia hạn hoặc đăng ký gói tập mới để tiếp tục sử dụng dịch vụ.`,
+                            duLieuLienQuan: {
+                                chiTietGoiTapId: activePackage._id,
+                                goiTapId: goiTap?._id
+                            },
+                            daDoc: false
+                        });
+                        console.log(`📢 Created expiration notification for user ${userId}, package ${activePackage._id}`);
+                    }
+                } catch (notifError) {
+                    console.error('❌ Error creating expiration notification:', notifError);
+                }
+
+                return res.status(400).json({
+                    success: false,
+                    message: 'Gói tập của bạn đã hết hạn. Vui lòng gia hạn hoặc đăng ký gói tập mới để tiếp tục đăng ký buổi tập.'
+                });
+            }
+        }
+
         if (activePackage) {
             console.log('📦 registerSession - Package details:', {
                 id: activePackage._id,
                 trangThaiThanhToan: activePackage.trangThaiThanhToan,
                 trangThaiDangKy: activePackage.trangThaiDangKy,
-                trangThaiSuDung: activePackage.trangThaiSuDung
+                trangThaiSuDung: activePackage.trangThaiSuDung,
+                ngayKetThuc: activePackage.ngayKetThuc,
+                isExpired: activePackage.ngayKetThuc ? new Date(activePackage.ngayKetThuc) < currentTime : false
             });
             const goiTap = activePackage.goiTapId || activePackage.maGoiTap;
             if (goiTap) {
@@ -594,6 +716,43 @@ exports.getAvailableSessionsThisWeek = async (req, res) => {
             if (activePackage && activePackage.branchId) {
                 chiNhanhId = activePackage.branchId._id;
                 goiTapId = activePackage.goiTapId?._id || activePackage.maGoiTap?._id || null;
+
+                // Kiểm tra gói tập có hết hạn không
+                if (activePackage.ngayKetThuc && new Date(activePackage.ngayKetThuc) < currentTime) {
+                    // Tạo notification về gói tập hết hạn (nếu chưa có)
+                    try {
+                        const existingNotification = await UserNotification.findOne({
+                            userId: userId,
+                            loaiThongBao: 'GOI_TAP_HET_HAN',
+                            'duLieuLienQuan.chiTietGoiTapId': activePackage._id.toString(),
+                            daDoc: false
+                        });
+
+                        if (!existingNotification) {
+                            const goiTap = activePackage.goiTapId || activePackage.maGoiTap;
+                            await UserNotification.create({
+                                userId: userId,
+                                loaiThongBao: 'GOI_TAP_HET_HAN',
+                                tieuDe: 'Gói tập đã hết hạn',
+                                noiDung: `Gói tập "${goiTap?.tenGoiTap || 'của bạn'}" đã hết hạn. Vui lòng gia hạn hoặc đăng ký gói tập mới để tiếp tục sử dụng dịch vụ.`,
+                                duLieuLienQuan: {
+                                    chiTietGoiTapId: activePackage._id,
+                                    goiTapId: goiTap?._id
+                                },
+                                daDoc: false
+                            });
+                            console.log(`📢 Created expiration notification for user ${userId}, package ${activePackage._id}`);
+                        }
+                    } catch (notifError) {
+                        console.error('❌ Error creating expiration notification:', notifError);
+                    }
+
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Gói tập của bạn đã hết hạn. Vui lòng gia hạn hoặc đăng ký gói tập mới để tiếp tục đăng ký buổi tập.',
+                        isExpired: true
+                    });
+                }
             }
         }
 
@@ -1202,9 +1361,25 @@ exports.checkRegistrationEligibility = async (req, res) => {
             }))
         });
 
-        // Tìm gói tập đang hoạt động của user
-        // Ưu tiên: 1) Gói chưa hết hạn, 2) Gói có trạng thái hoạt động, 3) Gói mới nhất
-        const currentTime = new Date();
+        // Tính tuần tiếp theo (Thứ 2) - di chuyển lên trước để dùng cho cả 2 trường hợp
+        const now = new Date();
+        const currentTime = now; // Dùng cho kiểm tra hết hạn
+        const day = now.getDay(); // 0 = CN, 6 = T7
+        const daysUntilMonday = day === 0 ? 1 : 8 - day;
+        const nextWeekStart = new Date(now);
+        nextWeekStart.setDate(now.getDate() + daysUntilMonday);
+        nextWeekStart.setHours(0, 0, 0, 0);
+        const nextWeekEnd = new Date(nextWeekStart);
+        nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+        nextWeekEnd.setHours(23, 59, 59, 999);
+
+        // Kiểm tra thời gian hiện tại có phải T7/CN từ 12h trưa trở đi
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+        const isSaturday = day === 6;
+        const isSunday = day === 0;
+        // Cho phép đăng ký từ 12h trưa trở đi trong ngày T7/CN
+        const isRegistrationTime = (isSaturday || isSunday) && hour >= 12;
 
         // Lấy tất cả gói tập của user và filter trong code để tìm gói đang hoạt động tốt nhất
         const allUserPackages = await ChiTietGoiTap.find({
@@ -1218,23 +1393,62 @@ exports.checkRegistrationEligibility = async (req, res) => {
             .populate('branchId')
             .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
 
-        // Filter và sắp xếp gói tập theo độ ưu tiên
+        // QUAN TRỌNG: Kiểm tra gói MỚI NHẤT (đã thanh toán) có đang trong quá trình workflow chưa hoàn tất không
+        // Nếu gói mới nhất chưa hoàn tất, KHÔNG cho phép đăng ký lịch tập
+        const latestPaidPackage = allUserPackages.find(pkg =>
+            pkg.trangThaiThanhToan === 'DA_THANH_TOAN'
+        );
+
+        if (latestPaidPackage) {
+            // Nếu gói mới nhất chưa hoàn tất workflow (chưa chọn PT hoặc chưa tạo lịch), CHẶN đăng ký
+            // Lưu ý: trạng thái 'DA_TAO_LICH' được xem là gần hoàn tất và sẽ được cho phép tiếp tục
+            if (latestPaidPackage.trangThaiDangKy &&
+                ['CHO_CHON_PT', 'DA_CHON_PT'].includes(latestPaidPackage.trangThaiDangKy)) {
+                console.log('⚠️ [Backend] Latest paid package not completed - block registration:', {
+                    pendingPackageId: latestPaidPackage._id,
+                    trangThaiDangKy: latestPaidPackage.trangThaiDangKy,
+                    trangThaiSuDung: latestPaidPackage.trangThaiSuDung
+                });
+
+                return res.json({
+                    success: false,
+                    canRegister: false,
+                    message: 'Bạn đang có gói tập mới cần hoàn tất các bước đăng ký / nâng cấp. Vui lòng hoàn tất quy trình gói tập trước khi đăng ký lịch tập.',
+                    hasActivePackage: true,
+                    hasCompletedPackage: false,
+                    isRegistrationTime,
+                    packageInfo: {
+                        _id: latestPaidPackage._id,
+                        trangThaiThanhToan: latestPaidPackage.trangThaiThanhToan,
+                        trangThaiDangKy: latestPaidPackage.trangThaiDangKy,
+                        trangThaiSuDung: latestPaidPackage.trangThaiSuDung
+                    },
+                    nextWeekStart: nextWeekStart.toISOString(),
+                    nextWeekEnd: nextWeekEnd.toISOString()
+                });
+            }
+        }
+
+        // Filter và sắp xếp gói tập theo độ ưu tiên - CHỈ tìm gói ĐÃ HOÀN TẤT
         let activePackage = null;
 
-        // Ưu tiên 1: Gói chưa hết hạn và có trạng thái hoạt động
+        // Ưu tiên 1: Gói đã thanh toán, ĐÃ HOÀN TẤT (trangThaiDangKy === 'HOAN_THANH' hoặc 'DA_TAO_LICH'),
+        // chưa hết hạn và KHÔNG ở trạng thái bị huỷ / hết hạn
         const validPackages = allUserPackages.filter(pkg => {
-            const isPaid = pkg.trangThaiThanhToan === 'DA_THANH_TOAN' || pkg.trangThaiDangKy === 'HOAN_THANH';
-            const isActive = !pkg.trangThaiSuDung || ['DANG_HOAT_DONG', 'DANG_SU_DUNG', 'DANG_KICH_HOAT'].includes(pkg.trangThaiSuDung);
+            const isPaid = pkg.trangThaiThanhToan === 'DA_THANH_TOAN';
+            const isCompleted = ['HOAN_THANH', 'DA_TAO_LICH'].includes(pkg.trangThaiDangKy);
+            // Chấp nhận mọi trạng thái sử dụng trừ HET_HAN / DA_HUY
+            const isActive = !pkg.trangThaiSuDung || !['HET_HAN', 'DA_HUY'].includes(pkg.trangThaiSuDung);
             const notExpired = !pkg.ngayKetThuc || new Date(pkg.ngayKetThuc) >= currentTime;
-            return isPaid && isActive && notExpired;
+            return isPaid && isCompleted && isActive && notExpired;
         });
 
         if (validPackages.length > 0) {
             // Ưu tiên gói mới nhất (đã sort ở trên)
             activePackage = validPackages[0];
         } else {
-            // Nếu không có gói hợp lệ, lấy gói mới nhất bất kỳ
-            activePackage = allUserPackages[0] || null;
+            // Nếu không có gói hợp lệ, không cho phép đăng ký
+            activePackage = null;
         }
 
         console.log('📦 [Backend] Package selection logic:', {
@@ -1282,23 +1496,6 @@ exports.checkRegistrationEligibility = async (req, res) => {
             }))
         });
 
-        // Tính tuần tiếp theo (Thứ 2) - di chuyển lên trước để dùng cho cả 2 trường hợp
-        const now = new Date();
-        const day = now.getDay(); // 0 = CN, 6 = T7
-        const daysUntilMonday = day === 0 ? 1 : 8 - day;
-        const nextWeekStart = new Date(now);
-        nextWeekStart.setDate(now.getDate() + daysUntilMonday);
-        nextWeekStart.setHours(0, 0, 0, 0);
-
-        // Kiểm tra thời gian hiện tại có phải T7/CN từ 12h trưa trở đi
-        // TEST: Cho phép đăng ký cả ngày T7/CN (từ 12h trưa) để thuận tiện cho hội viên
-        const hour = now.getHours();
-        const minute = now.getMinutes();
-        const isSaturday = day === 6;
-        const isSunday = day === 0;
-        // Cho phép đăng ký từ 12h trưa trở đi trong ngày T7/CN
-        const isRegistrationTime = (isSaturday || isSunday) && hour >= 12;
-
         console.log('🕐 [Backend] Registration time check:', {
             day,
             dayName: isSaturday ? 'Saturday' : isSunday ? 'Sunday' : 'Other',
@@ -1311,16 +1508,15 @@ exports.checkRegistrationEligibility = async (req, res) => {
             localTime: now.toLocaleString('vi-VN')
         });
 
-        // Kiểm tra gói tập có hợp lệ không
+        // Kiểm tra gói tập có hợp lệ không (đã thanh toán & đã hoàn tất workflow & đang hoạt động)
         const hasValidPackage = activePackage && (
-            activePackage.trangThaiThanhToan === 'DA_THANH_TOAN' ||
-            activePackage.trangThaiDangKy === 'HOAN_THANH' ||
-            !activePackage.trangThaiSuDung || // Chưa có trạng thái
-            ['DANG_HOAT_DONG', 'DANG_SU_DUNG', 'DANG_KICH_HOAT'].includes(activePackage.trangThaiSuDung)
+            activePackage.trangThaiThanhToan === 'DA_THANH_TOAN' &&
+            ['HOAN_THANH', 'DA_TAO_LICH'].includes(activePackage.trangThaiDangKy) &&
+            (!activePackage.trangThaiSuDung || !['HET_HAN', 'DA_HUY'].includes(activePackage.trangThaiSuDung))
         );
 
         if (!hasValidPackage) {
-            console.log('⚠️ [Backend] No valid package found:', {
+            console.log('⚠️ [Backend] No valid (fully completed) package found:', {
                 hasPackage: !!activePackage,
                 packageStatus: activePackage ? {
                     trangThaiThanhToan: activePackage.trangThaiThanhToan,
@@ -1332,7 +1528,7 @@ exports.checkRegistrationEligibility = async (req, res) => {
             return res.json({
                 success: false,
                 canRegister: false,
-                message: 'Bạn chưa có gói tập đang hoạt động hoặc chưa thanh toán. Vui lòng kiểm tra lại.',
+                message: 'Bạn chưa có gói tập đang hoạt động hoặc chưa hoàn tất quy trình đăng ký gói tập. Vui lòng hoàn tất đăng ký / nâng cấp gói tập trước khi đặt lịch.',
                 hasActivePackage: false,
                 hasCompletedPackage: false,
                 isRegistrationTime,
@@ -1340,11 +1536,6 @@ exports.checkRegistrationEligibility = async (req, res) => {
                 nextWeekEnd: new Date(nextWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toISOString()
             });
         }
-
-        // Kiểm tra hội viên đã đăng ký tuần tiếp theo chưa
-        const nextWeekEnd = new Date(nextWeekStart);
-        nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
-        nextWeekEnd.setHours(23, 59, 59, 999);
 
         // Lưu nextWeekEnd để dùng cho notification
         const nextWeekEndForNotification = new Date(nextWeekEnd);
