@@ -76,7 +76,7 @@ const PTStudentDetail = () => {
                 <div className="max-w-7xl mx-auto">
                     <button
                         onClick={() => navigate('/pt/students')}
-                        className="text-gray-400 hover:text-white mb-4 flex items-center gap-2"
+                        className="text-gray-400 hover:text-white mb-4 flex items-center gap-2 cursor-pointer hover:underline"
                     >
                         ← Quay lại
                     </button>
@@ -119,9 +119,9 @@ const PTStudentDetail = () => {
                                         <button
                                             key={tab.id}
                                             onClick={() => setActiveTab(tab.id)}
-                                            className={`px-4 py-3 font-medium transition-colors whitespace-nowrap ${activeTab === tab.id
-                                                    ? 'text-[#da2128] border-b-2 border-[#da2128]'
-                                                    : 'text-gray-400 hover:text-white'
+                                            className={`px-4 py-3 font-medium transition-colors whitespace-nowrap cursor-pointer ${activeTab === tab.id
+                                                ? 'text-[#da2128] border-b-2 border-[#da2128]'
+                                                : 'text-gray-400 hover:text-white'
                                                 }`}
                                         >
                                             {tab.label}

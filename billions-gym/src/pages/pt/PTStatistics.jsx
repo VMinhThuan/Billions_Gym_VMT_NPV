@@ -319,7 +319,8 @@ const PTStatistics = () => {
 
                                     {/* Bar Chart */}
                                     <div className="space-y-4">
-                                        <div className="relative h-48 flex items-end justify-between gap-2 px-2">
+                                        {/* Thêm padding top để chứa số hiển thị */}
+                                        <div className="relative h-48 flex items-end justify-between gap-2 px-2 pt-8">
                                             {statsData.performance.sessionsData.map((day, index) => {
                                                 // Tìm giá trị max để scale biểu đồ
                                                 const maxSessions = Math.max(...statsData.performance.sessionsData.map(d => d.sessions));
@@ -347,9 +348,7 @@ const PTStatistics = () => {
                                                 );
                                             })}
                                         </div>
-                                    </div>
-
-                                    {/* Performance Metrics */}
+                                    </div>                                    {/* Performance Metrics */}
                                     <div className="grid grid-cols-3 gap-4 mt-6 pt-6">
                                         <div className="text-center">
                                             <p className="text-gray-400 text-xs mb-1">Tổng buổi</p>
