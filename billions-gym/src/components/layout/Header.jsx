@@ -45,7 +45,16 @@ const Header = ({ onNavigateToLogin, onNavigateToRegister, fullScreen = false })
     };
 
     const handleNavigateToHome = () => {
-        navigate('/');
+        // Navigate to home page based on user role
+        if (user?.vaiTro === 'PT') {
+            navigate('/pt/dashboard');
+        } else if (user?.vaiTro === 'NhanVien') {
+            navigate('/staff/dashboard');
+        } else if (user?.vaiTro === 'QuanLy') {
+            navigate('/admin/dashboard');
+        } else {
+            navigate('/');
+        }
     };
 
     const handleSearchSubmit = (e) => {

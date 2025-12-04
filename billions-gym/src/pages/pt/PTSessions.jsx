@@ -202,7 +202,7 @@ const PTSessions = () => {
                                     placeholder="Tìm kiếm buổi tập..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full bg-[#0a0a0a] border border-[#2a2a2a] text-white rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-[#da2128] transition-colors"
+                                    className="w-full bg-[#0a0a0a] border border-[#2a2a2a] text-white rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-[#2a2a2a] transition-colors"
                                 />
                             </div>
 
@@ -349,7 +349,7 @@ const PTSessions = () => {
 
                                     return (
                                         <div key={session._id}
-                                            className="bg-[#141414] rounded-xl border border-[#141414] hover:border-[#da2128] transition-all duration-300 overflow-hidden group cursor-pointer">
+                                            className="bg-[#141414] rounded-xl border border-[#141414] hover:bg-[#2a2a2a] transition-all duration-300 overflow-hidden group cursor-pointer">
 
                                             {/* Session Image */}
                                             {sessionImage ? (
@@ -511,8 +511,8 @@ const PTSessions = () => {
 
                                     return (
                                         <div key={session._id}
-                                            className="bg-[#141414] rounded-xl border border-[#2a2a2a] hover:border-[#da2128] transition-all duration-300 overflow-hidden">
-                                            <div className="p-6">
+                                            className="bg-[#141414] rounded-xl border border-[#141414] hover:border-[#da2128] transition-all duration-300 overflow-hidden">
+                                            <div className="p-6 cursor-pointer">
                                                 <div className="flex flex-col lg:flex-row gap-6">
                                                     {/* Session Image - Left Side */}
                                                     {sessionImage ? (
@@ -536,7 +536,7 @@ const PTSessions = () => {
 
                                                                 {/* Title in image */}
                                                                 <div className="absolute inset-x-0 bottom-0 p-5">
-                                                                    <h3 className="text-white/90 font-bold text-2xl mb-3 line-clamp-2 drop-shadow-lg">
+                                                                    <h3 className="text-white/80 font-bold text-2xl mb-3 line-clamp-2 drop-shadow-lg">
                                                                         {session.tenBuoiTap}
                                                                     </h3>
                                                                     <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${statusBadge.bg} ${statusBadge.text} border ${statusBadge.border} backdrop-blur-sm`}>
@@ -615,7 +615,7 @@ const PTSessions = () => {
                                                                 <div
                                                                     className={`h-full transition-all duration-500 ${attendanceRate >= 90 ? 'bg-green-400' :
                                                                         attendanceRate >= 70 ? 'bg-yellow-400' :
-                                                                            attendanceRate >= 50 ? 'bg-blue-400' : 'bg-gray-400'
+                                                                            attendanceRate >= 50 ? 'bg-blue-400' : 'bg-[#da2128]'
                                                                         }`}
                                                                     style={{ width: `${attendanceRate}%` }}
                                                                 />
