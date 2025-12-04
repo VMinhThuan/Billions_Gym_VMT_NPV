@@ -242,6 +242,37 @@ export const ptService = {
         return apiRequest(`${PT_API_BASE}/templates/${id}`, {
             method: 'DELETE'
         });
+    },
+
+    // Goals (Mục tiêu hôm nay)
+    getGoals: async (params = {}) => {
+        const queryParams = new URLSearchParams();
+        if (params.date) queryParams.append('date', params.date);
+
+        const queryString = queryParams.toString();
+        return apiRequest(`/pt/goals${queryString ? `?${queryString}` : ''}`, {
+            method: 'GET'
+        });
+    },
+
+    createGoal: async (data) => {
+        return apiRequest(`/pt/goals`, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    },
+
+    updateGoalStatus: async (id, status) => {
+        return apiRequest(`/pt/goals/${id}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status })
+        });
+    },
+
+    deleteGoal: async (id) => {
+        return apiRequest(`/pt/goals/${id}`, {
+            method: 'DELETE'
+        });
     }
 };
 
