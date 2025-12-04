@@ -62,7 +62,7 @@ const PTSidebar = ({ isOpen, onClose }) => {
             label: 'Lịch sử',
             icon: 'clock',
             path: '/pt/work-history',
-            description: 'Lịch sử làm việc'
+            description: 'Lịch sử tập luyện học viên'
         },
         {
             id: 'templates',

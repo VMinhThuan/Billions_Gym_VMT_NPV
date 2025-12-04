@@ -322,7 +322,7 @@ const PTStudents = () => {
                                     placeholder="Tìm kiếm theo tên, email, SĐT..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#da2128] transition-colors"
+                                    className="w-full pl-10 pr-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#2a2a2a] transition-colors"
                                 />
                             </div>
 
@@ -417,7 +417,7 @@ const PTStudents = () => {
                                             <div
                                                 key={student._id}
                                                 onClick={() => handleStudentClick(student)}
-                                                className="bg-[#141414] rounded-xl border border-[#141414] p-4 hover:border-[#da2128] transition-all cursor-pointer group"
+                                                className="bg-[#141414] rounded-xl border border-[#141414] p-4 hover:bg-[#2a2a2a] transition-all cursor-pointer group"
                                             >
                                                 {/* Compact Header */}
                                                 <div className="flex items-center gap-3 mb-3">
@@ -511,7 +511,7 @@ const PTStudents = () => {
                                         <div
                                             key={student._id}
                                             onClick={() => handleStudentClick(student)}
-                                            className="bg-[#141414] rounded-xl border border-[#2a2a2a] p-4 sm:p-6 hover:border-[#da2128] transition-all cursor-pointer group"
+                                            className="bg-[#141414] rounded-xl border border-[#2a2a2a] p-4 sm:p-6 hover:bg-[#2a2a2a] transition-all cursor-pointer group"
                                         >
                                             {/* Student Header */}
                                             <div className="flex items-start gap-4 mb-4">
@@ -520,7 +520,7 @@ const PTStudents = () => {
                                                         <img
                                                             src={student.anhDaiDien}
                                                             alt={student.hoTen}
-                                                            className="w-16 h-16 rounded-full border-2 border-[#2a2a2a] group-hover:border-[#da2128] transition-colors object-cover"
+                                                            className="w-16 h-16 rounded-full border-2 border-[#2a2a2a] transition-colors object-cover"
                                                         />
                                                     ) : (
                                                         <div className="w-16 h-16 rounded-full bg-[#da2128] flex items-center justify-center text-white font-bold text-2xl border-2 border-[#2a2a2a] group-hover:border-[#da2128]">

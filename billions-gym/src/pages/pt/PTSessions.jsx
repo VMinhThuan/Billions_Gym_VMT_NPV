@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import PTSidebar from '../../components/pt/PTSidebar';
 import ptService from '../../services/pt.service';
+import {
+    Calendar, Clock, Users, MapPin, Activity, CheckCircle,
+    XCircle, AlertCircle, TrendingUp, Award, Filter,
+    ChevronDown, Grid, List, Plus, Search, MoreVertical,
+    UserCheck, UserX, Edit, Trash2, Eye, Download
+} from 'lucide-react';
 
 const PTSessions = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -10,6 +16,12 @@ const PTSessions = () => {
     const [loading, setLoading] = useState(true);
     const [selectedSession, setSelectedSession] = useState(null);
     const [filter, setFilter] = useState({ trangThai: '' });
+    const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+    const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+    const [showDateDropdown, setShowDateDropdown] = useState(false);
+    const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedDate, setSelectedDate] = useState('all'); // 'all', 'today', 'week', 'month'
 
     useEffect(() => {
         const handleSidebarToggle = (event) => {
@@ -52,6 +64,59 @@ const PTSessions = () => {
         }
     };
 
+    // Calculate statistics
+    const stats = {
+        total: sessions.length,
+        upcoming: sessions.filter(s => s.trangThai === 'CHUAN_BI').length,
+        ongoing: sessions.filter(s => s.trangThai === 'DANG_DIEN_RA').length,
+        completed: sessions.filter(s => s.trangThai === 'HOAN_THANH').length,
+        totalMembers: sessions.reduce((sum, s) => sum + (s.soLuongHienTai || 0), 0),
+        avgAttendance: sessions.length > 0
+            ? Math.round(sessions.reduce((sum, s) => sum + ((s.soLuongHienTai / s.soLuongToiDa) * 100), 0) / sessions.length)
+            : 0
+    };
+
+    // Filter sessions based on search and date
+    const filteredSessions = sessions.filter(session => {
+        const matchesSearch = session.tenBuoiTap?.toLowerCase().includes(searchQuery.toLowerCase());
+
+        let matchesDate = true;
+        const sessionDate = new Date(session.ngayTap);
+        const today = new Date();
+
+        if (selectedDate === 'today') {
+            matchesDate = sessionDate.toDateString() === today.toDateString();
+        } else if (selectedDate === 'week') {
+            const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+            matchesDate = sessionDate >= today && sessionDate <= weekFromNow;
+        } else if (selectedDate === 'month') {
+            matchesDate = sessionDate.getMonth() === today.getMonth() &&
+                sessionDate.getFullYear() === today.getFullYear();
+        }
+
+        return matchesSearch && matchesDate;
+    });
+
+    const getStatusBadge = (status) => {
+        const badges = {
+            'CHUAN_BI': { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20', label: 'Chuẩn bị', icon: Clock },
+            'DANG_DIEN_RA': { bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500/20', label: 'Đang diễn ra', icon: Activity },
+            'HOAN_THANH': { bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/20', label: 'Hoàn thành', icon: CheckCircle },
+            'HUY': { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/20', label: 'Đã hủy', icon: XCircle }
+        };
+        return badges[status] || badges['CHUAN_BI'];
+    };
+
+    const getAttendanceStatusBadge = (status) => {
+        const badges = {
+            'DA_DANG_KY': { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'Đã đăng ký' },
+            'DA_THAM_GIA': { bg: 'bg-green-500/10', text: 'text-green-400', label: 'Đã tham gia' },
+            'VANG_MAT': { bg: 'bg-yellow-500/10', text: 'text-yellow-400', label: 'Vắng mặt' },
+            'HUY': { bg: 'bg-red-500/10', text: 'text-red-400', label: 'Đã hủy' }
+        };
+        return badges[status] || badges['DA_DANG_KY'];
+    };
+
     const mainMarginLeft = sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-80';
 
     return (
@@ -61,112 +126,590 @@ const PTSessions = () => {
 
             <main className={`ml-0 ${mainMarginLeft} mt-16 sm:mt-20 p-4 sm:p-6 transition-all duration-300`}>
                 <div className="max-w-7xl mx-auto">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-white mb-6">Quản lý buổi tập</h2>
+                    {/* Header Section */}
+                    <div className="mb-8">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                            <div>
+                                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Quản lý buổi tập</h2>
+                                <p className="text-gray-400">Theo dõi và quản lý các buổi tập của bạn</p>
+                            </div>
+                            <button className="flex items-center gap-2 px-4 py-2 bg-[#da2128] text-white rounded-lg hover:bg-[#b91d24] transition-colors cursor-pointer">
+                                <Plus className="w-5 h-5" />
+                                <span>Tạo buổi tập mới</span>
+                            </button>
+                        </div>
 
-                    <div className="mb-6 flex flex-wrap gap-4">
-                        <select
-                            value={filter.trangThai}
-                            onChange={(e) => setFilter({ ...filter, trangThai: e.target.value })}
-                            className="bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-lg px-4 py-2 focus:outline-none focus:border-[#da2128]"
-                        >
-                            <option value="">Tất cả trạng thái</option>
-                            <option value="CHUAN_BI">Chuẩn bị</option>
-                            <option value="DANG_DIEN_RA">Đang diễn ra</option>
-                            <option value="HOAN_THANH">Hoàn thành</option>
-                            <option value="HUY">Đã hủy</option>
-                        </select>
+                        {/* Statistics Cards */}
+                        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+                            <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer">
+                                <div className="flex items-center justify-between mb-2">
+                                    <Calendar className="w-5 h-5 text-purple-400" />
+                                </div>
+                                <div className="text-2xl font-bold text-purple-400 mb-1">{stats.total}</div>
+                                <div className="text-xs text-gray-400">Tổng buổi tập</div>
+                            </div>
+
+                            <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer">
+                                <div className="flex items-center justify-between mb-2">
+                                    <Clock className="w-5 h-5 text-blue-400" />
+                                </div>
+                                <div className="text-2xl font-bold text-blue-400 mb-1">{stats.upcoming}</div>
+                                <div className="text-xs text-gray-400">Sắp diễn ra</div>
+                            </div>
+
+                            <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer">
+                                <div className="flex items-center justify-between mb-2">
+                                    <Activity className="w-5 h-5 text-green-400" />
+                                </div>
+                                <div className="text-2xl font-bold text-green-400 mb-1">{stats.ongoing}</div>
+                                <div className="text-xs text-gray-400">Đang diễn ra</div>
+                            </div>
+
+                            <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer">
+                                <div className="flex items-center justify-between mb-2">
+                                    <CheckCircle className="w-5 h-5 text-gray-400" />
+                                </div>
+                                <div className="text-2xl font-bold text-gray-400 mb-1">{stats.completed}</div>
+                                <div className="text-xs text-gray-400">Hoàn thành</div>
+                            </div>
+
+                            <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer">
+                                <div className="flex items-center justify-between mb-2">
+                                    <Users className="w-5 h-5 text-yellow-400" />
+                                </div>
+                                <div className="text-2xl font-bold text-yellow-400 mb-1">{stats.totalMembers}</div>
+                                <div className="text-xs text-gray-400">Tổng học viên</div>
+                            </div>
+
+                            <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer">
+                                <div className="flex items-center justify-between mb-2">
+                                    <TrendingUp className="w-5 h-5 text-[#da2128]" />
+                                </div>
+                                <div className="text-2xl font-bold text-[#da2128] mb-1">{stats.avgAttendance}%</div>
+                                <div className="text-xs text-gray-400">Tỷ lệ đăng ký</div>
+                            </div>
+                        </div>
                     </div>
 
+                    {/* Search & Filter Bar */}
+                    <div className="bg-[#141414] rounded-xl p-4 mb-6">
+                        <div className="flex flex-col lg:flex-row gap-4">
+                            {/* Search */}
+                            <div className="flex-1 relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Tìm kiếm buổi tập..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-[#0a0a0a] border border-[#2a2a2a] text-white rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-[#2a2a2a] transition-colors"
+                                />
+                            </div>
+
+                            {/* Date Filter */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowDateDropdown(!showDateDropdown)}
+                                    className="px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white hover:border-[#3a3a3a] transition-colors flex items-center gap-2 cursor-pointer min-w-[160px] justify-between"
+                                >
+                                    <span className="text-sm">
+                                        {selectedDate === 'all' ? 'Tất cả thời gian' :
+                                            selectedDate === 'today' ? 'Hôm nay' :
+                                                selectedDate === 'week' ? 'Tuần này' : 'Tháng này'}
+                                    </span>
+                                    <ChevronDown className="w-4 h-4" />
+                                </button>
+
+                                {showDateDropdown && (
+                                    <div className="absolute right-0 top-12 w-48 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl z-10">
+                                        <div className="p-2">
+                                            <button
+                                                onClick={() => { setSelectedDate('all'); setShowDateDropdown(false); }}
+                                                className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors cursor-pointer ${selectedDate === 'all' ? 'bg-[#da2128] text-white' : 'text-gray-400 hover:bg-[#2a2a2a]'
+                                                    }`}
+                                            >
+                                                Tất cả thời gian
+                                            </button>
+                                            <button
+                                                onClick={() => { setSelectedDate('today'); setShowDateDropdown(false); }}
+                                                className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors cursor-pointer ${selectedDate === 'today' ? 'bg-[#da2128] text-white' : 'text-gray-400 hover:bg-[#2a2a2a]'
+                                                    }`}
+                                            >
+                                                Hôm nay
+                                            </button>
+                                            <button
+                                                onClick={() => { setSelectedDate('week'); setShowDateDropdown(false); }}
+                                                className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors cursor-pointer ${selectedDate === 'week' ? 'bg-[#da2128] text-white' : 'text-gray-400 hover:bg-[#2a2a2a]'
+                                                    }`}
+                                            >
+                                                Tuần này
+                                            </button>
+                                            <button
+                                                onClick={() => { setSelectedDate('month'); setShowDateDropdown(false); }}
+                                                className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors cursor-pointer ${selectedDate === 'month' ? 'bg-[#da2128] text-white' : 'text-gray-400 hover:bg-[#2a2a2a]'
+                                                    }`}
+                                            >
+                                                Tháng này
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Status Filter */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                                    className="px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white hover:border-[#3a3a3a] transition-colors flex items-center gap-2 cursor-pointer min-w-[160px] justify-between"
+                                >
+                                    <span className="text-sm">
+                                        {filter.trangThai === '' ? 'Tất cả trạng thái' :
+                                            filter.trangThai === 'CHUAN_BI' ? 'Chuẩn bị' :
+                                                filter.trangThai === 'DANG_DIEN_RA' ? 'Đang diễn ra' :
+                                                    filter.trangThai === 'HOAN_THANH' ? 'Hoàn thành' : 'Đã hủy'}
+                                    </span>
+                                    <ChevronDown className="w-4 h-4" />
+                                </button>
+
+                                {showStatusDropdown && (
+                                    <div className="absolute right-0 top-12 w-48 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl z-10">
+                                        <div className="p-2">
+                                            <button
+                                                onClick={() => { setFilter({ ...filter, trangThai: '' }); setShowStatusDropdown(false); }}
+                                                className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors cursor-pointer ${filter.trangThai === '' ? 'bg-[#da2128] text-white' : 'text-gray-400 hover:bg-[#2a2a2a]'
+                                                    }`}
+                                            >
+                                                Tất cả trạng thái
+                                            </button>
+                                            <button
+                                                onClick={() => { setFilter({ ...filter, trangThai: 'CHUAN_BI' }); setShowStatusDropdown(false); }}
+                                                className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors cursor-pointer ${filter.trangThai === 'CHUAN_BI' ? 'bg-[#da2128] text-white' : 'text-gray-400 hover:bg-[#2a2a2a]'
+                                                    }`}
+                                            >
+                                                Chuẩn bị
+                                            </button>
+                                            <button
+                                                onClick={() => { setFilter({ ...filter, trangThai: 'DANG_DIEN_RA' }); setShowStatusDropdown(false); }}
+                                                className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors cursor-pointer ${filter.trangThai === 'DANG_DIEN_RA' ? 'bg-[#da2128] text-white' : 'text-gray-400 hover:bg-[#2a2a2a]'
+                                                    }`}
+                                            >
+                                                Đang diễn ra
+                                            </button>
+                                            <button
+                                                onClick={() => { setFilter({ ...filter, trangThai: 'HOAN_THANH' }); setShowStatusDropdown(false); }}
+                                                className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors cursor-pointer ${filter.trangThai === 'HOAN_THANH' ? 'bg-[#da2128] text-white' : 'text-gray-400 hover:bg-[#2a2a2a]'
+                                                    }`}
+                                            >
+                                                Hoàn thành
+                                            </button>
+                                            <button
+                                                onClick={() => { setFilter({ ...filter, trangThai: 'HUY' }); setShowStatusDropdown(false); }}
+                                                className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors cursor-pointer ${filter.trangThai === 'HUY' ? 'bg-[#da2128] text-white' : 'text-gray-400 hover:bg-[#2a2a2a]'
+                                                    }`}
+                                            >
+                                                Đã hủy
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* View Mode Toggle */}
+                            <div className="flex gap-2 bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-1">
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    className={`p-2 rounded cursor-pointer ${viewMode === 'grid' ? 'bg-[#da2128] text-white' : 'text-gray-400 hover:text-white'} transition-colors`}
+                                >
+                                    <Grid className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    className={`p-2 rounded cursor-pointer ${viewMode === 'list' ? 'bg-[#da2128] text-white' : 'text-gray-400 hover:text-white'} transition-colors`}
+                                >
+                                    <List className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sessions List */}
                     {loading ? (
                         <div className="flex items-center justify-center py-12">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#da2128]"></div>
                         </div>
-                    ) : sessions.length > 0 ? (
-                        <div className="space-y-4">
-                            {sessions.map(session => (
-                                <div key={session._id} className="bg-[#1a1a1a] p-4 sm:p-6 rounded-lg border border-[#2a2a2a] hover:border-[#da2128] transition-colors">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h3 className="text-white font-semibold text-lg mb-2">{session.tenBuoiTap}</h3>
-                                            <p className="text-gray-400">
-                                                📅 {new Date(session.ngayTap).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                                            </p>
-                                            <p className="text-gray-400">
-                                                ⏰ {session.gioBatDau} - {session.gioKetThuc}
-                                            </p>
-                                            <p className="text-gray-400">
-                                                👥 {session.soLuongHienTai}/{session.soLuongToiDa} học viên
-                                            </p>
-                                        </div>
-                                        <span className={`px-3 py-1 rounded text-xs font-medium ${session.trangThai === 'HOAN_THANH' ? 'bg-green-500/20 text-green-400' :
-                                                session.trangThai === 'DANG_DIEN_RA' ? 'bg-blue-500/20 text-blue-400' :
-                                                    session.trangThai === 'HUY' ? 'bg-red-500/20 text-red-400' :
-                                                        'bg-gray-500/20 text-gray-400'
-                                            }`}>
-                                            {session.trangThai === 'CHUAN_BI' ? 'Chuẩn bị' :
-                                                session.trangThai === 'DANG_DIEN_RA' ? 'Đang diễn ra' :
-                                                    session.trangThai === 'HOAN_THANH' ? 'Hoàn thành' : 'Đã hủy'}
-                                        </span>
-                                    </div>
+                    ) : filteredSessions.length > 0 ? (
+                        viewMode === 'grid' ? (
+                            // Grid View
+                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {filteredSessions.map(session => {
+                                    const statusBadge = getStatusBadge(session.trangThai);
+                                    const StatusIcon = statusBadge.icon;
+                                    const attendanceRate = (session.soLuongHienTai / session.soLuongToiDa) * 100;
+                                    const sessionImage = session.baiTap?.[0]?.hinhAnh || session.baiTap?.[0]?.hinhAnhMinhHoa?.[0] || null;
 
-                                    {session.danhSachHoiVien && session.danhSachHoiVien.length > 0 && (
-                                        <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
-                                            <p className="text-white font-semibold mb-3">Danh sách học viên tham gia:</p>
-                                            <div className="space-y-2">
-                                                {session.danhSachHoiVien.map((member, idx) => (
-                                                    <div key={idx} className="flex items-center justify-between bg-[#0a0a0a] p-3 rounded border border-[#2a2a2a]">
-                                                        <div className="flex items-center gap-3">
-                                                            {member.hoiVien?.anhDaiDien ? (
-                                                                <img
-                                                                    src={member.hoiVien.anhDaiDien}
-                                                                    alt={member.hoiVien.hoTen}
-                                                                    className="w-10 h-10 rounded-full object-cover"
-                                                                />
-                                                            ) : (
-                                                                <div className="w-10 h-10 rounded-full bg-[#da2128] flex items-center justify-center text-white font-semibold">
-                                                                    {member.hoiVien?.hoTen?.charAt(0)?.toUpperCase() || 'H'}
-                                                                </div>
-                                                            )}
-                                                            <div>
-                                                                <p className="text-white font-medium">{member.hoiVien?.hoTen || 'N/A'}</p>
-                                                                <p className={`text-xs ${member.trangThai === 'DA_THAM_GIA' ? 'text-green-400' :
-                                                                        member.trangThai === 'VANG_MAT' ? 'text-yellow-400' :
-                                                                            member.trangThai === 'HUY' ? 'text-red-400' :
-                                                                                'text-gray-400'
-                                                                    }`}>
-                                                                    {member.trangThai === 'DA_DANG_KY' ? 'Đã đăng ký' :
-                                                                        member.trangThai === 'DA_THAM_GIA' ? 'Đã tham gia' :
-                                                                            member.trangThai === 'VANG_MAT' ? 'Vắng mặt' : 'Đã hủy'}
-                                                                </p>
+                                    return (
+                                        <div key={session._id}
+                                            className="bg-[#141414] rounded-xl border border-[#141414] hover:bg-[#2a2a2a] transition-all duration-300 overflow-hidden group cursor-pointer">
+
+                                            {/* Session Image */}
+                                            {sessionImage ? (
+                                                <div className="relative h-48 overflow-hidden">
+                                                    <img
+                                                        src={sessionImage}
+                                                        alt={session.tenBuoiTap}
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                                    />
+                                                    {/* Dark overlay */}
+                                                    <div className="absolute inset-0 bg-black/40" />
+                                                    {/* Gradient overlay */}
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+
+                                                    {/* More button - Top Right */}
+                                                    <button className="absolute top-3 right-3 p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer backdrop-blur-sm z-10">
+                                                        <MoreVertical className="w-5 h-5 text-white" />
+                                                    </button>
+
+                                                    {/* Title and Status Badge - Bottom */}
+                                                    <div className="absolute inset-x-0 bottom-0 p-5">
+                                                        <h3 className="text-white/80 font-bold text-2xl group-hover:text-[#da2128] transition-colors line-clamp-2 drop-shadow-lg mb-2">
+                                                            {session.tenBuoiTap}
+                                                        </h3>
+                                                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusBadge.bg} ${statusBadge.text} border ${statusBadge.border} backdrop-blur-sm`}>
+                                                            <StatusIcon className="w-3.5 h-3.5" />
+                                                            {statusBadge.label}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="p-5 border-b border-[#2a2a2a]">
+                                                    <div className="flex items-start justify-between mb-3">
+                                                        <div className="flex-1">
+                                                            <h3 className="text-white font-bold text-2xl mb-2 group-hover:text-[#da2128] transition-colors line-clamp-2">
+                                                                {session.tenBuoiTap}
+                                                            </h3>
+                                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusBadge.bg} ${statusBadge.text} border ${statusBadge.border}`}>
+                                                                <StatusIcon className="w-3.5 h-3.5" />
+                                                                {statusBadge.label}
                                                             </div>
                                                         </div>
-                                                        {session.trangThai === 'DANG_DIEN_RA' && (
-                                                            <div className="flex gap-2">
-                                                                <button
-                                                                    onClick={() => handleUpdateProgress(member.hoiVien._id, 'DA_THAM_GIA')}
-                                                                    className="px-3 py-1 bg-green-500/20 text-green-400 rounded text-sm hover:bg-green-500/30"
-                                                                >
-                                                                    Có mặt
+                                                        <button className="p-2 hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer">
+                                                            <MoreVertical className="w-4 h-4 text-white" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Card Header - Date & Time */}
+                                            <div className="p-5 border-b border-[#2a2a2a]">
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2 text-gray-400 text-sm">
+                                                        <Calendar className="w-4 h-4 text-purple-400" />
+                                                        <span>{new Date(session.ngayTap).toLocaleDateString('vi-VN', {
+                                                            weekday: 'short',
+                                                            day: '2-digit',
+                                                            month: '2-digit',
+                                                            year: 'numeric'
+                                                        })}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-gray-400 text-sm">
+                                                        <Clock className="w-4 h-4 text-blue-400" />
+                                                        <span>{session.gioBatDau} - {session.gioKetThuc}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Card Body - Attendance */}
+                                            <div className="p-5">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <Users className="w-4 h-4 text-yellow-400" />
+                                                        <span className="text-sm text-gray-400">Học viên</span>
+                                                    </div>
+                                                    <span className="text-white font-bold">
+                                                        {session.soLuongHienTai}/{session.soLuongToiDa}
+                                                    </span>
+                                                </div>
+
+                                                {/* Progress Bar */}
+                                                <div className="mb-4">
+                                                    <div className="h-2 bg-[#0a0a0a] rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full transition-all duration-500 ${attendanceRate >= 90 ? 'bg-green-400' :
+                                                                attendanceRate >= 70 ? 'bg-yellow-400' :
+                                                                    attendanceRate >= 50 ? 'bg-blue-400' : 'bg-[#da2128]'
+                                                                }`}
+                                                            style={{ width: `${attendanceRate}%` }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex justify-between mt-1">
+                                                        <span className="text-xs text-gray-500">Tỷ lệ đăng ký</span>
+                                                        <span className="text-xs font-medium text-gray-400">{Math.round(attendanceRate)}%</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Member Avatars */}
+                                                {session.danhSachHoiVien && session.danhSachHoiVien.length > 0 && (
+                                                    <div className="mb-4">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-xs text-gray-400">Danh sách học viên:</span>
+                                                        </div>
+                                                        <div className="flex items-center -space-x-2">
+                                                            {session.danhSachHoiVien.slice(0, 5).map((member, idx) => (
+                                                                <div key={idx} className="relative group/avatar">
+                                                                    {member.hoiVien?.anhDaiDien ? (
+                                                                        <img
+                                                                            src={member.hoiVien.anhDaiDien}
+                                                                            alt={member.hoiVien.hoTen}
+                                                                            className="w-8 h-8 rounded-full object-cover border-2 border-[#141414] group-hover/avatar:border-[#da2128] transition-all"
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#da2128] to-[#b91d24] flex items-center justify-center text-white text-xs font-bold border-2 border-[#141414] group-hover/avatar:border-[#da2128] transition-all">
+                                                                            {member.hoiVien?.hoTen?.charAt(0)?.toUpperCase() || 'H'}
+                                                                        </div>
+                                                                    )}
+                                                                    {/* Tooltip */}
+                                                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded text-xs text-white whitespace-nowrap opacity-0 group-hover/avatar:opacity-100 pointer-events-none transition-opacity z-10">
+                                                                        {member.hoiVien?.hoTen || 'N/A'}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            {session.danhSachHoiVien.length > 5 && (
+                                                                <div className="w-8 h-8 rounded-full bg-[#2a2a2a] border-2 border-[#141414] flex items-center justify-center text-xs font-medium text-gray-400">
+                                                                    +{session.danhSachHoiVien.length - 5}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Action Buttons */}
+                                                <div className="flex gap-2 mt-4">
+                                                    <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#da2128] text-white rounded-lg hover:bg-[#b91d24] transition-colors text-sm font-medium cursor-pointer">
+                                                        <Eye className="w-4 h-4" />
+                                                        Chi tiết
+                                                    </button>
+                                                    {session.trangThai === 'CHUAN_BI' && (
+                                                        <button className="px-3 py-2 bg-[#1a1a1a] text-gray-400 rounded-lg hover:bg-[#2a2a2a] hover:text-white transition-colors cursor-pointer">
+                                                            <Edit className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            // List View
+                            <div className="space-y-4">
+                                {filteredSessions.map(session => {
+                                    const statusBadge = getStatusBadge(session.trangThai);
+                                    const StatusIcon = statusBadge.icon;
+                                    const attendanceRate = (session.soLuongHienTai / session.soLuongToiDa) * 100;
+                                    const sessionImage = session.baiTap?.[0]?.hinhAnh || session.baiTap?.[0]?.hinhAnhMinhHoa?.[0] || null;
+
+                                    return (
+                                        <div key={session._id}
+                                            className="bg-[#141414] rounded-xl border border-[#141414] hover:border-[#da2128] transition-all duration-300 overflow-hidden">
+                                            <div className="p-6 cursor-pointer">
+                                                <div className="flex flex-col lg:flex-row gap-6">
+                                                    {/* Session Image - Left Side */}
+                                                    {sessionImage ? (
+                                                        <div className="lg:w-80 flex-shrink-0">
+                                                            <div className="relative h-64 lg:h-full rounded-lg overflow-hidden">
+                                                                <img
+                                                                    src={sessionImage}
+                                                                    alt={session.tenBuoiTap}
+                                                                    className="w-full h-full object-cover"
+                                                                    onError={(e) => { e.target.parentElement.style.display = 'none'; }}
+                                                                />
+                                                                {/* Dark overlay */}
+                                                                <div className="absolute inset-0 bg-black/40" />
+                                                                {/* Gradient overlay */}
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+
+                                                                {/* More button - Top Right */}
+                                                                <button className="absolute top-3 right-3 p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer backdrop-blur-sm z-10">
+                                                                    <MoreVertical className="w-5 h-5 text-white" />
                                                                 </button>
-                                                                <button
-                                                                    onClick={() => handleUpdateProgress(member.hoiVien._id, 'VANG_MAT')}
-                                                                    className="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded text-sm hover:bg-yellow-500/30"
-                                                                >
-                                                                    Vắng
-                                                                </button>
+
+                                                                {/* Title in image */}
+                                                                <div className="absolute inset-x-0 bottom-0 p-5">
+                                                                    <h3 className="text-white/80 font-bold text-2xl mb-3 line-clamp-2 drop-shadow-lg">
+                                                                        {session.tenBuoiTap}
+                                                                    </h3>
+                                                                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${statusBadge.bg} ${statusBadge.text} border ${statusBadge.border} backdrop-blur-sm`}>
+                                                                        <StatusIcon className="w-4 h-4" />
+                                                                        {statusBadge.label}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="lg:w-80 flex-shrink-0">
+                                                            <div className="p-5 bg-[#0a0a0a] rounded-lg">
+                                                                <h3 className="text-white font-bold text-2xl mb-3">
+                                                                    {session.tenBuoiTap}
+                                                                </h3>
+                                                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${statusBadge.bg} ${statusBadge.text} border ${statusBadge.border}`}>
+                                                                    <StatusIcon className="w-4 h-4" />
+                                                                    {statusBadge.label}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Left Section - Info */}
+                                                    <div className="flex-1">
+                                                        {/* Info Grid */}
+                                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                                            <div className="flex items-center gap-3 p-3 bg-[#0a0a0a] rounded-lg">
+                                                                <Calendar className="w-5 h-5 text-purple-400" />
+                                                                <div>
+                                                                    <div className="text-xs text-gray-400 mb-0.5">Ngày tập</div>
+                                                                    <div className="text-sm text-white font-medium">
+                                                                        {new Date(session.ngayTap).toLocaleDateString('vi-VN', {
+                                                                            day: '2-digit',
+                                                                            month: '2-digit',
+                                                                            year: 'numeric'
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-3 p-3 bg-[#0a0a0a] rounded-lg">
+                                                                <Clock className="w-5 h-5 text-blue-400" />
+                                                                <div>
+                                                                    <div className="text-xs text-gray-400 mb-0.5">Thời gian</div>
+                                                                    <div className="text-sm text-white font-medium">
+                                                                        {session.gioBatDau} - {session.gioKetThuc}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-3 p-3 bg-[#0a0a0a] rounded-lg">
+                                                                <Users className="w-5 h-5 text-yellow-400" />
+                                                                <div>
+                                                                    <div className="text-xs text-gray-400 mb-0.5">Học viên</div>
+                                                                    <div className="text-sm text-white font-medium">
+                                                                        {session.soLuongHienTai}/{session.soLuongToiDa}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-3 p-3 bg-[#0a0a0a] rounded-lg">
+                                                                <TrendingUp className="w-5 h-5 text-green-400" />
+                                                                <div>
+                                                                    <div className="text-xs text-gray-400 mb-0.5">Tỷ lệ đăng ký</div>
+                                                                    <div className="text-sm text-white font-medium">
+                                                                        {Math.round(attendanceRate)}%
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Progress Bar */}
+                                                        <div className="mb-4">
+                                                            <div className="h-2.5 bg-[#0a0a0a] rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full transition-all duration-500 ${attendanceRate >= 90 ? 'bg-green-400' :
+                                                                        attendanceRate >= 70 ? 'bg-yellow-400' :
+                                                                            attendanceRate >= 50 ? 'bg-blue-400' : 'bg-[#da2128]'
+                                                                        }`}
+                                                                    style={{ width: `${attendanceRate}%` }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Right Section - Members & Actions */}
+                                                    <div className="lg:w-80">
+                                                        {session.danhSachHoiVien && session.danhSachHoiVien.length > 0 ? (
+                                                            <div>
+                                                                <div className="flex items-center justify-between mb-3">
+                                                                    <span className="text-sm font-medium text-white">Danh sách học viên</span>
+                                                                    <span className="text-xs text-gray-400">{session.danhSachHoiVien.length} người</span>
+                                                                </div>
+                                                                <div className="space-y-2 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-[#2a2a2a] scrollbar-track-[#141414]">
+                                                                    {session.danhSachHoiVien.map((member, idx) => {
+                                                                        const attendanceBadge = getAttendanceStatusBadge(member.trangThai);
+                                                                        return (
+                                                                            <div key={idx} className="flex items-center gap-3 p-2.5 bg-[#0a0a0a] rounded-lg hover:bg-[#1a1a1a] transition-colors">
+                                                                                {member.hoiVien?.anhDaiDien ? (
+                                                                                    <img
+                                                                                        src={member.hoiVien.anhDaiDien}
+                                                                                        alt={member.hoiVien.hoTen}
+                                                                                        className="w-10 h-10 rounded-full object-cover"
+                                                                                    />
+                                                                                ) : (
+                                                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#da2128] to-[#b91d24] flex items-center justify-center text-white font-bold text-sm">
+                                                                                        {member.hoiVien?.hoTen?.charAt(0)?.toUpperCase() || 'H'}
+                                                                                    </div>
+                                                                                )}
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <p className="text-white text-sm font-medium truncate">{member.hoiVien?.hoTen || 'N/A'}</p>
+                                                                                    <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${attendanceBadge.bg} ${attendanceBadge.text}`}>
+                                                                                        {attendanceBadge.label}
+                                                                                    </span>
+                                                                                </div>
+                                                                                {session.trangThai === 'DANG_DIEN_RA' && (
+                                                                                    <div className="flex gap-1">
+                                                                                        <button
+                                                                                            onClick={() => handleUpdateProgress(member.hoiVien._id, 'DA_THAM_GIA')}
+                                                                                            className="p-1.5 bg-green-500/20 text-green-400 rounded hover:bg-green-500/30 transition-colors cursor-pointer"
+                                                                                            title="Có mặt"
+                                                                                        >
+                                                                                            <UserCheck className="w-4 h-4" />
+                                                                                        </button>
+                                                                                        <button
+                                                                                            onClick={() => handleUpdateProgress(member.hoiVien._id, 'VANG_MAT')}
+                                                                                            className="p-1.5 bg-yellow-500/20 text-yellow-400 rounded hover:bg-yellow-500/30 transition-colors cursor-pointer"
+                                                                                            title="Vắng mặt"
+                                                                                        >
+                                                                                            <UserX className="w-4 h-4" />
+                                                                                        </button>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+
+                                                                {/* Action Buttons */}
+                                                                <div className="flex gap-2 mt-4">
+                                                                    <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#da2128] text-white rounded-lg hover:bg-[#b91d24] transition-colors font-medium cursor-pointer">
+                                                                        <Eye className="w-4 h-4" />
+                                                                        Xem chi tiết
+                                                                    </button>
+                                                                    {session.trangThai === 'CHUAN_BI' && (
+                                                                        <button className="px-4 py-2.5 bg-[#1a1a1a] text-gray-400 rounded-lg hover:bg-[#2a2a2a] hover:text-white transition-colors cursor-pointer">
+                                                                            <Edit className="w-4 h-4" />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-center py-8">
+                                                                <Users className="w-12 h-12 text-gray-600 mx-auto mb-2" />
+                                                                <p className="text-gray-400 text-sm">Chưa có học viên đăng ký</p>
                                                             </div>
                                                         )}
                                                     </div>
-                                                ))}
+                                                </div>
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
+                                    );
+                                })}
+                            </div>
+                        )
                     ) : (
-                        <div className="text-center py-12">
-                            <p className="text-gray-400">Không có buổi tập nào</p>
+                        <div className="text-center py-16">
+                            <div className="w-20 h-20 bg-[#141414] rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Calendar className="w-10 h-10 text-gray-600" />
+                            </div>
+                            <p className="text-gray-400 text-lg mb-2">Không tìm thấy buổi tập nào</p>
+                            <p className="text-gray-500 text-sm">Thử thay đổi bộ lọc hoặc tạo buổi tập mới</p>
                         </div>
                     )}
                 </div>

@@ -155,6 +155,7 @@ const ptWorkHistoryRouter = require('./src/routes/pt-work-history.route');
 const ptProfileRouter = require('./src/routes/pt-profile.route');
 const ptReportsRouter = require('./src/routes/pt-reports.route');
 const ptTemplatesRouter = require('./src/routes/pt-templates.route');
+const ptGoalsRouter = require('./src/routes/pt-goals.route');
 
 app.use('/api/auth', authRouter);
 // app.use('/api/users', userRouter);
@@ -202,6 +203,7 @@ app.use('/api/pt/work-history', ptWorkHistoryRouter);
 app.use('/api/pt/profile', ptProfileRouter);
 app.use('/api/pt/reports', ptReportsRouter);
 app.use('/api/pt/templates', ptTemplatesRouter);
+app.use('/api/pt/goals', ptGoalsRouter);
 
 // Initialize WebSocket
 const websocketService = require('./src/services/websocket.service');

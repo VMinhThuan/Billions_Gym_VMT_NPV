@@ -6,11 +6,13 @@ import PTSessionChart from '../../components/pt/PTSessionChart';
 import PTStudentChart from '../../components/pt/PTStudentChart';
 import ChatWindowPopup from '../../components/chat/ChatWindowPopup';
 import { Users, Calendar, Clock, TrendingUp, Star, Award, CheckCircle, MessageCircle, MoreHorizontal, Trash2, Target, DollarSign, BarChart3, Activity, UserCheck, Flame, TrendingDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import ptService from '../../services/pt.service';
 import chatService from '../../services/chat.service';
 import { authUtils } from '../../utils/auth';
 
 const PTDashboard = () => {
+    const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [dashboardData, setDashboardData] = useState(null);
@@ -30,8 +32,20 @@ const PTDashboard = () => {
     const [showYearPicker, setShowYearPicker] = useState(false);
     const [selectedDate, setSelectedDate] = useState(new Date());
 
+    // Sessions for calendar (to show dots & modal)
+    const [calendarSessions, setCalendarSessions] = useState([]);
+
+    // Modal state for sessions on selected date
+    const [showSessionsModal, setShowSessionsModal] = useState(false);
+    const [sessionsOnSelectedDate, setSessionsOnSelectedDate] = useState([]);
+
     // Tab navigation state
     const [activeTab, setActiveTab] = useState('overview'); // overview, students, revenue, analytics
+
+    // Goals
+    const [showAddGoalModal, setShowAddGoalModal] = useState(false);
+    const [newGoal, setNewGoal] = useState({ title: '', description: '' });
+    const [customGoals, setCustomGoals] = useState([]);
 
     // Students data
     const [studentsData, setStudentsData] = useState([]);
@@ -126,6 +140,11 @@ const PTDashboard = () => {
         };
     }, []);
 
+    // Reload calendar sessions when month/year changes
+    useEffect(() => {
+        loadCalendarSessions(currentYear, currentMonth);
+    }, [currentYear, currentMonth]);
+
     const loadAllData = async () => {
         try {
             setLoading(true);
@@ -136,12 +155,101 @@ const PTDashboard = () => {
                 loadChatRooms(),
                 loadStudentsData(),
                 loadRevenueData(),
+                loadTodayGoals(),
                 loadAnalyticsData()
             ]);
         } catch (error) {
             console.error('Error loading dashboard data:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Load sessions for current month (for calendar dots & modal)
+    const loadCalendarSessions = async (year, month) => {
+        try {
+            // startOfMonth: 00:00:00
+            const startOfMonth = new Date(year, month, 1);
+            startOfMonth.setHours(0, 0, 0, 0);
+
+            // endOfMonth: 23:59:59
+            const endOfMonth = new Date(year, month + 1, 0);
+            endOfMonth.setHours(23, 59, 59, 999);
+
+            const response = await ptService.getMySessions({
+                ngayBatDau: startOfMonth.toISOString(),
+                ngayKetThuc: endOfMonth.toISOString(),
+                limit: 1000
+            });
+
+            if (response.success && response.data?.buoiTaps) {
+                setCalendarSessions(response.data.buoiTaps);
+            } else {
+                setCalendarSessions([]);
+            }
+        } catch (error) {
+            console.error('Error loading calendar sessions:', error);
+            setCalendarSessions([]);
+        }
+    };
+
+    // Goals APIs
+    const loadTodayGoals = async () => {
+        try {
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            const response = await ptService.getGoals({ date: dateStr });
+            if (response.success && Array.isArray(response.data)) {
+                setCustomGoals(response.data);
+            } else {
+                setCustomGoals([]);
+            }
+        } catch (error) {
+            console.error('Error loading PT goals:', error);
+            setCustomGoals([]);
+        }
+    };
+
+    const handleAddGoal = async () => {
+        if (!newGoal.title?.trim()) return;
+        try {
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            const response = await ptService.createGoal({
+                title: newGoal.title.trim(),
+                description: newGoal.description?.trim() || '',
+                date: dateStr
+            });
+            if (response.success && response.data) {
+                setCustomGoals(prev => [...prev, response.data]);
+                setNewGoal({ title: '', description: '' });
+                setShowAddGoalModal(false);
+            }
+        } catch (error) {
+            console.error('Error adding PT goal:', error);
+        }
+    };
+
+    const handleToggleGoalStatus = async (goal) => {
+        try {
+            const newStatus = goal.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
+            const response = await ptService.updateGoalStatus(goal._id, newStatus);
+            if (response.success && response.data) {
+                setCustomGoals(prev =>
+                    prev.map(g => g._id === goal._id ? response.data : g)
+                );
+            }
+        } catch (error) {
+            console.error('Error updating PT goal status:', error);
+        }
+    };
+
+    const handleDeleteGoal = async (goalId) => {
+        try {
+            await ptService.deleteGoal(goalId);
+            setCustomGoals(prev => prev.filter(g => g._id !== goalId));
+        } catch (error) {
+            console.error('Error deleting PT goal:', error);
         }
     };
 
@@ -201,186 +309,451 @@ const PTDashboard = () => {
     // Load Students Progress Data
     const loadStudentsData = async () => {
         try {
-            // TODO: Replace with real API call: await ptService.getMyStudents()
-            // Mock data for now
-            const mockStudents = [
-                {
-                    _id: '1',
-                    hoTen: 'Nguyễn Văn An',
-                    avatar: null,
-                    mucTieu: 'Giảm cân',
-                    tienDo: 75,
-                    canNangHienTai: 68,
-                    canNangMucTieu: 60,
-                    bmi: 22.5,
-                    soBuoiDaTap: 24,
-                    tongSoBuoi: 32,
-                    goiTap: 'Premium PT',
-                    ngayBatDau: '2025-11-01',
-                    lastWorkout: '2025-12-02'
-                },
-                {
-                    _id: '2',
-                    hoTen: 'Trần Thị Bích',
-                    avatar: null,
-                    mucTieu: 'Tăng cơ',
-                    tienDo: 60,
-                    canNangHienTai: 52,
-                    canNangMucTieu: 58,
-                    bmi: 19.8,
-                    soBuoiDaTap: 18,
-                    tongSoBuoi: 30,
-                    goiTap: 'Standard PT',
-                    ngayBatDau: '2025-11-15',
-                    lastWorkout: '2025-12-01'
-                },
-                {
-                    _id: '3',
-                    hoTen: 'Lê Minh Tuấn',
-                    avatar: null,
-                    mucTieu: 'Tăng sức bền',
-                    tienDo: 40,
-                    canNangHienTai: 75,
-                    canNangMucTieu: 75,
-                    bmi: 24.2,
-                    soBuoiDaTap: 12,
-                    tongSoBuoi: 30,
-                    goiTap: 'Premium PT',
-                    ngayBatDau: '2025-11-20',
-                    lastWorkout: '2025-11-30'
-                },
-                {
-                    _id: '4',
-                    hoTen: 'Phạm Thu Hà',
-                    avatar: null,
-                    mucTieu: 'Giảm mỡ bụng',
-                    tienDo: 85,
-                    canNangHienTai: 58,
-                    canNangMucTieu: 55,
-                    bmi: 21.3,
-                    soBuoiDaTap: 27,
-                    tongSoBuoi: 32,
-                    goiTap: 'Premium PT',
-                    ngayBatDau: '2025-10-25',
-                    lastWorkout: '2025-12-03'
-                },
-                {
-                    _id: '5',
-                    hoTen: 'Hoàng Đức Minh',
-                    avatar: null,
-                    mucTieu: 'Tăng cơ',
-                    tienDo: 55,
-                    canNangHienTai: 65,
-                    canNangMucTieu: 72,
-                    bmi: 21.5,
-                    soBuoiDaTap: 16,
-                    tongSoBuoi: 30,
-                    goiTap: 'Standard PT',
-                    ngayBatDau: '2025-11-10',
-                    lastWorkout: '2025-12-02'
-                }
-            ];
-            setStudentsData(mockStudents);
+            const response = await ptService.getMyStudents({ limit: 100 });
+            if (response.success && response.data?.hoiViens) {
+                // Lấy thông tin chi tiết cho từng học viên
+                const studentsWithDetails = await Promise.all(
+                    response.data.hoiViens.map(async (hoiVien) => {
+                        try {
+                            const detailResponse = await ptService.getStudentDetail(hoiVien._id);
+                            if (detailResponse.success && detailResponse.data) {
+                                const { hoiVien: detail, chiSoCoThe, lichSuTap } = detailResponse.data;
+
+                                // Lấy chỉ số cơ thể mới nhất
+                                const latestChiSo = chiSoCoThe && chiSoCoThe.length > 0 ? chiSoCoThe[0] : null;
+
+                                // Tính số buổi đã tập và tổng số buổi từ lịch sử tập
+                                const soBuoiDaTap = lichSuTap ? lichSuTap.filter(ls => ls.trangThai === 'HOAN_THANH').length : 0;
+
+                                // Lấy buổi tập gần nhất
+                                const lastWorkout = lichSuTap && lichSuTap.length > 0
+                                    ? lichSuTap[0].ngayTap
+                                    : null;
+
+                                // Tính BMI từ chỉ số cơ thể
+                                let bmi = null;
+                                if (latestChiSo && latestChiSo.chieuCao && latestChiSo.canNang) {
+                                    const heightInMeters = latestChiSo.chieuCao / 100;
+                                    bmi = (latestChiSo.canNang / (heightInMeters * heightInMeters)).toFixed(1);
+                                }
+
+                                // Lấy mục tiêu từ chỉ số cơ thể hoặc để mặc định
+                                const mucTieu = latestChiSo?.mucTieu || 'Tăng cơ';
+
+                                // Tính tiến độ (giả sử tổng số buổi là 30 nếu không có thông tin)
+                                const tongSoBuoi = 30; // Có thể lấy từ gói tập nếu có
+                                const tienDo = tongSoBuoi > 0 ? Math.round((soBuoiDaTap / tongSoBuoi) * 100) : 0;
+
+                                return {
+                                    _id: hoiVien._id,
+                                    hoTen: hoiVien.hoTen,
+                                    avatar: hoiVien.anhDaiDien,
+                                    mucTieu: mucTieu,
+                                    tienDo: tienDo,
+                                    canNangHienTai: latestChiSo?.canNang || null,
+                                    canNangMucTieu: latestChiSo?.canNangMucTieu || latestChiSo?.canNang || null,
+                                    bmi: bmi,
+                                    soBuoiDaTap: soBuoiDaTap,
+                                    tongSoBuoi: tongSoBuoi,
+                                    goiTap: detail?.hangHoiVien?.tenHang || 'Chưa có',
+                                    ngayBatDau: hoiVien.ngayThamGia || null,
+                                    lastWorkout: lastWorkout
+                                };
+                            }
+
+                            // Nếu không lấy được chi tiết, trả về thông tin cơ bản
+                            return {
+                                _id: hoiVien._id,
+                                hoTen: hoiVien.hoTen,
+                                avatar: hoiVien.anhDaiDien,
+                                mucTieu: 'Chưa có',
+                                tienDo: 0,
+                                canNangHienTai: null,
+                                canNangMucTieu: null,
+                                bmi: null,
+                                soBuoiDaTap: 0,
+                                tongSoBuoi: 30,
+                                goiTap: 'Chưa có',
+                                ngayBatDau: hoiVien.ngayThamGia || null,
+                                lastWorkout: null
+                            };
+                        } catch (error) {
+                            console.error(`Error loading detail for student ${hoiVien._id}:`, error);
+                            // Trả về thông tin cơ bản nếu có lỗi
+                            return {
+                                _id: hoiVien._id,
+                                hoTen: hoiVien.hoTen,
+                                avatar: hoiVien.anhDaiDien,
+                                mucTieu: 'Chưa có',
+                                tienDo: 0,
+                                canNangHienTai: null,
+                                canNangMucTieu: null,
+                                bmi: null,
+                                soBuoiDaTap: 0,
+                                tongSoBuoi: 30,
+                                goiTap: 'Chưa có',
+                                ngayBatDau: hoiVien.ngayThamGia || null,
+                                lastWorkout: null
+                            };
+                        }
+                    })
+                );
+
+                setStudentsData(studentsWithDetails);
+            } else {
+                setStudentsData([]);
+            }
         } catch (error) {
             console.error('Error loading students data:', error);
+            setStudentsData([]);
         }
     };
 
     // Load Revenue Data
     const loadRevenueData = async () => {
         try {
-            // TODO: Replace with real API call
-            // Mock data for now
-            const mockRevenue = {
-                thangHienTai: {
-                    tongDoanhThu: 45000000,
-                    soLuongBuoi: 32,
-                    hoaHong: 13500000, // 30%
-                    tyLeHoaHong: 30
-                },
-                chiTietThang: [
-                    { thang: 'T7', doanhThu: 38000000, buoi: 28 },
-                    { thang: 'T8', doanhThu: 42000000, buoi: 30 },
-                    { thang: 'T9', doanhThu: 40000000, buoi: 29 },
-                    { thang: 'T10', doanhThu: 43000000, buoi: 31 },
-                    { thang: 'T11', doanhThu: 44000000, buoi: 32 },
-                    { thang: 'T12', doanhThu: 45000000, buoi: 32 }
-                ],
-                phanLoaiGoiTap: [
-                    { ten: 'Premium PT', soLuong: 18, doanhThu: 27000000 },
-                    { ten: 'Standard PT', soLuong: 10, doanhThu: 12000000 },
-                    { ten: 'Trial PT', soLuong: 4, doanhThu: 6000000 }
-                ],
-                xuHuong: '+12.5%', // So với tháng trước
-                topKhachHang: [
-                    { hoTen: 'Nguyễn Văn An', soTien: 5000000, soBuoi: 8 },
-                    { hoTen: 'Phạm Thu Hà', soTien: 4500000, soBuoi: 8 },
-                    { hoTen: 'Lê Minh Tuấn', soTien: 4000000, soBuoi: 6 }
-                ]
+            // Lấy toàn bộ sessions (giới hạn 2000 buổi gần nhất)
+            const sessionsResponse = await ptService.getMySessions({ limit: 2000 });
+            const sessions = sessionsResponse.success && sessionsResponse.data?.buoiTaps
+                ? sessionsResponse.data.buoiTaps
+                : [];
+
+            if (!sessions.length) {
+                setRevenueData({
+                    thangHienTai: {
+                        tongDoanhThu: 0,
+                        soLuongBuoi: 0,
+                        hoaHong: 0,
+                        tyLeHoaHong: 0
+                    },
+                    chiTietThang: [],
+                    phanLoaiGoiTap: [],
+                    xuHuong: '0%',
+                    topKhachHang: []
+                });
+                return;
+            }
+
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+
+            // Tham số tính toán doanh thu/hoa hồng
+            const basePricePerMember = 100000; // 100k / học viên
+            const difficultyMultiplier = {
+                DE: 0.8,
+                TRUNG_BINH: 1,
+                KHO: 1.2
             };
-            setRevenueData(mockRevenue);
+            const commissionRate = 0.35; // PT nhận 35% doanh thu buổi
+
+            // Chuẩn hóa dữ liệu từng buổi
+            const computedSessions = sessions
+                .filter(session => !!session.ngayTap)
+                .map(session => {
+                    const sessionDate = new Date(session.ngayTap);
+                    const monthKey = `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}`;
+                    const attendees = session.soLuongHienTai
+                        ?? (Array.isArray(session.danhSachHoiVien) ? session.danhSachHoiVien.filter(hv => hv.trangThai !== 'HUY').length : 0);
+                    const difficulty = session.doKho || session.template?.doKho || 'TRUNG_BINH';
+                    const multiplier = difficultyMultiplier[difficulty] ?? 1;
+                    const revenue = attendees * basePricePerMember * multiplier;
+                    const commission = revenue * commissionRate;
+
+                    return {
+                        ...session,
+                        sessionDate,
+                        monthKey,
+                        attendees,
+                        difficulty,
+                        revenue,
+                        commission,
+                        profit: revenue - commission
+                    };
+                });
+
+            // Gom theo tháng
+            const monthlyMap = {};
+            computedSessions.forEach(item => {
+                if (!monthlyMap[item.monthKey]) {
+                    monthlyMap[item.monthKey] = {
+                        revenue: 0,
+                        commission: 0,
+                        sessions: 0,
+                        attendees: 0
+                    };
+                }
+                monthlyMap[item.monthKey].revenue += item.revenue;
+                monthlyMap[item.monthKey].commission += item.commission;
+                monthlyMap[item.monthKey].sessions += 1;
+                monthlyMap[item.monthKey].attendees += item.attendees;
+            });
+
+            const sortedMonthKeys = Object.keys(monthlyMap).sort();
+            const lastSixKeys = sortedMonthKeys.slice(-6);
+
+            const chiTietThang = lastSixKeys.map(key => {
+                const [yearStr, monthStr] = key.split('-');
+                const monthLabel = `T${parseInt(monthStr, 10)}`;
+                const data = monthlyMap[key];
+                return {
+                    thang: monthLabel,
+                    doanhThu: Math.round(data.revenue),
+                    buoi: data.sessions
+                };
+            });
+
+            const currentKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+            const currentData = monthlyMap[currentKey] || { revenue: 0, commission: 0, sessions: 0 };
+
+            const prevKey = `${currentMonth === 0 ? currentYear - 1 : currentYear}-${String(currentMonth === 0 ? 12 : currentMonth).padStart(2, '0')}`;
+            const prevSessions = monthlyMap[prevKey]?.sessions || 0;
+            const xuHuong = prevSessions > 0
+                ? `${(((currentData.sessions - prevSessions) / prevSessions) * 100).toFixed(1)}%`
+                : '0%';
+
+            // Phân loại theo tên buổi tập
+            const phanLoaiMap = {};
+            computedSessions.forEach(item => {
+                const key = item.tenBuoiTap || 'Buổi tập';
+                if (!phanLoaiMap[key]) {
+                    phanLoaiMap[key] = { ten: key, soLuong: 0, doanhThu: 0 };
+                }
+                phanLoaiMap[key].soLuong += 1;
+                phanLoaiMap[key].doanhThu += item.revenue;
+            });
+            const phanLoaiGoiTap = Object.values(phanLoaiMap)
+                .sort((a, b) => b.doanhThu - a.doanhThu)
+                .slice(0, 4)
+                .map(item => ({
+                    ...item,
+                    doanhThu: Math.round(item.doanhThu)
+                }));
+
+            // Top khách hàng theo số lần tham gia + doanh thu đóng góp
+            const memberStatMap = {};
+            computedSessions.forEach(session => {
+                if (Array.isArray(session.danhSachHoiVien)) {
+                    session.danhSachHoiVien.forEach(hv => {
+                        if (hv.trangThai === 'HUY') return;
+                        const name = hv.hoiVien?.hoTen || 'Học viên';
+                        if (!memberStatMap[name]) {
+                            memberStatMap[name] = { hoTen: name, soTien: 0, soBuoi: 0 };
+                        }
+                        const contribution = basePricePerMember * (difficultyMultiplier[session.difficulty] ?? 1);
+                        memberStatMap[name].soTien += contribution;
+                        memberStatMap[name].soBuoi += 1;
+                    });
+                }
+            });
+            const topKhachHang = Object.values(memberStatMap)
+                .sort((a, b) => b.soTien - a.soTien)
+                .slice(0, 3)
+                .map(item => ({
+                    hoTen: item.hoTen,
+                    soTien: Math.round(item.soTien),
+                    soBuoi: item.soBuoi
+                }));
+
+            setRevenueData({
+                thangHienTai: {
+                    tongDoanhThu: Math.round(currentData.revenue),
+                    soLuongBuoi: currentData.sessions,
+                    hoaHong: Math.round(currentData.commission),
+                    tyLeHoaHong: currentData.revenue > 0
+                        ? Math.round((currentData.commission / currentData.revenue) * 100)
+                        : 0
+                },
+                chiTietThang,
+                phanLoaiGoiTap,
+                xuHuong,
+                topKhachHang
+            });
         } catch (error) {
             console.error('Error loading revenue data:', error);
+            setRevenueData({
+                thangHienTai: {
+                    tongDoanhThu: 0,
+                    soLuongBuoi: 0,
+                    hoaHong: 0,
+                    tyLeHoaHong: 0
+                },
+                chiTietThang: [],
+                phanLoaiGoiTap: [],
+                xuHuong: '0%',
+                topKhachHang: []
+            });
         }
+    };
+
+    // Generate heatmap data từ sessions thật
+    const generateHeatmapDataFromSessions = () => {
+        const data = {};
+        if (dashboardData?.lichSapToi) {
+            dashboardData.lichSapToi.forEach(session => {
+                const dateStr = new Date(session.ngayTap).toISOString().split('T')[0];
+                data[dateStr] = (data[dateStr] || 0) + 1;
+            });
+        }
+        return data;
+    };
+
+    // Helper function để tính số tuần trong năm
+    const getWeekNumber = (date) => {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
     };
 
     // Load Analytics Data
     const loadAnalyticsData = async () => {
         try {
-            // TODO: Replace with real API call
-            // Mock data for now
-            const mockAnalytics = {
-                heatmapData: generateHeatmapData(),
-                topVIPClients: [
-                    { hoTen: 'Nguyễn Văn An', soBuoi: 24, tongTien: 15000000, rank: 'Platinum' },
-                    { hoTen: 'Phạm Thu Hà', soBuoi: 27, tongTien: 18000000, rank: 'Diamond' },
-                    { hoTen: 'Trần Thị Bích', soBuoi: 18, tongTien: 12000000, rank: 'Gold' },
-                    { hoTen: 'Hoàng Đức Minh', soBuoi: 16, tongTien: 10000000, rank: 'Gold' },
-                    { hoTen: 'Lê Minh Tuấn', soBuoi: 12, tongTien: 8000000, rank: 'Silver' }
-                ],
-                npsScore: 78, // Net Promoter Score
-                ratingBreakdown: {
-                    5: 45,
-                    4: 28,
-                    3: 15,
-                    2: 8,
-                    1: 4
-                },
-                recentFeedback: [
-                    { hoTen: 'Nguyễn Văn An', rating: 5, comment: 'PT rất nhiệt tình, chế độ tập hiệu quả!', ngay: '2025-12-02' },
-                    { hoTen: 'Phạm Thu Hà', rating: 5, comment: 'Đã giảm được 3kg trong 1 tháng, cảm ơn PT!', ngay: '2025-12-01' },
-                    { hoTen: 'Trần Thị Bích', rating: 4, comment: 'Tốt, nhưng hy vọng có thêm bài tập mới', ngay: '2025-11-30' }
-                ],
-                xuHuongHocVien: [
-                    { tuan: 'T1', soLuong: 28 },
-                    { tuan: 'T2', soLuong: 30 },
-                    { tuan: 'T3', soLuong: 29 },
-                    { tuan: 'T4', soLuong: 32 }
-                ],
-                performanceMetrics: {
-                    tyLeGiuChan: 92, // % retention rate
-                    tyLeHoanThanh: 87, // % session completion
-                    danhGiaTrungBinh: 4.6
+            // Lấy reviews từ API
+            const reviewsResponse = await ptService.getReviews({ limit: 100 });
+
+            // Sử dụng statistics đã load từ loadStatistics()
+            const statsResponse = statistics || {};
+
+            // Lấy student statistics để tính xu hướng học viên
+            const studentStatsResponse = await ptService.getStudentStatistics({ period: 'month' });
+
+            // Tính toán heatmap data từ sessions
+            const heatmapData = generateHeatmapDataFromSessions();
+
+            // Xử lý reviews data
+            let ratingBreakdown = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+            let recentFeedback = [];
+            let avgRating = 0;
+            let npsScore = 0;
+
+            if (reviewsResponse.success && reviewsResponse.data) {
+                const { reviews, summary } = reviewsResponse.data;
+
+                // Rating breakdown từ summary
+                if (summary?.ratingDistribution) {
+                    const total = Object.values(summary.ratingDistribution).reduce((a, b) => a + b, 0);
+                    if (total > 0) {
+                        Object.keys(ratingBreakdown).forEach(rating => {
+                            const count = summary.ratingDistribution[rating] || 0;
+                            ratingBreakdown[rating] = Math.round((count / total) * 100);
+                        });
+                    }
                 }
+
+                // Recent feedback (5 mới nhất)
+                recentFeedback = (reviews || []).slice(0, 5).map(review => ({
+                    hoTen: review.hoiVienId?.hoTen || 'Khách hàng',
+                    rating: review.rating,
+                    comment: review.noiDung || 'Không có nhận xét',
+                    ngay: review.ngayTao || new Date().toISOString()
+                }));
+
+                // Average rating
+                avgRating = summary?.avgRating || 0;
+
+                // Tính NPS Score (Net Promoter Score)
+                // NPS = % Promoters (9-10) - % Detractors (0-6)
+                if (summary?.ratingDistribution) {
+                    const promoters = (summary.ratingDistribution[5] || 0) + (summary.ratingDistribution[4] || 0);
+                    const detractors = (summary.ratingDistribution[1] || 0) + (summary.ratingDistribution[2] || 0);
+                    const total = Object.values(summary.ratingDistribution).reduce((a, b) => a + b, 0);
+                    if (total > 0) {
+                        npsScore = Math.round(((promoters - detractors) / total) * 100);
+                    }
+                }
+            }
+
+            // Tính xu hướng học viên từ student statistics
+            let xuHuongHocVien = [];
+            if (studentStatsResponse.success && studentStatsResponse.data) {
+                // Nhóm theo tuần
+                const weeklyData = {};
+                studentStatsResponse.data.forEach(item => {
+                    const date = new Date(item.date);
+                    const week = getWeekNumber(date);
+                    if (!weeklyData[week]) {
+                        weeklyData[week] = { tuan: `T${week}`, soLuong: 0 };
+                    }
+                    weeklyData[week].soLuong += item.soHoiVien || 0;
+                });
+                xuHuongHocVien = Object.values(weeklyData).slice(-4); // 4 tuần gần nhất
+            }
+
+            // Top VIP Clients từ students API
+            const studentsResponse = await ptService.getMyStudents({ limit: 100 });
+            let topVIPClients = [];
+            if (studentsResponse.success && studentsResponse.data?.hoiViens) {
+                // Lấy thông tin chi tiết để tính số buổi tập
+                const studentsWithSessions = await Promise.all(
+                    studentsResponse.data.hoiViens.slice(0, 5).map(async (hoiVien) => {
+                        try {
+                            const detailResponse = await ptService.getStudentDetail(hoiVien._id);
+                            if (detailResponse.success && detailResponse.data?.lichSuTap) {
+                                const soBuoi = detailResponse.data.lichSuTap.filter(
+                                    ls => ls.trangThai === 'HOAN_THANH'
+                                ).length;
+                                return {
+                                    hoTen: hoiVien.hoTen,
+                                    soBuoi: soBuoi,
+                                    tongTien: 0, // Không có thông tin doanh thu
+                                    rank: 'Silver'
+                                };
+                            }
+                            return null;
+                        } catch (error) {
+                            return null;
+                        }
+                    })
+                );
+
+                topVIPClients = studentsWithSessions
+                    .filter(s => s && s.soBuoi > 0)
+                    .sort((a, b) => b.soBuoi - a.soBuoi)
+                    .map((student, index) => ({
+                        ...student,
+                        rank: index === 0 ? 'Diamond' : index === 1 ? 'Platinum' : index === 2 ? 'Gold' : 'Silver'
+                    }));
+            }
+
+            // Performance metrics từ statistics
+            const performanceMetrics = {
+                tyLeGiuChan: statsResponse.tyLeThamGia || 0,
+                tyLeHoanThanh: statsResponse.buoiTapHoanThanh && statsResponse.tongBuoiTap
+                    ? Math.round((statsResponse.buoiTapHoanThanh / statsResponse.tongBuoiTap) * 100)
+                    : 0,
+                danhGiaTrungBinh: avgRating
             };
-            setAnalyticsData(mockAnalytics);
+
+            setAnalyticsData({
+                heatmapData,
+                topVIPClients,
+                npsScore,
+                ratingBreakdown,
+                recentFeedback,
+                xuHuongHocVien,
+                performanceMetrics
+            });
         } catch (error) {
             console.error('Error loading analytics data:', error);
+            // Set empty data structure để UI không bị lỗi
+            setAnalyticsData({
+                heatmapData: {},
+                topVIPClients: [],
+                npsScore: 0,
+                ratingBreakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+                recentFeedback: [],
+                xuHuongHocVien: [],
+                performanceMetrics: {
+                    tyLeGiuChan: 0,
+                    tyLeHoanThanh: 0,
+                    danhGiaTrungBinh: 0
+                }
+            });
         }
     };
 
-    // Generate heatmap data for calendar
-    const generateHeatmapData = () => {
-        const data = {};
-        const today = new Date();
-        for (let i = 0; i < 30; i++) {
-            const date = new Date(today);
-            date.setDate(date.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
-            data[dateStr] = Math.floor(Math.random() * 8); // 0-7 sessions per day
-        }
-        return data;
-    };
 
     // Calendar navigation handlers
     const handlePrevMonth = () => {
@@ -409,27 +782,49 @@ const PTDashboard = () => {
     const handleDateSelect = (day, month, year) => {
         const newDate = new Date(year, month, day);
         setSelectedDate(newDate);
+
+        // Kiểm tra xem ngày này có buổi tập không
+        const sessions = getSessionsOnDate(day, month, year);
+        if (sessions.length > 0) {
+            setSessionsOnSelectedDate(sessions);
+            setShowSessionsModal(true);
+        } else {
+            setSessionsOnSelectedDate([]);
+            setShowSessionsModal(false);
+        }
     };
 
-    // Check if a date has any sessions
+    // Check if a date has any sessions (sử dụng toàn bộ calendarSessions trong tháng)
     const hasSessionOnDate = (day, month, year) => {
-        // Mock data cho demo (có thể xóa khi có data thật từ API)
-        const mockSessions = [
-            { ngayTap: new Date(2025, 11, 3) }, // 3/12/2025
-            { ngayTap: new Date(2025, 11, 6) }, // 6/12/2025
-            { ngayTap: new Date(2025, 11, 9) }, // 9/12/2025
-            { ngayTap: new Date(2025, 11, 17) }, // 17/12/2025
-            { ngayTap: new Date(2025, 11, 19) }, // 19/12/2025
-        ];
+        if (!calendarSessions || calendarSessions.length === 0) {
+            return false;
+        }
 
-        // Kết hợp data thật và mock data
-        const allSessions = [...(dashboardData?.lichSapToi || []), ...mockSessions];
-
-        return allSessions.some(session => {
+        return calendarSessions.some(session => {
+            if (!session.ngayTap) return false;
             const sessionDate = new Date(session.ngayTap);
-            return sessionDate.getDate() === day &&
+            return (
+                sessionDate.getDate() === day &&
                 sessionDate.getMonth() === month &&
-                sessionDate.getFullYear() === year;
+                sessionDate.getFullYear() === year
+            );
+        });
+    };
+
+    // Get sessions for a specific date (từ calendarSessions)
+    const getSessionsOnDate = (day, month, year) => {
+        if (!calendarSessions || calendarSessions.length === 0) {
+            return [];
+        }
+
+        return calendarSessions.filter(session => {
+            if (!session.ngayTap) return false;
+            const sessionDate = new Date(session.ngayTap);
+            return (
+                sessionDate.getDate() === day &&
+                sessionDate.getMonth() === month &&
+                sessionDate.getFullYear() === year
+            );
         });
     };
 
@@ -685,9 +1080,10 @@ const PTDashboard = () => {
                                                         >
                                                             {isCurrentMonth ? dayNum : ''}
                                                             {hasSession && (
-                                                                <div className="absolute bottom-4 w-1.5 h-1.5 rounded-full bg-[#da2128]"
-                                                                    style={{ backgroundColor: isSelected ? '#ffffff' : '#da2128' }}>
-                                                                </div>
+                                                                <div
+                                                                    className="absolute bottom-2 w-2 h-2 rounded-full"
+                                                                    style={{ backgroundColor: isSelected ? '#ffffff' : '#da2128' }}
+                                                                />
                                                             )}
                                                         </button>
                                                     );
@@ -699,11 +1095,16 @@ const PTDashboard = () => {
                                         <div className="bg-[#141414] rounded-2xl p-6 border border-[#2a2a2a]">
                                             <div className="flex items-center justify-between mb-4">
                                                 <h3 className="text-xl font-bold text-white">Mục tiêu hôm nay</h3>
-                                                <button className="w-8 h-8 rounded-lg bg-[#da2128] hover:bg-[#ff3842] flex items-center justify-center text-white transition-all">
+                                                <button
+                                                    onClick={() => setShowAddGoalModal(true)}
+                                                    className="w-8 h-8 rounded-lg bg-[#da2128] hover:bg-[#ff3842] flex items-center justify-center text-white transition-all"
+                                                    title="Thêm mục tiêu mới"
+                                                >
                                                     +
                                                 </button>
                                             </div>
                                             <div className="space-y-3">
+                                                {/* Goal hệ thống: số buổi tập hôm nay */}
                                                 <div className="flex items-start gap-3 p-3 rounded-xl bg-[#1a1a1a] hover:bg-[#2a2a2a] transition-all">
                                                     <div className="flex items-center gap-3 flex-1">
                                                         <div className="text-2xl">💪</div>
@@ -715,6 +1116,7 @@ const PTDashboard = () => {
                                                         </div>
                                                     </div>
                                                 </div>
+                                                {/* Goal hệ thống: kiểm tra tiến độ học viên */}
                                                 <div className="flex items-start gap-3 p-3 rounded-xl bg-[#1a1a1a] hover:bg-[#2a2a2a] transition-all">
                                                     <div className="flex items-center gap-3 flex-1">
                                                         <div className="text-2xl">📊</div>
@@ -724,6 +1126,7 @@ const PTDashboard = () => {
                                                         </div>
                                                     </div>
                                                 </div>
+                                                {/* Goal hệ thống: điểm đánh giá */}
                                                 <div className="flex items-start gap-3 p-3 rounded-xl bg-[#1a1a1a] hover:bg-[#2a2a2a] transition-all">
                                                     <div className="flex items-center gap-3 flex-1">
                                                         <div className="text-2xl">⭐</div>
@@ -733,6 +1136,35 @@ const PTDashboard = () => {
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                {/* Goals tùy chỉnh của PT */}
+                                                {customGoals.map(goal => (
+                                                    <div
+                                                        key={goal._id}
+                                                        className="flex items-start gap-3 p-3 rounded-xl bg-[#1a1a1a] hover:bg-[#2a2a2a] transition-all group"
+                                                    >
+                                                        <button
+                                                            onClick={() => handleToggleGoalStatus(goal)}
+                                                            className="mt-1 w-5 h-5 rounded border border-gray-500 flex items-center justify-center text-xs text-white"
+                                                        >
+                                                            {goal.status === 'COMPLETED' ? '✓' : ''}
+                                                        </button>
+                                                        <div className="flex-1">
+                                                            <p className={`text-white font-medium mb-1 ${goal.status === 'COMPLETED' ? 'line-through text-gray-400' : ''}`}>
+                                                                {goal.title}
+                                                            </p>
+                                                            {goal.description && (
+                                                                <p className="text-gray-500 text-xs">{goal.description}</p>
+                                                            )}
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleDeleteGoal(goal._id)}
+                                                            className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-500 transition-all"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     </div>
@@ -756,53 +1188,17 @@ const PTDashboard = () => {
                                                     tomorrow.setDate(tomorrow.getDate() + 1);
 
                                                     const todaySessions = dashboardData?.lichSapToi?.filter(session => {
+                                                        if (!session.ngayTap) return false;
                                                         const sessionDate = new Date(session.ngayTap);
+                                                        sessionDate.setHours(0, 0, 0, 0);
                                                         return sessionDate >= today && sessionDate < tomorrow;
                                                     }) || [];
 
-                                                    // Nếu không có data thật, dùng mock data
-                                                    const sessionsToShow = todaySessions.length > 0 ? todaySessions : [
-                                                        {
-                                                            _id: 'mock1',
-                                                            tenBuoiTap: 'Yoga buổi sáng',
-                                                            ngayTap: new Date(),
-                                                            gioBatDau: '06:00',
-                                                            gioKetThuc: '07:30',
-                                                            soLuongHienTai: 8,
-                                                            soLuongToiDa: 15,
-                                                            chiNhanh: { tenChiNhanh: 'Chi nhánh 1' }
-                                                        },
-                                                        {
-                                                            _id: 'mock2',
-                                                            tenBuoiTap: 'Cardio & Strength',
-                                                            ngayTap: new Date(),
-                                                            gioBatDau: '09:00',
-                                                            gioKetThuc: '10:30',
-                                                            soLuongHienTai: 12,
-                                                            soLuongToiDa: 15,
-                                                            chiNhanh: { tenChiNhanh: 'Chi nhánh 1' }
-                                                        },
-                                                        {
-                                                            _id: 'mock3',
-                                                            tenBuoiTap: 'HIIT Training',
-                                                            ngayTap: new Date(),
-                                                            gioBatDau: '17:00',
-                                                            gioKetThuc: '18:00',
-                                                            soLuongHienTai: 10,
-                                                            soLuongToiDa: 12,
-                                                            chiNhanh: { tenChiNhanh: 'Chi nhánh 1' }
-                                                        },
-                                                        {
-                                                            _id: 'mock4',
-                                                            tenBuoiTap: 'Personal Training',
-                                                            ngayTap: new Date(),
-                                                            gioBatDau: '19:00',
-                                                            gioKetThuc: '20:00',
-                                                            soLuongHienTai: 1,
-                                                            soLuongToiDa: 1,
-                                                            chiNhanh: { tenChiNhanh: 'Chi nhánh 1' }
-                                                        }
-                                                    ];
+                                                    console.log('[PTDashboard] Today sessions count:', todaySessions.length);
+                                                    console.log('[PTDashboard] All lichSapToi count:', dashboardData?.lichSapToi?.length || 0);
+
+                                                    // Sử dụng dữ liệu thật từ API
+                                                    const sessionsToShow = todaySessions;
 
                                                     if (sessionsToShow.length === 0) {
                                                         return (
@@ -840,7 +1236,7 @@ const PTDashboard = () => {
                                                         }
 
                                                         return (
-                                                            <div key={session._id || index} className="flex items-start gap-3 p-3 rounded-xl bg-[#1a1a1a] hover:bg-[#2a2a2a] transition-all cursor-pointer">
+                                                            <div key={`${session._id || 'session'}-${index}`} className="flex items-start gap-3 p-3 rounded-xl bg-[#1a1a1a] hover:bg-[#2a2a2a] transition-all cursor-pointer">
                                                                 {/* Time indicator */}
                                                                 <div className="flex flex-col items-center flex-shrink-0">
                                                                     <div className={`w-12 h-12 rounded-lg ${statusColor} flex flex-col items-center justify-center text-white font-bold text-xs`}>
@@ -1058,7 +1454,11 @@ const PTDashboard = () => {
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {studentsData.map(student => (
-                                                <div key={student._id} className="bg-[#1a1a1a] rounded-xl p-5 border border-[#2a2a2a] hover:border-[#da2128]/50 transition-all cursor-pointer group">
+                                                <div
+                                                    key={student._id}
+                                                    onClick={() => navigate(`/pt/students/${student._id}`)}
+                                                    className="bg-[#1a1a1a] rounded-xl p-5 border border-[#2a2a2a] hover:border-[#da2128]/50 transition-all cursor-pointer group"
+                                                >
                                                     <div className="flex items-start gap-4 mb-4">
                                                         <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#da2128] to-[#ff3842] flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
                                                             {student.hoTen.charAt(0)}
@@ -1114,7 +1514,9 @@ const PTDashboard = () => {
                                                             <span>{student.soBuoiDaTap}/{student.tongSoBuoi} buổi</span>
                                                         </div>
                                                         <div className="text-gray-400 text-xs">
-                                                            {new Date(student.lastWorkout).toLocaleDateString('vi-VN')}
+                                                            {student.lastWorkout
+                                                                ? new Date(student.lastWorkout).toLocaleDateString('vi-VN')
+                                                                : 'Chưa có buổi tập'}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1396,6 +1798,170 @@ const PTDashboard = () => {
                     recipient={selectedStudent}
                     onClose={handleCloseChat}
                 />
+            )}
+
+            {/* Modal thêm mục tiêu mới */}
+            {showAddGoalModal && (
+                <div
+                    className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                    onClick={() => setShowAddGoalModal(false)}
+                >
+                    <div
+                        className="bg-[#141414] rounded-2xl border border-[#2a2a2a] max-w-md w-full"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between p-6 border-b border-[#2a2a2a]">
+                            <h3 className="text-xl font-bold text-white">Thêm mục tiêu mới</h3>
+                            <button
+                                onClick={() => setShowAddGoalModal(false)}
+                                className="w-8 h-8 rounded-lg bg-[#1a1a1a] hover:bg-[#2a2a2a] flex items-center justify-center text-gray-400 hover:text-white transition-all"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Tiêu đề mục tiêu</label>
+                                <input
+                                    type="text"
+                                    value={newGoal.title}
+                                    onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
+                                    placeholder="Ví dụ: Gọi điện cho 5 học viên mới"
+                                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#da2128] transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Mô tả (tùy chọn)</label>
+                                <input
+                                    type="text"
+                                    value={newGoal.description}
+                                    onChange={(e) => setNewGoal({ ...newGoal, description: e.target.value })}
+                                    placeholder="Mô tả chi tiết mục tiêu"
+                                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#da2128] transition-all"
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    onClick={handleAddGoal}
+                                    className="flex-1 px-4 py-3 bg-[#da2128] hover:bg-[#ff3842] text-white font-medium rounded-lg transition-all"
+                                >
+                                    Thêm mục tiêu
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowAddGoalModal(false);
+                                        setNewGoal({ title: '', description: '' });
+                                    }}
+                                    className="px-4 py-3 bg-[#1a1a1a] hover:bg-[#2a2a2a] text-gray-300 font-medium rounded-lg transition-all"
+                                >
+                                    Hủy
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal hiển thị danh sách buổi tập trong ngày */}
+            {showSessionsModal && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowSessionsModal(false)}>
+                    <div className="bg-[#141414] rounded-2xl border border-[#2a2a2a] max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-6 border-b border-[#2a2a2a]">
+                            <div>
+                                <h3 className="text-2xl font-bold text-white">
+                                    Lịch làm việc ngày {selectedDate.getDate()}/{selectedDate.getMonth() + 1}/{selectedDate.getFullYear()}
+                                </h3>
+                                <p className="text-gray-400 text-sm mt-1">
+                                    {sessionsOnSelectedDate.length} buổi tập
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowSessionsModal(false)}
+                                className="w-10 h-10 rounded-lg bg-[#1a1a1a] hover:bg-[#2a2a2a] flex items-center justify-center text-gray-400 hover:text-white transition-all"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {sessionsOnSelectedDate.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <Calendar className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                                    <p className="text-gray-500">Không có buổi tập nào trong ngày này</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {sessionsOnSelectedDate.map((session, index) => {
+                                        const sessionDate = new Date(session.ngayTap);
+                                        const now = new Date();
+                                        const sessionStartTime = new Date(session.ngayTap);
+                                        const [startHour, startMinute] = session.gioBatDau.split(':');
+                                        sessionStartTime.setHours(parseInt(startHour), parseInt(startMinute));
+
+                                        const sessionEndTime = new Date(session.ngayTap);
+                                        const [endHour, endMinute] = session.gioKetThuc.split(':');
+                                        sessionEndTime.setHours(parseInt(endHour), parseInt(endMinute));
+
+                                        // Xác định trạng thái
+                                        let status = 'upcoming';
+                                        let statusColor = 'bg-blue-500';
+                                        let statusText = 'Sắp diễn ra';
+
+                                        if (now >= sessionStartTime && now <= sessionEndTime) {
+                                            status = 'ongoing';
+                                            statusColor = 'bg-green-500';
+                                            statusText = 'Đang diễn ra';
+                                        } else if (now > sessionEndTime) {
+                                            status = 'completed';
+                                            statusColor = 'bg-gray-500';
+                                            statusText = 'Đã hoàn thành';
+                                        }
+
+                                        return (
+                                            <div key={`${session._id || 'modal-session'}-${index}`} className="bg-[#1a1a1a] rounded-xl p-5 border border-[#2a2a2a] hover:border-[#da2128]/50 transition-all">
+                                                <div className="flex items-start gap-4">
+                                                    {/* Time indicator */}
+                                                    <div className="flex flex-col items-center flex-shrink-0">
+                                                        <div className={`w-16 h-16 rounded-xl ${statusColor} flex flex-col items-center justify-center text-white font-bold`}>
+                                                            <span className="text-xl">{session.gioBatDau.split(':')[0]}</span>
+                                                            <span className="text-xs opacity-90">{session.gioBatDau.split(':')[1]}</span>
+                                                        </div>
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full mt-2 ${statusColor} text-white font-medium`}>
+                                                            {statusText}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Session info */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="text-white font-bold text-lg mb-2">{session.tenBuoiTap || 'Buổi tập'}</h4>
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center gap-2 text-gray-300 text-sm">
+                                                                <Clock className="w-4 h-4" />
+                                                                <span>{session.gioBatDau} - {session.gioKetThuc}</span>
+                                                            </div>
+                                                            {session.chiNhanh && (
+                                                                <div className="flex items-center gap-2 text-gray-300 text-sm">
+                                                                    <Calendar className="w-4 h-4" />
+                                                                    <span>{session.chiNhanh.tenChiNhanh || session.chiNhanh || 'Chưa có chi nhánh'}</span>
+                                                                </div>
+                                                            )}
+                                                            <div className="flex items-center gap-2 text-gray-300 text-sm">
+                                                                <Users className="w-4 h-4" />
+                                                                <span>{session.soLuongHienTai || 0}/{session.soLuongToiDa || 0} học viên</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
