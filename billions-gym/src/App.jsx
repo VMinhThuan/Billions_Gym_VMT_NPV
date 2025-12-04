@@ -36,6 +36,7 @@ import PTAssignExercises from './pages/pt/PTAssignExercises'
 import PTChat from './pages/pt/PTChat'
 import PTStatistics from './pages/pt/PTStatistics'
 import PTHistory from './pages/pt/PTHistory'
+import PTTemplates from './pages/pt/PTTemplates'
 
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -152,6 +153,7 @@ const AppContent = () => {
             <Route path='/pt/students/:id' element={<PTStudentDetail />} />
             <Route path='/pt/sessions' element={<PTSessions />} />
             <Route path='/pt/work-history' element={<PTHistory />} />
+            <Route path='/pt/templates' element={<PTTemplates />} />
             <Route path='/pt/assign-exercises' element={<PTAssignExercises />} />
             <Route path='/pt/chat' element={<PTChat />} />
           </Routes>
