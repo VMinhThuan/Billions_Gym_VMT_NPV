@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
@@ -38,7 +39,9 @@ const ProfileScreen = () => {
         membershipType: "",
         totalWorkouts: 0,
         currentStreak: 0,
-        achievements: 0
+        achievements: 0,
+        height: "",
+        weight: ""
     });
 
     const [hangHoiVien, setHangHoiVien] = useState({
@@ -52,13 +55,6 @@ const ProfileScreen = () => {
         soBuoiTapDaTap: 0
     });
 
-    const [fitnessGoals, setFitnessGoals] = useState({
-        primaryGoal: "",
-        targetWeight: "",
-        currentWeight: "",
-        weeklyWorkouts: 3,
-        preferredWorkoutTime: ""
-    });
 
     useEffect(() => {
         fetchProfileData();
@@ -116,10 +112,10 @@ const ProfileScreen = () => {
 
             if (bodyStats.status === 'fulfilled' && bodyStats.value) {
                 const stats = bodyStats.value;
-                setFitnessGoals(prev => ({
+                setUserProfile(prev => ({
                     ...prev,
-                    currentWeight: stats.canNang ? `${stats.canNang}kg` : '',
-                    targetWeight: stats.canNangMucTieu ? `${stats.canNangMucTieu}kg` : ''
+                    weight: stats.canNang ? `${stats.canNang}` : '',
+                    height: stats.chieuCao ? `${stats.chieuCao}` : ''
                 }));
             }
 
@@ -482,57 +478,52 @@ const ProfileScreen = () => {
     const menuItems = getMenuItemsByRole();
 
     const renderProfileHeader = () => {
-        const getGradientColors = () => {
-            const rankColor = hangHoiVien.mauSac || '#FFD700';
-            switch (hangHoiVien.tenHang) {
-                case 'BRONZE':
-                    return ['#CD7F32', '#B8860B'];
-                case 'SILVER':
-                    return ['#C0C0C0', '#A8A8A8'];
-                case 'GOLD':
-                    return ['#FFD700', '#FFA500'];
-                case 'PLATINUM':
-                    return ['#E5E4E2', '#B8B8B8'];
-                case 'DIAMOND':
-                    return ['#B9F2FF', '#87CEEB'];
-                default:
-                    return [rankColor, rankColor + '80'];
-            }
-        };
-
-        const gradientColors = getGradientColors();
-
         return (
-            <View style={styles.profileCardContainer}>
-                <View style={[styles.profileCard, {
-                    backgroundColor: gradientColors[0],
-                    shadowColor: hangHoiVien.mauSac || '#FFD700',
-                }]}>
-                    {/* Gradient overlay */}
-                    <View style={[styles.gradientOverlay, {
-                        backgroundColor: gradientColors[1] + '40'
-                    }]} />
-
-                    {/* Card content */}
-                    <View style={styles.cardContent}>
-                        <View style={styles.cardLeft}>
-                            <Text style={styles.cardName}>{userProfile.name}</Text>
-                            <View style={styles.rankContainer}>
-                                <Text style={styles.rankIcon}>{hangHoiVien.icon || '🥉'}</Text>
-                                <Text style={styles.rankText}>
-                                    {hangHoiVien.tenHienThi || 'Thành viên mới'}
-                                </Text>
-                            </View>
+            <View style={styles.profileHeaderContainer}>
+                {/* Avatar with gradient border and edit button */}
+                <View style={styles.avatarWrapper}>
+                    <LinearGradient
+                        colors={['#FFC9E9', '#F5F2B8']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.avatarGradientBorder}
+                    >
+                        <View style={styles.avatarInner}>
+                            <Text style={styles.avatarText}>
+                                {userProfile.name ? userProfile.name.charAt(0).toUpperCase() : 'U'}
+                            </Text>
                         </View>
+                    </LinearGradient>
 
-                        <TouchableOpacity
-                            style={styles.editButton}
-                            onPress={() => navigation.navigate('EditProfile')}
-                        >
-                            <MaterialIcons name="edit" size={20} color="#fff" />
-                        </TouchableOpacity>
-                    </View>
+                    {/* Edit button on avatar */}
+                    <TouchableOpacity
+                        style={styles.editButtonOnAvatar}
+                        onPress={() => navigation.navigate('EditProfile')}
+                    >
+                        <MaterialIcons name="edit" size={16} color="#262135" />
+                    </TouchableOpacity>
                 </View>
+
+                {/* Name */}
+                <Text style={styles.profileName}>{userProfile.name || 'User Name'}</Text>
+
+                {/* Weight and Height display */}
+                {(userProfile.height || userProfile.weight) && (
+                    <View style={styles.weightHeightContainer}>
+                        {userProfile.height && (
+                            <View style={styles.measurementItem}>
+                                <Text style={styles.measurementValue}>{userProfile.height}</Text>
+                                <Text style={styles.measurementUnit}>CM</Text>
+                            </View>
+                        )}
+                        {userProfile.weight && (
+                            <View style={styles.measurementItem}>
+                                <Text style={styles.measurementValue}>{userProfile.weight}</Text>
+                                <Text style={styles.measurementUnit}>KG</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
             </View>
         );
     };
@@ -606,39 +597,6 @@ const ProfileScreen = () => {
     };
 
 
-    const renderFitnessGoals = () => {
-        if (userRole !== 'HoiVien') {
-            return null;
-        }
-
-        return (
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Mục tiêu fitness</Text>
-                <View style={[styles.goalCard, { backgroundColor: colors.card }]}>
-                    <View style={styles.goalItem}>
-                        <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Mục tiêu chính</Text>
-                        <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.primaryGoal}</Text>
-                    </View>
-                    <View style={styles.goalItem}>
-                        <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Cân nặng hiện tại / Mục tiêu</Text>
-                        <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.currentWeight} / {fitnessGoals.targetWeight}</Text>
-                    </View>
-                    <View style={styles.goalItem}>
-                        <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>Số buổi tập/tuần</Text>
-                        <Text style={[styles.goalValue, { color: colors.text }]}>{fitnessGoals.weeklyWorkouts} buổi</Text>
-                    </View>
-                    <TouchableOpacity style={[
-                        styles.editGoalsButton,
-                        { borderTopColor: isDarkMode ? colors.border : 'transparent' }
-                    ]}>
-                        <Text style={[styles.editGoalsText, { color: colors.primary }]}>Chỉnh sửa mục tiêu</Text>
-                        <MaterialIcons name="arrow-forward-ios" size={16} color={colors.primary} />
-                    </TouchableOpacity>
-                </View>
-            </View>
-        );
-    };
-
     const renderMenuItem = (item, index) => (
         <TouchableOpacity
             key={index}
@@ -710,7 +668,6 @@ const ProfileScreen = () => {
             >
                 {renderProfileHeader()}
                 {renderStatsCards()}
-                {renderFitnessGoals()}
 
                 {menuItems.map(renderMenuSection)}
 
@@ -751,97 +708,78 @@ const styles = StyleSheet.create({
     scrollView: {
         flex: 1,
     },
-    profileCardContainer: {
-        marginHorizontal: 20,
+    // New Profile Header Styles matching Figma
+    profileHeaderContainer: {
+        alignItems: 'center',
+        paddingVertical: 30,
+        paddingHorizontal: 20,
+    },
+    avatarWrapper: {
+        position: 'relative',
         marginBottom: 20,
     },
-    profileCard: {
-        borderRadius: 16,
-        padding: 20,
-        minHeight: 190,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        elevation: 8,
-        position: 'relative',
-        overflow: 'hidden',
-    },
-    gradientOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        borderRadius: 16,
-    },
-    cardContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        zIndex: 1,
-    },
-    cardLeft: {
-        flex: 1,
-    },
-    cardName: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#fff',
-        marginBottom: 8,
-        textShadowColor: 'rgba(0,0,0,0.3)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 2,
-    },
-    rankContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    rankIcon: {
-        fontSize: 20,
-        marginRight: 8,
-    },
-    rankText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#fff',
-        textShadowColor: 'rgba(0,0,0,0.3)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 2,
-    },
-    editButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.2)',
+    avatarGradientBorder: {
+        width: 174,
+        height: 174,
+        borderRadius: 87,
+        padding: 2,
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
     },
-    membershipRankBadge: {
-        flexDirection: 'row',
+    avatarInner: {
+        width: 170,
+        height: 170,
+        borderRadius: 85,
+        backgroundColor: '#262135',
+        justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        borderWidth: 2,
-        alignSelf: 'flex-start',
+    },
+    avatarText: {
+        fontSize: 60,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+    },
+    editButtonOnAvatar: {
+        position: 'absolute',
+        bottom: 10,
+        right: 0,
+        width: 31,
+        height: 31,
+        borderRadius: 15.5,
+        backgroundColor: '#F5F2B8',
+        justifyContent: 'center',
+        alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
     },
-    membershipRankIcon: {
-        fontSize: 21,
-        marginRight: 6,
+    profileName: {
+        fontSize: 24,
+        fontWeight: '600',
+        color: '#FFFFFF',
+        fontFamily: 'MontserratAlternates-SemiBold', // May need to install font
+        marginBottom: 12,
+        textAlign: 'center',
     },
-    membershipRankText: {
-        fontSize: 14,
+    weightHeightContainer: {
+        flexDirection: 'row',
+        gap: 20,
+        alignItems: 'center',
+    },
+    measurementItem: {
+        alignItems: 'center',
+    },
+    measurementValue: {
+        fontSize: 20,
         fontWeight: 'bold',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        color: '#FFFFFF',
+    },
+    measurementUnit: {
+        fontSize: 10,
+        color: '#FFFFFF',
+        marginTop: 2,
     },
     statsContainer: {
         flexDirection: 'row',
@@ -875,39 +813,6 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         marginBottom: 12,
-    },
-    goalCard: {
-        borderRadius: 16,
-        padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    goalItem: {
-        marginBottom: 12,
-    },
-    goalLabel: {
-        fontSize: 12,
-        marginBottom: 4,
-    },
-    goalValue: {
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    editGoalsButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        marginTop: 8,
-    },
-    editGoalsText: {
-        fontSize: 14,
-        fontWeight: '600',
-        marginRight: 8,
     },
     menuSection: {
         marginHorizontal: 20,

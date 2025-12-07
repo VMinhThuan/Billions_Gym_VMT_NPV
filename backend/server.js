@@ -7,6 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 4000;
 
+console.log('🚀 Starting server...');
 console.log('urrl', process.env.FRONTEND_URL);
 
 // CORS configuration - allow localhost for development
@@ -42,14 +43,14 @@ const path = require('path');
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 mongoose.connect(process.env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000, // Timeout after 5 seconds instead of 10
-    socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-    connectTimeoutMS: 10000, // Try initial connection for 10 seconds
+    serverSelectionTimeoutMS: 15000, // Timeout after 15 seconds
+    socketTimeoutMS: 60000, // Close sockets after 60 seconds of inactivity
+    connectTimeoutMS: 20000, // Try initial connection for 20 seconds
     retryWrites: true,
     retryReads: true,
-    maxPoolSize: 10, // Maintain up to 10 socket connections
-    minPoolSize: 5, // Maintain at least 5 socket connections
-    maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+    maxPoolSize: 20, // Maintain up to 20 socket connections
+    minPoolSize: 2, // Maintain at least 2 socket connections
+    maxIdleTimeMS: 60000, // Close connections after 60 seconds of inactivity
     family: 4 // Use IPv4, skip trying IPv6
 })
     .then(async () => {

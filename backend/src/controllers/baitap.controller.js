@@ -11,9 +11,12 @@ exports.createBaiTap = async (req, res) => {
 
 exports.getAllBaiTap = async (req, res) => {
     try {
+        console.log('📋 getAllBaiTap - Request received');
         const baiTaps = await baiTapService.getAllBaiTap();
+        console.log(`📋 getAllBaiTap - Returning ${baiTaps.length} exercises`);
         res.json(baiTaps);
     } catch (err) {
+        console.error('📋 getAllBaiTap - Error:', err.message);
         res.status(500).json({ message: err.message });
     }
 };

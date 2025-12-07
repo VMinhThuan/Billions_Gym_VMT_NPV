@@ -31,10 +31,23 @@ exports.createChiTietGoiTap = async (req, res) => {
 
 exports.getAllChiTietGoiTap = async (req, res) => {
     try {
-        console.log('🔍 getAllChiTietGoiTap called');
+        console.log('🔍 getAllChiTietGoiTap called by user:', req.user?.id);
         const filter = {};
+
+        // Nếu không phải OngChu, chỉ lấy gói tập của chính user đó
+        if (req.user && req.user.role !== 'OngChu') {
+            // Tìm theo cả maHoiVien (legacy) và nguoiDungId (new)
+            filter.$or = [
+                { maHoiVien: req.user.id },
+                { nguoiDungId: req.user.id }
+            ];
+            console.log('🔍 Filtering by user ID (HoiVien):', req.user.id);
+        }
+
         if (req.query.maHoiVien) filter.maHoiVien = req.query.maHoiVien;
         if (req.query.maGoiTap) filter.maGoiTap = req.query.maGoiTap;
+
+        console.log('🔍 Filter applied:', JSON.stringify(filter));
         const ds = await chiTietGoiTapService.getAllChiTietGoiTap(filter);
         console.log('🔍 getAllChiTietGoiTap result:', ds.length, 'registrations');
         res.json(ds);

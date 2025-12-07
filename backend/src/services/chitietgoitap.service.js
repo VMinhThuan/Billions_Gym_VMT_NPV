@@ -62,7 +62,13 @@ const createChiTietGoiTap = async (data) => {
 
 const getAllChiTietGoiTap = async (filter = {}) => {
     console.log('🔍 getAllChiTietGoiTap service called with filter:', filter);
-    const result = await ChiTietGoiTap.find(filter).populate('maHoiVien').populate('maGoiTap');
+    const result = await ChiTietGoiTap.find(filter)
+        .populate('maHoiVien')
+        .populate('maGoiTap')
+        .populate('goiTapId')
+        .populate('nguoiDungId')
+        .populate('branchId')
+        .populate('ptDuocChon');
     console.log('🔍 getAllChiTietGoiTap service result:', result.length, 'registrations');
     return result;
 };

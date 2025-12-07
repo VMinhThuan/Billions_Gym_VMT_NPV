@@ -40,7 +40,7 @@ const MainTabNavigator = () => {
     const tabLabels = {
         Home: 'Trang chủ',
         Workout: 'Tập luyện',
-        Classes: 'Lớp',
+        Classes: 'Lịch tập',
         Profile: 'Hồ sơ',
     };
 

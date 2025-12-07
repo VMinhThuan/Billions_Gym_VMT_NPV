@@ -22,11 +22,13 @@ const HomeScreen = () => {
         totalWorkouts: 0,
         currentStreak: 0,
         membershipDaysLeft: 0,
+        packageName: '',
         nextClass: "Chưa có lịch",
         nextClassTime: "--:--",
         todayCalories: 0,
         weeklyGoal: 2000
     });
+    const [hasPackage, setHasPackage] = useState(false);
     const [PTData, setPTData] = useState([]);
 
     // Upcoming classes 
@@ -47,19 +49,44 @@ const HomeScreen = () => {
     const [loadingExercises, setLoadingExercises] = useState(false);
 
     const getMealTypeName = (type) => {
+        // Hỗ trợ cả format cũ (SANG, TRUA) và format mới (Bữa sáng, Bữa trưa)
         const mealNames = {
-            'SANG': 'Bữa sáng gợi ý',
-            'TRUA': 'Bữa trưa gợi ý',
-            'CHIEU': 'Bữa chiều gợi ý',
-            'TOI': 'Bữa tối gợi ý'
+            'SANG': 'Bữa sáng',
+            'TRUA': 'Bữa trưa',
+            'CHIEU': 'Ăn nhẹ',
+            'TOI': 'Bữa tối',
+            'Bữa sáng': 'Bữa sáng',
+            'Bữa trưa': 'Bữa trưa',
+            'Ăn nhẹ': 'Ăn nhẹ',
+            'Bữa tối': 'Bữa tối',
+            'Phụ 1': 'Phụ 1',
+            'Phụ 2': 'Phụ 2',
+            'Phụ 3': 'Phụ 3'
         };
         return mealNames[type] || 'Bữa ăn';
+    };
+
+    // Hàm xác định mealType theo giờ hiện tại
+    const getCurrentMealType = () => {
+        const currentHour = new Date().getHours();
+
+        if (currentHour >= 5 && currentHour < 11) {
+            return 'SANG'; // 5:00 - 10:59 AM
+        } else if (currentHour >= 11 && currentHour < 14) {
+            return 'TRUA'; // 11:00 AM - 1:59 PM
+        } else if (currentHour >= 14 && currentHour < 18) {
+            return 'CHIEU'; // 2:00 PM - 5:59 PM
+        } else {
+            return 'TOI'; // 6:00 PM - 4:59 AM
+        }
     };
 
     useEffect(() => {
         fetchDashboardData();
         fetchPTData();
-        fetchHealthyMeals();
+        // Tự động load món ăn theo thời gian hiện tại
+        const currentMeal = getCurrentMealType();
+        fetchHealthyMeals(currentMeal);
         fetchExercises();
     }, []);
 
@@ -182,23 +209,101 @@ const HomeScreen = () => {
             if (membershipInfo.status === 'fulfilled' && membershipInfo.value) {
                 try {
                     const memberships = Array.isArray(membershipInfo.value) ? membershipInfo.value : [];
-                    const activeMembership = memberships.find(m =>
-                        m.trangThai === 'DangHoatDong' && new Date(m.ngayKetThuc) > new Date()
-                    );
+
+                    console.log('🔍 Debug memberships:', {
+                        total: memberships.length,
+                        data: memberships.map(m => ({
+                            id: m._id,
+                            trangThaiThanhToan: m.trangThaiThanhToan,
+                            trangThaiDangKy: m.trangThaiDangKy,
+                            trangThaiSuDung: m.trangThaiSuDung,
+                            ngayBatDau: m.ngayBatDau,
+                            ngayKetThuc: m.ngayKetThuc,
+                            maGoiTap: m.maGoiTap?.tenGoiTap,
+                            goiTapId: m.goiTapId?.tenGoiTap
+                        }))
+                    });
+
+                    // Tìm gói tập đang hoạt động - điều kiện linh hoạt hơn
+                    const activeMembership = memberships.find(m => {
+                        // Kiểm tra thanh toán
+                        const isPaid = m.trangThaiThanhToan === 'DA_THANH_TOAN';
+
+                        // Kiểm tra không bị hủy
+                        const notCancelled = (!m.trangThaiDangKy || m.trangThaiDangKy !== 'DA_HUY') &&
+                            (!m.trangThaiSuDung || !['DA_HUY', 'HET_HAN'].includes(m.trangThaiSuDung));
+
+                        // Kiểm tra ngày kết thúc (nếu có)
+                        const hasValidEndDate = !m.ngayKetThuc || new Date(m.ngayKetThuc) > new Date();
+
+                        console.log('🔍 Check membership:', {
+                            isPaid,
+                            notCancelled,
+                            hasValidEndDate,
+                            result: isPaid && notCancelled && hasValidEndDate
+                        });
+
+                        return isPaid && notCancelled && hasValidEndDate;
+                    });
 
                     if (activeMembership) {
-                        const endDate = new Date(activeMembership.ngayKetThuc);
+                        const startDate = activeMembership.ngayBatDau ? new Date(activeMembership.ngayBatDau) : new Date();
+                        const endDate = activeMembership.ngayKetThuc ? new Date(activeMembership.ngayKetThuc) : null;
                         const today = new Date();
-                        const daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+
+                        console.log('📅 Date calculation:', {
+                            ngayBatDau_raw: activeMembership.ngayBatDau,
+                            ngayKetThuc_raw: activeMembership.ngayKetThuc,
+                            startDate: startDate.toISOString(),
+                            endDate: endDate ? endDate.toISOString() : null,
+                            today: today.toISOString(),
+                            diff_ms: endDate ? (endDate - today) : null
+                        });
+
+                        // Tính số ngày còn lại
+                        let daysLeft = 0;
+                        if (endDate) {
+                            daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+                        } else {
+                            // Nếu không có ngày kết thúc, coi như còn nhiều ngày
+                            daysLeft = 999;
+                        }
+
+                        // Lấy tên gói tập từ maGoiTap hoặc goiTapId
+                        const packageName = activeMembership.maGoiTap?.tenGoiTap ||
+                            activeMembership.goiTapId?.tenGoiTap ||
+                            'Gói tập';
+
+                        console.log('✅ Gói tập tìm thấy:', {
+                            tenGoiTap: packageName,
+                            ngayBatDau: startDate.toLocaleDateString('vi-VN'),
+                            ngayKetThuc: endDate ? endDate.toLocaleDateString('vi-VN') : 'Không giới hạn',
+                            soNgayConLai: daysLeft
+                        });
 
                         setMemberData(prev => ({
                             ...prev,
-                            membershipDaysLeft: Math.max(0, daysLeft)
+                            membershipDaysLeft: Math.max(0, daysLeft),
+                            packageName: packageName
                         }));
+                        setHasPackage(true);
+                    } else {
+                        // Không có gói tập hoạt động
+                        console.log('❌ Không tìm thấy gói tập hoạt động');
+                        setMemberData(prev => ({
+                            ...prev,
+                            membershipDaysLeft: 0,
+                            packageName: ''
+                        }));
+                        setHasPackage(false);
                     }
                 } catch (error) {
                     console.error('Error processing membership data:', error);
+                    setHasPackage(false);
                 }
+            } else {
+                // Không có dữ liệu membership
+                setHasPackage(false);
             }
 
             // Fetch upcoming classes (workout schedules)
@@ -242,7 +347,7 @@ const HomeScreen = () => {
                 }
             }
 
-            await fetchMembershipTimeRemaining();
+            // await fetchMembershipTimeRemaining(); // Đã tính số ngày từ ngayKetThuc ở trên, không cần gọi API này nữa
 
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
@@ -290,9 +395,11 @@ const HomeScreen = () => {
 
     const onRefresh = async () => {
         setRefreshing(true);
+        // Refresh với mealType theo giờ hiện tại
+        const currentMeal = getCurrentMealType();
         await Promise.all([
             fetchDashboardData(),
-            fetchHealthyMeals(),
+            fetchHealthyMeals(currentMeal),
             fetchExercises()
         ]);
         setRefreshing(false);
@@ -302,7 +409,7 @@ const HomeScreen = () => {
         {
             image: 'https://www.wheystore.vn/upload_images/images/2024/10/08/pt-gym-dam-nhan-vai-tro-gi.jpg',
             title: 'Huấn luyện viên cá nhân\nĐồng hành cùng bạn',
-            buttonText: 'Đặt lịch PT',
+            buttonText: 'Đặt lịch tập ngay',
             onPress: () => navigation.navigate('Classes'),
         },
         {
@@ -322,13 +429,34 @@ const HomeScreen = () => {
     const renderCoachingBanner = () => {
         const [activeIndex, setActiveIndex] = useState(0);
         const flatListRef = useRef(null);
+        const autoScrollInterval = useRef(null);
 
         const onViewRef = useRef(({ viewableItems }) => {
             if (viewableItems.length > 0) {
-                setActiveIndex(viewableItems[0].index);
+                setActiveIndex(viewableItems[0].index % banners.length);
             }
         });
         const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 50 });
+
+        // Auto scroll effect
+        useEffect(() => {
+            autoScrollInterval.current = setInterval(() => {
+                if (flatListRef.current) {
+                    const nextIndex = (activeIndex + 1) % banners.length;
+                    flatListRef.current.scrollToIndex({
+                        index: nextIndex,
+                        animated: true
+                    });
+                    setActiveIndex(nextIndex);
+                }
+            }, 3000); // Chuyển slide mỗi 3 giây
+
+            return () => {
+                if (autoScrollInterval.current) {
+                    clearInterval(autoScrollInterval.current);
+                }
+            };
+        }, [activeIndex]);
 
         return (
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -341,6 +469,25 @@ const HomeScreen = () => {
                     showsHorizontalScrollIndicator={false}
                     onViewableItemsChanged={onViewRef.current}
                     viewabilityConfig={viewConfigRef.current}
+                    onScrollBeginDrag={() => {
+                        // Dừng auto scroll khi user vuốt
+                        if (autoScrollInterval.current) {
+                            clearInterval(autoScrollInterval.current);
+                        }
+                    }}
+                    onScrollEndDrag={() => {
+                        // Khởi động lại auto scroll sau khi user thả tay
+                        autoScrollInterval.current = setInterval(() => {
+                            if (flatListRef.current) {
+                                const nextIndex = (activeIndex + 1) % banners.length;
+                                flatListRef.current.scrollToIndex({
+                                    index: nextIndex,
+                                    animated: true
+                                });
+                                setActiveIndex(nextIndex);
+                            }
+                        }, 3000);
+                    }}
                     contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}
                     renderItem={({ item }) => (
                         <View
@@ -410,29 +557,37 @@ const HomeScreen = () => {
 
         return (
             <View style={[styles.progressContainer, { backgroundColor: colors.surface }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 18, marginBottom: 0 }]}>Trạng thái hội viên</Text>
-                    <Text style={{ color: colors.textSecondary, fontSize: 16 }}>{daysLeft} Ngày còn lại</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: hasPackage ? 20 : 10 }}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 18, marginBottom: 0 }]}>
+                        {hasPackage ? memberData.packageName : 'Trạng thái hội viên'}
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
+                        {hasPackage ? `${daysLeft} Ngày còn lại` : 'Chưa đăng ký'}
+                    </Text>
                 </View>
-                <View style={{ height: 8, borderRadius: 4, backgroundColor: '#878787', marginBottom: 25, overflow: 'hidden' }}>
-                    <View style={{
-                        height: '100%',
-                        width: `${progress * 100}%`,
-                        backgroundColor: colors.primary,
-                        borderRadius: 4
-                    }} />
-                </View>
+                {hasPackage && (
+                    <View style={{ height: 8, borderRadius: 4, backgroundColor: '#878787', marginBottom: 25, overflow: 'hidden' }}>
+                        <View style={{
+                            height: '100%',
+                            width: `${progress * 100}%`,
+                            backgroundColor: colors.primary,
+                            borderRadius: 4
+                        }} />
+                    </View>
+                )}
                 <TouchableOpacity
                     style={{
                         backgroundColor: colors.primary,
                         borderRadius: 10,
                         paddingVertical: 14,
                         alignItems: 'center',
-                        marginTop: 4
+                        marginTop: hasPackage ? 4 : 15
                     }}
                     onPress={() => navigation.navigate('Membership')}
                 >
-                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>Làm mới ngay</Text>
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>
+                        {hasPackage ? 'Làm mới ngay' : 'Đăng ký mới'}
+                    </Text>
                 </TouchableOpacity>
             </View>
         );
@@ -441,49 +596,94 @@ const HomeScreen = () => {
     const fetchUpcomingClasses = async () => {
         try {
             setLoadingUpcoming(true);
-            const schedules = await apiService.getAllWorkoutSchedules();
-            const items = [];
-            (schedules || []).forEach(lich => {
-                const buoiTaps = Array.isArray(lich.cacBuoiTap) ? lich.cacBuoiTap : [];
-                buoiTaps.forEach(bt => {
-                    const id = bt._id || bt.id || `${lich._id}_${Math.random().toString(36).slice(2, 8)}`;
-                    const imageUrl = bt.hinhAnh || bt.hinhAnhMinhHoa?.[0] || bt.anhDaiDien || null;
-                    const name = bt.tenBuoiTap || bt.tenBuoiTap || (bt.tenBaiTap ? bt.tenBaiTap : (lich.hoTen || 'Buổi tập'));
-                    let dateText = 'Sắp tới';
-                    let timeText = bt.gioBatDau || bt.gio || '';
-                    if (bt.ngay) {
-                        try { dateText = new Date(bt.ngay).toLocaleDateString('vi-VN'); } catch (e) { }
-                    }
 
-                    items.push({
-                        id,
-                        image: imageUrl ? { uri: imageUrl } : require('../../assets/images/onboarding-img1.avif'),
-                        name: bt.tenBuoiTap || (bt.tenBaiTap ? bt.tenBaiTap : (lich.hoiVien?.hoTen || 'Buổi tập')),
-                        date: dateText,
-                        time: timeText || '--:--',
-                        seatsLeft: bt.soCho || bt.soLuong || 0,
-                    });
+            // userInfo có _id từ MongoDB, không phải id
+            const userId = userInfo?._id || userInfo?.id;
+            if (!userId) {
+                console.log('❌ No user ID found');
+                setUpcomingClasses([]);
+                return;
+            }
+
+            const schedules = await apiService.getMemberSchedule(userId);
+            const items = [];
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const todayStr = today.toLocaleDateString('vi-VN');
+
+            console.log('📅 [fetchUpcomingClasses] Filtering schedules for today:', todayStr);
+            console.log('📅 [fetchUpcomingClasses] Total schedules received:', schedules?.length || 0);
+
+            (schedules || []).forEach(lichTap => {
+                // ...existing code...
+                const buoiTaps = Array.isArray(lichTap.danhSachBuoiTap) ? lichTap.danhSachBuoiTap : [];
+
+                buoiTaps.forEach(buoiItem => {
+                    const ngayTap = buoiItem.ngayTap;
+                    const buoiTapInfo = buoiItem.buoiTap || {};
+                    const gioBatDau = buoiItem.gioBatDau;
+
+                    if (ngayTap && gioBatDau) {
+                        try {
+                            const buoiDate = new Date(ngayTap);
+                            buoiDate.setHours(0, 0, 0, 0);
+
+                            // Chỉ lấy lịch tập hôm nay
+                            if (buoiDate.getTime() === today.getTime()) {
+                                // Parse giờ bắt đầu tập
+                                const [hourStr, minuteStr] = gioBatDau.split(':');
+                                const startHour = parseInt(hourStr, 10);
+                                const startMinute = parseInt(minuteStr, 10) || 0;
+
+                                const now = new Date();
+                                // So sánh giờ bắt đầu tập với giờ hiện tại
+                                if (
+                                    startHour > now.getHours() ||
+                                    (startHour === now.getHours() && startMinute >= now.getMinutes())
+                                ) {
+                                    const id = buoiItem._id || `${lichTap._id}_${Math.random().toString(36).slice(2, 8)}`;
+                                    const tenBuoiTap = buoiTapInfo.tenBuoiTap || buoiItem.tenBuoiTap || 'Buổi tập';
+                                    const imageUrl = buoiTapInfo.hinhAnhMinhHoa?.[0] || buoiTapInfo.hinhAnh || null;
+                                    const timeText = gioBatDau || '';
+                                    const ptName = buoiItem.ptPhuTrach?.hoTen || 'Chưa có PT';
+
+                                    items.push({
+                                        id,
+                                        image: imageUrl ? { uri: imageUrl } : require('../../assets/images/onboarding-img1.avif'),
+                                        name: tenBuoiTap,
+                                        date: 'Hôm nay',
+                                        time: timeText || '--:--',
+                                        seatsLeft: buoiTapInfo.soLuongToiDa || 0,
+                                        timestamp: buoiDate.getTime(),
+                                        originalDate: ngayTap,
+                                        ptName: ptName,
+                                        chiNhanh: lichTap.chiNhanh?.tenChiNhanh || 'Chưa rõ'
+                                    });
+                                }
+                            }
+                        } catch (e) {
+                            console.error('❌ Error parsing date:', e);
+                        }
+                    }
                 });
             });
 
-            if (items.length === 0) {
-                (schedules || []).forEach(lich => {
-                    const id = lich._id || Math.random().toString(36).slice(2, 8);
-                    const nextDate = lich.ngayBatDau ? new Date(lich.ngayBatDau).toLocaleDateString('vi-VN') : 'Sắp tới';
-                    items.push({
-                        id,
-                        image: require('../../assets/images/onboarding-img1.avif'),
-                        name: lich.hoiVien?.hoTen || 'Lịch tập',
-                        date: nextDate,
-                        time: '--:--',
-                        seatsLeft: 0,
-                    });
-                });
-            }
+            // Sắp xếp theo thời gian nếu có
+            items.sort((a, b) => {
+                const timeA = a.time || '00:00';
+                const timeB = b.time || '00:00';
+                return timeA.localeCompare(timeB);
+            });
+
+            console.log('📅 [fetchUpcomingClasses] Today\'s schedules found:', {
+                total: items.length,
+                items: items.map(i => ({ name: i.name, time: i.time, date: i.originalDate }))
+            });
 
             setUpcomingClasses(items);
         } catch (error) {
-            console.error('Error fetching upcoming classes:', error);
+            console.error('❌ Error fetching upcoming classes:', error);
             setUpcomingClasses([]);
         } finally {
             setLoadingUpcoming(false);
@@ -493,73 +693,103 @@ const HomeScreen = () => {
     const renderUpcomingClasses = () => (
         <View style={[styles.upcomingClassesContainer, { backgroundColor: colors.surface }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>Lịch tập sắp tới</Text>
-                <TouchableOpacity>
+                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>Lịch tập hôm nay</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('WorkoutPlans')}>
                     <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
                 </TouchableOpacity>
             </View>
-            {upcomingClasses.map(cls => (
-                <View key={cls.id} style={[styles.classCard, { backgroundColor: colors.card, padding: 18, position: 'relative' }]}>
-                    <Image source={cls.image} style={[styles.classImage, { width: 120, height: 120 }]} />
-                    <View style={styles.classInfo}>
-                        <Text style={[styles.className, { color: colors.text, fontSize: 21 }]}>{cls.name}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                            <MaterialIcons name="calendar-today" size={16} color={colors.textSecondary} />
-                            <Text style={[styles.classMeta, { color: colors.textSecondary, marginLeft: 6, fontSize: 16 }]}>{cls.date === 'Tomorrow' ? 'Ngày mai' : cls.date}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                            <MaterialIcons name="schedule" size={16} color={colors.textSecondary} />
-                            <Text style={[styles.classMeta, { color: colors.textSecondary, marginLeft: 6, fontSize: 16 }]}>{cls.time}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                            <MaterialIcons name="event-seat" size={16} color={colors.textSecondary} />
-                            <Text style={[styles.classMeta, { color: colors.textSecondary, marginLeft: 6, fontSize: 16 }]}>{cls.seatsLeft} chỗ còn lại</Text>
-                        </View>
-                    </View>
-                    {/* Arrow right icon for each item */}
-                    <TouchableOpacity style={{
-                        position: 'absolute',
-                        right: 12,
-                        top: 12,
-                        backgroundColor: 'transparent',
-                        padding: 6,
-                        zIndex: 2,
-                    }}>
-                        <Ionicons name="chevron-forward-outline" size={22} color={colors.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={{
-                        position: 'absolute',
-                        right: 12,
-                        bottom: 12,
-                        ...styles.classBookmark,
-                        padding: 6
-                    }}>
-                        <MaterialIcons name="bookmark-outline" size={22} color={'#ffffff'} />
-                    </TouchableOpacity>
+            {loadingUpcoming ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: colors.textSecondary }}>Đang tải...</Text>
                 </View>
-            ))}
+            ) : upcomingClasses.length === 0 ? (
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 10, minHeight: 60 }}>
+                    <Text style={{ color: colors.textSecondary, fontSize: 15, textAlign: 'center' }}>
+                        Lịch tập hôm nay sẽ xuất hiện tại đây
+                    </Text>
+                </View>
+            ) : (
+                upcomingClasses.map(cls => (
+                    <View key={cls.id} style={[styles.classCard, { backgroundColor: colors.card, padding: 18, position: 'relative', marginBottom: 12 }]}>
+                        <Image source={cls.image} style={[styles.classImage, { width: 120, height: 120 }]} />
+                        <View style={styles.classInfo}>
+                            <Text style={[styles.className, { color: colors.text, fontSize: 21 }]}>{cls.name}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                                <MaterialIcons name="calendar-today" size={16} color={colors.textSecondary} />
+                                <Text style={[styles.classMeta, { color: colors.textSecondary, marginLeft: 6, fontSize: 16 }]}>{cls.date}</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                                <MaterialIcons name="schedule" size={16} color={colors.textSecondary} />
+                                <Text style={[styles.classMeta, { color: colors.textSecondary, marginLeft: 6, fontSize: 16 }]}>{cls.time}</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                                <MaterialIcons name="event-seat" size={16} color={colors.textSecondary} />
+                                <Text style={[styles.classMeta, { color: colors.textSecondary, marginLeft: 6, fontSize: 16 }]}>{cls.seatsLeft} chỗ còn lại</Text>
+                            </View>
+                        </View>
+                        {/* Arrow right icon for each item */}
+                        <TouchableOpacity style={{
+                            position: 'absolute',
+                            right: 12,
+                            top: 12,
+                            backgroundColor: 'transparent',
+                            padding: 6,
+                            zIndex: 2,
+                        }}>
+                            <Ionicons name="chevron-forward-outline" size={22} color={colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={{
+                            position: 'absolute',
+                            right: 12,
+                            bottom: 12,
+                            ...styles.classBookmark,
+                            padding: 6
+                        }}>
+                            <MaterialIcons name="bookmark-outline" size={22} color={'#ffffff'} />
+                        </TouchableOpacity>
+                    </View>
+                ))
+            )}
         </View>
     );
 
-    const fetchHealthyMeals = async () => {
+    const fetchHealthyMeals = async (mealType = null) => {
         try {
             setLoadingMeals(true);
-            const response = await apiService.getHealthyMeals(10);
+            const response = await apiService.getHealthyMeals(10, mealType);
 
             console.log('📊 API Response:', {
                 success: response.success,
                 dataLength: response.data?.length,
                 total: response.total,
-                buaAn: response.buaAn,
-                currentTime: response.currentTime
+                mealTypeRequested: mealType
             });
 
             if (response.success && response.data) {
-                console.log('🍽️ Số món ăn nhận được:', response.data.length);
-                console.log('📋 Danh sách món:', response.data.map(m => m.tenMonAn));
-                console.log('⏰ Bữa ăn hiện tại:', response.buaAn);
-                setHealthyMeals(response.data);
-                setCurrentMealType(response.buaAn || '');
+                // Map dữ liệu từ Meal model sang format cũ để UI không bị lỗi
+                const mappedMeals = response.data.map(meal => ({
+                    id: meal._id,
+                    tenMonAn: meal.name,
+                    moTa: meal.description,
+                    hinhAnh: meal.image,
+                    loaiMonAn: meal.mealType,
+                    thongTinDinhDuong: {
+                        calories: meal.nutrition?.caloriesKcal || 0,
+                        protein: meal.nutrition?.proteinGrams || 0,
+                        carbohydrate: meal.nutrition?.carbsGrams || 0,
+                        fat: meal.nutrition?.fatGrams || 0,
+                        fiber: meal.nutrition?.fiberGrams || 0
+                    },
+                    danhGia: meal.rating,
+                    mucDoKho: meal.difficulty,
+                    thoiGianNau: meal.cookingTimeMinutes,
+                    buaAn: mealType
+                }));
+
+                console.log('🍽️ Số món ăn nhận được:', mappedMeals.length);
+                console.log('📋 Danh sách món:', mappedMeals.map(m => m.tenMonAn));
+                setHealthyMeals(mappedMeals);
+                setCurrentMealType(mealType || '');
             }
         } catch (error) {
             console.error('Error fetching healthy meals:', error);
@@ -589,63 +819,89 @@ const HomeScreen = () => {
         }
     };
 
-    const renderHealthyMeals = () => (
-        <View style={[styles.healthyMealsContainer, { backgroundColor: colors.surface }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 15 }}>
-                <View style={{ flex: 1 }}>
-                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, marginBottom: 0 }]}>
-                        {currentMealType ? getMealTypeName(currentMealType) : 'Bữa ăn lành mạnh'}
-                    </Text>
-                    {currentMealType && (
+    const renderHealthyMeals = () => {
+        // Lấy tên buổi ăn từ món ăn đầu tiên nếu có
+        const displayMealType = healthyMeals.length > 0 && healthyMeals[0].loaiMonAn
+            ? getMealTypeName(healthyMeals[0].loaiMonAn)
+            : 'Bữa ăn';
+
+        return (
+            <View style={[styles.healthyMealsContainer, { backgroundColor: colors.surface }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 15 }}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, marginBottom: 0 }]}>
+                            {displayMealType}
+                        </Text>
                         <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 4 }}>
                             Gợi ý cho bạn
                         </Text>
-                    )}
+                    </View>
+                    <TouchableOpacity
+                        style={{ paddingTop: 2 }}
+                        onPress={() => navigation.navigate('Nutrition')}
+                    >
+                        <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
+                    </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={{ paddingTop: 2 }}>
-                    <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
-                </TouchableOpacity>
-            </View>
-            {loadingMeals ? (
-                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                    <Text style={{ color: colors.textSecondary }}>Đang tải...</Text>
-                </View>
-            ) : healthyMeals.length === 0 ? (
-                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                    <Text style={{ color: colors.textSecondary }}>Chưa có bữa ăn nào</Text>
-                </View>
-            ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {healthyMeals.map(meal => (
-                        <View key={meal.id} style={[styles.mealCard, { backgroundColor: colors.card, position: 'relative', height: 250 }]}>
-                            <Image
-                                source={{ uri: meal.hinhAnh || 'https://via.placeholder.com/170x120' }}
-                                style={[styles.mealImage, { height: 120 }]}
-                            />
-                            <Text style={[styles.mealName, { color: colors.text }]} numberOfLines={2}>
-                                {meal.tenMonAn}
-                            </Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                                <Text style={[styles.mealCalories, { color: colors.textSecondary }]}>
-                                    {meal.thongTinDinhDuong?.calories || 0} kcal
+
+                {loadingMeals ? (
+                    <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                        <Text style={{ color: colors.textSecondary }}>Đang tải...</Text>
+                    </View>
+                ) : healthyMeals.length === 0 ? (
+                    <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                        <MaterialIcons name="restaurant" size={48} color={colors.textSecondary} style={{ marginBottom: 12 }} />
+                        <Text style={{ color: colors.textSecondary, fontSize: 16 }}>Chưa có bữa ăn nào</Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 4 }}>Vui lòng thử lại sau</Text>
+                    </View>
+                ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        {healthyMeals.map(meal => (
+                            <TouchableOpacity
+                                key={meal.id}
+                                style={[styles.mealCard, { backgroundColor: colors.card, position: 'relative', height: 250 }]}
+                                onPress={() => {
+                                    console.log('Meal clicked:', meal);
+                                }}
+                            >
+                                <Image
+                                    source={{ uri: meal.hinhAnh || 'https://via.placeholder.com/170x120' }}
+                                    style={[styles.mealImage, { height: 120 }]}
+                                />
+                                <Text style={[styles.mealName, { color: colors.text }]} numberOfLines={2}>
+                                    {meal.tenMonAn}
                                 </Text>
-                            </View>
-                            <TouchableOpacity style={{
-                                position: 'absolute',
-                                right: 12,
-                                bottom: 12,
-                                borderRadius: 20,
-                                backgroundColor: '#da2128',
-                                padding: 6,
-                            }}>
-                                <MaterialIcons name="bookmark-outline" size={22} color={'#ffffff'} />
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                                    <MaterialIcons name="local-fire-department" size={16} color="#ff6b6b" />
+                                    <Text style={[styles.mealCalories, { color: colors.textSecondary, marginLeft: 4 }]}>
+                                        {meal.thongTinDinhDuong?.calories || 0} kcal
+                                    </Text>
+                                </View>
+                                {meal.danhGia && (
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                                        <MaterialIcons name="star" size={14} color="#ffc107" />
+                                        <Text style={{ color: colors.textSecondary, fontSize: 12, marginLeft: 4 }}>
+                                            {meal.danhGia.toFixed(1)}
+                                        </Text>
+                                    </View>
+                                )}
+                                <TouchableOpacity style={{
+                                    position: 'absolute',
+                                    right: 12,
+                                    bottom: 12,
+                                    borderRadius: 20,
+                                    backgroundColor: '#da2128',
+                                    padding: 6,
+                                }}>
+                                    <MaterialIcons name="bookmark-outline" size={22} color={'#ffffff'} />
+                                </TouchableOpacity>
                             </TouchableOpacity>
-                        </View>
-                    ))}
-                </ScrollView>
-            )}
-        </View>
-    );
+                        ))}
+                    </ScrollView>
+                )}
+            </View>
+        );
+    };
 
     const renderExercises = () => (
         <View style={[styles.exercisesContainer, { backgroundColor: colors.surface }]}>
@@ -759,7 +1015,7 @@ const HomeScreen = () => {
                 <FlatList
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    data={PTData.slice(0, 5)}
+                    data={PTData && Array.isArray(PTData) ? PTData.slice(0, 5) : []}
                     renderItem={({ item: coach }) => (
                         <View key={coach._id} style={[styles.coachCard, { backgroundColor: 'transparent', height: 190, padding: 0, marginRight: 20 }]}>
                             {coach.anhDaiDien ? (
@@ -828,34 +1084,35 @@ const HomeScreen = () => {
         );
     };
 
-    const fetchMembershipTimeRemaining = async () => {
-        try {
-            const userId = userInfo?._id || userInfo?.id || userInfo?.userId;
-            if (!userId) {
-                console.error('Không tìm thấy userId, không thể lấy thời gian còn lại.');
-                return;
-            }
-            const response = await apiService.apiCall(`/hanghoivien/thoi-gian-con-lai/${userId}`, 'GET');
-            const timeRemaining = (response && response.data && response.data.data && typeof response.data.data.timeRemaining === 'number')
-                ? response.data.data.timeRemaining
-                : (response && response.data && typeof response.data.timeRemaining === 'number'
-                    ? response.data.timeRemaining
-                    : (response && typeof response.timeRemaining === 'number' ? response.timeRemaining : 0));
+    // Không cần hàm này nữa, số ngày còn lại đã được tính từ ngayKetThuc - ngayHienTai
+    // const fetchMembershipTimeRemaining = async () => {
+    //     try {
+    //         const userId = userInfo?._id || userInfo?.id || userInfo?.userId;
+    //         if (!userId) {
+    //             console.error('Không tìm thấy userId, không thể lấy thời gian còn lại.');
+    //             return;
+    //         }
+    //         const response = await apiService.apiCall(`/hanghoivien/thoi-gian-con-lai/${userId}`, 'GET');
+    //         const timeRemaining = (response && response.data && response.data.data && typeof response.data.data.timeRemaining === 'number')
+    //             ? response.data.data.timeRemaining
+    //             : (response && response.data && typeof response.data.timeRemaining === 'number'
+    //                 ? response.data.timeRemaining
+    //                 : (response && typeof response.timeRemaining === 'number' ? response.timeRemaining : 0));
 
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth() + 1;
-            const daysInMonth = new Date(year, month, 0).getDate();
+    //         const now = new Date();
+    //         const year = now.getFullYear();
+    //         const month = now.getMonth() + 1;
+    //         const daysInMonth = new Date(year, month, 0).getDate();
 
-            setMemberData(prev => ({
-                ...prev,
-                membershipDaysLeft: Math.max(0, Number(timeRemaining) || 0),
-                membershipTotalDays: daysInMonth
-            }));
-        } catch (error) {
-            console.error('Lỗi khi lấy thời gian còn lại của hạng hội viên:', error);
-        }
-    };
+    //         setMemberData(prev => ({
+    //             ...prev,
+    //             membershipDaysLeft: Math.max(0, Number(timeRemaining) || 0),
+    //             membershipTotalDays: daysInMonth
+    //         }));
+    //     } catch (error) {
+    //         console.error('Lỗi khi lấy thời gian còn lại của hạng hội viên:', error);
+    //     }
+    // };
 
     return (
         <>
@@ -883,8 +1140,6 @@ const HomeScreen = () => {
                     }
                 >
                     {renderCoachingBanner()}
-
-                    {renderMembershipStatus()}
 
                     {renderExercises()}
 

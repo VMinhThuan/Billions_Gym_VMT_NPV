@@ -48,7 +48,7 @@ class ApiService {
             }
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000);
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // Giảm từ 30s xuống 15s
 
             const response = await fetch(`${API_URL}${endpoint}`, {
                 ...config,
@@ -172,9 +172,10 @@ class ApiService {
 
     async getAllPT() {
         try {
-            const result = await this.apiCall('/user/pt');
+            const result = await this.apiCall('/pt/list', 'GET', null, false);
             return Array.isArray(result) ? result : [];
         } catch (error) {
+            console.error('Error fetching PT list:', error);
             return [];
         }
     }
@@ -249,6 +250,19 @@ class ApiService {
             return Array.isArray(result) ? result : [];
         } catch (error) {
             console.error('Error fetching all workout schedules:', error.message || error);
+            return [];
+        }
+    }
+
+    async getMemberSchedule(hoiVienId) {
+        try {
+            const result = await this.apiCall(`/lichtap/member/${hoiVienId}`);
+            if (result && result.data) {
+                return result.data;
+            }
+            return [];
+        } catch (error) {
+            console.error('Error fetching member schedule:', error.message || error);
             return [];
         }
     }
@@ -386,25 +400,26 @@ class ApiService {
         return this.apiCall(`/dinhduong/goi-y/${suggestionId}/phan-hoi`, 'PUT', data);
     }
 
-    // Thực đơn APIs
-    async getHealthyMeals(limit = 10) {
-        const token = await this.getAuthToken();
-        let hoiVienId = null;
+    // Nutrition Meals APIs - Lấy món ăn từ Nutrition
+    async getHealthyMeals(limit = 10, mealType = null) {
+        const queryParams = new URLSearchParams();
 
-        if (token) {
-            try {
-                const payload = JSON.parse(atob(token.split('.')[1]));
-                hoiVienId = payload.id;
-            } catch (error) {
-                console.error('Error parsing token:', error);
-            }
+        // Map mealType từ format cũ sang format mới của Meal model
+        // SANG -> 'Bữa sáng', TRUA -> 'Bữa trưa', CHIEU -> 'Ăn nhẹ', TOI -> 'Bữa tối'
+        if (mealType) {
+            const mealTypeMap = {
+                'SANG': 'Bữa sáng',
+                'TRUA': 'Bữa trưa',
+                'CHIEU': 'Ăn nhẹ',
+                'TOI': 'Bữa tối'
+            };
+            queryParams.append('mealType', mealTypeMap[mealType] || mealType);
         }
 
-        const queryParams = new URLSearchParams();
-        if (hoiVienId) queryParams.append('hoiVienId', hoiVienId);
         queryParams.append('limit', limit);
+        queryParams.append('skip', 0);
 
-        return this.apiCall(`/thucdon/healthy-meals?${queryParams.toString()}`, 'GET', null, false);
+        return this.apiCall(`/nutrition/meals?${queryParams.toString()}`, 'GET', null, true);
     }
 
     // Membership APIs
@@ -412,14 +427,11 @@ class ApiService {
         const token = await this.getAuthToken();
         if (!token) throw new Error('No auth token');
 
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const userId = payload.id;
-
-        // Get all membership details and filter by current user
-        const allMemberships = await this.apiCall('/user/chitietgoitap');
-        return allMemberships.filter(membership =>
-            membership.maHoiVien && membership.maHoiVien._id === userId
-        );
+        // Backend đã filter theo userId, không cần filter ở frontend
+        console.log('📞 Calling /user/chitietgoitap API...');
+        const memberships = await this.apiCall('/user/chitietgoitap');
+        console.log('📞 API returned memberships:', memberships);
+        return memberships;
     }
 
     async createMembershipRegistration(data) {
@@ -481,25 +493,30 @@ class ApiService {
 
     // Exercises APIs
     async getAllBaiTap() {
-        try {
-            try {
-                const result = await this.apiCall('/baitap');
-                if (Array.isArray(result) && result.length) return result;
-            } catch (authErr) {
-                console.error('getAllBaiTap - authenticated fetch failed:', authErr && authErr.message ? authErr.message : authErr);
-            }
+        const maxRetries = 3;
+        let lastError = null;
 
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
-                const publicResult = await this.apiCall('/baitap', 'GET', null, false);
-                return Array.isArray(publicResult) ? publicResult : [];
-            } catch (publicErr) {
-                console.error('getAllBaiTap - unauthenticated fetch failed:', publicErr && publicErr.message ? publicErr.message : publicErr);
-                return [];
+                console.log(`🔄 Fetching exercises (attempt ${attempt + 1}/${maxRetries})...`);
+                const result = await this.apiCall('/baitap', 'GET', null, false);
+                console.log(`✅ Exercises fetched successfully:`, result?.length || 0);
+                return Array.isArray(result) ? result : [];
+            } catch (error) {
+                console.error(`❌ Attempt ${attempt + 1} failed:`, error.message);
+                lastError = error;
+
+                // Đợi trước khi retry (exponential backoff)
+                if (attempt < maxRetries - 1) {
+                    const waitTime = Math.min(1000 * Math.pow(2, attempt), 5000);
+                    console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
             }
-        } catch (error) {
-            console.error('Error fetching exercises:', error);
-            return [];
         }
+
+        console.error('❌ All attempts failed:', lastError?.message);
+        return [];
     }
 
     async getBaiTapById(id) {
@@ -580,7 +597,7 @@ class ApiService {
     }
 
     async getAllPT() {
-        return this.apiCall('/user/pt');
+        return this.apiCall('/pt/list', 'GET', null, false);
     }
 
     async getAllPayments() {
