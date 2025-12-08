@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const ptController = require('../controllers/pt.controller');
+const ptTemplatesController = require('../controllers/pt-templates.controller');
+const ptCheckinController = require('../controllers/pt-checkin.controller');
 const auth = require('../middlewares/auth.middleware');
 const authorize = require('../middlewares/role.middleware');
 
@@ -16,6 +18,16 @@ router.get('/dashboard', ptController.getPTDashboard);
 
 // Buổi tập
 router.get('/sessions', ptController.getMySessions);
+
+// Lịch sử làm việc/check-in của PT
+router.get('/work-history', ptCheckinController.getCheckInHistory);
+
+// Template buổi tập (CRUD)
+router.get('/templates', ptTemplatesController.getTemplates);
+router.get('/templates/:id', ptTemplatesController.getTemplateById);
+router.post('/templates', ptTemplatesController.createTemplate);
+router.put('/templates/:id', ptTemplatesController.updateTemplate);
+router.delete('/templates/:id', ptTemplatesController.deleteTemplate);
 
 // Học viên
 router.get('/students', ptController.getMyStudents);

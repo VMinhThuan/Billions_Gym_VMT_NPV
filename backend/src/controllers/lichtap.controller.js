@@ -665,6 +665,8 @@ exports.getAvailableSessionsThisWeek = async (req, res) => {
 
         let chiNhanhId = null;
         let goiTapId = null;
+        const chiNhanhIdFromQuery = req.query?.chiNhanhId || req.query?.branchId;
+        const goiTapIdFromQuery = req.query?.goiTapId;
 
         if (lichTap && lichTap.chiNhanh) {
             chiNhanhId = lichTap.chiNhanh._id;
@@ -754,6 +756,18 @@ exports.getAvailableSessionsThisWeek = async (req, res) => {
                     });
                 }
             }
+        }
+
+        // Cho phép override chi nhánh/gói từ query (case: user chọn chi nhánh khác)
+        if (chiNhanhIdFromQuery) {
+            chiNhanhId = chiNhanhIdFromQuery;
+            if (goiTapIdFromQuery) {
+                goiTapId = goiTapIdFromQuery;
+            }
+            console.log('🔀 [available-sessions-this-week] Override chi nhánh từ query:', {
+                chiNhanhId,
+                goiTapId
+            });
         }
 
         if (!chiNhanhId) {

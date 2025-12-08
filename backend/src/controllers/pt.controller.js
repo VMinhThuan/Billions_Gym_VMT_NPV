@@ -455,15 +455,16 @@ exports.getMyStudents = async (req, res) => {
     }
 };
 
-// Lấy chi tiết học viên
+// Lấy chi tiết học viên - MỞ RỘNG với đầy đủ thông tin
 exports.getStudentDetail = async (req, res) => {
     try {
         const ptId = req.user.id;
+        const ptObjectId = mongoose.Types.ObjectId.isValid(ptId) ? new mongoose.Types.ObjectId(ptId) : ptId;
         const { hoiVienId } = req.params;
 
         // Kiểm tra học viên có trong danh sách của PT không
         const buoiTap = await BuoiTap.findOne({
-            ptPhuTrach: ptId,
+            ptPhuTrach: ptObjectId,
             'danhSachHoiVien.hoiVien': hoiVienId
         });
 
@@ -474,32 +475,224 @@ exports.getStudentDetail = async (req, res) => {
             });
         }
 
-        // Lấy thông tin học viên
+        // Lấy thông tin học viên đầy đủ
         const hoiVien = await HoiVien.findById(hoiVienId)
             .select('hoTen sdt email anhDaiDien ngaySinh gioiTinh diaChi ngayThamGia hangHoiVien')
-            .populate('hangHoiVien', 'tenHang');
+            .populate('hangHoiVien', 'tenHang')
+            .lean();
 
         if (!hoiVien) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy học viên' });
         }
 
-        // Lấy chỉ số cơ thể (mới nhất)
+        // Tính tuổi
+        let tuoi = null;
+        if (hoiVien.ngaySinh) {
+            const birthDate = new Date(hoiVien.ngaySinh);
+            const today = new Date();
+            tuoi = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                tuoi--;
+            }
+        }
+
+        // 1. Lấy chỉ số cơ thể (tất cả để vẽ biểu đồ)
         const chiSoCoThe = await ChiSoCoThe.find({ hoiVien: hoiVienId })
             .sort({ ngayDo: -1 })
-            .limit(10);
+            .limit(30)
+            .lean();
 
-        // Lấy lịch sử tập
+        // 2. Lấy gói tập đang hoạt động
+        const ChiTietGoiTap = require('../models/ChiTietGoiTap');
+        const goiTap = await ChiTietGoiTap.findOne({
+            hoiVien: hoiVienId,
+            trangThai: 'DANG_HOAT_DONG'
+        })
+            .populate('goiTap', 'tenGoi soBuoi giaTien')
+            .lean();
+
+        // 3. Lấy buổi tập sắp tới
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const buoiTapSapToi = await BuoiTap.find({
+            ptPhuTrach: ptObjectId,
+            ngayTap: { $gte: today },
+            'danhSachHoiVien.hoiVien': hoiVienId
+        })
+            .select('tenBuoiTap ngayTap gioBatDau gioKetThuc chiNhanh soLuongHienTai soLuongToiDa')
+            .populate('chiNhanh', 'tenChiNhanh')
+            .sort({ ngayTap: 1, gioBatDau: 1 })
+            .limit(10)
+            .lean();
+
+        // 4. Thống kê buổi tập
+        const [tongBuoiTap, buoiTapHoanThanh, buoiTapHuy] = await Promise.all([
+            BuoiTap.countDocuments({
+                ptPhuTrach: ptObjectId,
+                'danhSachHoiVien.hoiVien': hoiVienId
+            }),
+            BuoiTap.countDocuments({
+                ptPhuTrach: ptObjectId,
+                'danhSachHoiVien.hoiVien': hoiVienId,
+                'danhSachHoiVien.trangThai': 'DA_THAM_GIA',
+                trangThai: 'HOAN_THANH'
+            }),
+            BuoiTap.countDocuments({
+                ptPhuTrach: ptObjectId,
+                'danhSachHoiVien.hoiVien': hoiVienId,
+                trangThai: 'HUY'
+            })
+        ]);
+
+        // 5. Lấy lịch sử tập chi tiết
         const lichSuTap = await LichSuTap.find({ hoiVien: hoiVienId })
-            .populate('buoiTap', 'tenBuoiTap ngayTap gioBatDau gioKetThuc')
+            .populate({
+                path: 'buoiTap',
+                select: 'tenBuoiTap ngayTap gioBatDau gioKetThuc trangThai ptPhuTrach',
+                populate: { path: 'ptPhuTrach', select: 'hoTen' }
+            })
             .sort({ ngayTap: -1 })
-            .limit(20);
+            .limit(50)
+            .lean();
+
+        // 5b. Lấy lịch sử buổi tập mà PT này phụ trách (dựa trên BuoiTap) để hiển thị check-in của hội viên với PT
+        const lichSuBuoiTapPT = await BuoiTap.find({
+            ptPhuTrach: ptObjectId,
+            'danhSachHoiVien.hoiVien': hoiVienId,
+            trangThai: { $ne: 'HUY' }
+        })
+            .select('tenBuoiTap ngayTap gioBatDau gioKetThuc chiNhanh trangThai danhSachHoiVien ptPhuTrach')
+            .populate('chiNhanh', 'tenChiNhanh')
+            .populate('ptPhuTrach', 'hoTen')
+            .sort({ ngayTap: -1, gioBatDau: -1 })
+            .limit(50)
+            .lean();
+
+        // Map calo từ TemplateBuoiTap theo tên buổi
+        const templates = await require('../models/TemplateBuoiTap').find({})
+            .select('ten caloTieuHao')
+            .lean();
+        const templateMap = new Map(templates.map(t => [t.ten.toLowerCase(), t.caloTieuHao]));
+
+        // 6. Lấy ghi chú của PT
+        const notes = await PTNote.find({
+            pt: ptId,
+            hoiVien: hoiVienId
+        })
+            .sort({ ngayTao: -1 })
+            .limit(50)
+            .lean();
+
+        // 7. Lấy bài tập đã gán
+        const exercises = await PTAssignment.find({
+            pt: ptId,
+            hoiVien: hoiVienId
+        })
+            .populate('baiTap', 'tenBaiTap moTa videoUrl hinhAnh')
+            .sort({ ngayGan: -1 })
+            .limit(50)
+            .lean();
+
+        // 8. Lấy buổi tập gần đây (đã hoàn thành)
+        const buoiTapGanDay = await BuoiTap.find({
+            ptPhuTrach: ptObjectId,
+            'danhSachHoiVien.hoiVien': hoiVienId,
+            trangThai: 'HOAN_THANH'
+        })
+            .select('tenBuoiTap ngayTap gioBatDau gioKetThuc')
+            .sort({ ngayTap: -1 })
+            .limit(10)
+            .lean();
 
         res.json({
             success: true,
             data: {
-                hoiVien,
+                hoiVien: {
+                    ...hoiVien,
+                    tuoi: tuoi
+                },
                 chiSoCoThe,
-                lichSuTap
+                goiTap: goiTap ? {
+                    tenGoi: goiTap.goiTap?.tenGoi || 'PT Package',
+                    soBuoi: goiTap.goiTap?.soBuoi || 0,
+                    soBuoiDaDung: goiTap.soBuoiDaDung || 0,
+                    soBuoiConLai: goiTap.soBuoiConLai || 0,
+                    ngayBatDau: goiTap.ngayBatDau,
+                    ngayKetThuc: goiTap.ngayKetThuc,
+                    giaTien: goiTap.goiTap?.giaTien || 0,
+                    tyLeHoanThanh: goiTap.goiTap?.soBuoi > 0
+                        ? Math.round((goiTap.soBuoiDaDung / goiTap.goiTap.soBuoi) * 100)
+                        : 0
+                } : null,
+                buoiTapSapToi: buoiTapSapToi.map(bt => ({
+                    _id: bt._id,
+                    tenBuoiTap: bt.tenBuoiTap,
+                    ngayTap: bt.ngayTap,
+                    gioBatDau: bt.gioBatDau,
+                    gioKetThuc: bt.gioKetThuc,
+                    chiNhanh: bt.chiNhanh?.tenChiNhanh || 'Chưa có',
+                    soLuongHienTai: bt.soLuongHienTai || 0,
+                    soLuongToiDa: bt.soLuongToiDa || 0
+                })),
+                thongKe: {
+                    tongBuoiTap,
+                    buoiTapHoanThanh,
+                    buoiTapHuy,
+                    tyLeHoanThanh: tongBuoiTap > 0
+                        ? Math.round((buoiTapHoanThanh / tongBuoiTap) * 100)
+                        : 0
+                },
+                lichSuTap: lichSuTap.map(ls => ({
+                    _id: ls._id,
+                    ngayTap: ls.ngayTap,
+                    buoiTap: ls.buoiTap ? {
+                        _id: ls.buoiTap._id,
+                        tenBuoiTap: ls.buoiTap.tenBuoiTap,
+                        ngayTap: ls.buoiTap.ngayTap,
+                        gioBatDau: ls.buoiTap.gioBatDau,
+                        gioKetThuc: ls.buoiTap.gioKetThuc,
+                        trangThai: ls.buoiTap.trangThai,
+                        ptPhuTrach: ls.buoiTap.ptPhuTrach ? { hoTen: ls.buoiTap.ptPhuTrach.hoTen } : null
+                    } : null,
+                    caloTieuHao: ls.caloTieuHao || templateMap.get((ls.buoiTap?.tenBuoiTap || '').toLowerCase()) || null
+                })),
+                lichSuBuoiTapPT: lichSuBuoiTapPT.map(bt => ({
+                    _id: bt._id,
+                    tenBuoiTap: bt.tenBuoiTap,
+                    ngayTap: bt.ngayTap,
+                    gioBatDau: bt.gioBatDau,
+                    gioKetThuc: bt.gioKetThuc,
+                    chiNhanh: bt.chiNhanh?.tenChiNhanh || 'Chưa có',
+                    trangThai: bt.trangThai,
+                    ptPhuTrach: bt.ptPhuTrach ? { hoTen: bt.ptPhuTrach.hoTen } : null,
+                    caloTieuHao: bt.caloTieuHao || templateMap.get((bt.tenBuoiTap || '').toLowerCase()) || null,
+                    trangThaiHocVien: (() => {
+                        const hv = bt.danhSachHoiVien?.find(m => m.hoiVien?.toString() === hoiVienId.toString());
+                        return hv?.trangThai || null;
+                    })()
+                })),
+                notes: notes.map(note => ({
+                    _id: note._id,
+                    noiDung: note.noiDung,
+                    ngayTao: note.ngayTao,
+                    ngayCapNhat: note.ngayCapNhat
+                })),
+                exercises: exercises.map(ex => ({
+                    _id: ex._id,
+                    baiTap: ex.baiTap,
+                    trangThai: ex.trangThai,
+                    ngayGan: ex.ngayGan,
+                    hanHoanThanh: ex.hanHoanThanh,
+                    ghiChu: ex.ghiChu
+                })),
+                buoiTapGanDay: buoiTapGanDay.map(bt => ({
+                    _id: bt._id,
+                    tenBuoiTap: bt.tenBuoiTap,
+                    ngayTap: bt.ngayTap,
+                    gioBatDau: bt.gioBatDau,
+                    gioKetThuc: bt.gioKetThuc
+                }))
             }
         });
     } catch (err) {

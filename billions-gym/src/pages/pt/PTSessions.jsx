@@ -22,6 +22,8 @@ const PTSessions = () => {
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDate, setSelectedDate] = useState('all'); // 'all', 'today', 'week', 'month'
+    const [sortBy, setSortBy] = useState('date_desc'); // date_desc, date_asc, name, status
+    const [showDetailModal, setShowDetailModal] = useState(false);
 
     useEffect(() => {
         const handleSidebarToggle = (event) => {
@@ -33,12 +35,48 @@ const PTSessions = () => {
 
     useEffect(() => {
         loadSessions();
-    }, [filter]);
+    }, [filter, selectedDate]);
 
     const loadSessions = async () => {
         try {
             setLoading(true);
-            const response = await ptService.getMySessions(filter);
+            // Build date filter for API
+            const now = new Date();
+            let ngayBatDau = null;
+            let ngayKetThuc = null;
+            if (selectedDate === 'today') {
+                const start = new Date(now);
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(now);
+                end.setHours(23, 59, 59, 999);
+                ngayBatDau = start.toISOString();
+                ngayKetThuc = end.toISOString();
+            } else if (selectedDate === 'week') {
+                const start = new Date(now);
+                const day = start.getDay(); // 0 Sun
+                const diffToMon = day === 0 ? 6 : day - 1;
+                start.setDate(start.getDate() - diffToMon);
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(start);
+                end.setDate(start.getDate() + 7);
+                end.setHours(23, 59, 59, 999);
+                ngayBatDau = start.toISOString();
+                ngayKetThuc = end.toISOString();
+            } else if (selectedDate === 'month') {
+                const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                start.setHours(0, 0, 0, 0);
+                end.setHours(23, 59, 59, 999);
+                ngayBatDau = start.toISOString();
+                ngayKetThuc = end.toISOString();
+            }
+
+            const response = await ptService.getMySessions({
+                trangThai: filter.trangThai,
+                ngayBatDau,
+                ngayKetThuc,
+                limit: 500
+            });
             if (response.success) {
                 setSessions(response.data.buoiTaps || []);
             }
@@ -65,36 +103,49 @@ const PTSessions = () => {
     };
 
     // Calculate statistics
-    const stats = {
-        total: sessions.length,
-        upcoming: sessions.filter(s => s.trangThai === 'CHUAN_BI').length,
-        ongoing: sessions.filter(s => s.trangThai === 'DANG_DIEN_RA').length,
-        completed: sessions.filter(s => s.trangThai === 'HOAN_THANH').length,
-        totalMembers: sessions.reduce((sum, s) => sum + (s.soLuongHienTai || 0), 0),
-        avgAttendance: sessions.length > 0
-            ? Math.round(sessions.reduce((sum, s) => sum + ((s.soLuongHienTai / s.soLuongToiDa) * 100), 0) / sessions.length)
-            : 0
-    };
+    const stats = (() => {
+        const now = new Date();
+        const total = sessions.length;
+        const upcoming = sessions.filter(s => {
+            const d = new Date(s.ngayTap);
+            return s.trangThai === 'CHUAN_BI' || d > now;
+        }).length;
+        const ongoing = sessions.filter(s => s.trangThai === 'DANG_DIEN_RA').length;
+        const completed = sessions.filter(s => s.trangThai === 'HOAN_THANH').length;
+        const totalMembers = sessions.reduce((sum, s) => {
+            const cnt = s.soLuongHienTai ?? (s.danhSachHoiVien?.length || 0);
+            return sum + cnt;
+        }, 0);
+        const avgAttendance = total > 0
+            ? Math.round(
+                sessions.reduce((sum, s) => {
+                    const current = s.soLuongHienTai ?? (s.danhSachHoiVien?.length || 0);
+                    const max = s.soLuongToiDa || 1;
+                    return sum + Math.min((current / max) * 100, 100);
+                }, 0) / total
+            )
+            : 0;
+        return { total, upcoming, ongoing, completed, totalMembers, avgAttendance };
+    })();
 
-    // Filter sessions based on search and date
+    // Filter sessions based on search and date on client (fallback)
     const filteredSessions = sessions.filter(session => {
         const matchesSearch = session.tenBuoiTap?.toLowerCase().includes(searchQuery.toLowerCase());
-
-        let matchesDate = true;
-        const sessionDate = new Date(session.ngayTap);
-        const today = new Date();
-
-        if (selectedDate === 'today') {
-            matchesDate = sessionDate.toDateString() === today.toDateString();
-        } else if (selectedDate === 'week') {
-            const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-            matchesDate = sessionDate >= today && sessionDate <= weekFromNow;
-        } else if (selectedDate === 'month') {
-            matchesDate = sessionDate.getMonth() === today.getMonth() &&
-                sessionDate.getFullYear() === today.getFullYear();
+        return matchesSearch;
+    }).sort((a, b) => {
+        if (sortBy === 'date_asc') {
+            return new Date(a.ngayTap) - new Date(b.ngayTap);
         }
-
-        return matchesSearch && matchesDate;
+        if (sortBy === 'date_desc') {
+            return new Date(b.ngayTap) - new Date(a.ngayTap);
+        }
+        if (sortBy === 'name') {
+            return (a.tenBuoiTap || '').localeCompare(b.tenBuoiTap || '');
+        }
+        if (sortBy === 'status') {
+            return (a.trangThai || '').localeCompare(b.trangThai || '');
+        }
+        return 0;
     });
 
     const getStatusBadge = (status) => {
@@ -115,6 +166,97 @@ const PTSessions = () => {
             'HUY': { bg: 'bg-red-500/10', text: 'text-red-400', label: 'Đã hủy' }
         };
         return badges[status] || badges['DA_DANG_KY'];
+    };
+
+    const DetailModal = ({ session, onClose }) => {
+        if (!session) return null;
+        const statusBadge = getStatusBadge(session.trangThai || '');
+        const StatusIcon = statusBadge.icon;
+        const currentCount = session.soLuongHienTai ?? (session.danhSachHoiVien?.length || 0);
+        const maxCount = session.soLuongToiDa || 1;
+        const attendanceRate = Math.min((currentCount / maxCount) * 100, 100);
+
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-2xl max-w-4xl w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+                    <div className="flex items-center justify-between p-4 border-b border-[#2a2a2a]">
+                        <div>
+                            <h3 className="text-xl font-bold text-white">{session.tenBuoiTap}</h3>
+                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusBadge.bg} ${statusBadge.text} border ${statusBadge.border} mt-2`}>
+                                <StatusIcon className="w-3.5 h-3.5" />
+                                {statusBadge.label}
+                            </div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="px-3 py-1.5 bg-[#1a1a1a] text-gray-300 rounded-lg hover:bg-[#2a2a2a] transition-colors cursor-pointer"
+                        >
+                            Đóng
+                        </button>
+                    </div>
+
+                    <div className="p-4 space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="bg-[#141414] rounded-lg p-3">
+                                <div className="text-xs text-gray-400 mb-1">Ngày tập</div>
+                                <div className="text-white">
+                                    {session.ngayTap ? new Date(session.ngayTap).toLocaleDateString('vi-VN', {
+                                        weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric'
+                                    }) : '--'}
+                                </div>
+                            </div>
+                            <div className="bg-[#141414] rounded-lg p-3">
+                                <div className="text-xs text-gray-400 mb-1">Thời gian</div>
+                                <div className="text-white">{session.gioBatDau} - {session.gioKetThuc}</div>
+                            </div>
+                            <div className="bg-[#141414] rounded-lg p-3">
+                                <div className="text-xs text-gray-400 mb-1">Học viên</div>
+                                <div className="text-white">{currentCount}/{session.soLuongToiDa || 0}</div>
+                            </div>
+                            <div className="bg-[#141414] rounded-lg p-3">
+                                <div className="text-xs text-gray-400 mb-1">Tỷ lệ đăng ký</div>
+                                <div className="text-white">{Math.round(attendanceRate)}%</div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="text-sm text-gray-400">Danh sách học viên</div>
+                            {session.danhSachHoiVien && session.danhSachHoiVien.length > 0 ? (
+                                <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-[#2a2a2a] scrollbar-track-[#141414]">
+                                    {session.danhSachHoiVien.map((member, idx) => {
+                                        const attendanceBadge = getAttendanceStatusBadge(member.trangThai);
+                                        return (
+                                            <div key={idx} className="flex items-center gap-3 p-2.5 bg-[#0f0f0f] rounded-lg">
+                                                {member.hoiVien?.anhDaiDien ? (
+                                                    <img
+                                                        src={member.hoiVien.anhDaiDien}
+                                                        alt={member.hoiVien.hoTen}
+                                                        className="w-10 h-10 rounded-full object-cover"
+                                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                    />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#da2128] to-[#b91d24] flex items-center justify-center text-white font-bold text-sm">
+                                                        {member.hoiVien?.hoTen?.charAt(0)?.toUpperCase() || 'H'}
+                                                    </div>
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-white text-sm font-medium truncate">{member.hoiVien?.hoTen || 'N/A'}</p>
+                                                    <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${attendanceBadge.bg} ${attendanceBadge.text}`}>
+                                                        {attendanceBadge.label}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-gray-400 text-sm">Chưa có học viên đăng ký</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     const mainMarginLeft = sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-80';
@@ -314,6 +456,42 @@ const PTSessions = () => {
                                 )}
                             </div>
 
+                            {/* Sort */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                                    className="px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white hover:border-[#3a3a3a] transition-colors flex items-center gap-2 cursor-pointer min-w-[160px] justify-between"
+                                >
+                                    <span className="text-sm">
+                                        {sortBy === 'date_desc' ? 'Mới nhất'
+                                            : sortBy === 'date_asc' ? 'Cũ nhất'
+                                                : sortBy === 'name' ? 'Tên A-Z'
+                                                    : 'Theo trạng thái'}
+                                    </span>
+                                    <ChevronDown className="w-4 h-4" />
+                                </button>
+                                {showFilterDropdown && (
+                                    <div className="absolute right-0 top-12 w-48 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl z-10">
+                                        <div className="p-2">
+                                            {[
+                                                { id: 'date_desc', label: 'Mới nhất' },
+                                                { id: 'date_asc', label: 'Cũ nhất' },
+                                                { id: 'name', label: 'Tên A-Z' },
+                                                { id: 'status', label: 'Theo trạng thái' }
+                                            ].map(opt => (
+                                                <button
+                                                    key={opt.id}
+                                                    onClick={() => { setSortBy(opt.id); setShowFilterDropdown(false); }}
+                                                    className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors cursor-pointer ${sortBy === opt.id ? 'bg-[#da2128] text-white' : 'text-gray-400 hover:bg-[#2a2a2a]'}`}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* View Mode Toggle */}
                             <div className="flex gap-2 bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-1">
                                 <button
@@ -344,12 +522,14 @@ const PTSessions = () => {
                                 {filteredSessions.map(session => {
                                     const statusBadge = getStatusBadge(session.trangThai);
                                     const StatusIcon = statusBadge.icon;
-                                    const attendanceRate = (session.soLuongHienTai / session.soLuongToiDa) * 100;
+                                    const currentCount = session.soLuongHienTai ?? (session.danhSachHoiVien?.length || 0);
+                                    const maxCount = session.soLuongToiDa || 1;
+                                    const attendanceRate = Math.min((currentCount / maxCount) * 100, 100);
                                     const sessionImage = session.baiTap?.[0]?.hinhAnh || session.baiTap?.[0]?.hinhAnhMinhHoa?.[0] || null;
 
                                     return (
                                         <div key={session._id}
-                                            className="bg-[#141414] rounded-xl border border-[#141414] hover:bg-[#2a2a2a] transition-all duration-300 overflow-hidden group cursor-pointer">
+                                            className="bg-[#141414] rounded-xl border border-[#141414] hover:bg-[#2a2a2a] transition-all duration-300 overflow-hidden group">
 
                                             {/* Session Image */}
                                             {sessionImage ? (
@@ -427,7 +607,7 @@ const PTSessions = () => {
                                                         <span className="text-sm text-gray-400">Học viên</span>
                                                     </div>
                                                     <span className="text-white font-bold">
-                                                        {session.soLuongHienTai}/{session.soLuongToiDa}
+                                                        {currentCount}/{session.soLuongToiDa || 0}
                                                     </span>
                                                 </div>
 
@@ -485,12 +665,19 @@ const PTSessions = () => {
 
                                                 {/* Action Buttons */}
                                                 <div className="flex gap-2 mt-4">
-                                                    <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#da2128] text-white rounded-lg hover:bg-[#b91d24] transition-colors text-sm font-medium cursor-pointer">
+                                                    <button
+                                                        onClick={() => { setSelectedSession(session); setShowDetailModal(true); }}
+                                                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#da2128] text-white rounded-lg hover:bg-[#b91d24] transition-colors text-sm font-medium cursor-pointer"
+                                                    >
                                                         <Eye className="w-4 h-4" />
-                                                        Chi tiết
+                                                        Xem chi tiết
                                                     </button>
                                                     {session.trangThai === 'CHUAN_BI' && (
-                                                        <button className="px-3 py-2 bg-[#1a1a1a] text-gray-400 rounded-lg hover:bg-[#2a2a2a] hover:text-white transition-colors cursor-pointer">
+                                                        <button
+                                                            onClick={() => { setSelectedSession(session); setShowDetailModal(true); }}
+                                                            className="px-3 py-2 bg-[#1a1a1a] text-gray-400 rounded-lg hover:bg-[#2a2a2a] hover:text-white transition-colors cursor-pointer"
+                                                            title="Chỉnh sửa nhanh"
+                                                        >
                                                             <Edit className="w-4 h-4" />
                                                         </button>
                                                     )}
@@ -506,7 +693,9 @@ const PTSessions = () => {
                                 {filteredSessions.map(session => {
                                     const statusBadge = getStatusBadge(session.trangThai);
                                     const StatusIcon = statusBadge.icon;
-                                    const attendanceRate = (session.soLuongHienTai / session.soLuongToiDa) * 100;
+                                    const currentCount = session.soLuongHienTai ?? (session.danhSachHoiVien?.length || 0);
+                                    const maxCount = session.soLuongToiDa || 1;
+                                    const attendanceRate = Math.min((currentCount / maxCount) * 100, 100);
                                     const sessionImage = session.baiTap?.[0]?.hinhAnh || session.baiTap?.[0]?.hinhAnhMinhHoa?.[0] || null;
 
                                     return (
@@ -593,7 +782,7 @@ const PTSessions = () => {
                                                                 <div>
                                                                     <div className="text-xs text-gray-400 mb-0.5">Học viên</div>
                                                                     <div className="text-sm text-white font-medium">
-                                                                        {session.soLuongHienTai}/{session.soLuongToiDa}
+                                                                        {currentCount}/{session.soLuongToiDa || 0}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -678,12 +867,19 @@ const PTSessions = () => {
 
                                                                 {/* Action Buttons */}
                                                                 <div className="flex gap-2 mt-4">
-                                                                    <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#da2128] text-white rounded-lg hover:bg-[#b91d24] transition-colors font-medium cursor-pointer">
+                                                                    <button
+                                                                        onClick={() => { setSelectedSession(session); setShowDetailModal(true); }}
+                                                                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#da2128] text-white rounded-lg hover:bg-[#b91d24] transition-colors font-medium cursor-pointer"
+                                                                    >
                                                                         <Eye className="w-4 h-4" />
                                                                         Xem chi tiết
                                                                     </button>
                                                                     {session.trangThai === 'CHUAN_BI' && (
-                                                                        <button className="px-4 py-2.5 bg-[#1a1a1a] text-gray-400 rounded-lg hover:bg-[#2a2a2a] hover:text-white transition-colors cursor-pointer">
+                                                                        <button
+                                                                            onClick={() => { setSelectedSession(session); setShowDetailModal(true); }}
+                                                                            className="px-4 py-2.5 bg-[#1a1a1a] text-gray-400 rounded-lg hover:bg-[#2a2a2a] hover:text-white transition-colors cursor-pointer"
+                                                                            title="Chỉnh sửa nhanh"
+                                                                        >
                                                                             <Edit className="w-4 h-4" />
                                                                         </button>
                                                                     )}
@@ -714,6 +910,13 @@ const PTSessions = () => {
                     )}
                 </div>
             </main>
+
+            {showDetailModal && (
+                <DetailModal
+                    session={selectedSession}
+                    onClose={() => { setShowDetailModal(false); setSelectedSession(null); }}
+                />
+            )}
         </div>
     );
 };

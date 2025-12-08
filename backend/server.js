@@ -202,6 +202,7 @@ app.use('/api/statistics', statisticsRouter);
 app.use('/api/yearly-goals', yearlyGoalsRouter);
 app.use('/api/nutrition', nutritionPlanRouter);
 app.use('/api/pt', ptRouter);
+app.use('/api/pt/templates', ptTemplatesRouter);
 app.use('/api/pt/chat', ptChatRouter);
 app.use('/api/member/chat', memberChatRouter);
 app.use('/api/pt/statistics', ptStatisticsRouter);

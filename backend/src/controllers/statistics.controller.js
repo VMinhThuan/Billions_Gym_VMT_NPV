@@ -79,22 +79,22 @@ exports.getMemberStatsByBranch = async (req, res) => {
 
             const totalMembers = memberIds.length;
 
-            return {
-                chiNhanh: {
-                    _id: branch._id,
-                    tenChiNhanh: branch.tenChiNhanh,
-                    diaChi: branch.diaChi
-                },
-                tongSoHoiVien: totalMembers,
-                dangHoatDong: activeMembers,
-                tamNgung: pausedMembers,
-                hetHan: expiredMembers,
-                tyLe: totalMembers > 0 ? {
-                    dangHoatDong: ((activeMembers / totalMembers) * 100).toFixed(1),
-                    tamNgung: ((pausedMembers / totalMembers) * 100).toFixed(1),
-                    hetHan: ((expiredMembers / totalMembers) * 100).toFixed(1)
-                } : { dangHoatDong: '0', tamNgung: '0', hetHan: '0' }
-            };
+                return {
+                    chiNhanh: {
+                        _id: branch._id,
+                        tenChiNhanh: branch.tenChiNhanh,
+                        diaChi: branch.diaChi
+                    },
+                    tongSoHoiVien: totalMembers,
+                    dangHoatDong: activeMembers,
+                    tamNgung: pausedMembers,
+                    hetHan: expiredMembers,
+                    tyLe: totalMembers > 0 ? {
+                        dangHoatDong: ((activeMembers / totalMembers) * 100).toFixed(1),
+                        tamNgung: ((pausedMembers / totalMembers) * 100).toFixed(1),
+                        hetHan: ((expiredMembers / totalMembers) * 100).toFixed(1)
+                    } : { dangHoatDong: '0', tamNgung: '0', hetHan: '0' }
+                };
         });
 
         res.json({
@@ -245,22 +245,22 @@ exports.getExpiringPackages = async (req, res) => {
         // Tối ưu: Giới hạn số lượng packages và chỉ lấy summary, không lấy danh sách chi tiết
         const [allPackages, allNewerPackages] = await Promise.all([
             ChiTietGoiTap.find({
-                trangThaiThanhToan: 'DA_THANH_TOAN',
+            trangThaiThanhToan: 'DA_THANH_TOAN',
                 ngayKetThuc: { $gte: expired30DaysAgo, $lte: in30Days }
-            })
+        })
                 .select('nguoiDungId maHoiVien goiTapId maGoiTap branchId ngayKetThuc')
                 .populate('nguoiDungId', 'hoTen')
                 .populate('maHoiVien', 'hoTen')
-                .populate('goiTapId', 'tenGoiTap')
-                .populate('maGoiTap', 'tenGoiTap')
-                .populate('branchId', 'tenChiNhanh')
+            .populate('goiTapId', 'tenGoiTap')
+            .populate('maGoiTap', 'tenGoiTap')
+            .populate('branchId', 'tenChiNhanh')
                 .sort({ ngayKetThuc: 1 })
                 .limit(500) // Giảm từ 1000 xuống 500
                 .lean(),
             // Lấy tất cả packages mới hơn để check renewal status (chỉ cần userId và goiTapId)
             ChiTietGoiTap.find({
-                trangThaiThanhToan: 'DA_THANH_TOAN',
-                $or: [
+                    trangThaiThanhToan: 'DA_THANH_TOAN',
+                    $or: [
                     { ngayDangKy: { $gte: expired30DaysAgo } },
                     { thoiGianDangKy: { $gte: expired30DaysAgo } }
                 ]
@@ -297,7 +297,7 @@ exports.getExpiringPackages = async (req, res) => {
             let renewalStatus = 'CHUA_GIA_HAN';
             if (!userId) {
                 renewalStatus = 'UNKNOWN';
-            } else {
+                    } else {
                 const newerPkg = newerPackagesMap.get(userId);
                 if (newerPkg && newerPkg.regDate > pkg.ngayKetThuc) {
                     if (newerPkg.goiTapId === oldGoiTapId) {
@@ -305,13 +305,13 @@ exports.getExpiringPackages = async (req, res) => {
                     } else {
                         renewalStatus = 'DA_DANG_KY_GOI_KHAC';
                     }
+                    }
                 }
-            }
 
-            return {
+                return {
                 ...pkg,
-                renewalStatus
-            };
+                    renewalStatus
+                };
         });
 
         // Phân loại theo thời gian - chỉ đếm số lượng, không trả về danh sách chi tiết để tăng tốc
@@ -744,7 +744,7 @@ exports.getCheckInStats = async (req, res) => {
                         thisMonth: [
                             {
                                 $match: {
-                                    checkInTime: { $gte: startOfMonth }
+            checkInTime: { $gte: startOfMonth }
                                 }
                             },
                             {
@@ -758,7 +758,7 @@ exports.getCheckInStats = async (req, res) => {
                         lastMonth: [
                             {
                                 $match: {
-                                    checkInTime: { $gte: startOfLastMonth, $lt: startOfMonth }
+            checkInTime: { $gte: startOfLastMonth, $lt: startOfMonth }
                                 }
                             },
                             {
@@ -766,26 +766,26 @@ exports.getCheckInStats = async (req, res) => {
                             }
                         ],
                         byBranch: [
-                            {
-                                $match: {
-                                    checkInTime: { $gte: startOfMonth }
-                                }
-                            },
-                            {
-                                $lookup: {
-                                    from: 'buoitaps',
-                                    localField: 'buoiTap',
-                                    foreignField: '_id',
+            {
+                $match: {
+                    checkInTime: { $gte: startOfMonth }
+                }
+            },
+            {
+                $lookup: {
+                    from: 'buoitaps',
+                    localField: 'buoiTap',
+                    foreignField: '_id',
                                     as: 'buoiTap',
                                     pipeline: [
-                                        {
-                                            $lookup: {
-                                                from: 'chinhanhs',
+            {
+                $lookup: {
+                    from: 'chinhanhs',
                                                 localField: 'chiNhanh',
-                                                foreignField: '_id',
-                                                as: 'chiNhanh'
-                                            }
-                                        },
+                    foreignField: '_id',
+                    as: 'chiNhanh'
+                }
+            },
                                         {
                                             $unwind: {
                                                 path: '$chiNhanh',
@@ -807,22 +807,22 @@ exports.getCheckInStats = async (req, res) => {
                                     preserveNullAndEmptyArrays: true
                                 }
                             },
-                            {
-                                $group: {
+            {
+                $group: {
                                     _id: '$buoiTap.chiNhanh._id',
                                     tenChiNhanh: { $first: '$buoiTap.chiNhanh.tenChiNhanh' },
-                                    soLuongCheckIn: { $sum: 1 },
-                                    soHoiVien: { $addToSet: '$hoiVien' }
-                                }
-                            },
-                            {
-                                $project: {
-                                    _id: 1,
-                                    tenChiNhanh: 1,
-                                    soLuongCheckIn: 1,
-                                    soLuongHoiVien: { $size: '$soHoiVien' }
-                                }
-                            },
+                    soLuongCheckIn: { $sum: 1 },
+                    soHoiVien: { $addToSet: '$hoiVien' }
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    tenChiNhanh: 1,
+                    soLuongCheckIn: 1,
+                    soLuongHoiVien: { $size: '$soHoiVien' }
+                }
+            },
                             { $sort: { soLuongCheckIn: -1 } },
                             { $limit: 10 } // Chỉ lấy top 10 chi nhánh
                         ]
@@ -1136,8 +1136,8 @@ const buildConversionStats = async () => {
             ChiTietGoiTap.aggregate([
                 {
                     $match: {
-                        goiTapId: { $in: trialIds },
-                        trangThaiThanhToan: 'DA_THANH_TOAN',
+            goiTapId: { $in: trialIds },
+            trangThaiThanhToan: 'DA_THANH_TOAN',
                         createdAt: { $gte: currentStart, $lte: now },
                         nguoiDungId: { $ne: null }
                     }
@@ -1186,7 +1186,7 @@ const buildConversionStats = async () => {
                 {
                     $match: {
                         goiTapId: { $in: trialIds },
-                        trangThaiThanhToan: 'DA_THANH_TOAN',
+            trangThaiThanhToan: 'DA_THANH_TOAN',
                         createdAt: { $gte: prevStart, $lte: prevEnd },
                         nguoiDungId: { $ne: null }
                     }
