@@ -8,6 +8,7 @@ router.use(auth);
 router.use(authorize(['PT', 'OngChu']));
 
 router.get('/', ptReviewsController.getPTReviews);
+router.get('/student/:hoiVienId', ptReviewsController.getStudentReviews);
 
 module.exports = router;
 

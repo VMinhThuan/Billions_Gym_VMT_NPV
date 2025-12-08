@@ -137,6 +137,102 @@ const tinhHangHoiVien = async (req, res) => {
     }
 };
 
+// Lấy thông tin chi tiết về hạng hội viên và tổng tiền đã thanh toán
+const getHangHoiVienChiTiet = async (req, res) => {
+    try {
+        const { hoiVienId } = req.params;
+
+        if (!hoiVienId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu hoiVienId'
+            });
+        }
+
+        const hangHoiVienService = require('../services/hanghoivien.service');
+        const ChiTietGoiTap = require('../models/ChiTietGoiTap');
+        const HangHoiVien = require('../models/HangHoiVien');
+        const mongoose = require('mongoose');
+
+        // Tính lại hạng hội viên để đảm bảo dữ liệu chính xác
+        const hoiVien = await hangHoiVienService.tinhHangHoiVien(hoiVienId);
+
+        // Lấy tổng tiền đã thanh toán
+        const hoiVienObjectId = mongoose.Types.ObjectId.isValid(hoiVienId)
+            ? new mongoose.Types.ObjectId(hoiVienId)
+            : hoiVienId;
+
+        const tongTienDaChi = await ChiTietGoiTap.aggregate([
+            {
+                $match: {
+                    $or: [
+                        { nguoiDungId: hoiVienObjectId },
+                        { maHoiVien: hoiVienObjectId }
+                    ],
+                    trangThaiThanhToan: 'DA_THANH_TOAN'
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    tongTien: {
+                        $sum: {
+                            $ifNull: ['$soTienThanhToan', 0]
+                        }
+                    }
+                }
+            }
+        ]);
+
+        const soTienTichLuy = tongTienDaChi.length > 0 ? tongTienDaChi[0].tongTien : 0;
+
+        // Lấy tất cả hạng hội viên để hiển thị điều kiện
+        const allHangs = await HangHoiVien.find({ kichHoat: true }).sort({ thuTu: 1 });
+
+        // Lấy hạng hiện tại của hội viên
+        const hoiVienWithHang = await require('../models/NguoiDung').HoiVien.findById(hoiVienId)
+            .populate('hangHoiVien');
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                hoiVien: {
+                    _id: hoiVien._id,
+                    hoTen: hoiVien.hoTen,
+                    soTienTichLuy: soTienTichLuy,
+                    soThangLienTuc: hoiVien.soThangLienTuc || 0,
+                    soBuoiTapDaTap: hoiVien.soBuoiTapDaTap || 0,
+                    hangHoiVien: hoiVienWithHang?.hangHoiVien ? {
+                        _id: hoiVienWithHang.hangHoiVien._id,
+                        tenHang: hoiVienWithHang.hangHoiVien.tenHang,
+                        tenHienThi: hoiVienWithHang.hangHoiVien.tenHienThi,
+                        mauSac: hoiVienWithHang.hangHoiVien.mauSac
+                    } : null
+                },
+                tatCaHang: allHangs.map(hang => ({
+                    _id: hang._id,
+                    tenHang: hang.tenHang,
+                    tenHienThi: hang.tenHienThi,
+                    moTa: hang.moTa,
+                    dieuKienDatHang: hang.dieuKienDatHang,
+                    quyenLoi: hang.quyenLoi,
+                    mauSac: hang.mauSac,
+                    icon: hang.icon,
+                    thuTu: hang.thuTu,
+                    datDuoc: soTienTichLuy >= (hang.dieuKienDatHang?.soTienTichLuy || 0)
+                }))
+            }
+        });
+    } catch (error) {
+        console.error('Lỗi lấy thông tin chi tiết hạng hội viên:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi khi lấy thông tin hạng hội viên',
+            error: error.message
+        });
+    }
+};
+
 // Lấy thông tin hạng hội viên của một hội viên
 const getHangHoiVienCuaHoiVien = async (req, res) => {
     try {
@@ -283,6 +379,7 @@ module.exports = {
     deleteHangHoiVien,
     tinhHangHoiVien,
     getHangHoiVienCuaHoiVien,
+    getHangHoiVienChiTiet,
     getHoiVienTheoHang,
     capNhatHangTatCaHoiVien,
     getThongKeHangHoiVien

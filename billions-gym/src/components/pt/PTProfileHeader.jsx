@@ -20,7 +20,10 @@ const PTProfileHeader = ({ profile }) => {
                             </div>
                         )}
                         {/* Online/Offline Status */}
-                        <div className={`absolute bottom-2 right-2 w-6 h-6 border-4 border-[#141414] rounded-full ${profile?.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                        <div
+                            className={`absolute bottom-0 right-0 w-6 h-6 border-4 border-[#141414] rounded-full transform translate-x-1/3 translate-y-1/3 ${profile?.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                                }`}
+                        ></div>
                     </div>
                 </div>
 
@@ -39,18 +42,58 @@ const PTProfileHeader = ({ profile }) => {
                     <p className="text-gray-400 mb-4">{profile?.email}</p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Chi nhánh */}
                         <div className="flex items-center gap-2 text-gray-300">
                             <MapPin className="w-5 h-5 text-[#da2128]" />
                             <span>{profile?.chinhanh?.tenChiNhanh || 'Chưa có chi nhánh'}</span>
                         </div>
+
+                        {/* Ngày vào làm */}
                         <div className="flex items-center gap-2 text-gray-300">
                             <Calendar className="w-5 h-5 text-[#da2128]" />
-                            <span>Ngày vào làm: {profile?.ngayThamGia ? new Date(profile.ngayThamGia).toLocaleDateString('vi-VN') : 'N/A'}</span>
+                            <span>
+                                Ngày vào làm:{' '}
+                                {profile?.ngayVaoLam || profile?.createdAt
+                                    ? new Date(profile.ngayVaoLam || profile.createdAt).toLocaleDateString('vi-VN')
+                                    : 'N/A'}
+                            </span>
                         </div>
-                        {profile?.chuyenMon && Array.isArray(profile.chuyenMon) && profile.chuyenMon.length > 0 && (
+
+                        {/* Số điện thoại */}
+                        {profile?.sdt && (
+                            <div className="flex items-center gap-2 text-gray-300">
+                                <span className="w-5 h-5 flex items-center justify-center text-[#da2128] text-xs border border-[#da2128] rounded-full">
+                                    📞
+                                </span>
+                                <span>{profile.sdt}</span>
+                            </div>
+                        )}
+
+                        {/* Kinh nghiệm */}
+                        {typeof profile?.kinhNghiem === 'number' && (
+                            <div className="flex items-center gap-2 text-gray-300">
+                                <span className="w-5 h-5 flex items-center justify-center text-[#da2128] text-xs border border-[#da2128] rounded-full">
+                                    ⏱
+                                </span>
+                                <span>{profile.kinhNghiem} năm kinh nghiệm</span>
+                            </div>
+                        )}
+
+                        {/* Chuyên môn + chứng chỉ */}
+                        {(profile?.chuyenMon || profile?.bangCapChungChi) && (
                             <div className="flex items-center gap-2 text-gray-300 md:col-span-2">
                                 <Award className="w-5 h-5 text-[#da2128]" />
-                                <span>Chuyên môn: {profile.chuyenMon.join(', ')}</span>
+                                <span>
+                                    {profile?.chuyenMon && (
+                                        <>Chuyên môn: <span className="font-medium">{profile.chuyenMon}</span></>
+                                    )}
+                                    {profile?.bangCapChungChi && (
+                                        <>
+                                            {'  •  '}
+                                            <span className="font-medium">{profile.bangCapChungChi}</span>
+                                        </>
+                                    )}
+                                </span>
                             </div>
                         )}
                     </div>

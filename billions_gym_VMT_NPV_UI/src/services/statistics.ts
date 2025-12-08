@@ -46,21 +46,32 @@ export interface NewMemberStats {
 
 export interface ExpiringPackage {
     _id: string;
-    nguoiDungId: {
+    nguoiDungId?: {
         _id: string;
         hoTen: string;
         sdt: string;
         email?: string;
     };
-    goiTapId: {
+    maHoiVien?: {
+        _id: string;
+        hoTen: string;
+        sdt: string;
+        email?: string;
+    };
+    goiTapId?: {
         _id: string;
         tenGoiTap: string;
     };
-    branchId: {
+    maGoiTap?: {
+        _id: string;
+        tenGoiTap: string;
+    };
+    branchId?: {
         _id: string;
         tenChiNhanh: string;
     };
     ngayKetThuc: string;
+    renewalStatus?: 'CHUA_GIA_HAN' | 'DA_GIA_HAN' | 'DA_DANG_KY_GOI_KHAC' | 'UNKNOWN';
 }
 
 export interface ExpiringPackages {
@@ -73,6 +84,10 @@ export interface ExpiringPackages {
         danhSach: ExpiringPackage[];
     };
     trong30Ngay: {
+        soLuong: number;
+        danhSach: ExpiringPackage[];
+    };
+    daHetHan?: {
         soLuong: number;
         danhSach: ExpiringPackage[];
     };
@@ -108,6 +123,35 @@ export interface RealtimeCheckIn {
     isCheckedOut?: boolean;
     checkInStatus?: string;
     checkOutStatus?: string;
+}
+
+export interface RealtimePTCheckIn {
+    _id: string;
+    pt: {
+        _id: string;
+        hoTen: string;
+    };
+    buoiTap?: {
+        _id: string;
+        tenBuoiTap?: string;
+        gioBatDau?: string;
+        gioKetThuc?: string;
+        ngayTap?: string;
+    };
+    chiNhanh?: {
+        _id: string;
+        tenChiNhanh?: string;
+    };
+    checkInTime: string;
+    checkOutTime?: string | null;
+    isCheckedOut?: boolean;
+    checkInStatus?: string;
+    checkOutStatus?: string;
+    thoiGianMuonCheckIn?: number;
+    thoiGianSomCheckOut?: number;
+    tienLuong?: number;
+    tienPhat?: number;
+    sessionDuration?: number | null;
 }
 
 export interface PTScheduleEntry {
@@ -284,10 +328,54 @@ export interface OverallStats {
 
 // API functions
 export const statisticsApi = {
-    // Lấy tổng hợp tất cả thống kê
+    // Lấy tổng hợp tất cả thống kê (cho admin)
     getOverallStats: async (): Promise<OverallStats> => {
-        const response = await api.get('/api/statistics/overall');
-        return response.data;
+        const startTime = performance.now();
+        console.log('[statisticsApi] ===== BẮT ĐẦU GỌI API OVERALL STATISTICS =====');
+        console.log('[statisticsApi] Endpoint: /api/statistics/overall');
+        console.log('[statisticsApi] Timestamp:', new Date().toISOString());
+
+        try {
+            const response = await api.get('/api/statistics/overall');
+            const endTime = performance.now();
+            const duration = endTime - startTime;
+            console.log(`[statisticsApi] API response nhận được sau: ${duration.toFixed(2)}ms (${(duration / 1000).toFixed(2)}s)`);
+            console.log('[statisticsApi] Response size:', JSON.stringify(response).length, 'bytes');
+            console.log('[statisticsApi] ===== HOÀN THÀNH API OVERALL STATISTICS =====');
+            return response.data;
+        } catch (error: any) {
+            const endTime = performance.now();
+            const duration = endTime - startTime;
+            console.error(`[statisticsApi] API ERROR sau ${duration.toFixed(2)}ms:`, error);
+            throw error;
+        }
+    },
+
+    // Lấy tổng hợp thống kê cho PT (tối ưu)
+    getPTOverallStats: async (): Promise<any> => {
+        const startTime = performance.now();
+        console.log('[statisticsApi] ===== BẮT ĐẦU GỌI API PT STATISTICS =====');
+        console.log('[statisticsApi] Endpoint: /api/pt/statistics/overall');
+        console.log('[statisticsApi] Timestamp:', new Date().toISOString());
+
+        try {
+            const response = await api.get('/api/pt/statistics/overall');
+            const endTime = performance.now();
+            const duration = endTime - startTime;
+            console.log(`[statisticsApi] API response nhận được sau: ${duration.toFixed(2)}ms (${(duration / 1000).toFixed(2)}s)`);
+            console.log('[statisticsApi] Response:', response);
+            console.log('[statisticsApi] ===== HOÀN THÀNH API PT STATISTICS =====');
+            return response.data || response;
+        } catch (error: any) {
+            const endTime = performance.now();
+            const duration = endTime - startTime;
+            console.error(`[statisticsApi] API ERROR sau ${duration.toFixed(2)}ms:`, error);
+            console.error('[statisticsApi] Error details:', {
+                message: error?.message,
+                stack: error?.stack
+            });
+            throw error;
+        }
     },
 
     // Thống kê hội viên theo chi nhánh
@@ -344,6 +432,12 @@ export const statisticsApi = {
     getRecentCheckIns: async (): Promise<RealtimeCheckIn[]> => {
         const response = await api.get('/api/statistics/checkin/recent');
         return response.data;
+    },
+
+    // Lấy danh sách PT check-in/out real-time hôm nay
+    getRecentPTCheckIns: async (): Promise<RealtimePTCheckIn[]> => {
+        const response = await api.get('/api/statistics/pt-checkin/recent');
+        return response.data;
     }
 };
 
@@ -368,14 +462,15 @@ export const yearlyGoalsApi = {
     // Lấy mục tiêu năm hiện tại
     getCurrentYearGoals: async (): Promise<YearlyGoals> => {
         const response = await api.get('/api/yearly-goals/current');
-        return response.data;
+        // Backend có thể trả về { success: true, data: goals } hoặc trực tiếp goals
+        return response.data?.data || response.data || response;
     },
 
     // Cập nhật mục tiêu năm hiện tại
     updateYearlyGoals: async (goals: Partial<YearlyGoals>): Promise<YearlyGoals> => {
         const response = await api.put('/api/yearly-goals/current', goals);
-        // Backend trả về { message, goals }
-        return response.data.goals || response.data;
+        // Backend trả về { message, goals } hoặc { success: true, data: goals }
+        return response.data?.goals || response.data?.data || response.data || response;
     },
 
     // Lấy tất cả mục tiêu các năm

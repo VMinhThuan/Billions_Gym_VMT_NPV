@@ -135,12 +135,18 @@ const PTProfile = () => {
 
     const loadReviews = async () => {
         try {
+            console.log('[PTProfile] Loading reviews...');
             const response = await ptService.getReviews({ limit: 5 });
-            if (response.success && response.data.reviews) {
-                setReviews(response.data.reviews);
+            console.log('[PTProfile] Reviews response:', response);
+            if (response.success && response.data) {
+                console.log('[PTProfile] Reviews data:', response.data);
+                console.log('[PTProfile] Reviews count:', response.data.reviews?.length || 0);
+                if (response.data.reviews) {
+                    setReviews(response.data.reviews);
+                }
             }
         } catch (error) {
-            console.error('Error loading reviews:', error);
+            console.error('[PTProfile] Error loading reviews:', error);
         }
     };
 
@@ -210,7 +216,7 @@ const PTProfile = () => {
                                 icon={UserCheck}
                                 label="Tỷ lệ tham gia"
                                 value={`${statistics.tyLeThamGia || 0}%`}
-                                subValue={`${statistics.tongHoiVienThamGia || 0} / ${statistics.tongHoiVienThamGia + statistics.tongHoiVienVangMat || 0}`}
+                                subValue={`${statistics.buoiTapHoanThanh || 0} / ${statistics.tongBuoiTap || 0} buổi`}
                                 iconColor="#3b82f6"
                             />
                             <PTStatsCard

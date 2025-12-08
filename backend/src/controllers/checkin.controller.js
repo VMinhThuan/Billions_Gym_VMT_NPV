@@ -46,41 +46,58 @@ exports.getTodaySessions = async (req, res) => {
     try {
         const hoiVienId = req.user.id;
 
-        // Get today's date in Vietnam timezone (UTC+7)
-        // Calculate Vietnam time from UTC
+        // Get today's date - đơn giản hóa logic timezone
+        // Lấy ngày hiện tại ở múi giờ local (server timezone)
         const now = new Date();
-        const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
-        const vietnamTime = new Date(utcTime + (7 * 60 * 60 * 1000)); // UTC+7
 
-        // Get date components in Vietnam time
-        const year = vietnamTime.getUTCFullYear();
-        const month = vietnamTime.getUTCMonth();
-        const date = vietnamTime.getUTCDate();
+        // Tạo ngày bắt đầu hôm nay (00:00:00)
+        const todayStart = new Date(now);
+        todayStart.setHours(0, 0, 0, 0);
 
-        // Create today at 00:00:00 Vietnam time, then convert to UTC
-        const todayVietnam = new Date(Date.UTC(year, month, date, 0, 0, 0, 0));
-        const todayUTC = new Date(todayVietnam.getTime() - (7 * 60 * 60 * 1000)); // Convert back to UTC
-        const tomorrowUTC = new Date(todayUTC);
-        tomorrowUTC.setDate(tomorrowUTC.getDate() + 1);
+        // Tạo ngày kết thúc hôm nay (23:59:59.999)
+        const todayEnd = new Date(now);
+        todayEnd.setHours(23, 59, 59, 999);
+
+        // Log để debug
+        console.log('[getTodaySessions] Date range:', {
+            now: now.toISOString(),
+            todayStart: todayStart.toISOString(),
+            todayEnd: todayEnd.toISOString(),
+            hoiVienId: hoiVienId.toString()
+        });
 
         // Find sessions where member is registered
+        // So sánh ngày tháng năm, không cần so sánh giờ chính xác
         const buoiTaps = await BuoiTap.find({
             'danhSachHoiVien.hoiVien': hoiVienId,
             ngayTap: {
-                $gte: todayUTC,
-                $lt: tomorrowUTC
+                $gte: todayStart,
+                $lte: todayEnd
             }
         })
             .populate('chiNhanh', 'tenChiNhanh diaChi')
             .populate('ptPhuTrach', 'hoTen')
             .sort({ gioBatDau: 1 });
 
+        console.log('[getTodaySessions] Found sessions:', buoiTaps.length);
+        if (buoiTaps.length > 0) {
+            buoiTaps.forEach((bt, idx) => {
+                console.log(`[getTodaySessions] Session ${idx + 1}:`, {
+                    _id: bt._id,
+                    tenBuoiTap: bt.tenBuoiTap,
+                    ngayTap: bt.ngayTap,
+                    ngayTapISO: bt.ngayTap?.toISOString(),
+                    gioBatDau: bt.gioBatDau
+                });
+            });
+        }
+
         // Get check-in records for today (including those without check-out)
         const checkInRecords = await CheckInRecord.find({
             hoiVien: hoiVienId,
             checkInTime: {
-                $gte: todayUTC,
-                $lt: tomorrowUTC
+                $gte: todayStart,
+                $lte: todayEnd
             }
         }).sort({ checkInTime: -1 });
 
@@ -90,8 +107,8 @@ exports.getTodaySessions = async (req, res) => {
             hoiVien: hoiVienId,
             checkOutTime: null,
             checkInTime: {
-                $gte: todayUTC,
-                $lt: tomorrowUTC
+                $gte: todayStart,
+                $lte: todayEnd
             }
         });
 
@@ -429,6 +446,27 @@ exports.checkIn = async (req, res) => {
         // Update BuoiTap attendance status
         await buoiTap.updateAttendanceStatus(hoiVienId, 'DA_THAM_GIA');
 
+        // Populate buoiTap với PT và chi nhánh
+        await buoiTap.populate('ptPhuTrach', 'hoTen');
+        await buoiTap.populate('chiNhanh', 'tenChiNhanh');
+
+        // Chuyển đổi sang plain object để đảm bảo serialize đúng
+        const buoiTapData = {
+            _id: buoiTap._id,
+            tenBuoiTap: buoiTap.tenBuoiTap,
+            ngayTap: buoiTap.ngayTap,
+            gioBatDau: buoiTap.gioBatDau,
+            gioKetThuc: buoiTap.gioKetThuc,
+            ptPhuTrach: buoiTap.ptPhuTrach ? {
+                _id: buoiTap.ptPhuTrach._id,
+                hoTen: buoiTap.ptPhuTrach.hoTen
+            } : null,
+            chiNhanh: buoiTap.chiNhanh ? {
+                _id: buoiTap.chiNhanh._id,
+                tenChiNhanh: buoiTap.chiNhanh.tenChiNhanh
+            } : null
+        };
+
         res.status(200).json({
             success: true,
             message: 'Check-in thành công',
@@ -438,11 +476,7 @@ exports.checkIn = async (req, res) => {
                     checkInStatus: checkInRecord.checkInStatus,
                     thoiGianMuonCheckIn: checkInRecord.thoiGianMuonCheckIn
                 },
-                buoiTap: {
-                    tenBuoiTap: buoiTap.tenBuoiTap,
-                    gioBatDau: buoiTap.gioBatDau,
-                    gioKetThuc: buoiTap.gioKetThuc
-                }
+                buoiTap: buoiTapData
             }
         });
     } catch (error) {
@@ -703,16 +737,51 @@ exports.getCheckInHistory = async (req, res) => {
         }
 
         const checkInRecords = await CheckInRecord.find(query)
-            .populate('buoiTap', 'tenBuoiTap ngayTap gioBatDau gioKetThuc chiNhanh ptPhuTrach')
-            .populate('buoiTap.chiNhanh', 'tenChiNhanh')
-            .populate('buoiTap.ptPhuTrach', 'hoTen')
+            .populate({
+                path: 'buoiTap',
+                select: 'tenBuoiTap ngayTap gioBatDau gioKetThuc chiNhanh ptPhuTrach',
+                populate: [
+                    {
+                        path: 'chiNhanh',
+                        select: 'tenChiNhanh'
+                    },
+                    {
+                        path: 'ptPhuTrach',
+                        select: 'hoTen'
+                    }
+                ]
+            })
             .sort({ checkInTime: -1 })
-            .limit(parseInt(limit));
+            .limit(parseInt(limit))
+            .lean(); // Sử dụng lean() để trả về plain JavaScript objects
+
+        // Đảm bảo serialize đúng
+        const serializedRecords = checkInRecords.map(record => {
+            const serialized = {
+                ...record,
+                buoiTap: record.buoiTap ? {
+                    _id: record.buoiTap._id,
+                    tenBuoiTap: record.buoiTap.tenBuoiTap,
+                    ngayTap: record.buoiTap.ngayTap,
+                    gioBatDau: record.buoiTap.gioBatDau,
+                    gioKetThuc: record.buoiTap.gioKetThuc,
+                    chiNhanh: record.buoiTap.chiNhanh ? {
+                        _id: record.buoiTap.chiNhanh._id,
+                        tenChiNhanh: record.buoiTap.chiNhanh.tenChiNhanh
+                    } : null,
+                    ptPhuTrach: record.buoiTap.ptPhuTrach ? {
+                        _id: record.buoiTap.ptPhuTrach._id,
+                        hoTen: record.buoiTap.ptPhuTrach.hoTen
+                    } : null
+                } : null
+            };
+            return serialized;
+        });
 
         res.status(200).json({
             success: true,
-            data: checkInRecords,
-            count: checkInRecords.length
+            data: serializedRecords,
+            count: serializedRecords.length
         });
     } catch (error) {
         console.error('Error in getCheckInHistory:', error);
@@ -903,6 +972,27 @@ exports.checkInWithQR = async (req, res) => {
 
         await checkInRecord.save();
 
+        // Populate buoiTap với PT và chi nhánh
+        await buoiTap.populate('ptPhuTrach', 'hoTen');
+        await buoiTap.populate('chiNhanh', 'tenChiNhanh');
+
+        // Chuyển đổi sang plain object để đảm bảo serialize đúng
+        const buoiTapData = {
+            _id: buoiTap._id,
+            tenBuoiTap: buoiTap.tenBuoiTap,
+            ngayTap: buoiTap.ngayTap,
+            gioBatDau: buoiTap.gioBatDau,
+            gioKetThuc: buoiTap.gioKetThuc,
+            ptPhuTrach: buoiTap.ptPhuTrach ? {
+                _id: buoiTap.ptPhuTrach._id,
+                hoTen: buoiTap.ptPhuTrach.hoTen
+            } : null,
+            chiNhanh: buoiTap.chiNhanh ? {
+                _id: buoiTap.chiNhanh._id,
+                tenChiNhanh: buoiTap.chiNhanh.tenChiNhanh
+            } : null
+        };
+
         console.log(`[QR Check-in] ✅ Member ${hoiVienId} checked in to session ${buoiTapId} using QR code`);
 
         res.status(200).json({
@@ -914,12 +1004,7 @@ exports.checkInWithQR = async (req, res) => {
                     checkInStatus: checkInRecord.checkInStatus,
                     thoiGianMuonCheckIn: checkInRecord.thoiGianMuonCheckIn
                 },
-                buoiTap: {
-                    tenBuoiTap: buoiTap.tenBuoiTap,
-                    gioBatDau: buoiTap.gioBatDau,
-                    gioKetThuc: buoiTap.gioKetThuc,
-                    chiNhanh: buoiTap.chiNhanh
-                }
+                buoiTap: buoiTapData
             }
         });
     } catch (error) {

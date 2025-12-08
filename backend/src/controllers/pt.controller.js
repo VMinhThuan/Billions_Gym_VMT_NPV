@@ -32,16 +32,12 @@ exports.getPublicPTList = async (req, res) => {
 
 // Lấy thống kê tổng quan cho PT
 exports.getPTDashboard = async (req, res) => {
+    const startTime = Date.now();
+    const TIMEOUT_MS = 10000; // 10 giây timeout
+
     try {
         const ptId = req.user.id;
-
-        // Debug: Log để kiểm tra
-        console.log('[getPTDashboard] PT ID:', ptId);
-        console.log('[getPTDashboard] PT ID type:', typeof ptId);
-
-        // Đảm bảo ptId là ObjectId
         const ptObjectId = mongoose.Types.ObjectId.isValid(ptId) ? new mongoose.Types.ObjectId(ptId) : ptId;
-        console.log('[getPTDashboard] PT ObjectId:', ptObjectId);
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -55,55 +51,39 @@ exports.getPTDashboard = async (req, res) => {
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 7);
 
-        // 1. Lấy từ BuoiTap (ptPhuTrach trực tiếp) - thử cả string và ObjectId
-        const buoiTaps = await BuoiTap.find({
-            $or: [
-                { ptPhuTrach: ptId },
-                { ptPhuTrach: ptObjectId },
-                { ptPhuTrach: ptId.toString() }
-            ]
-        })
-            .select('danhSachHoiVien ptPhuTrach');
-        console.log('[getPTDashboard] BuoiTap count:', buoiTaps.length);
-        if (buoiTaps.length > 0) {
-            console.log('[getPTDashboard] Sample BuoiTap:', JSON.stringify(buoiTaps[0], null, 2));
-        }
+        // TỐI ƯU: Dùng Promise.race với timeout và giới hạn query
+        const createTimeoutPromise = (ms) => new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Query timeout')), ms)
+        );
 
-        // 2. Lấy từ LichTap (pt field hoặc ptPhuTrach trong danhSachBuoiTap) - thử cả string và ObjectId
-        const lichTaps = await LichTap.find({
-            $or: [
-                { pt: ptId },
-                { pt: ptObjectId },
-                { pt: ptId.toString() },
-                { 'danhSachBuoiTap.ptPhuTrach': ptId },
-                { 'danhSachBuoiTap.ptPhuTrach': ptObjectId },
-                { 'danhSachBuoiTap.ptPhuTrach': ptId.toString() }
-            ]
-        })
-            .populate('hoiVien', 'hoTen')
-            .select('hoiVien danhSachBuoiTap pt');
-        console.log('[getPTDashboard] LichTap count:', lichTaps.length);
-        if (lichTaps.length > 0) {
-            console.log('[getPTDashboard] Sample LichTap:', JSON.stringify({
-                _id: lichTaps[0]._id,
-                pt: lichTaps[0].pt,
-                danhSachBuoiTapCount: lichTaps[0].danhSachBuoiTap?.length || 0
-            }, null, 2));
-        }
+        // TỐI ƯU: Chỉ query dữ liệu cần thiết với timeout và giới hạn
+        const [buoiTaps, lichTaps, sessions] = await Promise.race([
+            Promise.all([
+                // 1. BuoiTap - chỉ lấy danhSachHoiVien để đếm học viên
+                Promise.race([
+                    BuoiTap.find({ ptPhuTrach: ptObjectId })
+                        .select('danhSachHoiVien')
+                        .limit(1000) // Giới hạn để tăng tốc
+                        .lean()
+                        .maxTimeMS(3000),
+                    createTimeoutPromise(3000)
+                ]).catch(() => []),
 
-        // 3. Lấy từ Session (ptPhuTrach) - thử cả string và ObjectId
-        const sessions = await Session.find({
-            $or: [
-                { ptPhuTrach: ptId },
-                { ptPhuTrach: ptObjectId },
-                { ptPhuTrach: ptId.toString() }
-            ]
-        })
-            .select('soLuongDaDangKy ptPhuTrach');
-        console.log('[getPTDashboard] Session count:', sessions.length);
-        if (sessions.length > 0) {
-            console.log('[getPTDashboard] Sample Session:', JSON.stringify(sessions[0], null, 2));
-        }
+                // 2. LichTap - chỉ lấy hoiVien để đếm
+                Promise.race([
+                    LichTap.find({ pt: ptObjectId })
+                        .select('hoiVien')
+                        .limit(500)
+                        .lean()
+                        .maxTimeMS(3000),
+                    createTimeoutPromise(3000)
+                ]).catch(() => []),
+
+                // 3. Session - không cần cho đếm học viên, bỏ qua
+                Promise.resolve([])
+            ]),
+            createTimeoutPromise(5000)
+        ]).catch(() => [[], [], []]);
 
         // Tính số học viên duy nhất từ tất cả các nguồn
         const uniqueHoiVienIds = new Set();
@@ -124,354 +104,66 @@ exports.getPTDashboard = async (req, res) => {
 
         const soHoiVien = uniqueHoiVienIds.size;
 
-        // Lấy số buổi tập hôm nay từ tất cả các nguồn
-        // Lấy tất cả BuoiTap của PT trước
-        const allBuoiTapsForToday = await BuoiTap.find({
-            $or: [
-                { ptPhuTrach: ptId },
-                { ptPhuTrach: ptObjectId },
-                { ptPhuTrach: ptId.toString() }
-            ]
-        }).select('ngayTap');
+        // TỐI ƯU: Đếm buổi tập hôm nay bằng countDocuments với timeout
+        const [buoiTapHomNayCount, sessionHomNayCount] = await Promise.race([
+            Promise.all([
+                Promise.race([
+                    BuoiTap.countDocuments({ ptPhuTrach: ptObjectId, ngayTap: { $gte: today, $lt: tomorrow } }).maxTimeMS(3000),
+                    createTimeoutPromise(3000)
+                ]).catch(() => 0),
+                Promise.race([
+                    Session.countDocuments({ ptPhuTrach: ptObjectId, ngay: { $gte: today, $lt: tomorrow } }).maxTimeMS(3000),
+                    createTimeoutPromise(3000)
+                ]).catch(() => 0)
+            ]),
+            createTimeoutPromise(5000)
+        ]).catch(() => [0, 0]);
 
-        let buoiTapHomNayBuoiTap = 0;
-        allBuoiTapsForToday.forEach(bt => {
-            if (bt.ngayTap) {
-                const btDate = new Date(bt.ngayTap);
-                btDate.setHours(0, 0, 0, 0);
-                if (btDate >= today && btDate < tomorrow) {
-                    buoiTapHomNayBuoiTap++;
-                }
-            }
-        });
+        const buoiTapHomNay = buoiTapHomNayCount + sessionHomNayCount;
 
-        console.log('[getPTDashboard] BuoiTap hôm nay count:', buoiTapHomNayBuoiTap);
+        // TỐI ƯU: Đếm buổi tập tuần này bằng countDocuments
+        const [buoiTapTuanNayCount, sessionTuanNayCount] = await Promise.race([
+            Promise.all([
+                Promise.race([
+                    BuoiTap.countDocuments({ ptPhuTrach: ptObjectId, ngayTap: { $gte: startOfWeek, $lt: endOfWeek } }).maxTimeMS(3000),
+                    createTimeoutPromise(3000)
+                ]).catch(() => 0),
+                Promise.race([
+                    Session.countDocuments({ ptPhuTrach: ptObjectId, ngay: { $gte: startOfWeek, $lt: endOfWeek } }).maxTimeMS(3000),
+                    createTimeoutPromise(3000)
+                ]).catch(() => 0)
+            ]),
+            createTimeoutPromise(5000)
+        ]).catch(() => [0, 0]);
 
-        // Đếm từ LichTap - các buổi tập trong danhSachBuoiTap có ptPhuTrach = ptId và ngayTap hôm nay
-        const lichTapsHomNay = await LichTap.find({
-            $or: [
-                { pt: ptId },
-                { pt: ptObjectId },
-                { pt: ptId.toString() },
-                { 'danhSachBuoiTap.ptPhuTrach': ptId },
-                { 'danhSachBuoiTap.ptPhuTrach': ptObjectId },
-                { 'danhSachBuoiTap.ptPhuTrach': ptId.toString() }
-            ]
-        }).select('danhSachBuoiTap pt');
+        const buoiTapTuanNay = buoiTapTuanNayCount + sessionTuanNayCount;
 
-        let lichTapHomNay = 0;
-        lichTapsHomNay.forEach(lichTap => {
-            const isPTAssigned = lichTap.pt && lichTap.pt.toString() === ptId.toString();
-            lichTap.danhSachBuoiTap.forEach(buoiTap => {
-                const buoiTapDate = new Date(buoiTap.ngayTap);
-                const isToday = buoiTapDate >= today && buoiTapDate < tomorrow;
-                const isPTInBuoiTap = buoiTap.ptPhuTrach && buoiTap.ptPhuTrach.toString() === ptId.toString();
+        // TỐI ƯU: Chỉ lấy 5 buổi tập sắp tới với timeout
+        const lichSapToi = await Promise.race([
+            Promise.race([
+                BuoiTap.find({ ptPhuTrach: ptObjectId, ngayTap: { $gte: today } })
+                    .populate('chiNhanh', 'tenChiNhanh')
+                    .sort({ ngayTap: 1, gioBatDau: 1 })
+                    .limit(5)
+                    .select('tenBuoiTap ngayTap gioBatDau gioKetThuc chiNhanh soLuongHienTai soLuongToiDa')
+                    .lean()
+                    .maxTimeMS(5000),
+                createTimeoutPromise(5000)
+            ]).then(buoiTaps => buoiTaps.map(bt => ({
+                _id: bt._id,
+                tenBuoiTap: bt.tenBuoiTap || 'Buổi tập',
+                ngayTap: bt.ngayTap,
+                gioBatDau: bt.gioBatDau,
+                gioKetThuc: bt.gioKetThuc,
+                chiNhanh: bt.chiNhanh || { tenChiNhanh: 'Chưa có' },
+                soLuongHienTai: bt.soLuongHienTai || 0,
+                soLuongToiDa: bt.soLuongToiDa || 0
+            }))).catch(() => []),
+            createTimeoutPromise(6000)
+        ]).catch(() => []);
 
-                if (isToday && (isPTAssigned || isPTInBuoiTap)) {
-                    lichTapHomNay++;
-                }
-            });
-        });
-
-        // Đếm từ Session
-        const sessionHomNay = await Session.countDocuments({
-            $or: [
-                { ptPhuTrach: ptId, ngay: { $gte: today, $lt: tomorrow } },
-                { ptPhuTrach: ptObjectId, ngay: { $gte: today, $lt: tomorrow } },
-                { ptPhuTrach: ptId.toString(), ngay: { $gte: today, $lt: tomorrow } }
-            ]
-        });
-
-        const buoiTapHomNay = buoiTapHomNayBuoiTap + lichTapHomNay + sessionHomNay;
-
-        // Lấy số buổi tập tuần này từ tất cả các nguồn
-        const buoiTapTuanNayBuoiTap = await BuoiTap.countDocuments({
-            $or: [
-                { ptPhuTrach: ptId, ngayTap: { $gte: startOfWeek, $lt: endOfWeek } },
-                { ptPhuTrach: ptObjectId, ngayTap: { $gte: startOfWeek, $lt: endOfWeek } },
-                { ptPhuTrach: ptId.toString(), ngayTap: { $gte: startOfWeek, $lt: endOfWeek } }
-            ]
-        });
-
-        const lichTapsTuanNay = await LichTap.find({
-            $or: [
-                { pt: ptId },
-                { pt: ptObjectId },
-                { pt: ptId.toString() },
-                { 'danhSachBuoiTap.ptPhuTrach': ptId },
-                { 'danhSachBuoiTap.ptPhuTrach': ptObjectId },
-                { 'danhSachBuoiTap.ptPhuTrach': ptId.toString() }
-            ]
-        }).select('danhSachBuoiTap pt');
-
-        let lichTapTuanNay = 0;
-        lichTapsTuanNay.forEach(lichTap => {
-            const isPTAssigned = lichTap.pt && lichTap.pt.toString() === ptId.toString();
-            lichTap.danhSachBuoiTap.forEach(buoiTap => {
-                const buoiTapDate = new Date(buoiTap.ngayTap);
-                const isThisWeek = buoiTapDate >= startOfWeek && buoiTapDate < endOfWeek;
-                const isPTInBuoiTap = buoiTap.ptPhuTrach && buoiTap.ptPhuTrach.toString() === ptId.toString();
-
-                if (isThisWeek && (isPTAssigned || isPTInBuoiTap)) {
-                    lichTapTuanNay++;
-                }
-            });
-        });
-
-        const sessionTuanNay = await Session.countDocuments({
-            $or: [
-                { ptPhuTrach: ptId, ngay: { $gte: startOfWeek, $lt: endOfWeek } },
-                { ptPhuTrach: ptObjectId, ngay: { $gte: startOfWeek, $lt: endOfWeek } },
-                { ptPhuTrach: ptId.toString(), ngay: { $gte: startOfWeek, $lt: endOfWeek } }
-            ]
-        });
-
-        const buoiTapTuanNay = buoiTapTuanNayBuoiTap + lichTapTuanNay + sessionTuanNay;
-
-        // Lấy lịch sắp tới từ tất cả các nguồn và merge lại
-        // Lấy tất cả BuoiTap trước để debug
-        const allBuoiTaps = await BuoiTap.find({
-            $or: [
-                { ptPhuTrach: ptId },
-                { ptPhuTrach: ptObjectId },
-                { ptPhuTrach: ptId.toString() }
-            ]
-        })
-            .populate('chiNhanh', 'tenChiNhanh')
-            .sort({ ngayTap: 1, gioBatDau: 1 })
-            .select('tenBuoiTap ngayTap gioBatDau gioKetThuc chiNhanh soLuongHienTai soLuongToiDa ptPhuTrach');
-
-        console.log('[getPTDashboard] All BuoiTap found:', allBuoiTaps.length);
-        if (allBuoiTaps.length > 0) {
-            allBuoiTaps.forEach((bt, idx) => {
-                const buoiTapDate = new Date(bt.ngayTap);
-                buoiTapDate.setHours(0, 0, 0, 0);
-                console.log(`[getPTDashboard] BuoiTap ${idx + 1}:`, {
-                    _id: bt._id,
-                    tenBuoiTap: bt.tenBuoiTap,
-                    ngayTap: bt.ngayTap,
-                    ngayFormatted: buoiTapDate.toISOString().split('T')[0],
-                    gioBatDau: bt.gioBatDau,
-                    gioKetThuc: bt.gioKetThuc,
-                    chiNhanh: bt.chiNhanh?.tenChiNhanh || 'N/A',
-                    isTodayOrFuture: buoiTapDate >= today,
-                    todayFormatted: today.toISOString().split('T')[0]
-                });
-            });
-        }
-
-        // Lọc các BuoiTap có ngày >= today
-        const lichSapToiBuoiTap = allBuoiTaps.filter(bt => {
-            if (!bt.ngayTap) return false;
-            const buoiTapDate = new Date(bt.ngayTap);
-            buoiTapDate.setHours(0, 0, 0, 0);
-            return buoiTapDate >= today;
-        });
-
-        console.log('[getPTDashboard] Filtered BuoiTap (>= today):', lichSapToiBuoiTap.length);
-
-        // Lấy từ LichTap - lấy tất cả để debug
-        const allLichTaps = await LichTap.find({
-            $or: [
-                { pt: ptId },
-                { pt: ptObjectId },
-                { pt: ptId.toString() },
-                { 'danhSachBuoiTap.ptPhuTrach': ptId },
-                { 'danhSachBuoiTap.ptPhuTrach': ptObjectId },
-                { 'danhSachBuoiTap.ptPhuTrach': ptId.toString() }
-            ]
-        })
-            .populate('chiNhanh', 'tenChiNhanh')
-            .populate('hoiVien', 'hoTen')
-            .select('danhSachBuoiTap chiNhanh pt hoiVien');
-
-        console.log('[getPTDashboard] All LichTap found:', allLichTaps.length);
-        if (allLichTaps.length > 0) {
-            allLichTaps.forEach((lt, idx) => {
-                console.log(`[getPTDashboard] LichTap ${idx + 1}:`, {
-                    _id: lt._id,
-                    pt: lt.pt,
-                    hoiVien: lt.hoiVien?.hoTen || 'N/A',
-                    chiNhanh: lt.chiNhanh?.tenChiNhanh || 'N/A',
-                    danhSachBuoiTapCount: lt.danhSachBuoiTap?.length || 0,
-                    danhSachBuoiTap: lt.danhSachBuoiTap?.map(bt => ({
-                        ngayTap: bt.ngayTap,
-                        gioBatDau: bt.gioBatDau,
-                        gioKetThuc: bt.gioKetThuc,
-                        ptPhuTrach: bt.ptPhuTrach
-                    })) || []
-                });
-            });
-        }
-
-        const lichSapToiLichTap = allLichTaps;
-
-        // Lấy từ Session - lấy tất cả sessions trước để debug
-        const allSessionsRaw = await Session.find({
-            $or: [
-                { ptPhuTrach: ptId },
-                { ptPhuTrach: ptObjectId },
-                { ptPhuTrach: ptId.toString() }
-            ]
-        })
-            .populate('chiNhanh', 'tenChiNhanh')
-            .sort({ ngay: 1, gioBatDau: 1 })
-            .select('ngay gioBatDau gioKetThuc chiNhanh soLuongDaDangKy soLuongToiDa doKho');
-
-        console.log('[getPTDashboard] All Sessions found:', allSessionsRaw.length);
-        console.log('[getPTDashboard] Today date:', today);
-        if (allSessionsRaw.length > 0) {
-            allSessionsRaw.forEach((s, idx) => {
-                const sessionDate = new Date(s.ngay);
-                sessionDate.setHours(0, 0, 0, 0);
-                const isTodayOrFuture = sessionDate >= today;
-                console.log(`[getPTDashboard] Session ${idx + 1}:`, {
-                    _id: s._id,
-                    ngay: s.ngay,
-                    ngayFormatted: sessionDate.toISOString().split('T')[0],
-                    gioBatDau: s.gioBatDau,
-                    gioKetThuc: s.gioKetThuc,
-                    chiNhanh: s.chiNhanh?.tenChiNhanh || 'N/A',
-                    isTodayOrFuture: isTodayOrFuture,
-                    todayFormatted: today.toISOString().split('T')[0]
-                });
-            });
-        }
-
-        // Lọc các sessions có ngày >= today (bao gồm cả hôm nay)
-        const lichSapToiSession = allSessionsRaw.filter(s => {
-            if (!s.ngay) return false;
-            const sessionDate = new Date(s.ngay);
-            sessionDate.setHours(0, 0, 0, 0);
-            return sessionDate >= today;
-        });
-
-        console.log('[getPTDashboard] Filtered Sessions (>= today):', lichSapToiSession.length);
-
-        // Merge và format dữ liệu từ tất cả các nguồn
-        const allSessions = [];
-
-        // Từ BuoiTap
-        lichSapToiBuoiTap.forEach(buoiTap => {
-            if (buoiTap.ngayTap && buoiTap.gioBatDau && buoiTap.gioKetThuc) {
-                allSessions.push({
-                    _id: buoiTap._id,
-                    tenBuoiTap: buoiTap.tenBuoiTap || 'Buổi tập',
-                    ngayTap: buoiTap.ngayTap,
-                    gioBatDau: buoiTap.gioBatDau,
-                    gioKetThuc: buoiTap.gioKetThuc,
-                    chiNhanh: buoiTap.chiNhanh || { tenChiNhanh: 'Chưa có' },
-                    soLuongHienTai: buoiTap.soLuongHienTai || 0,
-                    soLuongToiDa: buoiTap.soLuongToiDa || 0
-                });
-                console.log('[getPTDashboard] Added BuoiTap to allSessions:', {
-                    tenBuoiTap: buoiTap.tenBuoiTap,
-                    ngayTap: buoiTap.ngayTap,
-                    chiNhanh: buoiTap.chiNhanh?.tenChiNhanh || 'N/A'
-                });
-            }
-        });
-
-        // Từ LichTap - extract các buổi tập từ danhSachBuoiTap
-        lichSapToiLichTap.forEach(lichTap => {
-            if (lichTap.danhSachBuoiTap && lichTap.danhSachBuoiTap.length > 0) {
-                const isPTAssigned = lichTap.pt && lichTap.pt.toString() === ptId.toString();
-
-                lichTap.danhSachBuoiTap.forEach(buoiTap => {
-                    const buoiTapDate = new Date(buoiTap.ngayTap);
-                    const isFuture = buoiTapDate >= today;
-                    const isPTInBuoiTap = buoiTap.ptPhuTrach && buoiTap.ptPhuTrach.toString() === ptId.toString();
-
-                    // Chỉ lấy các buổi tập có ptPhuTrach = ptId hoặc pt = ptId và ngày >= today
-                    if (isFuture && (isPTAssigned || isPTInBuoiTap)) {
-                        allSessions.push({
-                            _id: buoiTap.buoiTap || buoiTap._id || lichTap._id,
-                            tenBuoiTap: `Buổi tập - ${lichTap.hoiVien?.hoTen || 'Học viên'}`,
-                            ngayTap: buoiTap.ngayTap,
-                            gioBatDau: buoiTap.gioBatDau,
-                            gioKetThuc: buoiTap.gioKetThuc,
-                            chiNhanh: lichTap.chiNhanh,
-                            soLuongHienTai: 1,
-                            soLuongToiDa: 1
-                        });
-                    }
-                });
-            }
-        });
-
-        // Từ Session
-        lichSapToiSession.forEach(session => {
-            if (session.ngay && session.gioBatDau && session.gioKetThuc) {
-                // Tạo tên buổi tập từ độ khó hoặc để mặc định
-                let tenBuoiTap = 'Buổi tập';
-                if (session.doKho) {
-                    const doKhoMap = {
-                        'DE': 'Buổi tập cơ bản',
-                        'TRUNG_BINH': 'Buổi tập trung bình',
-                        'KHO': 'Buổi tập nâng cao'
-                    };
-                    tenBuoiTap = doKhoMap[session.doKho] || 'Buổi tập';
-                }
-
-                // Kiểm tra chiNhanh
-                let chiNhanhData = { tenChiNhanh: 'Chưa có' };
-                if (session.chiNhanh) {
-                    if (typeof session.chiNhanh === 'object' && session.chiNhanh.tenChiNhanh) {
-                        chiNhanhData = session.chiNhanh;
-                    } else if (typeof session.chiNhanh === 'string') {
-                        chiNhanhData = { tenChiNhanh: session.chiNhanh };
-                    }
-                }
-
-                allSessions.push({
-                    _id: session._id,
-                    tenBuoiTap: tenBuoiTap,
-                    ngayTap: session.ngay,
-                    gioBatDau: session.gioBatDau,
-                    gioKetThuc: session.gioKetThuc,
-                    chiNhanh: chiNhanhData,
-                    soLuongHienTai: session.soLuongDaDangKy || 0,
-                    soLuongToiDa: session.soLuongToiDa || 20
-                });
-                console.log('[getPTDashboard] Added session to allSessions:', {
-                    tenBuoiTap: tenBuoiTap,
-                    ngayTap: session.ngay,
-                    gioBatDau: session.gioBatDau,
-                    chiNhanh: chiNhanhData.tenChiNhanh
-                });
-            } else {
-                console.log('[getPTDashboard] Skipping session due to missing data:', {
-                    _id: session._id,
-                    hasNgay: !!session.ngay,
-                    hasGioBatDau: !!session.gioBatDau,
-                    hasGioKetThuc: !!session.gioKetThuc
-                });
-            }
-        });
-
-        console.log('[getPTDashboard] All sessions after merge:', allSessions.length);
-        if (allSessions.length > 0) {
-            console.log('[getPTDashboard] Sample merged session:', JSON.stringify(allSessions[0], null, 2));
-        }
-
-        // Sắp xếp theo ngày và giờ, lấy 5 buổi gần nhất
-        const lichSapToi = allSessions
-            .sort((a, b) => {
-                const dateA = new Date(a.ngayTap);
-                const dateB = new Date(b.ngayTap);
-                if (dateA.getTime() !== dateB.getTime()) {
-                    return dateA - dateB;
-                }
-                // Nếu cùng ngày, sắp xếp theo giờ
-                return a.gioBatDau.localeCompare(b.gioBatDau);
-            })
-            .slice(0, 5);
-
-        console.log('[getPTDashboard] Total sessions found:', allSessions.length);
-        console.log('[getPTDashboard] Final lichSapToi count:', lichSapToi.length);
-        console.log('[getPTDashboard] buoiTapHomNay:', buoiTapHomNay);
-        console.log('[getPTDashboard] buoiTapTuanNay:', buoiTapTuanNay);
-        console.log('[getPTDashboard] soHoiVien:', soHoiVien);
+        const elapsedTime = Date.now() - startTime;
+        console.log(`[getPTDashboard] Hoàn thành sau ${elapsedTime}ms`);
 
         res.json({
             success: true,
@@ -483,8 +175,20 @@ exports.getPTDashboard = async (req, res) => {
             }
         });
     } catch (err) {
-        console.error('Error in getPTDashboard:', err);
-        res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
+        const elapsedTime = Date.now() - startTime;
+        console.error(`[getPTDashboard] ERROR sau ${elapsedTime}ms:`, err.message);
+        console.error('[getPTDashboard] Error stack:', err.stack);
+
+        // Trả về dữ liệu mặc định nếu timeout hoặc lỗi
+        res.json({
+            success: true,
+            data: {
+                soHoiVien: 0,
+                buoiTapHomNay: 0,
+                buoiTapTuanNay: 0,
+                lichSapToi: []
+            }
+        });
     }
 };
 
@@ -512,28 +216,43 @@ exports.getMySessions = async (req, res) => {
             }
         }
 
-        const skip = (parseInt(page) - 1) * parseInt(limit);
+        // Bảo vệ limit, tránh query quá lớn gây lỗi / quá tải
+        const parsedLimit = parseInt(limit, 10);
+        const safeLimit = Number.isNaN(parsedLimit) ? 20 : Math.min(Math.max(parsedLimit, 1), 500);
+        const parsedPage = parseInt(page, 10);
+        const safePage = Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
 
-        const buoiTaps = await BuoiTap.find(query)
-            .populate('chiNhanh', 'tenChiNhanh')
-            .populate('ptPhuTrach', 'hoTen')
-            .populate('danhSachHoiVien.hoiVien', 'hoTen anhDaiDien')
-            .populate('baiTap', 'tenBaiTap hinhAnh hinhAnhMinhHoa videoHuongDan')
-            .sort({ ngayTap: -1, gioBatDau: 1 })
-            .skip(skip)
-            .limit(parseInt(limit));
+        const skip = (safePage - 1) * safeLimit;
 
-        const total = await BuoiTap.countDocuments(query);
+        // TỐI ƯU: Thêm timeout và giảm populate
+        const buoiTaps = await Promise.race([
+            BuoiTap.find(query)
+                .select('tenBuoiTap ngayTap gioBatDau gioKetThuc chiNhanh soLuongHienTai soLuongToiDa trangThai doKho danhSachHoiVien ptPhuTrach')
+                .populate('chiNhanh', 'tenChiNhanh')
+                .populate('ptPhuTrach', 'hoTen')
+                .populate('danhSachHoiVien.hoiVien', 'hoTen') // đủ để hiển thị tên, giảm payload
+                .sort({ ngayTap: -1, gioBatDau: 1 })
+                .skip(skip)
+                .limit(safeLimit)
+                .lean()
+                .maxTimeMS(5000), // Timeout 5s
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
+        ]);
+
+        const total = await Promise.race([
+            BuoiTap.countDocuments(query).maxTimeMS(3000),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Count timeout')), 3000))
+        ]).catch(() => 0); // Nếu count timeout, trả về 0
 
         res.json({
             success: true,
             data: {
                 buoiTaps,
                 pagination: {
-                    page: parseInt(page),
-                    limit: parseInt(limit),
+                    page: safePage,
+                    limit: safeLimit,
                     total,
-                    pages: Math.ceil(total / parseInt(limit))
+                    pages: Math.ceil(total / safeLimit)
                 }
             }
         });
@@ -547,18 +266,44 @@ exports.getMySessions = async (req, res) => {
 exports.getMyStudents = async (req, res) => {
     try {
         const ptId = req.user.id;
-        const { search, page = 1, limit = 20 } = req.query;
+        const ptObjectId = mongoose.Types.ObjectId.isValid(ptId) ? new mongoose.Types.ObjectId(ptId) : ptId;
+        const { search, page = 1, limit = 50 } = req.query;
 
         // Lấy tất cả học viên từ các buổi tập PT phụ trách
-        const buoiTaps = await BuoiTap.find({ ptPhuTrach: ptId })
-            .select('danhSachHoiVien');
+        const buoiTaps = await BuoiTap.find({ ptPhuTrach: ptObjectId })
+            .select('danhSachHoiVien')
+            .lean();
 
         const hoiVienIds = new Set();
         buoiTaps.forEach(buoiTap => {
-            buoiTap.danhSachHoiVien.forEach(member => {
-                hoiVienIds.add(member.hoiVien.toString());
-            });
+            if (Array.isArray(buoiTap.danhSachHoiVien)) {
+                buoiTap.danhSachHoiVien.forEach(member => {
+                    if (member.hoiVien) {
+                        hoiVienIds.add(member.hoiVien.toString());
+                    }
+                });
+            }
         });
+
+        if (hoiVienIds.size === 0) {
+            return res.json({
+                success: true,
+                data: {
+                    hoiViens: [],
+                    stats: {
+                        totalStudents: 0,
+                        activeStudents: 0,
+                        upcomingSessions: 0
+                    },
+                    pagination: {
+                        page: parseInt(page),
+                        limit: parseInt(limit),
+                        total: 0,
+                        pages: 0
+                    }
+                }
+            });
+        }
 
         const query = { _id: { $in: Array.from(hoiVienIds) } };
 
@@ -572,18 +317,130 @@ exports.getMyStudents = async (req, res) => {
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
+        // Lấy thông tin học viên với populate
         const hoiViens = await HoiVien.find(query)
-            .select('hoTen sdt email anhDaiDien ngayThamGia')
+            .select('hoTen sdt email anhDaiDien ngayThamGia ngaySinh gioiTinh')
             .sort({ hoTen: 1 })
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(parseInt(limit))
+            .lean();
 
         const total = await HoiVien.countDocuments(query);
+
+        // Lấy thêm thông tin cho mỗi học viên
+        const enrichedStudents = await Promise.all(hoiViens.map(async (hoiVien) => {
+            const hoiVienId = hoiVien._id;
+
+            // 1. Lấy chỉ số cơ thể mới nhất
+            const chiSoMoiNhat = await ChiSoCoThe.findOne({ hoiVien: hoiVienId })
+                .sort({ ngayDo: -1 })
+                .select('canNang chieuCao bmi ngayDo')
+                .lean();
+
+            // 2. Lấy gói tập đang hoạt động
+            const ChiTietGoiTap = require('../models/ChiTietGoiTap');
+            const goiTap = await ChiTietGoiTap.findOne({
+                hoiVien: hoiVienId,
+                trangThai: 'DANG_HOAT_DONG'
+            })
+                .populate('goiTap', 'tenGoi soBuoi')
+                .select('soBuoiDaDung soBuoiConLai ngayBatDau ngayKetThuc goiTap')
+                .lean();
+
+            // 3. Lấy buổi tập sắp tới
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const buoiTapSapToi = await BuoiTap.findOne({
+                ptPhuTrach: ptObjectId,
+                ngayTap: { $gte: today },
+                'danhSachHoiVien.hoiVien': hoiVienId
+            })
+                .select('tenBuoiTap ngayTap gioBatDau gioKetThuc chiNhanh')
+                .populate('chiNhanh', 'tenChiNhanh')
+                .sort({ ngayTap: 1, gioBatDau: 1 })
+                .lean();
+
+            // 4. Đếm số buổi tập đã hoàn thành
+            const soBuoiDaTap = await BuoiTap.countDocuments({
+                ptPhuTrach: ptObjectId,
+                'danhSachHoiVien.hoiVien': hoiVienId,
+                'danhSachHoiVien.trangThai': 'DA_THAM_GIA',
+                trangThai: 'HOAN_THANH'
+            });
+
+            // 5. Tính tuổi
+            let tuoi = null;
+            if (hoiVien.ngaySinh) {
+                const birthDate = new Date(hoiVien.ngaySinh);
+                const today = new Date();
+                tuoi = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    tuoi--;
+                }
+            }
+
+            // 6. Xác định trạng thái
+            let trangThai = 'active';
+            if (goiTap && goiTap.ngayKetThuc) {
+                const ngayHetHan = new Date(goiTap.ngayKetThuc);
+                if (ngayHetHan < today) {
+                    trangThai = 'expired';
+                }
+            }
+
+            return {
+                _id: hoiVien._id,
+                hoTen: hoiVien.hoTen,
+                sdt: hoiVien.sdt,
+                email: hoiVien.email,
+                anhDaiDien: hoiVien.anhDaiDien,
+                tuoi: tuoi,
+                gioiTinh: hoiVien.gioiTinh || 'Nam',
+                ngayThamGia: hoiVien.ngayThamGia,
+                trangThai: trangThai,
+                thongSo: chiSoMoiNhat ? {
+                    canNang: chiSoMoiNhat.canNang,
+                    chieuCao: chiSoMoiNhat.chieuCao,
+                    bmi: chiSoMoiNhat.bmi ? chiSoMoiNhat.bmi.toFixed(1) : null,
+                    ngayDo: chiSoMoiNhat.ngayDo
+                } : null,
+                goiTap: goiTap ? {
+                    tenGoi: goiTap.goiTap?.tenGoi || 'PT Package',
+                    sobuoiConLai: goiTap.soBuoiConLai || 0,
+                    tongSoBuoi: goiTap.goiTap?.soBuoi || 0,
+                    sobuoiDaDung: goiTap.soBuoiDaDung || 0,
+                    ngayHetHan: goiTap.ngayKetThuc,
+                    trangThai: 'DANG_HOAT_DONG'
+                } : null,
+                tienDo: {
+                    sobuoiDaTap: soBuoiDaTap,
+                    tyLeHoanThanh: goiTap && goiTap.goiTap?.soBuoi > 0
+                        ? Math.round((goiTap.soBuoiDaDung / goiTap.goiTap.soBuoi) * 100)
+                        : 0
+                },
+                lichHenSapToi: buoiTapSapToi ? {
+                    ngay: buoiTapSapToi.ngayTap,
+                    gio: buoiTapSapToi.gioBatDau,
+                    loai: buoiTapSapToi.tenBuoiTap || 'Buổi tập',
+                    diaDiem: buoiTapSapToi.chiNhanh?.tenChiNhanh || 'Chưa có'
+                } : null
+            };
+        }));
+
+        // Tính stats
+        const activeStudents = enrichedStudents.filter(s => s.trangThai === 'active').length;
+        const upcomingSessions = enrichedStudents.filter(s => s.lichHenSapToi !== null).length;
 
         res.json({
             success: true,
             data: {
-                hoiViens,
+                hoiViens: enrichedStudents,
+                stats: {
+                    totalStudents: total,
+                    activeStudents: activeStudents,
+                    upcomingSessions: upcomingSessions
+                },
                 pagination: {
                     page: parseInt(page),
                     limit: parseInt(limit),

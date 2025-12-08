@@ -11,6 +11,9 @@ const PTWorkSchedule = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [loading, setLoading] = useState(true);
     const [workSchedule, setWorkSchedule] = useState([]);
+    const [assignedSessions, setAssignedSessions] = useState([]); // Buổi tập đã được phân công
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [expandedDays, setExpandedDays] = useState(new Set());
     const [showAddSlotModal, setShowAddSlotModal] = useState(false);
     const [selectedDay, setSelectedDay] = useState(null);
     const [newSlot, setNewSlot] = useState({
@@ -49,11 +52,24 @@ const PTWorkSchedule = () => {
     }, []);
 
     useEffect(() => {
-        loadWorkSchedule();
+        loadAllData();
     }, []);
 
-    const loadWorkSchedule = async () => {
+    const loadAllData = async () => {
         setLoading(true);
+        try {
+            await Promise.all([
+                loadWorkSchedule(),
+                loadAssignedSessions()
+            ]);
+        } catch (error) {
+            console.error('Error loading data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadWorkSchedule = async () => {
         try {
             const response = await ptService.getWorkSchedule();
             if (response.success) {
@@ -61,8 +77,34 @@ const PTWorkSchedule = () => {
             }
         } catch (error) {
             console.error('Error loading work schedule:', error);
-        } finally {
-            setLoading(false);
+        }
+    };
+
+    const loadAssignedSessions = async (customRange) => {
+        try {
+            // Lấy buổi tập đã được phân công trong khoảng chọn, mặc định 30 ngày tới
+            const start = customRange?.startDate
+                ? new Date(customRange.startDate)
+                : new Date();
+            start.setHours(0, 0, 0, 0); // tránh bỏ sót buổi sáng
+
+            const end = customRange?.endDate
+                ? new Date(customRange.endDate)
+                : new Date(start);
+            if (!customRange?.endDate) end.setDate(end.getDate() + 30);
+            end.setHours(23, 59, 59, 999);
+
+            const response = await ptService.getMySessions({
+                ngayBatDau: start.toISOString(),
+                ngayKetThuc: end.toISOString(),
+                limit: 400 // giảm payload
+            });
+
+            if (response.success && response.data?.buoiTaps) {
+                setAssignedSessions(response.data.buoiTaps);
+            }
+        } catch (error) {
+            console.error('Error loading assigned sessions:', error);
         }
     };
 
@@ -83,7 +125,7 @@ const PTWorkSchedule = () => {
             });
 
             if (response.success) {
-                await loadWorkSchedule();
+                await loadAllData();
                 setShowAddSlotModal(false);
                 setNewSlot({ gioBatDau: '', gioKetThuc: '', trangThai: 'RANH' });
                 setSelectedDay(null);
@@ -111,7 +153,7 @@ const PTWorkSchedule = () => {
                 });
             }
 
-            await loadWorkSchedule();
+            await loadAllData();
         } catch (error) {
             console.error('Error deleting time slot:', error);
             alert('Có lỗi khi xóa khung giờ!');
@@ -130,7 +172,7 @@ const PTWorkSchedule = () => {
                 ghiChu: daySchedule.ghiChu || ''
             });
 
-            await loadWorkSchedule();
+            await loadAllData();
         } catch (error) {
             console.error('Error updating slot status:', error);
             alert('Có lỗi khi cập nhật trạng thái!');
@@ -157,7 +199,7 @@ const PTWorkSchedule = () => {
                 }
             }
 
-            await loadWorkSchedule();
+            await loadAllData();
             alert('Sao chép lịch thành công!');
         } catch (error) {
             console.error('Error copying schedule:', error);
@@ -197,6 +239,83 @@ const PTWorkSchedule = () => {
         return workSchedule.reduce((total, day) => total + day.gioLamViec.length, 0);
     };
 
+    // Lấy buổi tập đã được phân công cho một ngày cụ thể
+    const getAssignedSessionsForDay = (dayKey) => {
+        const dayMapping = {
+            'Monday': 1,
+            'Tuesday': 2,
+            'Wednesday': 3,
+            'Thursday': 4,
+            'Friday': 5,
+            'Saturday': 6,
+            'Sunday': 0
+        };
+        const targetDay = dayMapping[dayKey];
+
+        return assignedSessions.filter(session => {
+            if (!session.ngayTap) return false;
+            const sessionDate = new Date(session.ngayTap);
+            const sessionDay = sessionDate.getDay();
+            return sessionDay === targetDay;
+        }).sort((a, b) => {
+            // Sắp xếp theo giờ bắt đầu
+            const timeA = a.gioBatDau || '00:00';
+            const timeB = b.gioBatDau || '00:00';
+            return timeA.localeCompare(timeB);
+        });
+    };
+
+    // Lấy ngày thực tế cho từng thứ trong tuần dựa trên selectedDate
+    const getDateForDay = (dayKey) => {
+        const dayMapping = {
+            'Sunday': 0,
+            'Monday': 1,
+            'Tuesday': 2,
+            'Wednesday': 3,
+            'Thursday': 4,
+            'Friday': 5,
+            'Saturday': 6
+        };
+        const target = dayMapping[dayKey];
+        const base = new Date(selectedDate);
+        base.setHours(0, 0, 0, 0);
+        const diff = base.getDay(); // 0=Sun
+        // Đưa về thứ Hai là ngày đầu tuần
+        const startOfWeek = new Date(base);
+        const mondayOffset = diff === 0 ? -6 : 1 - diff;
+        startOfWeek.setDate(base.getDate() + mondayOffset);
+        const date = new Date(startOfWeek);
+        date.setDate(startOfWeek.getDate() + (target === 0 ? 6 : target - 1));
+        return date;
+    };
+
+    const formatDayLabel = (dateObj) => dateObj.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+
+    const toggleDayExpand = (dayKey) => {
+        setExpandedDays(prev => {
+            const next = new Set(prev);
+            if (next.has(dayKey)) next.delete(dayKey);
+            else next.add(dayKey);
+            return next;
+        });
+    };
+
+    // Lấy buổi tập theo đúng ngày (dd/mm/yyyy) cho chế độ xem theo ngày
+    const getAssignedSessionsByDate = (dateObj) => {
+        const start = new Date(dateObj);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 1);
+
+        return assignedSessions
+            .filter(session => {
+                if (!session.ngayTap) return false;
+                const d = new Date(session.ngayTap);
+                return d >= start && d < end;
+            })
+            .sort((a, b) => (a.gioBatDau || '00:00').localeCompare(b.gioBatDau || '00:00'));
+    };
+
     const handleQuickAdd = async () => {
         // If using date range
         if (dateRange.startDate && dateRange.endDate) {
@@ -232,7 +351,7 @@ const PTWorkSchedule = () => {
                     });
                 }
 
-                await loadWorkSchedule();
+                await loadAllData();
                 setQuickAdd({ selectedDays: [], gioBatDau: '', gioKetThuc: '', trangThai: 'RANH' });
                 setDateRange({ startDate: '', endDate: '' });
                 alert('Thêm lịch thành công!');
@@ -265,7 +384,7 @@ const PTWorkSchedule = () => {
                 });
             }
 
-            await loadWorkSchedule();
+            await loadAllData();
             setQuickAdd({ selectedDays: [], gioBatDau: '', gioKetThuc: '', trangThai: 'RANH' });
             alert('Thêm lịch thành công!');
         } catch (error) {
@@ -284,6 +403,26 @@ const PTWorkSchedule = () => {
     };
 
     const mainMarginLeft = sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-80';
+
+    // Điều hướng ngày (xem lịch theo ngày)
+    const handlePrevDay = () => {
+        setSelectedDate(prev => {
+            const d = new Date(prev);
+            d.setDate(d.getDate() - 1);
+            return d;
+        });
+    };
+
+    const handleNextDay = () => {
+        setSelectedDate(prev => {
+            const d = new Date(prev);
+            d.setDate(d.getDate() + 1);
+            return d;
+        });
+    };
+
+    const formatDateLabel = (d) => d.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+    const selectedDateSessions = getAssignedSessionsByDate(selectedDate);
 
     return (
         <div className="min-h-screen bg-[#0a0a0a]">
@@ -369,6 +508,80 @@ const PTWorkSchedule = () => {
                         </div>
                     </div>
 
+                    {/* Ngày hiện tại + điều hướng */}
+                    <div className="bg-[#141414] rounded-xl p-4 mb-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={handlePrevDay}
+                                className="px-3 py-2 bg-[#1a1a1a] hover:bg-[#2a2a2a] text-white rounded-lg transition-colors cursor-pointer"
+                            >
+                                ←
+                            </button>
+                            <div>
+                                <p className="text-gray-400 text-xs uppercase tracking-wide">Ngày đang xem</p>
+                                <h2 className="text-lg font-bold text-white">{formatDateLabel(selectedDate)}</h2>
+                            </div>
+                            <button
+                                onClick={handleNextDay}
+                                className="px-3 py-2 bg-[#1a1a1a] hover:bg-[#2a2a2a] text-white rounded-lg transition-colors cursor-pointer"
+                            >
+                                →
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-gray-300">
+                            <div className="flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full bg-[#da2128]" />
+                                <span>Buổi tập đã phân công</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full bg-green-500" />
+                                <span>Khung giờ rảnh</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Buổi tập theo ngày */}
+                    <div className="bg-[#141414] rounded-xl p-4 mb-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 className="text-xl font-bold text-white">Buổi tập trong ngày</h3>
+                                <p className="text-gray-400 text-sm">Danh sách buổi tập đã được phân công vào ngày này</p>
+                            </div>
+                            <span className="text-gray-300 text-sm">{selectedDateSessions.length} buổi</span>
+                        </div>
+                        {selectedDateSessions.length === 0 ? (
+                            <div className="text-center py-6">
+                                <Clock className="w-10 h-10 text-gray-600 mx-auto mb-2" />
+                                <p className="text-gray-500 text-sm">Không có buổi tập nào trong ngày này</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {selectedDateSessions.map((session, idx) => (
+                                    <div
+                                        key={session._id || idx}
+                                        className="bg-gradient-to-r from-[#da2128]/15 to-[#ff3842]/15 border border-[#da2128]/30 rounded-lg p-3 hover:border-[#da2128]/60 transition-all"
+                                    >
+                                        <div className="flex items-center justify-between mb-1">
+                                            <div className="flex items-center gap-2">
+                                                <Clock className="w-4 h-4 text-[#da2128]" />
+                                                <span className="text-white text-sm font-medium">
+                                                    {session.gioBatDau} - {session.gioKetThuc}
+                                                </span>
+                                            </div>
+                                            <span className="text-xs px-2 py-0.5 bg-[#da2128]/30 text-[#da2128] rounded-full font-medium">
+                                                {session.soLuongHienTai || 0}/{session.soLuongToiDa || 0}
+                                            </span>
+                                        </div>
+                                        <p className="text-white text-sm font-semibold truncate">{session.tenBuoiTap || 'Buổi tập'}</p>
+                                        {session.chiNhanh && (
+                                            <p className="text-gray-400 text-xs mt-1">📍 {session.chiNhanh.tenChiNhanh || session.chiNhanh}</p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Quick Add Toolbar */}
                     <div className="bg-[#141414] rounded-xl p-4 mb-4">
                         <div className="flex flex-col gap-4">
@@ -382,7 +595,6 @@ const PTWorkSchedule = () => {
                                             <button
                                                 key={day.key}
                                                 onClick={() => toggleDaySelection(day.key)}
-                                                disabled={dateRange.startDate || dateRange.endDate}
                                                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${dateRange.startDate || dateRange.endDate
                                                     ? 'bg-[#1a1a1a] text-gray-600 cursor-not-allowed'
                                                     : quickAdd.selectedDays.includes(day.key)
@@ -404,8 +616,12 @@ const PTWorkSchedule = () => {
                                             type="date"
                                             value={dateRange.startDate}
                                             onChange={(e) => {
-                                                setDateRange({ ...dateRange, startDate: e.target.value });
+                                                const nextRange = { ...dateRange, startDate: e.target.value };
+                                                setDateRange(nextRange);
                                                 setQuickAdd({ ...quickAdd, selectedDays: [] });
+                                                if (nextRange.startDate && nextRange.endDate) {
+                                                    loadAssignedSessions(nextRange);
+                                                }
                                             }}
                                             className="px-3 py-2 bg-[#2a2a2a] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#da2128] text-sm border border-[#3a3a3a] hover:border-[#4a4a4a] transition-colors cursor-pointer"
                                         />
@@ -413,8 +629,12 @@ const PTWorkSchedule = () => {
                                             type="date"
                                             value={dateRange.endDate}
                                             onChange={(e) => {
-                                                setDateRange({ ...dateRange, endDate: e.target.value });
+                                                const nextRange = { ...dateRange, endDate: e.target.value };
+                                                setDateRange(nextRange);
                                                 setQuickAdd({ ...quickAdd, selectedDays: [] });
+                                                if (nextRange.startDate && nextRange.endDate) {
+                                                    loadAssignedSessions(nextRange);
+                                                }
                                             }}
                                             className="px-3 py-2 bg-[#2a2a2a] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#da2128] text-sm border border-[#3a3a3a] hover:border-[#4a4a4a] transition-colors cursor-pointer"
                                         />
@@ -511,25 +731,38 @@ const PTWorkSchedule = () => {
                             {daysOfWeek.map((day) => {
                                 const daySchedule = workSchedule.find(s => s.thu === day.key);
                                 const slots = daySchedule?.gioLamViec || [];
+                                const assignedSessionsForDay = getAssignedSessionsForDay(day.key);
+                                const dayDate = getDateForDay(day.key);
+                                const isExpanded = expandedDays.has(day.key);
 
                                 return (
                                     <div key={day.key} className="bg-[#141414] rounded-xl overflow-hidden hover:shadow-lg hover:shadow-[#da2128]/5 transition-all">
                                         {/* Day Header */}
-                                        <div className="bg-[#1a1a1a] p-4">
+                                        <div className="bg-[#1a1a1a] p-4 cursor-pointer" onClick={() => toggleDayExpand(day.key)}>
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 bg-[#da2128]/20 rounded-lg flex items-center justify-center">
                                                         <Calendar className="w-5 h-5 text-[#da2128]" />
                                                     </div>
                                                     <div>
+                                                        <div className="flex items-center gap-2">
                                                         <h3 className="text-lg font-bold text-white">{day.label}</h3>
+                                                            <span className="text-xs text-gray-400">{formatDayLabel(dayDate)}</span>
+                                                        </div>
                                                         <p className="text-gray-400 text-xs">
                                                             {slots.length > 0 ? `${slots.length} khung giờ` : 'Chưa có lịch'}
+                                                            {assignedSessionsForDay.length > 0 && (
+                                                                <span className="ml-2 text-green-400">
+                                                                    • {assignedSessionsForDay.length} buổi tập
+                                                                </span>
+                                                            )}
                                                         </p>
                                                     </div>
                                                 </div>
+                                                <div className="flex items-center gap-2">
                                                 <button
-                                                    onClick={() => {
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
                                                         setSelectedDay(day);
                                                         setShowAddSlotModal(true);
                                                     }}
@@ -538,11 +771,56 @@ const PTWorkSchedule = () => {
                                                     <Plus className="w-4 h-4" />
                                                     Thêm
                                                 </button>
+                                                    <button
+                                                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#2a2a2a] text-white hover:bg-[#3a3a3a] transition-colors"
+                                                        aria-label="Toggle"
+                                                    >
+                                                        {isExpanded ? '−' : '+'}
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        {/* Time Slots */}
+                                        {/* Time Slots (collapse/expand) */}
+                                        {isExpanded && (
                                         <div className="p-4">
+                                                {/* Buổi tập đã được phân công */}
+                                                {assignedSessionsForDay.length > 0 && (
+                                                    <div className="mb-4">
+                                                        <h4 className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">Buổi tập đã phân công</h4>
+                                                        <div className="space-y-2">
+                                                            {assignedSessionsForDay.map((session, idx) => (
+                                                                <div
+                                                                    key={session._id || idx}
+                                                                    className="bg-gradient-to-r from-[#da2128]/20 to-[#ff3842]/20 border border-[#da2128]/30 rounded-lg p-3 hover:border-[#da2128]/50 transition-all"
+                                                                >
+                                                                    <p className="text-gray-400 text-[11px] mb-1">
+                                                                        {new Date(session.ngayTap).toLocaleDateString('vi-VN')}
+                                                                    </p>
+                                                                    <div className="flex items-center justify-between mb-1">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Clock className="w-4 h-4 text-[#da2128]" />
+                                                                            <span className="text-white text-sm font-medium">
+                                                                                {session.gioBatDau} - {session.gioKetThuc}
+                                                                            </span>
+                                                                        </div>
+                                                                        <span className="text-xs px-2 py-0.5 bg-[#da2128]/30 text-[#da2128] rounded-full font-medium">
+                                                                            {session.soLuongHienTai || 0}/{session.soLuongToiDa || 0}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="text-gray-300 text-xs truncate">{session.tenBuoiTap || 'Buổi tập'}</p>
+                                                                    {session.chiNhanh && (
+                                                                        <p className="text-gray-400 text-xs mt-1">📍 {session.chiNhanh.tenChiNhanh || session.chiNhanh}</p>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Khung giờ rảnh */}
+                                                <div>
+                                                    <h4 className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">Khung giờ rảnh</h4>
                                             {slots.length === 0 ? (
                                                 <div className="text-center py-8">
                                                     <Clock className="w-12 h-12 text-gray-600 mx-auto mb-2" />
@@ -595,6 +873,8 @@ const PTWorkSchedule = () => {
                                                 </div>
                                             )}
                                         </div>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}

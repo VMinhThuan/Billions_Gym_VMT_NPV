@@ -1,0 +1,323 @@
+erDiagram
+    %% User Entities
+    NguoiDung {
+        ObjectId _id PK
+        String soCCCD UK
+        String hoTen
+        Date ngaySinh
+        String diaChi
+        String gioiTinh
+        String anhDaiDien
+        String email UK
+        String sdt UK
+        String vaiTro
+    }
+    
+    HoiVien {
+        ObjectId _id PK
+        Date ngayThamGia
+        Date ngayHetHan
+        String trangThaiHoiVien
+        Number soTienTichLuy
+        Number soThangLienTuc
+        Number soBuoiTapDaTap
+        String qrCode UK
+        ObjectId hangHoiVien FK
+    }
+    
+    PT {
+        ObjectId _id PK
+        Number kinhNghiem
+        String bangCapChungChi
+        String chuyenMon
+        Number danhGia
+        String moTa
+        Date ngayVaoLam
+        String trangThaiPT
+        Boolean isOnline
+        String qrCode UK
+        ObjectId chinhanh FK
+    }
+    
+    OngChu {
+        ObjectId _id PK
+    }
+    
+    TaiKhoan {
+        ObjectId _id PK
+        String tenDangNhap UK
+        String matKhau
+        String vaiTro
+        ObjectId nguoiDungId FK
+    }
+    
+    %% Package Entities
+    GoiTap {
+        ObjectId _id PK
+        String tenGoiTap
+        String moTa
+        Number donGia
+        Number thoiHan
+        String donViThoiHan
+        String loaiThoiHan
+        Number soLuongNguoiThamGia
+        String loaiGoiTap
+        Boolean kichHoat
+        Array quyenLoi
+    }
+    
+    ChiTietGoiTap {
+        ObjectId _id PK
+        ObjectId goiTapId FK
+        ObjectId nguoiDungId FK
+        Date thoiGianDangKy
+        Date ngayBatDau
+        ObjectId branchId FK
+        String trangThaiThanhToan
+        String trangThaiDangKy
+        ObjectId ptDuocChon FK
+        ObjectId lichTapDuocTao FK
+        Number soTienThanhToan
+        Boolean isLocked
+    }
+    
+    %% Workout Entities
+    Session {
+        ObjectId _id PK
+        ObjectId chiNhanh FK
+        ObjectId ptPhuTrach FK
+        ObjectId goiTap FK
+        Date ngay
+        String gioBatDau
+        String gioKetThuc
+        Array taiLieuBaiTap
+        String doKho
+        Number soLuongToiDa
+        Number soLuongDaDangKy
+        String trangThai
+    }
+    
+    BuoiTap {
+        ObjectId _id PK
+        String tenBuoiTap
+        ObjectId chiNhanh FK
+        ObjectId ptPhuTrach FK
+        Date ngayTap
+        String gioBatDau
+        String gioKetThuc
+        Number soLuongToiDa
+        Number soLuongHienTai
+        String trangThai
+        Array danhSachHoiVien
+        Array baiTap
+    }
+    
+    BaiTap {
+        ObjectId _id PK
+        String tenBaiTap
+        String type
+        String file_url
+        String source_url
+        Number thoiGian
+        String moTa
+        String mucDoKho
+        Number kcal
+        Object ratings
+    }
+    
+    LichTap {
+        ObjectId _id PK
+        ObjectId hoiVien FK
+        ObjectId pt FK
+        Date ngayBatDau
+        Date ngayKetThuc
+        Array lichTapChiTiet
+    }
+    
+    LichSuTap {
+        ObjectId _id PK
+        ObjectId buoiTap FK
+        ObjectId hoiVien FK
+        String ketQua
+        Number caloTieuHao
+        Number danhGia
+    }
+    
+    %% Payment Entities
+    ThanhToan {
+        ObjectId _id PK
+        ObjectId hoiVien FK
+        Number soTien
+        Date ngayThanhToan
+        String noiDung
+        String phuongThuc
+        String trangThaiThanhToan
+        Boolean isLocked
+        ObjectId maChiTietGoiTap FK
+    }
+    
+    %% Nutrition Entities
+    NutritionPlan {
+        ObjectId _id PK
+        ObjectId hoiVien FK
+        String planType
+        Object request
+        Array days
+        Date generatedAt
+        String generatedBy
+        String status
+    }
+    
+    Meal {
+        ObjectId _id PK
+        String tenMon
+        Number calories
+        Object dinhDuong
+        String hinhAnh
+    }
+    
+    %% Chat Entities
+    ChatRoom {
+        ObjectId _id PK
+        Array participants
+        String participantModel
+        String lastMessage
+        Date lastMessageAt
+        ObjectId lastMessageBy
+        String lastMessageByModel
+    }
+    
+    ChatMessage {
+        ObjectId _id PK
+        ObjectId roomId FK
+        ObjectId senderId
+        String senderModel
+        String content
+        String messageType
+        Date timestamp
+    }
+    
+    %% Check-in Entities
+    CheckInRecord {
+        ObjectId _id PK
+        ObjectId hoiVien FK
+        ObjectId buoiTap FK
+        Date checkInTime
+        Date checkOutTime
+        String checkInStatus
+        String checkOutStatus
+        Number sessionDuration
+    }
+    
+    PTCheckInRecord {
+        ObjectId _id PK
+        ObjectId pt FK
+        ObjectId session FK
+        Date checkInTime
+        Date checkOutTime
+        String trangThai
+    }
+    
+    %% Body Metrics
+    ChiSoCoThe {
+        ObjectId _id PK
+        ObjectId hoiVien FK
+        Number chieuCao
+        Number canNang
+        Number vongNguc
+        Number vongEo
+        Number vongMong
+        Number bmi
+        Number tyLeMoCoThe
+        Number tyLeCoBap
+        Number nhipTim
+        String tinhTrangSuckhoe
+        Date ngayDo
+    }
+    
+    %% Branch
+    ChiNhanh {
+        ObjectId _id PK
+        String tenChiNhanh
+        String diaChi
+        String soDienThoai
+        Object location
+        Number thuTu
+    }
+    
+    %% Member Tier
+    HangHoiVien {
+        ObjectId _id PK
+        String tenHang
+        Number soTienToiThieu
+        Number soThangToiThieu
+        Array quyenLoi
+    }
+    
+    %% PT Schedule
+    LichHenPT {
+        ObjectId _id PK
+        ObjectId hoiVien FK
+        ObjectId pt FK
+        Date ngayHen
+        String gioHen
+        String trangThaiLichHen
+    }
+    
+    LichLamViecPT {
+        ObjectId _id PK
+        ObjectId pt FK
+        Date ngay
+        Array caLamViec
+    }
+    
+    %% Relationships
+    NguoiDung ||--o{ TaiKhoan : "has"
+    NguoiDung ||--o| HoiVien : "extends"
+    NguoiDung ||--o| PT : "extends"
+    NguoiDung ||--o| OngChu : "extends"
+    
+    HoiVien ||--o{ ChiTietGoiTap : "registers"
+    HoiVien ||--o{ ThanhToan : "makes"
+    HoiVien ||--o{ LichSuTap : "records"
+    HoiVien ||--o{ CheckInRecord : "checks_in"
+    HoiVien ||--o{ ChiSoCoThe : "has"
+    HoiVien ||--o{ NutritionPlan : "has"
+    HoiVien ||--o{ LichTap : "has"
+    HoiVien ||--o{ LichHenPT : "books"
+    HoiVien }o--o{ PT : "chats_with"
+    HoiVien }o--o{ BuoiTap : "attends"
+    HoiVien }o--o{ Session : "registers"
+    
+    GoiTap ||--o{ ChiTietGoiTap : "included_in"
+    GoiTap ||--o{ Session : "used_in"
+    
+    ChiTietGoiTap ||--o{ ThanhToan : "paid_by"
+    ChiTietGoiTap }o--o| PT : "assigned_to"
+    ChiTietGoiTap }o--o| LichTap : "creates"
+    ChiTietGoiTap }o--|| ChiNhanh : "registered_at"
+    
+    PT ||--o{ Session : "conducts"
+    PT ||--o{ BuoiTap : "conducts"
+    PT ||--o{ PTCheckInRecord : "checks_in"
+    PT ||--o{ LichHenPT : "scheduled"
+    PT ||--o{ LichLamViecPT : "has"
+    PT }o--|| ChiNhanh : "works_at"
+    PT }o--o{ ChiTietGoiTap : "assigned_to"
+    
+    ChiNhanh ||--o{ Session : "hosts"
+    ChiNhanh ||--o{ BuoiTap : "hosts"
+    ChiNhanh ||--o{ PT : "employs"
+    
+    BuoiTap ||--o{ CheckInRecord : "has"
+    BuoiTap }o--o{ BaiTap : "includes"
+    
+    Session ||--o{ PTCheckInRecord : "has"
+    Session }o--o{ BaiTap : "includes"
+    
+    HangHoiVien ||--o{ HoiVien : "tier_of"
+    
+    ChatRoom ||--o{ ChatMessage : "contains"
+    
+    NutritionPlan }o--o{ Meal : "includes"
+

@@ -81,6 +81,10 @@ mongoose.connect(process.env.MONGODB_URI, {
         }, AUTO_CHECKOUT_INTERVAL);
 
         console.log(`[Auto Check-out] Đã khởi động service tự động check-out (chạy mỗi ${AUTO_CHECKOUT_INTERVAL / 1000 / 60} phút)`);
+
+        // Start PT Session Notification Service
+        const { startPTSessionNotificationService } = require('./src/services/pt-session-notification.service');
+        startPTSessionNotificationService();
     })
     .catch(err => {
         console.error('Lỗi kết nối MongoDB:', err.message);
@@ -142,6 +146,7 @@ const notificationRouter = require('./src/routes/notification.route');
 const aiRouter = require('./src/routes/ai.route');
 const faceRouter = require('./src/routes/face.route');
 const checkinRouter = require('./src/routes/checkin.route');
+const ptCheckinRouter = require('./src/routes/pt-checkin.route');
 const watchHistoryRouter = require('./src/routes/watchHistory.routes');
 const statisticsRouter = require('./src/routes/statistics.route');
 const yearlyGoalsRouter = require('./src/routes/yearlyGoals.route');
@@ -157,6 +162,7 @@ const ptProfileRouter = require('./src/routes/pt-profile.route');
 const ptReportsRouter = require('./src/routes/pt-reports.route');
 const ptTemplatesRouter = require('./src/routes/pt-templates.route');
 const ptGoalsRouter = require('./src/routes/pt-goals.route');
+const sessionReviewRouter = require('./src/routes/session-review.route');
 
 app.use('/api/auth', authRouter);
 // app.use('/api/users', userRouter);
@@ -190,6 +196,7 @@ app.use('/api/notifications', notificationRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/face', faceRouter);
 app.use('/api/checkin', checkinRouter);
+app.use('/api/pt/checkin', ptCheckinRouter);
 app.use('/api/watch-history', watchHistoryRouter);
 app.use('/api/statistics', statisticsRouter);
 app.use('/api/yearly-goals', yearlyGoalsRouter);
@@ -205,6 +212,7 @@ app.use('/api/pt/profile', ptProfileRouter);
 app.use('/api/pt/reports', ptReportsRouter);
 app.use('/api/pt/templates', ptTemplatesRouter);
 app.use('/api/pt/goals', ptGoalsRouter);
+app.use('/api/session-reviews', sessionReviewRouter);
 
 // Initialize WebSocket
 const websocketService = require('./src/services/websocket.service');

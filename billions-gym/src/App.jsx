@@ -38,6 +38,7 @@ import PTStatistics from './pages/pt/PTStatistics'
 import PTHistory from './pages/pt/PTHistory'
 import PTTemplates from './pages/pt/PTTemplates'
 import PTReviews from './pages/pt/PTReviews'
+import PTCheckInOut from './pages/pt/PTCheckInOut'
 
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -158,6 +159,7 @@ const AppContent = () => {
             <Route path='/pt/assign-exercises' element={<PTAssignExercises />} />
             <Route path='/pt/chat' element={<PTChat />} />
             <Route path='/pt/reviews' element={<PTReviews />} />
+            <Route path='/pt/checkin-out' element={<PTCheckInOut />} />
           </Routes>
 
           {/* Bubble Chat AI - Only show for authenticated users */}

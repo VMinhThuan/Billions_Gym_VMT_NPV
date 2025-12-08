@@ -8,6 +8,7 @@ router.use(auth);
 router.use(authorize(['PT', 'OngChu']));
 
 router.get('/', ptStatisticsController.getPTStatistics);
+router.get('/overall', ptStatisticsController.getOverallStats);
 router.get('/students', ptStatisticsController.getStudentStatistics);
 router.get('/sessions', ptStatisticsController.getSessionStatistics);
 

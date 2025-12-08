@@ -576,6 +576,19 @@ class PaymentController {
                         await newPayment.save();
                         console.log(`✅ [CALLBACK] Created new ThanhToan record for order ${orderId}, hoiVien: ${hoiVienId}`);
                     }
+
+                    // Tự động cập nhật hạng hội viên sau khi thanh toán thành công
+                    try {
+                        const hangHoiVienService = require('../services/hanghoivien.service');
+                        const hoiVienIdToUpdate = updatedRegistration.nguoiDungId || updatedRegistration.maHoiVien;
+                        if (hoiVienIdToUpdate) {
+                            const updatedHoiVien = await hangHoiVienService.tinhHangHoiVien(hoiVienIdToUpdate);
+                            console.log(`✅ [CALLBACK] Updated member tier for hoiVien ${hoiVienIdToUpdate}, new tier: ${updatedHoiVien.hangHoiVien}, soTienTichLuy: ${updatedHoiVien.soTienTichLuy}`);
+                        }
+                    } catch (tierError) {
+                        console.error(`⚠️ [CALLBACK] Error updating member tier:`, tierError);
+                        // Không throw error để không ảnh hưởng đến quá trình thanh toán
+                    }
                 } catch (paymentError) {
                     console.error('❌ [CALLBACK] Error creating/updating ThanhToan record:', paymentError);
                     // Không throw error để không ảnh hưởng đến flow chính
@@ -771,6 +784,19 @@ class PaymentController {
 
                         await newPayment.save();
                         console.log(`✅ [ZALO CALLBACK] Created new ThanhToan record for app_trans_id ${appTransId}, hoiVien: ${hoiVienId}`);
+                    }
+
+                    // Tự động cập nhật hạng hội viên sau khi thanh toán thành công
+                    try {
+                        const hangHoiVienService = require('../services/hanghoivien.service');
+                        const hoiVienIdToUpdate = updatedRegistration.nguoiDungId || updatedRegistration.maHoiVien;
+                        if (hoiVienIdToUpdate) {
+                            const updatedHoiVien = await hangHoiVienService.tinhHangHoiVien(hoiVienIdToUpdate);
+                            console.log(`✅ [ZALO CALLBACK] Updated member tier for hoiVien ${hoiVienIdToUpdate}, new tier: ${updatedHoiVien.hangHoiVien}, soTienTichLuy: ${updatedHoiVien.soTienTichLuy}`);
+                        }
+                    } catch (tierError) {
+                        console.error(`⚠️ [ZALO CALLBACK] Error updating member tier:`, tierError);
+                        // Không throw error để không ảnh hưởng đến quá trình thanh toán
                     }
                 } catch (paymentError) {
                     console.error('❌ [ZALO CALLBACK] Error creating/updating ThanhToan record:', paymentError);

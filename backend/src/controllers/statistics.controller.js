@@ -6,62 +6,100 @@ const DangKyGoiTap = require('../models/DangKyGoiTap');
 const GoiTap = require('../models/GoiTap');
 const LichSuTap = require('../models/LichSuTap');
 const CheckInRecord = require('../models/CheckInRecord');
+const PTCheckInRecord = require('../models/PTCheckInRecord');
 const ThanhToan = require('../models/ThanhToan');
 const LichHenPT = require('../models/LichHenPT');
 
 // Thống kê số lượng hội viên theo từng chi nhánh
 exports.getMemberStatsByBranch = async (req, res) => {
     try {
-        const branches = await ChiNhanh.find().sort({ thuTu: 1 });
+        // Tối ưu: Dùng aggregation với limit để giảm dữ liệu xử lý
+        const [branches, branchMemberMap] = await Promise.all([
+            ChiNhanh.find().sort({ thuTu: 1 }).select('_id tenChiNhanh diaChi').lean(),
+            ChiTietGoiTap.aggregate([
+                {
+                    $match: {
+                        trangThaiThanhToan: 'DA_THANH_TOAN',
+                        branchId: { $ne: null },
+                        nguoiDungId: { $ne: null }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$branchId',
+                        memberIds: { $addToSet: '$nguoiDungId' }
+                    }
+                },
+                { $limit: 50 } // Giới hạn số chi nhánh xử lý
+            ])
+        ]);
 
-        const stats = await Promise.all(
-            branches.map(async (branch) => {
-                // Tìm hội viên có gói tập tại chi nhánh này
-                const packages = await ChiTietGoiTap.find({
-                    branchId: branch._id,
-                    trangThaiThanhToan: 'DA_THANH_TOAN'
-                }).distinct('nguoiDungId');
+        // Lấy tất cả memberIds từ tất cả branches
+        const allMemberIds = [];
+        const branchIdToMemberIds = new Map();
+        branchMemberMap.forEach(item => {
+            const branchId = item._id?.toString();
+            const memberIds = item.memberIds || [];
+            if (branchId && memberIds.length > 0) {
+                branchIdToMemberIds.set(branchId, memberIds);
+                allMemberIds.push(...memberIds);
+            }
+        });
 
-                const totalMembers = packages.length;
+        // Query tất cả HoiVien 1 lần
+        const members = await HoiVien.find({
+            _id: { $in: allMemberIds }
+        }).select('_id trangThaiHoiVien').lean();
 
-                // Đếm theo trạng thái
-                const activeMembers = await HoiVien.countDocuments({
-                    _id: { $in: packages },
-                    trangThaiHoiVien: 'DANG_HOAT_DONG'
-                });
+        // Tạo map memberId -> trangThai
+        const memberStatusMap = new Map();
+        members.forEach(member => {
+            memberStatusMap.set(member._id.toString(), member.trangThaiHoiVien);
+        });
 
-                const pausedMembers = await HoiVien.countDocuments({
-                    _id: { $in: packages },
-                    trangThaiHoiVien: 'TAM_NGUNG'
-                });
+        // Tính toán stats cho mỗi branch
+        const result = branches.map(branch => {
+            const branchId = branch._id.toString();
+            const memberIds = branchIdToMemberIds.get(branchId) || [];
 
-                const expiredMembers = await HoiVien.countDocuments({
-                    _id: { $in: packages },
-                    trangThaiHoiVien: 'HET_HAN'
-                });
+            let activeMembers = 0;
+            let pausedMembers = 0;
+            let expiredMembers = 0;
 
-                return {
-                    chiNhanh: {
-                        _id: branch._id,
-                        tenChiNhanh: branch.tenChiNhanh,
-                        diaChi: branch.diaChi
-                    },
-                    tongSoHoiVien: totalMembers,
-                    dangHoatDong: activeMembers,
-                    tamNgung: pausedMembers,
-                    hetHan: expiredMembers,
-                    tyLe: totalMembers > 0 ? {
-                        dangHoatDong: ((activeMembers / totalMembers) * 100).toFixed(1),
-                        tamNgung: ((pausedMembers / totalMembers) * 100).toFixed(1),
-                        hetHan: ((expiredMembers / totalMembers) * 100).toFixed(1)
-                    } : { dangHoatDong: '0', tamNgung: '0', hetHan: '0' }
-                };
-            })
-        );
+            memberIds.forEach(memberId => {
+                const status = memberStatusMap.get(memberId?.toString());
+                if (status === 'DANG_HOAT_DONG') {
+                    activeMembers++;
+                } else if (status === 'TAM_NGUNG') {
+                    pausedMembers++;
+                } else if (status === 'HET_HAN') {
+                    expiredMembers++;
+                }
+            });
+
+            const totalMembers = memberIds.length;
+
+            return {
+                chiNhanh: {
+                    _id: branch._id,
+                    tenChiNhanh: branch.tenChiNhanh,
+                    diaChi: branch.diaChi
+                },
+                tongSoHoiVien: totalMembers,
+                dangHoatDong: activeMembers,
+                tamNgung: pausedMembers,
+                hetHan: expiredMembers,
+                tyLe: totalMembers > 0 ? {
+                    dangHoatDong: ((activeMembers / totalMembers) * 100).toFixed(1),
+                    tamNgung: ((pausedMembers / totalMembers) * 100).toFixed(1),
+                    hetHan: ((expiredMembers / totalMembers) * 100).toFixed(1)
+                } : { dangHoatDong: '0', tamNgung: '0', hetHan: '0' }
+            };
+        });
 
         res.json({
             success: true,
-            data: stats
+            data: result
         });
     } catch (error) {
         console.error('Error in getMemberStatsByBranch:', error);
@@ -96,45 +134,55 @@ exports.getNewMemberStats = async (req, res) => {
         const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
         const lastYearEnd = new Date(now.getFullYear(), 0, 0);
 
-        // Hôm nay
-        const todayCount = await HoiVien.countDocuments({
-            ngayThamGia: { $gte: today }
-        });
+        // Tối ưu: Dùng aggregation để đếm tất cả trong 1 query
+        const stats = await HoiVien.aggregate([
+            {
+                $facet: {
+                    today: [
+                        { $match: { ngayThamGia: { $gte: today } } },
+                        { $count: 'count' }
+                    ],
+                    yesterday: [
+                        { $match: { ngayThamGia: { $gte: yesterday, $lt: today } } },
+                        { $count: 'count' }
+                    ],
+                    thisWeek: [
+                        { $match: { ngayThamGia: { $gte: thisWeekStart } } },
+                        { $count: 'count' }
+                    ],
+                    lastWeek: [
+                        { $match: { ngayThamGia: { $gte: lastWeekStart, $lte: lastWeekEnd } } },
+                        { $count: 'count' }
+                    ],
+                    thisMonth: [
+                        { $match: { ngayThamGia: { $gte: thisMonthStart } } },
+                        { $count: 'count' }
+                    ],
+                    lastMonth: [
+                        { $match: { ngayThamGia: { $gte: lastMonthStart, $lte: lastMonthEnd } } },
+                        { $count: 'count' }
+                    ],
+                    thisYear: [
+                        { $match: { ngayThamGia: { $gte: thisYearStart } } },
+                        { $count: 'count' }
+                    ],
+                    lastYear: [
+                        { $match: { ngayThamGia: { $gte: lastYearStart, $lte: lastYearEnd } } },
+                        { $count: 'count' }
+                    ]
+                }
+            }
+        ]);
 
-        // Hôm qua
-        const yesterdayCount = await HoiVien.countDocuments({
-            ngayThamGia: { $gte: yesterday, $lt: today }
-        });
-
-        // Tuần này
-        const thisWeekCount = await HoiVien.countDocuments({
-            ngayThamGia: { $gte: thisWeekStart }
-        });
-
-        // Tuần trước
-        const lastWeekCount = await HoiVien.countDocuments({
-            ngayThamGia: { $gte: lastWeekStart, $lte: lastWeekEnd }
-        });
-
-        // Tháng này
-        const thisMonthCount = await HoiVien.countDocuments({
-            ngayThamGia: { $gte: thisMonthStart }
-        });
-
-        // Tháng trước
-        const lastMonthCount = await HoiVien.countDocuments({
-            ngayThamGia: { $gte: lastMonthStart, $lte: lastMonthEnd }
-        });
-
-        // Năm này
-        const thisYearCount = await HoiVien.countDocuments({
-            ngayThamGia: { $gte: thisYearStart }
-        });
-
-        // Năm trước
-        const lastYearCount = await HoiVien.countDocuments({
-            ngayThamGia: { $gte: lastYearStart, $lte: lastYearEnd }
-        });
+        const result = stats[0] || {};
+        const todayCount = result.today?.[0]?.count || 0;
+        const yesterdayCount = result.yesterday?.[0]?.count || 0;
+        const thisWeekCount = result.thisWeek?.[0]?.count || 0;
+        const lastWeekCount = result.lastWeek?.[0]?.count || 0;
+        const thisMonthCount = result.thisMonth?.[0]?.count || 0;
+        const lastMonthCount = result.lastMonth?.[0]?.count || 0;
+        const thisYearCount = result.thisYear?.[0]?.count || 0;
+        const lastYearCount = result.lastYear?.[0]?.count || 0;
 
         // Tính phần trăm thay đổi
         const calculateChange = (current, previous) => {
@@ -181,7 +229,7 @@ exports.getNewMemberStats = async (req, res) => {
     }
 };
 
-// Thống kê hội viên sắp hết hạn gói
+// Thống kê hội viên sắp hết hạn gói (bao gồm cả đã hết hạn)
 exports.getExpiringPackages = async (req, res) => {
     try {
         const now = new Date();
@@ -191,63 +239,128 @@ exports.getExpiringPackages = async (req, res) => {
         in15Days.setDate(in15Days.getDate() + 15);
         const in30Days = new Date(now);
         in30Days.setDate(in30Days.getDate() + 30);
+        const expired30DaysAgo = new Date(now);
+        expired30DaysAgo.setDate(expired30DaysAgo.getDate() - 30);
 
-        // Sắp hết hạn trong 7 ngày
-        const expiringIn7Days = await ChiTietGoiTap.find({
-            trangThaiThanhToan: 'DA_THANH_TOAN',
-            $or: [
-                { ngayKetThuc: { $gte: now, $lte: in7Days } },
-                { ngayKetThuc: { $gte: now, $lte: in7Days } }
-            ],
-            trangThaiSuDung: { $in: ['DANG_HOAT_DONG', 'DANG_SU_DUNG'] }
-        })
-            .populate('nguoiDungId', 'hoTen sdt email')
-            .populate('goiTapId', 'tenGoiTap')
-            .populate('branchId', 'tenChiNhanh')
-            .sort({ ngayKetThuc: 1 });
+        // Tối ưu: Giới hạn số lượng packages và chỉ lấy summary, không lấy danh sách chi tiết
+        const [allPackages, allNewerPackages] = await Promise.all([
+            ChiTietGoiTap.find({
+                trangThaiThanhToan: 'DA_THANH_TOAN',
+                ngayKetThuc: { $gte: expired30DaysAgo, $lte: in30Days }
+            })
+                .select('nguoiDungId maHoiVien goiTapId maGoiTap branchId ngayKetThuc')
+                .populate('nguoiDungId', 'hoTen')
+                .populate('maHoiVien', 'hoTen')
+                .populate('goiTapId', 'tenGoiTap')
+                .populate('maGoiTap', 'tenGoiTap')
+                .populate('branchId', 'tenChiNhanh')
+                .sort({ ngayKetThuc: 1 })
+                .limit(500) // Giảm từ 1000 xuống 500
+                .lean(),
+            // Lấy tất cả packages mới hơn để check renewal status (chỉ cần userId và goiTapId)
+            ChiTietGoiTap.find({
+                trangThaiThanhToan: 'DA_THANH_TOAN',
+                $or: [
+                    { ngayDangKy: { $gte: expired30DaysAgo } },
+                    { thoiGianDangKy: { $gte: expired30DaysAgo } }
+                ]
+            })
+                .select('nguoiDungId maHoiVien goiTapId maGoiTap ngayDangKy thoiGianDangKy')
+                .populate('goiTapId', '_id')
+                .populate('maGoiTap', '_id')
+                .lean()
+        ]);
 
-        // Sắp hết hạn trong 15 ngày
-        const expiringIn15Days = await ChiTietGoiTap.find({
-            trangThaiThanhToan: 'DA_THANH_TOAN',
-            $or: [
-                { ngayKetThuc: { $gte: in7Days, $lte: in15Days } },
-                { ngayKetThuc: { $gte: in7Days, $lte: in15Days } }
-            ],
-            trangThaiSuDung: { $in: ['DANG_HOAT_DONG', 'DANG_SU_DUNG'] }
-        })
-            .populate('nguoiDungId', 'hoTen sdt email')
-            .populate('goiTapId', 'tenGoiTap')
-            .populate('branchId', 'tenChiNhanh')
-            .sort({ ngayKetThuc: 1 });
+        // Tạo map để tra cứu nhanh: userId -> newest package info
+        const newerPackagesMap = new Map();
+        allNewerPackages.forEach(pkg => {
+            const userId = pkg.nguoiDungId?.toString() || pkg.maHoiVien?.toString();
+            if (!userId) return;
 
-        // Sắp hết hạn trong 30 ngày
-        const expiringIn30Days = await ChiTietGoiTap.find({
-            trangThaiThanhToan: 'DA_THANH_TOAN',
-            $or: [
-                { ngayKetThuc: { $gte: in15Days, $lte: in30Days } },
-                { ngayKetThuc: { $gte: in15Days, $lte: in30Days } }
-            ],
-            trangThaiSuDung: { $in: ['DANG_HOAT_DONG', 'DANG_SU_DUNG'] }
-        })
-            .populate('nguoiDungId', 'hoTen sdt email')
-            .populate('goiTapId', 'tenGoiTap')
-            .populate('branchId', 'tenChiNhanh')
-            .sort({ ngayKetThuc: 1 });
+            const goiTapId = (pkg.goiTapId?._id || pkg.maGoiTap?._id)?.toString();
+            const regDate = pkg.ngayDangKy || pkg.thoiGianDangKy;
+
+            const existing = newerPackagesMap.get(userId);
+            if (!existing || (regDate && existing.regDate < regDate)) {
+                newerPackagesMap.set(userId, {
+                    goiTapId,
+                    regDate
+                });
+            }
+        });
+
+        // Xử lý renewal status cho mỗi package
+        const packagesWithRenewalStatus = allPackages.map(pkg => {
+            const userId = pkg.nguoiDungId?._id?.toString() || pkg.maHoiVien?._id?.toString();
+            const oldGoiTapId = (pkg.goiTapId?._id || pkg.maGoiTap?._id)?.toString();
+
+            let renewalStatus = 'CHUA_GIA_HAN';
+            if (!userId) {
+                renewalStatus = 'UNKNOWN';
+            } else {
+                const newerPkg = newerPackagesMap.get(userId);
+                if (newerPkg && newerPkg.regDate > pkg.ngayKetThuc) {
+                    if (newerPkg.goiTapId === oldGoiTapId) {
+                        renewalStatus = 'DA_GIA_HAN';
+                    } else {
+                        renewalStatus = 'DA_DANG_KY_GOI_KHAC';
+                    }
+                }
+            }
+
+            return {
+                ...pkg,
+                renewalStatus
+            };
+        });
+
+        // Phân loại theo thời gian - chỉ đếm số lượng, không trả về danh sách chi tiết để tăng tốc
+        let expiringIn7DaysCount = 0;
+        let expiringIn15DaysCount = 0;
+        let expiringIn30DaysCount = 0;
+        let expiredPackagesCount = 0;
+
+        // Chỉ lấy 20 packages đầu tiên cho mỗi nhóm để hiển thị
+        const expiringIn7Days = [];
+        const expiringIn15Days = [];
+        const expiringIn30Days = [];
+        const expiredPackages = [];
+
+        packagesWithRenewalStatus.forEach(pkg => {
+            const endDate = new Date(pkg.ngayKetThuc);
+            if (endDate >= now && endDate <= in7Days) {
+                expiringIn7DaysCount++;
+                if (expiringIn7Days.length < 20) expiringIn7Days.push(pkg);
+            } else if (endDate > in7Days && endDate <= in15Days) {
+                expiringIn15DaysCount++;
+                if (expiringIn15Days.length < 20) expiringIn15Days.push(pkg);
+            } else if (endDate > in15Days && endDate <= in30Days) {
+                expiringIn30DaysCount++;
+                if (expiringIn30Days.length < 20) expiringIn30Days.push(pkg);
+            } else if (endDate < now && endDate >= expired30DaysAgo) {
+                expiredPackagesCount++;
+                if (expiredPackages.length < 20) expiredPackages.push(pkg);
+            }
+        });
 
         res.json({
             success: true,
             data: {
                 trong7Ngay: {
-                    soLuong: expiringIn7Days.length,
+                    soLuong: expiringIn7DaysCount,
                     danhSach: expiringIn7Days
                 },
                 trong15Ngay: {
-                    soLuong: expiringIn15Days.length,
+                    soLuong: expiringIn15DaysCount,
                     danhSach: expiringIn15Days
                 },
                 trong30Ngay: {
-                    soLuong: expiringIn30Days.length,
+                    soLuong: expiringIn30DaysCount,
                     danhSach: expiringIn30Days
+                },
+                daHetHan: {
+                    soLuong: expiredPackagesCount,
+                    danhSach: expiredPackages
                 }
             }
         });
@@ -445,114 +558,96 @@ exports.getRevenueStats = async (req, res) => {
 // Thống kê gói tập
 exports.getPackageStats = async (req, res) => {
     try {
-        // Debug: Đếm tổng số record trong ChiTietGoiTap
-        const totalCount = await ChiTietGoiTap.countDocuments({});
-        console.log(`[getPackageStats] Tổng số ChiTietGoiTap: ${totalCount}`);
-
-        // Đếm số record với các trạng thái khác nhau
-        const countByPaymentStatus = await ChiTietGoiTap.aggregate([
-            { $group: { _id: '$trangThaiThanhToan', count: { $sum: 1 } } }
-        ]);
-        console.log('[getPackageStats] Số lượng theo trangThaiThanhToan:', countByPaymentStatus);
-
-        const countByRegistrationStatus = await ChiTietGoiTap.aggregate([
-            { $group: { _id: '$trangThaiDangKy', count: { $sum: 1 } } }
-        ]);
-        console.log('[getPackageStats] Số lượng theo trangThaiDangKy:', countByRegistrationStatus);
-
-        const countByUsageStatus = await ChiTietGoiTap.aggregate([
-            { $group: { _id: '$trangThaiSuDung', count: { $sum: 1 } } }
-        ]);
-        console.log('[getPackageStats] Số lượng theo trangThaiSuDung:', countByUsageStatus);
-
-        // Lấy tất cả các gói tập đã đăng ký
-        // Thử lấy với điều kiện trước, nếu không có thì lấy tất cả
-        let statusCondition = {
-            $or: [
-                { trangThaiThanhToan: 'DA_THANH_TOAN' },
-                { trangThaiDangKy: 'HOAN_THANH' },
-                { trangThaiSuDung: { $in: ['DANG_HOAT_DONG', 'DANG_SU_DUNG'] } }
-            ]
-        };
-
-        // Kiểm tra xem có record nào thỏa điều kiện không
-        const countWithCondition = await ChiTietGoiTap.countDocuments(statusCondition);
-        console.log(`[getPackageStats] Số record thỏa điều kiện trạng thái: ${countWithCondition}`);
-
-        // Xây dựng điều kiện match cuối cùng
-        let finalMatchCondition = {
-            // Đảm bảo có goiTapId hoặc maGoiTap (legacy field)
+        // Tối ưu: Chỉ lấy gói đã thanh toán và giới hạn số lượng
+        const matchCondition = {
+            trangThaiThanhToan: 'DA_THANH_TOAN',
             $or: [
                 { goiTapId: { $exists: true, $ne: null } },
                 { maGoiTap: { $exists: true, $ne: null } }
             ]
         };
 
-        // Nếu có record thỏa điều kiện trạng thái, thêm vào điều kiện
-        if (countWithCondition > 0) {
-            finalMatchCondition = {
-                $and: [
-                    statusCondition,
-                    {
-                        $or: [
-                            { goiTapId: { $exists: true, $ne: null } },
-                            { maGoiTap: { $exists: true, $ne: null } }
-                        ]
+        const packageStats = await ChiTietGoiTap.aggregate([
+            {
+                $match: matchCondition
+            },
+            { $limit: 5000 }, // Giới hạn số lượng records xử lý
+            {
+                $addFields: {
+                    goiTapIdValue: {
+                        $cond: {
+                            if: { $ne: ['$goiTapId', null] },
+                            then: '$goiTapId',
+                            else: '$maGoiTap'
+                        }
                     }
-                ]
-            };
-        } else if (totalCount > 0) {
-            console.log('[getPackageStats] Không có record thỏa điều kiện trạng thái, lấy tất cả các gói tập có goiTapId/maGoiTap');
-            // Giữ nguyên điều kiện chỉ kiểm tra goiTapId/maGoiTap
-        }
+                }
+            },
+            {
+                $match: {
+                    goiTapIdValue: { $ne: null }
+                }
+            },
+            {
+                $lookup: {
+                    from: 'goiTaps',
+                    localField: 'goiTapIdValue',
+                    foreignField: '_id',
+                    as: 'goiTap'
+                }
+            },
+            {
+                $unwind: {
+                    path: '$goiTap',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $match: {
+                    goiTap: { $ne: null }
+                }
+            },
+            {
+                $group: {
+                    _id: '$goiTapIdValue',
+                    goiTap: { $first: '$goiTap' },
+                    soLuongDangKy: { $sum: 1 },
+                    doanhThu: {
+                        $sum: {
+                            $cond: [
+                                { $and: [{ $ne: ['$soTienThanhToan', null] }, { $ne: ['$soTienThanhToan', 0] }] },
+                                '$soTienThanhToan',
+                                {
+                                    $cond: [
+                                        { $and: [{ $ne: ['$giaGoiTapGoc', null] }, { $ne: ['$giaGoiTapGoc', 0] }] },
+                                        '$giaGoiTapGoc',
+                                        0
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    goiTap: 1,
+                    soLuongDangKy: 1,
+                    doanhThu: 1
+                }
+            },
+            { $sort: { soLuongDangKy: -1 } },
+            { $limit: 20 } // Chỉ lấy top 20 gói tập phổ biến nhất
+        ]);
 
-        // Thay vì dùng aggregate (dễ bị lỗi do reference cũ), sử dụng find + populate rồi tự group
-        const packageRecords = await ChiTietGoiTap.find(finalMatchCondition)
-            .populate('goiTapId')
-            .populate('maGoiTap')
-            .lean();
-
-        console.log(`[getPackageStats] Số bản ghi sau khi find: ${packageRecords.length}`);
-        if (packageRecords.length > 0) {
-            console.log('[getPackageStats] Mẫu bản ghi:', JSON.stringify(packageRecords[0], null, 2));
-        }
-
-        const packageStatsMap = {};
-
-        for (const record of packageRecords) {
-            const goiTapInfo = record.goiTapId || record.maGoiTap;
-            if (!goiTapInfo) {
-                console.log('[getPackageStats] Bỏ qua record vì không có goiTap:', record._id);
-                continue;
-            }
-
-            const key = goiTapInfo._id.toString();
-            if (!packageStatsMap[key]) {
-                packageStatsMap[key] = {
-                    _id: goiTapInfo._id,
-                    goiTap: goiTapInfo,
-                    soLuongDangKy: 0,
-                    doanhThu: 0
-                };
-            }
-
-            packageStatsMap[key].soLuongDangKy += 1;
-            const thanhToan = record.soTienThanhToan || 0;
-            const giaGoc = record.giaGoiTapGoc || 0;
-            packageStatsMap[key].doanhThu += thanhToan > 0 ? thanhToan : giaGoc;
-        }
-
-        const packageStats = Object.values(packageStatsMap).sort((a, b) => b.soLuongDangKy - a.soLuongDangKy);
-
-        console.log(`[getPackageStats] Số gói tập sau khi group: ${packageStats.length}`);
-        if (packageStats.length > 0) {
-            console.log('[getPackageStats] Mẫu dữ liệu sau group:', JSON.stringify(packageStats[0], null, 2));
-        }
-
-        const totalRegistrations = packageStats.reduce((sum, item) => sum + item.soLuongDangKy, 0);
+        const totalRegistrations = packageStats.reduce((sum, item) => sum + (item.soLuongDangKy || 0), 0);
 
         const statsWithPercentage = packageStats.map(item => ({
-            ...item,
+            _id: item._id,
+            goiTap: item.goiTap,
+            soLuongDangKy: item.soLuongDangKy || 0,
+            doanhThu: Math.round(item.doanhThu || 0),
             tyLe: totalRegistrations > 0
                 ? ((item.soLuongDangKy / totalRegistrations) * 100).toFixed(1)
                 : '0'
@@ -641,67 +736,107 @@ exports.getCheckInStats = async (req, res) => {
         const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-        // Tổng số check-in tháng này
-        const thisMonthCheckIns = await CheckInRecord.countDocuments({
-            checkInTime: { $gte: startOfMonth }
-        });
-
-        // Tổng số check-in tháng trước
-        const lastMonthCheckIns = await CheckInRecord.countDocuments({
-            checkInTime: { $gte: startOfLastMonth, $lt: startOfMonth }
-        });
-
-        // Số hội viên đã check-in tháng này
-        const uniqueMembersThisMonth = await CheckInRecord.distinct('hoiVien', {
-            checkInTime: { $gte: startOfMonth }
-        });
-
-        // Tổng số hội viên
-        const totalMembers = await HoiVien.countDocuments();
-
-        // Check-in theo chi nhánh
-        const checkInByBranch = await CheckInRecord.aggregate([
-            {
-                $match: {
-                    checkInTime: { $gte: startOfMonth }
+        // Tối ưu: Giảm lookup và chỉ lấy dữ liệu cần thiết
+        const [stats, totalMembers] = await Promise.all([
+            CheckInRecord.aggregate([
+                {
+                    $facet: {
+                        thisMonth: [
+                            {
+                                $match: {
+                                    checkInTime: { $gte: startOfMonth }
+                                }
+                            },
+                            {
+                                $group: {
+                                    _id: null,
+                                    soLuongCheckIn: { $sum: 1 },
+                                    soHoiVien: { $addToSet: '$hoiVien' }
+                                }
+                            }
+                        ],
+                        lastMonth: [
+                            {
+                                $match: {
+                                    checkInTime: { $gte: startOfLastMonth, $lt: startOfMonth }
+                                }
+                            },
+                            {
+                                $count: 'soLuongCheckIn'
+                            }
+                        ],
+                        byBranch: [
+                            {
+                                $match: {
+                                    checkInTime: { $gte: startOfMonth }
+                                }
+                            },
+                            {
+                                $lookup: {
+                                    from: 'buoitaps',
+                                    localField: 'buoiTap',
+                                    foreignField: '_id',
+                                    as: 'buoiTap',
+                                    pipeline: [
+                                        {
+                                            $lookup: {
+                                                from: 'chinhanhs',
+                                                localField: 'chiNhanh',
+                                                foreignField: '_id',
+                                                as: 'chiNhanh'
+                                            }
+                                        },
+                                        {
+                                            $unwind: {
+                                                path: '$chiNhanh',
+                                                preserveNullAndEmptyArrays: true
+                                            }
+                                        },
+                                        {
+                                            $project: {
+                                                'chiNhanh._id': 1,
+                                                'chiNhanh.tenChiNhanh': 1
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                $unwind: {
+                                    path: '$buoiTap',
+                                    preserveNullAndEmptyArrays: true
+                                }
+                            },
+                            {
+                                $group: {
+                                    _id: '$buoiTap.chiNhanh._id',
+                                    tenChiNhanh: { $first: '$buoiTap.chiNhanh.tenChiNhanh' },
+                                    soLuongCheckIn: { $sum: 1 },
+                                    soHoiVien: { $addToSet: '$hoiVien' }
+                                }
+                            },
+                            {
+                                $project: {
+                                    _id: 1,
+                                    tenChiNhanh: 1,
+                                    soLuongCheckIn: 1,
+                                    soLuongHoiVien: { $size: '$soHoiVien' }
+                                }
+                            },
+                            { $sort: { soLuongCheckIn: -1 } },
+                            { $limit: 10 } // Chỉ lấy top 10 chi nhánh
+                        ]
+                    }
                 }
-            },
-            {
-                $lookup: {
-                    from: 'buoitaps',
-                    localField: 'buoiTap',
-                    foreignField: '_id',
-                    as: 'buoiTap'
-                }
-            },
-            { $unwind: '$buoiTap' },
-            {
-                $lookup: {
-                    from: 'chinhanhs',
-                    localField: 'buoiTap.chiNhanh',
-                    foreignField: '_id',
-                    as: 'chiNhanh'
-                }
-            },
-            { $unwind: { path: '$chiNhanh', preserveNullAndEmptyArrays: true } },
-            {
-                $group: {
-                    _id: '$chiNhanh._id',
-                    tenChiNhanh: { $first: '$chiNhanh.tenChiNhanh' },
-                    soLuongCheckIn: { $sum: 1 },
-                    soHoiVien: { $addToSet: '$hoiVien' }
-                }
-            },
-            {
-                $project: {
-                    _id: 1,
-                    tenChiNhanh: 1,
-                    soLuongCheckIn: 1,
-                    soLuongHoiVien: { $size: '$soHoiVien' }
-                }
-            },
-            { $sort: { soLuongCheckIn: -1 } }
+            ]),
+            HoiVien.countDocuments()
         ]);
+
+        const thisMonthData = stats[0]?.thisMonth?.[0] || { soLuongCheckIn: 0, soHoiVien: [] };
+        const lastMonthCheckIns = stats[0]?.lastMonth?.[0]?.soLuongCheckIn || 0;
+        const uniqueMembersThisMonth = thisMonthData.soHoiVien?.length || 0;
+        const thisMonthCheckIns = thisMonthData.soLuongCheckIn || 0;
+        const checkInByBranch = stats[0]?.byBranch || [];
 
         // Số buổi tập trung bình mỗi hội viên
         const avgSessionsPerMember = totalMembers > 0
@@ -710,7 +845,7 @@ exports.getCheckInStats = async (req, res) => {
 
         // Tỷ lệ tham gia
         const participationRate = totalMembers > 0
-            ? ((uniqueMembersThisMonth.length / totalMembers) * 100).toFixed(1)
+            ? ((uniqueMembersThisMonth / totalMembers) * 100).toFixed(1)
             : 0;
 
         res.json({
@@ -718,7 +853,7 @@ exports.getCheckInStats = async (req, res) => {
             data: {
                 thangNay: {
                     soLuongCheckIn: thisMonthCheckIns,
-                    soHoiVien: uniqueMembersThisMonth.length,
+                    soHoiVien: uniqueMembersThisMonth,
                     tyLeThamGia: parseFloat(participationRate),
                     trungBinhMoiHoiVien: parseFloat(avgSessionsPerMember)
                 },
@@ -962,6 +1097,7 @@ const buildRenewPackageStats = async () => {
 
 const buildConversionStats = async () => {
     try {
+        // Tối ưu: Lấy trial package IDs
         const trialPackages = await GoiTap.find({
             $or: [
                 { tenGoiTap: { $regex: /trải nghiệm/i } },
@@ -993,71 +1129,119 @@ const buildConversionStats = async () => {
         const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-        const historyStart = prevStart;
 
-        const trialRecords = await ChiTietGoiTap.find({
-            goiTapId: { $in: trialIds },
-            trangThaiThanhToan: 'DA_THANH_TOAN',
-            createdAt: { $gte: historyStart }
-        }).select('nguoiDungId createdAt').lean();
-
-        const trialUserIds = Array.from(new Set(trialRecords.map(record => record.nguoiDungId?.toString()).filter(Boolean)));
-
-        if (!trialUserIds.length) {
-            return {
-                totalTrials: 0,
-                converted: 0,
-                conversionRate: 0,
-                previousRate: 0,
-                changePercent: 0,
-                trend: 'flat'
-            };
-        }
-
-        const nonTrialRecords = await ChiTietGoiTap.find({
-            goiTapId: { $nin: trialIds },
-            trangThaiThanhToan: 'DA_THANH_TOAN',
-            nguoiDungId: { $in: trialUserIds },
-            createdAt: { $gte: historyStart }
-        }).select('nguoiDungId createdAt').lean();
-
-        const calculatePeriodStats = (start, end) => {
-            const trialMap = new Map();
-            trialRecords.forEach(record => {
-                const userId = record.nguoiDungId?.toString();
-                if (!userId || !record.createdAt) return;
-                if (record.createdAt >= start && record.createdAt <= end) {
-                    const existing = trialMap.get(userId);
-                    if (!existing || existing > record.createdAt) {
-                        trialMap.set(userId, record.createdAt);
+        // Tối ưu: Dùng aggregation để tính toán conversion stats
+        const [currentStats, previousStats] = await Promise.all([
+            // Current period stats
+            ChiTietGoiTap.aggregate([
+                {
+                    $match: {
+                        goiTapId: { $in: trialIds },
+                        trangThaiThanhToan: 'DA_THANH_TOAN',
+                        createdAt: { $gte: currentStart, $lte: now },
+                        nguoiDungId: { $ne: null }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$nguoiDungId',
+                        firstTrialDate: { $min: '$createdAt' }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'chitietgoitaps',
+                        let: { userId: '$_id', trialDate: '$firstTrialDate' },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: {
+                                        $and: [
+                                            { $eq: ['$nguoiDungId', '$$userId'] },
+                                            { $nin: ['$goiTapId', trialIds] },
+                                            { $eq: ['$trangThaiThanhToan', 'DA_THANH_TOAN'] },
+                                            { $gte: ['$createdAt', '$$trialDate'] },
+                                            { $lte: ['$createdAt', now] }
+                                        ]
+                                    }
+                                }
+                            },
+                            { $limit: 1 }
+                        ],
+                        as: 'converted'
+                    }
+                },
+                {
+                    $facet: {
+                        totalTrials: [{ $count: 'count' }],
+                        converted: [
+                            { $match: { converted: { $ne: [] } } },
+                            { $count: 'count' }
+                        ]
                     }
                 }
-            });
-
-            const convertedUsers = new Set();
-            nonTrialRecords.forEach(record => {
-                const userId = record.nguoiDungId?.toString();
-                const trialDate = trialMap.get(userId);
-                if (!userId || !record.createdAt || !trialDate) return;
-                if (record.createdAt >= trialDate && record.createdAt <= end) {
-                    convertedUsers.add(userId);
+            ]),
+            // Previous period stats
+            ChiTietGoiTap.aggregate([
+                {
+                    $match: {
+                        goiTapId: { $in: trialIds },
+                        trangThaiThanhToan: 'DA_THANH_TOAN',
+                        createdAt: { $gte: prevStart, $lte: prevEnd },
+                        nguoiDungId: { $ne: null }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$nguoiDungId',
+                        firstTrialDate: { $min: '$createdAt' }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'chitietgoitaps',
+                        let: { userId: '$_id', trialDate: '$firstTrialDate' },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: {
+                                        $and: [
+                                            { $eq: ['$nguoiDungId', '$$userId'] },
+                                            { $nin: ['$goiTapId', trialIds] },
+                                            { $eq: ['$trangThaiThanhToan', 'DA_THANH_TOAN'] },
+                                            { $gte: ['$createdAt', '$$trialDate'] },
+                                            { $lte: ['$createdAt', prevEnd] }
+                                        ]
+                                    }
+                                }
+                            },
+                            { $limit: 1 }
+                        ],
+                        as: 'converted'
+                    }
+                },
+                {
+                    $facet: {
+                        totalTrials: [{ $count: 'count' }],
+                        converted: [
+                            { $match: { converted: { $ne: [] } } },
+                            { $count: 'count' }
+                        ]
+                    }
                 }
-            });
+            ])
+        ]);
 
-            return {
-                totalTrials: trialMap.size,
-                converted: convertedUsers.size
-            };
-        };
+        const currentTotalTrials = currentStats[0]?.totalTrials?.[0]?.count || 0;
+        const currentConverted = currentStats[0]?.converted?.[0]?.count || 0;
+        const previousTotalTrials = previousStats[0]?.totalTrials?.[0]?.count || 0;
+        const previousConverted = previousStats[0]?.converted?.[0]?.count || 0;
 
-        const currentStats = calculatePeriodStats(currentStart, now);
-        const previousStats = calculatePeriodStats(prevStart, prevEnd);
-
-        const conversionRate = currentStats.totalTrials > 0
-            ? Number(((currentStats.converted / currentStats.totalTrials) * 100).toFixed(1))
+        const conversionRate = currentTotalTrials > 0
+            ? Number(((currentConverted / currentTotalTrials) * 100).toFixed(1))
             : 0;
-        const previousRate = previousStats.totalTrials > 0
-            ? Number(((previousStats.converted / previousStats.totalTrials) * 100).toFixed(1))
+        const previousRate = previousTotalTrials > 0
+            ? Number(((previousConverted / previousTotalTrials) * 100).toFixed(1))
             : 0;
 
         const changePercent = previousRate === 0
@@ -1066,8 +1250,8 @@ const buildConversionStats = async () => {
         const trend = conversionRate === previousRate ? 'flat' : conversionRate > previousRate ? 'up' : 'down';
 
         return {
-            totalTrials: currentStats.totalTrials,
-            converted: currentStats.converted,
+            totalTrials: currentTotalTrials,
+            converted: currentConverted,
             conversionRate,
             previousRate,
             changePercent,
@@ -1088,32 +1272,68 @@ const buildConversionStats = async () => {
 
 const buildAgeDistributionStats = async () => {
     try {
-        const members = await HoiVien.find({ ngaySinh: { $ne: null } }).select('ngaySinh').lean();
-        const buckets = {
-            'Dưới 18': 0,
-            '18-25': 0,
-            '25-35': 0,
-            '35-45': 0,
-            '45+': 0
-        };
+        // Tối ưu: Dùng aggregation để tính toán tuổi trong database
         const now = new Date();
+        const currentYear = now.getFullYear();
 
-        members.forEach(member => {
-            if (!member.ngaySinh) return;
-            const age = Math.floor((now - member.ngaySinh) / (1000 * 60 * 60 * 24 * 365.25));
-            if (age < 18) buckets['Dưới 18'] += 1;
-            else if (age < 25) buckets['18-25'] += 1;
-            else if (age < 35) buckets['25-35'] += 1;
-            else if (age < 45) buckets['35-45'] += 1;
-            else buckets['45+'] += 1;
-        });
+        const ageDistribution = await HoiVien.aggregate([
+            {
+                $match: {
+                    ngaySinh: { $ne: null, $exists: true }
+                }
+            },
+            {
+                $addFields: {
+                    age: {
+                        $floor: {
+                            $divide: [
+                                { $subtract: [currentYear, { $year: '$ngaySinh' }] },
+                                1
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                $bucket: {
+                    groupBy: '$age',
+                    boundaries: [0, 18, 25, 35, 45, 200],
+                    default: '45+',
+                    output: {
+                        count: { $sum: 1 }
+                    }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    group: {
+                        $switch: {
+                            branches: [
+                                { case: { $eq: ['$_id', 0] }, then: 'Dưới 18' },
+                                { case: { $eq: ['$_id', 18] }, then: '18-25' },
+                                { case: { $eq: ['$_id', 25] }, then: '25-35' },
+                                { case: { $eq: ['$_id', 35] }, then: '35-45' },
+                                { case: { $eq: ['$_id', 45] }, then: '45+' }
+                            ],
+                            default: '45+'
+                        }
+                    },
+                    count: '$count'
+                }
+            }
+        ]);
 
-        const total = Object.values(buckets).reduce((sum, value) => sum + value, 0) || 1;
+        const total = ageDistribution.reduce((sum, item) => sum + (item.count || 0), 0) || 1;
 
-        return Object.entries(buckets).map(([group, count]) => ({
+        // Đảm bảo tất cả buckets đều có
+        const bucketMap = new Map(ageDistribution.map(item => [item.group, item.count || 0]));
+        const allBuckets = ['Dưới 18', '18-25', '25-35', '35-45', '45+'];
+
+        return allBuckets.map(group => ({
             group,
-            count,
-            percentage: Number(((count / total) * 100).toFixed(1))
+            count: bucketMap.get(group) || 0,
+            percentage: Number((((bucketMap.get(group) || 0) / total) * 100).toFixed(1))
         }));
     } catch (error) {
         console.error('Error building age distribution stats:', error);
@@ -1123,7 +1343,14 @@ const buildAgeDistributionStats = async () => {
 
 const buildPackageDurationRevenueStats = async () => {
     try {
+        // Tối ưu: Chỉ lấy các gói đã thanh toán và có goiTapId
         const data = await ChiTietGoiTap.aggregate([
+            {
+                $match: {
+                    trangThaiThanhToan: 'DA_THANH_TOAN',
+                    goiTapId: { $ne: null }
+                }
+            },
             {
                 $lookup: {
                     from: 'goiTaps',
@@ -1221,12 +1448,18 @@ const buildPackageDurationRevenueStats = async () => {
 
 const buildPeakHourStats = async () => {
     try {
+        // Tối ưu: Chỉ lấy 30 ngày gần nhất và giới hạn số lượng records
         const now = new Date();
         const start = new Date(now);
         start.setDate(start.getDate() - 30);
 
         const data = await CheckInRecord.aggregate([
-            { $match: { checkInTime: { $gte: start } } },
+            {
+                $match: {
+                    checkInTime: { $gte: start, $exists: true, $ne: null }
+                }
+            },
+            { $limit: 10000 }, // Giới hạn để tăng tốc
             {
                 $addFields: {
                     localHour: {
@@ -1311,6 +1544,24 @@ exports.getRecentCheckIns = async (req, res) => {
     }
 };
 
+// Lấy danh sách PT check-in/out real-time (hôm nay)
+exports.getRecentPTCheckIns = async (req, res) => {
+    try {
+        const ptCheckIns = await getRecentPTCheckIns();
+        res.json({
+            success: true,
+            data: ptCheckIns
+        });
+    } catch (error) {
+        console.error('Error in getRecentPTCheckIns:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi lấy danh sách PT check-in/out real-time',
+            error: error.message
+        });
+    }
+};
+
 const getRecentCheckIns = async () => {
     try {
         const now = new Date();
@@ -1327,27 +1578,28 @@ const getRecentCheckIns = async () => {
         endOfDay.setUTCHours(23, 59, 59, 999);
         const endOfDayUTC = new Date(endOfDay.getTime() - (vietnamOffset * 60 * 1000));
 
-        // Lấy tất cả check-in hôm nay, bao gồm cả đang check-in (chưa check-out)
+        // Tối ưu: Giảm limit và chỉ lấy fields cần thiết
         const checkInRecords = await CheckInRecord.find({
             checkInTime: {
                 $gte: startOfDayUTC,
                 $lte: endOfDayUTC
             }
         })
+            .select('hoiVien buoiTap checkInTime checkOutTime checkInStatus checkOutStatus')
             .populate({
                 path: 'hoiVien',
                 select: 'hoTen sdt'
             })
             .populate({
                 path: 'buoiTap',
-                select: 'tenBuoiTap gioBatDau gioKetThuc ngayTap',
+                select: 'tenBuoiTap gioBatDau gioKetThuc ngayTap chiNhanh',
                 populate: {
                     path: 'chiNhanh',
                     select: 'tenChiNhanh diaChi'
                 }
             })
             .sort({ checkInTime: -1 })
-            .limit(100); // Giới hạn 100 bản ghi mới nhất
+            .limit(50); // Giảm từ 100 xuống 50 để tăng tốc
 
         return checkInRecords.map(record => ({
             _id: record._id,
@@ -1377,67 +1629,226 @@ const getRecentCheckIns = async () => {
     }
 };
 
-exports.getOverallStats = async (req, res) => {
+// Lấy danh sách PT check-in/out real-time (hôm nay)
+const getRecentPTCheckIns = async () => {
     try {
+        const now = new Date();
+        // Lấy tất cả PT check-in hôm nay (theo múi giờ Việt Nam UTC+7)
+        const vietnamOffset = 7 * 60; // 7 giờ * 60 phút
+        const utcNow = new Date(now.getTime() - (now.getTimezoneOffset() * 60 * 1000));
+        const vietnamNow = new Date(utcNow.getTime() + (vietnamOffset * 60 * 1000));
+
+        const startOfDay = new Date(vietnamNow);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        const startOfDayUTC = new Date(startOfDay.getTime() - (vietnamOffset * 60 * 1000));
+
+        const endOfDay = new Date(vietnamNow);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        const endOfDayUTC = new Date(endOfDay.getTime() - (vietnamOffset * 60 * 1000));
+
+        // Tối ưu: Giảm limit và chỉ lấy fields cần thiết
+        const ptCheckInRecords = await PTCheckInRecord.find({
+            checkInTime: {
+                $gte: startOfDayUTC,
+                $lte: endOfDayUTC
+            }
+        })
+            .select('pt buoiTap checkInTime checkOutTime checkInStatus checkOutStatus thoiGianMuonCheckIn thoiGianSomCheckOut tienLuong tienPhat sessionDuration')
+            .populate({
+                path: 'pt',
+                select: 'hoTen sdt'
+            })
+            .populate({
+                path: 'buoiTap',
+                select: 'tenBuoiTap gioBatDau gioKetThuc ngayTap chiNhanh',
+                populate: {
+                    path: 'chiNhanh',
+                    select: 'tenChiNhanh diaChi'
+                }
+            })
+            .sort({ checkInTime: -1 })
+            .limit(50); // Giảm từ 100 xuống 50 để tăng tốc
+
+        return ptCheckInRecords.map(record => ({
+            _id: record._id,
+            pt: {
+                _id: record.pt._id,
+                hoTen: record.pt.hoTen
+            },
+            buoiTap: record.buoiTap ? {
+                _id: record.buoiTap._id,
+                tenBuoiTap: record.buoiTap.tenBuoiTap,
+                gioBatDau: record.buoiTap.gioBatDau,
+                gioKetThuc: record.buoiTap.gioKetThuc,
+                ngayTap: record.buoiTap.ngayTap
+            } : null,
+            chiNhanh: record.buoiTap?.chiNhanh ? {
+                _id: record.buoiTap.chiNhanh._id,
+                tenChiNhanh: record.buoiTap.chiNhanh.tenChiNhanh
+            } : null,
+            checkInTime: record.checkInTime,
+            checkOutTime: record.checkOutTime || null,
+            isCheckedOut: !!record.checkOutTime,
+            checkInStatus: record.checkInStatus,
+            checkOutStatus: record.checkOutStatus,
+            thoiGianMuonCheckIn: record.thoiGianMuonCheckIn || 0,
+            thoiGianSomCheckOut: record.thoiGianSomCheckOut || 0,
+            tienLuong: record.tienLuong || 0,
+            tienPhat: record.tienPhat || 0,
+            sessionDuration: record.sessionDuration || null
+        }));
+    } catch (error) {
+        console.error('Error in getRecentPTCheckIns:', error);
+        return [];
+    }
+};
+
+// Lấy danh sách đăng ký gần đây (bao gồm cả gia hạn)
+const getRecentRegistrations = async () => {
+    try {
+        const now = new Date();
+        // Lấy các đăng ký trong 30 ngày gần đây
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        // Tối ưu: Giảm limit và chỉ lấy fields cần thiết
+        const registrations = await ChiTietGoiTap.find({
+            trangThaiThanhToan: 'DA_THANH_TOAN',
+            $or: [
+                { ngayDangKy: { $gte: thirtyDaysAgo } },
+                { thoiGianDangKy: { $gte: thirtyDaysAgo } }
+            ]
+        })
+            .select('nguoiDungId maHoiVien goiTapId maGoiTap branchId ptDuocChon ngayDangKy thoiGianDangKy soTienThanhToan giaGoiTapGoc isUpgrade createdAt')
+            .populate('nguoiDungId', 'hoTen sdt email')
+            .populate('maHoiVien', 'hoTen sdt email')
+            .populate('goiTapId', 'tenGoiTap donGia')
+            .populate('maGoiTap', 'tenGoiTap donGia')
+            .populate('branchId', 'tenChiNhanh')
+            .populate('ptDuocChon', 'hoTen chuyenMon')
+            .sort({ ngayDangKy: -1, thoiGianDangKy: -1 })
+            .limit(30); // Giảm từ 50 xuống 30 để tăng tốc
+
+        return registrations.map(reg => {
+            const user = reg.nguoiDungId || reg.maHoiVien;
+            const goiTap = reg.goiTapId || reg.maGoiTap;
+            const thoiGianDangKy = reg.ngayDangKy || reg.thoiGianDangKy || reg.createdAt;
+
+            return {
+                _id: reg._id,
+                hoTen: user?.hoTen || 'N/A',
+                goiTap: goiTap?.tenGoiTap || 'N/A',
+                chiNhanh: reg.branchId?.tenChiNhanh || '—',
+                ptPhuTrach: reg.ptDuocChon?.hoTen || '—',
+                thoiGianDangKy: thoiGianDangKy,
+                tongTien: reg.soTienThanhToan || reg.giaGoiTapGoc || goiTap?.donGia || 0,
+                isUpgrade: reg.isUpgrade || false // Đánh dấu là gia hạn hay đăng ký mới
+            };
+        });
+    } catch (error) {
+        console.error('Error in getRecentRegistrations:', error);
+        return [];
+    }
+};
+
+// Helper function để thêm timeout cho các promise
+const withTimeout = (promise, timeoutMs = 15000) => {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Timeout')), timeoutMs)
+        )
+    ]);
+};
+
+// API tối ưu - chỉ lấy dữ liệu tối thiểu cần thiết
+exports.getOverallStats = async (req, res) => {
+    const startTime = Date.now();
+    try {
+        // Tối ưu: Chia thành 2 nhóm với timeout ngắn hơn
+        // Nhóm quan trọng: timeout 12s, nhóm phụ: timeout 8s
+        // Chỉ lấy các thống kê cơ bản nhất
         const [
             memberByBranchData,
             newMemberData,
-            expiringData,
             revenueData,
             packageData,
             ptData,
             checkInData,
-            statusData,
-            branchRegistrationData,
-            renewPackageData,
-            conversionData,
-            ageDistributionData,
-            durationRevenueData,
-            peakHourData,
-            recentCheckIns
+            statusData
         ] = await Promise.all([
-            callStatsFunction(exports.getMemberStatsByBranch, {}),
-            callStatsFunction(exports.getNewMemberStats, {}),
-            callStatsFunction(exports.getExpiringPackages, {}),
-            callStatsFunction(exports.getRevenueStats, { query: { period: 'month' } }),
-            callStatsFunction(exports.getPackageStats, {}),
-            callStatsFunction(exports.getPTStats, {}),
-            callStatsFunction(exports.getCheckInStats, {}),
-            callStatsFunction(exports.getMemberStatusStats, {}),
-            buildBranchRegistrationStats(),
-            buildRenewPackageStats(),
-            buildConversionStats(),
-            buildAgeDistributionStats(),
-            buildPackageDurationRevenueStats(),
-            buildPeakHourStats(),
-            getRecentCheckIns()
+            withTimeout(callStatsFunction(exports.getMemberStatsByBranch, {}), 12000).catch(() => []),
+            withTimeout(callStatsFunction(exports.getNewMemberStats, {}), 12000).catch(() => ({
+                homNay: { soLuong: 0, soSanh: 0, thayDoi: '0', trend: 'flat' },
+                tuanNay: { soLuong: 0, soSanh: 0, thayDoi: '0', trend: 'flat' },
+                thangNay: { soLuong: 0, soSanh: 0, thayDoi: '0', trend: 'flat' },
+                namNay: { soLuong: 0, soSanh: 0, thayDoi: '0', trend: 'flat' }
+            })),
+            withTimeout(callStatsFunction(exports.getRevenueStats, { query: { period: 'month' } }), 12000).catch(() => ({
+                hienTai: { doanhThu: 0, soLuong: 0 },
+                kyTruoc: { doanhThu: 0, soLuong: 0 },
+                thayDoi: 0,
+                trend: 'flat',
+                theoChiNhanh: []
+            })),
+            withTimeout(callStatsFunction(exports.getPackageStats, {}), 12000).catch(() => ({
+                tongSoDangKy: 0,
+                theoGoiTap: [],
+                goiPhobienNhat: null
+            })),
+            withTimeout(callStatsFunction(exports.getPTStats, {}), 12000).catch(() => ({
+                tongSoPT: 0,
+                dangHoatDong: 0,
+                tamNgung: 0,
+                topPT: []
+            })),
+            withTimeout(callStatsFunction(exports.getCheckInStats, {}), 12000).catch(() => ({
+                thangNay: { soLuongCheckIn: 0, soHoiVien: 0, tyLeThamGia: 0, trungBinhMoiHoiVien: 0 },
+                thangTruoc: { soLuongCheckIn: 0 },
+                thayDoi: '0',
+                theoChiNhanh: []
+            })),
+            withTimeout(callStatsFunction(exports.getMemberStatusStats, {}), 12000).catch(() => ({
+                tongSo: 0,
+                chiTiet: []
+            }))
         ]);
 
+        // Nhóm phụ: timeout ngắn hơn và có thể bỏ qua
+        const [
+            expiringData,
+            recentCheckIns
+        ] = await Promise.allSettled([
+            withTimeout(callStatsFunction(exports.getExpiringPackages, {}), 8000).catch(() => ({
+                trong7Ngay: { soLuong: 0, danhSach: [] },
+                trong15Ngay: { soLuong: 0, danhSach: [] },
+                trong30Ngay: { soLuong: 0, danhSach: [] },
+                daHetHan: { soLuong: 0, danhSach: [] }
+            })),
+            withTimeout(getRecentCheckIns(), 5000).catch(() => [])
+        ]);
+
+        const elapsedTime = Date.now() - startTime;
+        console.log(`[getOverallStats] Total time: ${elapsedTime}ms`);
+
+        // Trả về dữ liệu tối thiểu - loại bỏ các thống kê không cần thiết
         res.json({
             success: true,
             data: {
                 hoiVienTheoChiNhanh: memberByBranchData || [],
                 hoiVienMoi: newMemberData || {},
-                goiSapHetHan: expiringData || {},
+                goiSapHetHan: expiringData.status === 'fulfilled' ? expiringData.value : {
+                    trong7Ngay: { soLuong: 0, danhSach: [] },
+                    trong15Ngay: { soLuong: 0, danhSach: [] },
+                    trong30Ngay: { soLuong: 0, danhSach: [] },
+                    daHetHan: { soLuong: 0, danhSach: [] }
+                },
                 doanhThu: revenueData || {},
                 goiTap: packageData || { tongSoDangKy: 0, theoGoiTap: [], goiPhobienNhat: null },
                 pt: ptData || {},
                 checkIn: checkInData || {},
                 trangThaiHoiVien: statusData || {},
-                branchRegistrations: branchRegistrationData || [],
-                renewPackages: renewPackageData || [],
-                conversionStats: conversionData || {
-                    totalTrials: 0,
-                    converted: 0,
-                    conversionRate: 0,
-                    previousRate: 0,
-                    changePercent: 0,
-                    trend: 'flat'
-                },
-                ageDistribution: ageDistributionData || [],
-                packageDurationRevenue: durationRevenueData || [],
-                peakHours: peakHourData || [],
-                recentCheckIns: recentCheckIns || []
+                recentCheckIns: recentCheckIns.status === 'fulfilled' ? recentCheckIns.value : []
             }
         });
     } catch (error) {

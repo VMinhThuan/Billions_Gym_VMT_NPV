@@ -22,6 +22,7 @@ export const auth = {
 };
 
 async function request<T>(path: string, options: { method?: HttpMethod; body?: any; query?: Record<string, any>; requireAuth?: boolean } = {}): Promise<T> {
+    const requestStartTime = performance.now();
     const { method = 'GET', body, query, requireAuth = true } = options;
     const url = new URL(path, BASE_URL);
     if (query) {
@@ -29,6 +30,16 @@ async function request<T>(path: string, options: { method?: HttpMethod; body?: a
             if (v === undefined || v === null) continue;
             url.searchParams.set(k, String(v));
         }
+    }
+
+    // Log request details
+    const isStatisticsRequest = path.includes('statistics') || path.includes('overall');
+    if (isStatisticsRequest) {
+        console.log('[api.request] ===== BẮT ĐẦU HTTP REQUEST =====');
+        console.log('[api.request] Method:', method);
+        console.log('[api.request] URL:', url.toString());
+        console.log('[api.request] Path:', path);
+        console.log('[api.request] Timestamp:', new Date().toISOString());
     }
 
     const headers: Record<string, string> = {
@@ -40,43 +51,90 @@ async function request<T>(path: string, options: { method?: HttpMethod; body?: a
         headers['Authorization'] = `Bearer ${authToken}`;
     }
 
-    const res = await fetch(url.toString(), {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-        credentials: 'include',
-        mode: 'cors',
-    });
+    const fetchStartTime = performance.now();
+    let fetchEndTime: number;
+    let responseReceived = false;
 
-    if (!res.ok) {
-        if (res.status === 401) {
-            // Clear invalid token
-            auth.clearToken();
-            // Show notification and redirect to login
-            if (typeof window !== 'undefined') {
-                // Dispatch custom event for token expiration
-                window.dispatchEvent(new CustomEvent('tokenExpired', {
-                    detail: { message: 'Phiên đã hết hạn. Vui lòng đăng nhập lại.' }
-                }));
+    try {
+        const res = await fetch(url.toString(), {
+            method,
+            headers,
+            body: body ? JSON.stringify(body) : undefined,
+            credentials: 'include',
+            mode: 'cors',
+        });
+
+        fetchEndTime = performance.now();
+        responseReceived = true;
+        const fetchDuration = fetchEndTime - fetchStartTime;
+
+        if (isStatisticsRequest) {
+            console.log(`[api.request] Fetch response nhận được sau: ${fetchDuration.toFixed(2)}ms (${(fetchDuration / 1000).toFixed(2)}s)`);
+            console.log('[api.request] Response status:', res.status, res.statusText);
+            console.log('[api.request] Response headers:', Object.fromEntries(res.headers.entries()));
+        }
+
+        if (!res.ok) {
+            if (res.status === 401) {
+                // Clear invalid token
+                auth.clearToken();
+                // Show notification and redirect to login
+                if (typeof window !== 'undefined') {
+                    // Dispatch custom event for token expiration
+                    window.dispatchEvent(new CustomEvent('tokenExpired', {
+                        detail: { message: 'Phiên đã hết hạn. Vui lòng đăng nhập lại.' }
+                    }));
+                }
+                throw new Error('Unauthorized - please login again');
             }
-            throw new Error('Unauthorized - please login again');
+
+            // Handle specific error cases
+            if (res.status === 413) {
+                throw new Error('Payload too large - please reduce image size or try again');
+            }
+
+            const text = await res.text().catch(() => '');
+            throw new Error(`API ${method} ${url.pathname} failed: ${res.status} ${text}`);
         }
 
-        // Handle specific error cases
-        if (res.status === 413) {
-            throw new Error('Payload too large - please reduce image size or try again');
+        const parseStartTime = performance.now();
+        const contentType = res.headers.get('content-type') || '';
+        let result: T;
+
+        if (contentType.includes('application/json')) {
+            result = await res.json() as T;
+        } else {
+            result = (undefined as unknown) as T;
         }
 
-        const text = await res.text().catch(() => '');
-        throw new Error(`API ${method} ${url.pathname} failed: ${res.status} ${text}`);
-    }
+        const parseEndTime = performance.now();
+        const parseDuration = parseEndTime - parseStartTime;
+        const totalDuration = parseEndTime - requestStartTime;
 
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-        return (await res.json()) as T;
+        if (isStatisticsRequest) {
+            console.log(`[api.request] Parse JSON hoàn thành sau: ${parseDuration.toFixed(2)}ms`);
+            console.log(`[api.request] Tổng thời gian request: ${totalDuration.toFixed(2)}ms (${(totalDuration / 1000).toFixed(2)}s)`);
+            console.log('[api.request] Response data size:', JSON.stringify(result).length, 'bytes');
+            console.log('[api.request] ===== HOÀN THÀNH HTTP REQUEST =====');
+        }
+
+        return result;
+    } catch (error: any) {
+        fetchEndTime = performance.now();
+        const totalDuration = fetchEndTime - requestStartTime;
+
+        if (isStatisticsRequest) {
+            console.error(`[api.request] REQUEST ERROR sau ${totalDuration.toFixed(2)}ms:`, error);
+            console.error('[api.request] Error details:', {
+                message: error?.message,
+                stack: error?.stack,
+                name: error?.name
+            });
+            console.error('[api.request] ===== HTTP REQUEST FAILED =====');
+        }
+
+        throw error;
     }
-    // Non-JSON response
-    return (undefined as unknown) as T;
 }
 
 export const api = {

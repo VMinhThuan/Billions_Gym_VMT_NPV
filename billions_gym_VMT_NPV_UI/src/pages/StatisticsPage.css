@@ -283,8 +283,9 @@
 
 .overview-table-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
+    width: 100%;
 }
 
 .overview-table-card {
@@ -293,6 +294,9 @@
     border-radius: 16px;
     padding: 1.25rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    min-width: 0;
+    /* Cho phép flex item co lại khi cần */
 }
 
 .simple-table {
@@ -995,6 +999,8 @@
 
 .table-container {
     overflow-x: auto;
+    width: 100%;
+    max-width: 100%;
 }
 
 .stats-table {
@@ -2682,8 +2688,23 @@
     }
 }
 
+@media (max-width: 1200px) {
+    .overview-table-row {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 768px) {
     .statistics-page {
+        padding: 1rem;
+    }
+
+    .overview-table-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .overview-table-card {
         padding: 1rem;
     }
 

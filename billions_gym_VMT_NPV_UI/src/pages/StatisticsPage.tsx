@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { statisticsApi, OverallStats, MemberStatsByBranch, NewMemberStats, ExpiringPackages, RevenueStats, PackageStats, PTStats, CheckInStats, MemberStatusStats, yearlyGoalsApi, YearlyGoals } from '../services/statistics';
+import { statisticsApi, OverallStats, MemberStatsByBranch, NewMemberStats, ExpiringPackages, RevenueStats, PackageStats, PTStats, CheckInStats, MemberStatusStats, yearlyGoalsApi, YearlyGoals, RealtimePTCheckIn } from '../services/statistics';
 import Loading from '../components/Loading';
 import './StatisticsPage.css';
 import {
@@ -69,41 +69,164 @@ const StatisticsPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<string>('overview');
     const [goals, setGoals] = useState<YearlyGoals | null>(null);
+    const [recentPTCheckIns, setRecentPTCheckIns] = useState<RealtimePTCheckIn[]>([]);
 
     const fetchStatistics = async () => {
+        const fetchStartTime = performance.now();
+        console.log('[StatisticsPage] ===== BẮT ĐẦU FETCH STATISTICS =====');
+        console.log('[StatisticsPage] URL:', window.location.pathname);
+        console.log('[StatisticsPage] Timestamp:', new Date().toISOString());
+
         setLoading(true);
         setError(null);
 
         try {
-            // Load cả hai API song song để tối ưu thời gian
-            const [statsData, goalsData] = await Promise.allSettled([
-                statisticsApi.getOverallStats(),
-                yearlyGoalsApi.getCurrentYearGoals()
-            ]);
+            // Kiểm tra xem có phải route PT không
+            const isPTRoute = window.location.pathname.includes('/pt/statistics');
+            console.log('[StatisticsPage] Is PT Route:', isPTRoute);
 
-            // Xử lý stats
-            if (statsData.status === 'fulfilled') {
-                setStats(statsData.value);
-            } else {
-                const err = statsData.reason;
-                if (err?.message?.includes('Failed to fetch') || err?.message?.includes('ERR_CONNECTION_REFUSED')) {
-                    setError('Không thể kết nối đến server. Vui lòng kiểm tra xem backend server đã được khởi động chưa (port 4000).');
+            if (isPTRoute) {
+                console.log('[StatisticsPage] Sử dụng API PT tối ưu');
+                const apiStartTime = performance.now();
+
+                // Dùng API tối ưu cho PT
+                const statsData = await statisticsApi.getPTOverallStats();
+
+                const apiEndTime = performance.now();
+                console.log(`[StatisticsPage] API PT response nhận được sau: ${(apiEndTime - apiStartTime).toFixed(2)}ms`);
+                console.log('[StatisticsPage] API Response:', statsData);
+
+                if (statsData?.success && statsData?.data) {
+                    const transformStartTime = performance.now();
+                    console.log('[StatisticsPage] Bắt đầu transform data...');
+                    // Transform data để phù hợp với format hiện tại
+                    setStats({
+                        hoiVienTheoChiNhanh: [],
+                        hoiVienMoi: {
+                            homNay: { soLuong: 0, soSanh: 0, thayDoi: '0', trend: 'up' as const },
+                            tuanNay: { soLuong: 0, soSanh: 0, thayDoi: '0', trend: 'up' as const },
+                            thangNay: {
+                                soLuong: statsData.data.buoiTapThangNay || 0,
+                                soSanh: statsData.data.buoiTapThangTruoc || 0,
+                                thayDoi: '0',
+                                trend: (statsData.data.buoiTapThangNay || 0) >= (statsData.data.buoiTapThangTruoc || 0) ? 'up' as const : 'down' as const
+                            },
+                            namNay: { soLuong: 0, soSanh: 0, thayDoi: '0', trend: 'up' as const }
+                        },
+                        goiSapHetHan: {
+                            trong7Ngay: { soLuong: 0, danhSach: [] },
+                            trong15Ngay: { soLuong: 0, danhSach: [] },
+                            trong30Ngay: { soLuong: 0, danhSach: [] },
+                            daHetHan: { soLuong: 0, danhSach: [] }
+                        },
+                        doanhThu: {
+                            hienTai: { doanhThu: 0, soLuong: 0 },
+                            kyTruoc: { doanhThu: 0, soLuong: 0 },
+                            thayDoi: 0,
+                            trend: 'up' as const,
+                            theoChiNhanh: []
+                        },
+                        goiTap: { tongSoDangKy: 0, theoGoiTap: [], goiPhobienNhat: null },
+                        pt: {
+                            tongSoPT: 1,
+                            dangHoatDong: 1,
+                            tamNgung: 0,
+                            topPT: []
+                        },
+                        checkIn: {
+                            thangNay: {
+                                soLuongCheckIn: statsData.data.checkInThangNay || 0,
+                                soHoiVien: statsData.data.tongHoiVien || 0,
+                                tyLeThamGia: 0,
+                                trungBinhMoiHoiVien: 0
+                            },
+                            thangTruoc: { soLuongCheckIn: 0 },
+                            thayDoi: '0',
+                            theoChiNhanh: []
+                        },
+                        trangThaiHoiVien: {
+                            tongSo: statsData.data.tongHoiVien || 0,
+                            chiTiet: []
+                        },
+                        branchRegistrations: [],
+                        renewPackages: [],
+                        conversionStats: {
+                            totalTrials: 0,
+                            converted: 0,
+                            conversionRate: 0,
+                            previousRate: 0,
+                            changePercent: 0,
+                            trend: 'flat'
+                        },
+                        ageDistribution: [],
+                        packageDurationRevenue: [],
+                        peakHours: [],
+                        recentCheckIns: statsData.data.recentCheckIns || [],
+                        recentRegistrations: []
+                    } as OverallStats);
+
+                    const transformEndTime = performance.now();
+                    console.log(`[StatisticsPage] Transform data hoàn thành sau: ${(transformEndTime - transformStartTime).toFixed(2)}ms`);
+                    console.log('[StatisticsPage] Stats đã được set vào state');
                 } else {
-                    setError(err?.message || 'Không thể tải dữ liệu thống kê');
+                    console.warn('[StatisticsPage] API response không có success hoặc data:', statsData);
+                }
+            } else {
+                console.log('[StatisticsPage] Sử dụng API tổng hợp cho admin');
+                const adminApiStartTime = performance.now();
+
+                // Dùng API tổng hợp cho admin
+                const [statsData, goalsData] = await Promise.allSettled([
+                    statisticsApi.getOverallStats(),
+                    yearlyGoalsApi.getCurrentYearGoals()
+                ]);
+
+                const adminApiEndTime = performance.now();
+                console.log(`[StatisticsPage] Admin API response nhận được sau: ${(adminApiEndTime - adminApiStartTime).toFixed(2)}ms`);
+                console.log('[StatisticsPage] StatsData status:', statsData.status);
+                console.log('[StatisticsPage] GoalsData status:', goalsData.status);
+
+                // Xử lý stats
+                if (statsData.status === 'fulfilled') {
+                    const setStatsStartTime = performance.now();
+                    console.log('[StatisticsPage] StatsData fulfilled, bắt đầu set stats...');
+                    setStats(statsData.value);
+                    const setStatsEndTime = performance.now();
+                    console.log(`[StatisticsPage] Set stats hoàn thành sau: ${(setStatsEndTime - setStatsStartTime).toFixed(2)}ms`);
+                } else {
+                    const err = statsData.reason;
+                    console.error('[StatisticsPage] StatsData rejected:', err);
+                    if (err?.message?.includes('Failed to fetch') || err?.message?.includes('ERR_CONNECTION_REFUSED')) {
+                        setError('Không thể kết nối đến server. Vui lòng kiểm tra xem backend server đã được khởi động chưa (port 4000).');
+                    } else {
+                        setError(err?.message || 'Không thể tải dữ liệu thống kê');
+                    }
+                }
+
+                // Xử lý goals (không block UI nếu lỗi)
+                if (goalsData.status === 'fulfilled') {
+                    const goalsValue = goalsData.value as any;
+                    console.log('[StatisticsPage] GoalsData fulfilled, set goals...');
+                    setGoals(goalsValue?.data || goalsValue);
+                } else {
+                    console.error('[StatisticsPage] GoalsData rejected:', goalsData.reason);
                 }
             }
-
-            // Xử lý goals (không block UI nếu lỗi)
-            if (goalsData.status === 'fulfilled') {
-                setGoals(goalsData.value);
-            } else {
-                console.error('Error loading yearly goals:', goalsData.reason);
-                // Không set error vì goals không quan trọng bằng stats
-            }
         } catch (err: any) {
-            console.error('Error loading data:', err);
+            const errorTime = performance.now();
+            console.error(`[StatisticsPage] ERROR sau ${(errorTime - fetchStartTime).toFixed(2)}ms:`, err);
+            console.error('[StatisticsPage] Error details:', {
+                message: err?.message,
+                stack: err?.stack,
+                name: err?.name
+            });
             setError(err?.message || 'Không thể tải dữ liệu');
         } finally {
+            const fetchEndTime = performance.now();
+            const totalTime = fetchEndTime - fetchStartTime;
+            console.log(`[StatisticsPage] ===== HOÀN THÀNH FETCH STATISTICS =====`);
+            console.log(`[StatisticsPage] Tổng thời gian: ${totalTime.toFixed(2)}ms (${(totalTime / 1000).toFixed(2)}s)`);
+            console.log('[StatisticsPage] Set loading = false');
             setLoading(false);
         }
     };
@@ -112,32 +235,50 @@ const StatisticsPage: React.FC = () => {
         fetchStatistics();
     }, []);
 
-    // Real-time polling cho check-in (cập nhật mỗi 5 giây)
-    useEffect(() => {
-        // Chỉ polling khi đang ở tab check-in hoặc overview
-        if (!stats || (activeTab !== 'checkin' && activeTab !== 'overview')) {
-            return;
-        }
+    // TẮT POLLING để tăng tốc - chỉ load 1 lần
+    // Real-time polling cho check-in (TẮT để tăng tốc)
+    // useEffect(() => {
+    //     // Chỉ polling khi đang ở tab check-in hoặc overview
+    //     if (!stats || (activeTab !== 'checkin' && activeTab !== 'overview')) {
+    //         return;
+    //     }
 
-        const intervalId = setInterval(async () => {
-            try {
-                const recentCheckIns = await statisticsApi.getRecentCheckIns();
-                // Cập nhật stats với recentCheckIns mới
-                setStats(prevStats => {
-                    if (!prevStats) return prevStats;
-                    return {
-                        ...prevStats,
-                        recentCheckIns: recentCheckIns
-                    };
-                });
-            } catch (error) {
-                console.error('Error fetching recent check-ins:', error);
-                // Không hiển thị error để không làm gián đoạn UI
-            }
-        }, 5000); // Cập nhật mỗi 5 giây
+    //     const intervalId = setInterval(async () => {
+    //         try {
+    //             const [recentCheckIns, recentPTCheckInsData] = await Promise.all([
+    //                 statisticsApi.getRecentCheckIns(),
+    //                 statisticsApi.getRecentPTCheckIns()
+    //             ]);
+    //             // Cập nhật stats với recentCheckIns mới
+    //             setStats(prevStats => {
+    //                 if (!prevStats) return prevStats;
+    //                 return {
+    //                     ...prevStats,
+    //                     recentCheckIns: recentCheckIns
+    //                 };
+    //             });
+    //             setRecentPTCheckIns(recentPTCheckInsData);
+    //         } catch (error) {
+    //             console.error('Error fetching recent check-ins:', error);
+    //             // Không hiển thị error để không làm gián đoạn UI
+    //         }
+    //     }, 5000); // Cập nhật mỗi 5 giây
 
-        return () => clearInterval(intervalId);
-    }, [stats, activeTab]);
+    //     return () => clearInterval(intervalId);
+    // }, [stats, activeTab]);
+
+    // TẮT Load PT check-in/out lần đầu để tăng tốc
+    // useEffect(() => {
+    //     const loadPTCheckIns = async () => {
+    //         try {
+    //             const data = await statisticsApi.getRecentPTCheckIns();
+    //             setRecentPTCheckIns(data);
+    //         } catch (error) {
+    //             console.error('Error loading PT check-ins:', error);
+    //         }
+    //     };
+    //     loadPTCheckIns();
+    // }, []);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('vi-VN', {
@@ -359,7 +500,7 @@ const StatisticsPage: React.FC = () => {
                         />
                     )}
                     {activeTab === 'pt' && <PTTab stats={stats} formatNumber={formatNumber} />}
-                    {activeTab === 'checkin' && <CheckInTab stats={stats} formatNumber={formatNumber} />}
+                    {activeTab === 'checkin' && <CheckInTab stats={stats} formatNumber={formatNumber} recentPTCheckIns={recentPTCheckIns} />}
                 </div>
             </div>
         </div>
@@ -510,11 +651,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     }, [stats.recentRegistrations, dateRange]);
 
     const expiringSoonList = useMemo(() => {
-        const list =
-            stats.goiSapHetHan?.trong7Ngay?.danhSach ||
-            stats.goiSapHetHan?.trong15Ngay?.danhSach ||
-            stats.goiSapHetHan?.trong30Ngay?.danhSach ||
-            [];
+        // Bao gồm cả gói đã hết hạn
+        const list = [
+            ...(stats.goiSapHetHan?.trong7Ngay?.danhSach || []),
+            ...(stats.goiSapHetHan?.trong15Ngay?.danhSach || []),
+            ...(stats.goiSapHetHan?.trong30Ngay?.danhSach || []),
+            ...(stats.goiSapHetHan?.daHetHan?.danhSach || [])
+        ];
 
         let filtered = list;
 
@@ -523,7 +666,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
             filtered = list.filter(item => isDateInRange(item.ngayKetThuc));
         }
 
-        return filtered.slice().sort((a, b) => new Date(a.ngayKetThuc).getTime() - new Date(b.ngayKetThuc).getTime()).slice(0, 6);
+        return filtered.slice().sort((a, b) => new Date(a.ngayKetThuc).getTime() - new Date(b.ngayKetThuc).getTime()).slice(0, 10);
     }, [stats.goiSapHetHan, dateRange]);
 
     // Tính toán lại các metrics dựa trên date range
@@ -1516,23 +1659,58 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                             <th>Chi nhánh</th>
                                             <th>Hết hạn</th>
                                             <th>Còn lại</th>
+                                            <th>Trạng thái</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {expiringSoonList.length === 0 && (
                                             <tr>
-                                                <td colSpan={5} className="table-empty">Không có hội viên sắp hết hạn.</td>
+                                                <td colSpan={6} className="table-empty">Không có hội viên sắp hết hạn hoặc đã hết hạn.</td>
                                             </tr>
                                         )}
-                                        {expiringSoonList.map(item => (
-                                            <tr key={item._id}>
-                                                <td>{item.nguoiDungId?.hoTen || 'Ẩn danh'}</td>
-                                                <td>{item.goiTapId?.tenGoiTap || 'N/A'}</td>
-                                                <td>{item.branchId?.tenChiNhanh || '—'}</td>
-                                                <td>{formatDateLabel(item.ngayKetThuc)}</td>
-                                                <td>{getDaysLeftLabel(item.ngayKetThuc)}</td>
-                                            </tr>
-                                        ))}
+                                        {expiringSoonList.map(item => {
+                                            const user = item.nguoiDungId || item.maHoiVien;
+                                            const goiTap = item.goiTapId || item.maGoiTap;
+                                            const renewalStatus = item.renewalStatus || 'CHUA_GIA_HAN';
+
+                                            const getRenewalStatusLabel = (status: string) => {
+                                                switch (status) {
+                                                    case 'DA_GIA_HAN':
+                                                        return { text: 'Đã gia hạn', color: '#22c55e', bg: '#dcfce7' };
+                                                    case 'DA_DANG_KY_GOI_KHAC':
+                                                        return { text: 'Đã đăng ký gói khác', color: '#3b82f6', bg: '#dbeafe' };
+                                                    case 'CHUA_GIA_HAN':
+                                                    default:
+                                                        return { text: 'Chưa gia hạn', color: '#ef4444', bg: '#fee2e2' };
+                                                }
+                                            };
+
+                                            const statusInfo = getRenewalStatusLabel(renewalStatus);
+
+                                            return (
+                                                <tr key={item._id}>
+                                                    <td>{user?.hoTen || 'Ẩn danh'}</td>
+                                                    <td>{goiTap?.tenGoiTap || 'N/A'}</td>
+                                                    <td>{item.branchId?.tenChiNhanh || '—'}</td>
+                                                    <td>{formatDateLabel(item.ngayKetThuc)}</td>
+                                                    <td>{getDaysLeftLabel(item.ngayKetThuc)}</td>
+                                                    <td>
+                                                        <span
+                                                            style={{
+                                                                padding: '4px 8px',
+                                                                borderRadius: '4px',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: '600',
+                                                                color: statusInfo.color,
+                                                                backgroundColor: statusInfo.bg
+                                                            }}
+                                                        >
+                                                            {statusInfo.text}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
@@ -2964,7 +3142,7 @@ const PTTab: React.FC<{ stats: OverallStats; formatNumber: (n: number) => string
 };
 
 // Check-in Tab Component
-const CheckInTab: React.FC<{ stats: OverallStats; formatNumber: (n: number) => string }> = ({ stats, formatNumber }) => {
+const CheckInTab: React.FC<{ stats: OverallStats; formatNumber: (n: number) => string; recentPTCheckIns: RealtimePTCheckIn[] }> = ({ stats, formatNumber, recentPTCheckIns }) => {
     const checkInTrendData = stats.checkInTimeline || (stats.peakHours || []).map(item => ({
         label: item.label,
         value: item.count
@@ -3138,6 +3316,100 @@ const CheckInTab: React.FC<{ stats: OverallStats; formatNumber: (n: number) => s
                         ))}
                     </div>
                 </ChartCard>
+            </div>
+
+            <div className="chart-card">
+                <h3>PT Check-in/out Real-time</h3>
+                <div className="checkin-cards-list" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                    {recentPTCheckIns.length === 0 && <div className="realtime-empty">Chưa có dữ liệu PT check-in/out.</div>}
+                    {recentPTCheckIns.map(item => (
+                        <div className="checkin-card" key={item._id}>
+                            <div className="checkin-card-header">
+                                <div className="checkin-card-avatar" style={{ background: '#f59e0b' }}>{getInitials(item.pt?.hoTen)}</div>
+                                <div className="checkin-card-title">
+                                    <div className="checkin-member-name">{item.pt?.hoTen || 'Ẩn danh'}</div>
+                                    <div className="checkin-time-ago">{formatRelativeTime(item.checkInTime)}</div>
+                                </div>
+                                <div className={`checkin-status-badge ${item.isCheckedOut ? 'checked-out' : 'checked-in'}`}>
+                                    {item.isCheckedOut ? 'Đã check-out' : 'Đang dạy'}
+                                </div>
+                            </div>
+
+                            <div className="checkin-card-body">
+                                <div className="checkin-info-row">
+                                    <span className="checkin-label">Chi nhánh</span>
+                                    <span className="checkin-value">{item.chiNhanh?.tenChiNhanh || '—'}</span>
+                                </div>
+                                <div className="checkin-info-row">
+                                    <span className="checkin-label">Buổi tập</span>
+                                    <span className="checkin-value">{item.buoiTap?.tenBuoiTap || '—'}</span>
+                                </div>
+                                <div className="checkin-info-row">
+                                    <span className="checkin-label">Khung giờ</span>
+                                    <span className="checkin-value">
+                                        {item.buoiTap?.gioBatDau && item.buoiTap?.gioKetThuc
+                                            ? `${item.buoiTap.gioBatDau} - ${item.buoiTap.gioKetThuc}`
+                                            : '—'}
+                                    </span>
+                                </div>
+                                {item.checkInStatus && (
+                                    <div className="checkin-info-row">
+                                        <span className="checkin-label">Trạng thái check-in</span>
+                                        <span className="checkin-value" style={{
+                                            color: item.checkInStatus === 'DUNG_GIO' ? '#22c55e' : item.checkInStatus === 'MUON' ? '#ef4444' : '#f59e0b'
+                                        }}>
+                                            {item.checkInStatus === 'DUNG_GIO' ? 'Đúng giờ' : item.checkInStatus === 'MUON' ? 'Muộn' : 'Sớm'}
+                                            {(item.thoiGianMuonCheckIn || 0) > 0 && ` (${item.thoiGianMuonCheckIn} phút)`}
+                                        </span>
+                                    </div>
+                                )}
+                                {(item.tienPhat || 0) > 0 && (
+                                    <div className="checkin-info-row">
+                                        <span className="checkin-label">Tiền phạt</span>
+                                        <span className="checkin-value" style={{ color: '#ef4444' }}>
+                                            -{(item.tienPhat || 0).toLocaleString('vi-VN')} VNĐ
+                                        </span>
+                                    </div>
+                                )}
+                                {(item.tienLuong || 0) > 0 && (
+                                    <div className="checkin-info-row">
+                                        <span className="checkin-label">Lương thực nhận</span>
+                                        <span className="checkin-value" style={{ color: '#22c55e' }}>
+                                            {(item.tienLuong || 0).toLocaleString('vi-VN')} VNĐ
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="checkin-card-footer">
+                                <div className="checkin-time-info">
+                                    <div className="checkin-time-item">
+                                        <span className="checkin-time-label">Check-in</span>
+                                        <span className="checkin-time-value">
+                                            {item.checkInTime
+                                                ? new Date(item.checkInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                                                : '—'}
+                                        </span>
+                                    </div>
+                                    {item.checkOutTime && (
+                                        <div className="checkin-time-item">
+                                            <span className="checkin-time-label">Check-out</span>
+                                            <span className="checkin-time-value">
+                                                {new Date(item.checkOutTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {item.sessionDuration && (
+                                        <div className="checkin-time-item">
+                                            <span className="checkin-time-label">Thời gian</span>
+                                            <span className="checkin-time-value">{item.sessionDuration} phút</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             <div className="overview-table-card">

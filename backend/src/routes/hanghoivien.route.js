@@ -53,6 +53,13 @@ router.get('/hoi-vien/:hoiVienId',
     hangHoiVienController.getHangHoiVienCuaHoiVien
 );
 
+// Lấy thông tin chi tiết về hạng hội viên và tổng tiền đã thanh toán (admin)
+router.get('/chi-tiet/:hoiVienId',
+    authMiddleware,
+    roleMiddleware(['OngChu', 'PT']),
+    hangHoiVienController.getHangHoiVienChiTiet
+);
+
 // Lấy danh sách hội viên theo hạng
 router.get('/hang/:hangId/hoi-vien',
     authMiddleware,

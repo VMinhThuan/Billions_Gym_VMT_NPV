@@ -1,0 +1,47 @@
+graph TB
+    subgraph "Client Layer"
+        WebApp[Web Application]
+        MobileApp[Mobile App]
+        AdminPanel[Admin Panel]
+    end
+    
+    subgraph "API Gateway Layer"
+        ExpressServer[Express.js Server<br/>Port 4000<br/>- RESTful API<br/>- WebSocket Socket.IO<br/>- CORS, Auth, Validation]
+    end
+    
+    subgraph "Business Logic Layer"
+        Controllers[Controllers<br/>- auth.controller<br/>- user.controller<br/>- session.controller<br/>- payment.controller<br/>- nutrition.controller]
+        Services[Services<br/>- auth.service<br/>- payment.service<br/>- ai.service<br/>- websocket.service<br/>- autoCheckout.service]
+    end
+    
+    subgraph "Data Layer"
+        MongoDB[(MongoDB Database<br/>- User Management<br/>- Package Management<br/>- Workout Management<br/>- Payment Records<br/>- Nutrition Plans<br/>- Chat Messages)]
+    end
+    
+    subgraph "External Services"
+        PaymentGateway[Payment Gateways<br/>- MoMo<br/>- ZaloPay]
+        AI[AI Services<br/>- Google Gemini AI]
+        SMS[SMS Service<br/>- Twilio]
+        FileStorage[File Storage<br/>- Local Uploads]
+    end
+    
+    WebApp --> ExpressServer
+    MobileApp --> ExpressServer
+    AdminPanel --> ExpressServer
+    
+    ExpressServer --> Controllers
+    ExpressServer --> Services
+    
+    Controllers --> Services
+    Services --> MongoDB
+    
+    Services --> PaymentGateway
+    Services --> AI
+    Services --> SMS
+    Services --> FileStorage
+    
+    style ExpressServer fill:#2196F3,color:#fff
+    style MongoDB fill:#4CAF50,color:#fff
+    style PaymentGateway fill:#FF9800,color:#fff
+    style AI fill:#9C27B0,color:#fff
+

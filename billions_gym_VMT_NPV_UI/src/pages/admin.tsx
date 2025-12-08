@@ -341,6 +341,7 @@ const AdminDashboard = () => {
     const [recentPayments, setRecentPayments] = useState<any[]>([]);
     const [topPTs, setTopPTs] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [showUserDropdown, setShowUserDropdown] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(() => {
         const saved = localStorage.getItem('admin-theme');
         return saved ? saved === 'dark' : false; // Default to light mode (TailAdmin style)
@@ -354,6 +355,24 @@ const AdminDashboard = () => {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('admin-theme', theme);
     }, [isDarkMode]);
+
+    // Close user dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (!target.closest('.user-profile')) {
+                setShowUserDropdown(false);
+            }
+        };
+
+        if (showUserDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showUserDropdown]);
 
     const toggleTheme = () => {
         setIsDarkMode(!isDarkMode);
@@ -681,14 +700,74 @@ const AdminDashboard = () => {
                             <BellIcon className="icon" />
                             <span className="notification-badge">5</span>
                         </button>
-                        <div className="user-profile">
-                            <div className="avatar">
-                                <img src="https://ui-avatars.com/api/?name=Admin&background=3b82f6&color=fff" alt="Admin" />
+                        <div className="user-profile" style={{ position: 'relative' }}>
+                            <div
+                                className="user-profile-clickable"
+                                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                            >
+                                <div className="avatar">
+                                    <img src="https://ui-avatars.com/api/?name=Admin&background=3b82f6&color=fff" alt="Admin" />
+                                </div>
+                                <div className="user-info">
+                                    <span className="user-name">Admin</span>
+                                </div>
+                                <ChevronDownIcon className="chevron-icon" />
                             </div>
-                            <div className="user-info">
-                                <span className="user-name">Admin</span>
-                            </div>
-                            <ChevronDownIcon className="chevron-icon" />
+                            {showUserDropdown && (
+                                <div
+                                    className="user-dropdown-menu"
+                                    style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        right: 0,
+                                        marginTop: '0.5rem',
+                                        background: isDarkMode ? '#1e293b' : '#ffffff',
+                                        border: `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`,
+                                        borderRadius: '8px',
+                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                                        minWidth: '180px',
+                                        zIndex: 1000,
+                                        padding: '0.5rem 0'
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <button
+                                        onClick={() => {
+                                            api.logout();
+                                            window.location.hash = '/login';
+                                            setShowUserDropdown(false);
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem 1rem',
+                                            textAlign: 'left',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: isDarkMode ? '#f1f5f9' : '#1e293b',
+                                            cursor: 'pointer',
+                                            fontSize: '0.875rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            transition: 'background-color 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = isDarkMode ? '#334155' : '#f1f5f9';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                            <polyline points="16 17 21 12 16 7"></polyline>
+                                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                                        </svg>
+                                        <span>Đăng xuất</span>
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </header>
