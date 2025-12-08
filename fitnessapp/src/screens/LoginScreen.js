@@ -287,6 +287,22 @@ const LoginScreen = () => {
                         >
                             <Text style={[styles.forgotText, { color: colors.text }]}>Quên mật khẩu?</Text>
                         </TouchableOpacity>
+
+                        <View style={styles.signupContainer}>
+                            <Text style={[styles.signupText, { color: colors.text }]}>
+                                Chưa có tài khoản?{' '}
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    Keyboard.dismiss();
+                                    navigation.navigate('Signup');
+                                }}
+                            >
+                                <Text style={[styles.signupLink, { color: '#00BFFF' }]}>
+                                    Đăng ký ngay
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
 
@@ -414,6 +430,18 @@ const styles = StyleSheet.create({
     },
     forgotText: {
         fontSize: 16,
+    },
+    signupContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginTop: 20,
+    },
+    signupText: {
+        fontSize: 16,
+    },
+    signupLink: {
+        fontSize: 16,
+        fontWeight: 'bold',
     },
     modalOverlay: {
         flex: 1,

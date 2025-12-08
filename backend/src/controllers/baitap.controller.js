@@ -17,7 +17,21 @@ exports.getAllBaiTap = async (req, res) => {
         res.json(baiTaps);
     } catch (err) {
         console.error('📋 getAllBaiTap - Error:', err.message);
-        res.status(500).json({ message: err.message });
+        console.error('📋 getAllBaiTap - Stack:', err.stack);
+        
+        // Kiểm tra loại lỗi
+        if (err.name === 'MongooseError' || err.message.includes('timeout') || err.message.includes('timed out')) {
+            res.status(503).json({ 
+                message: 'Database connection timeout. Please try again.',
+                error: err.message,
+                retryable: true
+            });
+        } else {
+            res.status(500).json({ 
+                message: err.message,
+                retryable: false
+            });
+        }
     }
 };
 

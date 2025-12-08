@@ -8,7 +8,33 @@ const createBaiTap = async (data) => {
 };
 
 const getAllBaiTap = async () => {
-    return await BaiTap.find();
+    try {
+        console.log('📋 getAllBaiTap - Fetching exercises...');
+        const startTime = Date.now();
+        
+        // Optimized query: filter by status, select only needed fields, limit results
+        const result = await BaiTap.find({ status: 'active' })
+            .select('tenBaiTap hinhAnh moTa mucDoKho nhomCo thietBiSuDung thoiGian type file_url source_url ratings')
+            .sort({ createdAt: -1 }) // Latest first
+            .limit(100) // Limit to 100 exercises for better performance
+            .maxTimeMS(30000) // Tăng timeout lên 30 giây
+            .lean() // Faster query, returns plain objects
+            .exec();
+        
+        const duration = Date.now() - startTime;
+        console.log(`✅ Successfully fetched ${result.length} bài tập in ${duration}ms`);
+        return result;
+    } catch (error) {
+        console.error('❌ getAllBaiTap failed:', {
+            message: error.message,
+            code: error.code,
+            name: error.name
+        });
+        
+        // Return empty array instead of throwing to prevent frontend crash
+        console.warn('⚠️ Returning empty array to prevent crash');
+        return [];
+    }
 };
 
 const getBaiTapById = async (id) => {

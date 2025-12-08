@@ -530,23 +530,23 @@ const ProfileScreen = () => {
 
     const renderStatsCards = () => {
         switch (userRole) {
-            case 'HoiVien':
-                return (
-                    <View style={[styles.statsContainer, { backgroundColor: colors.surface }]}>
-                        <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                            <Text style={[styles.statValue, { color: colors.text }]}>{userProfile.totalWorkouts}</Text>
-                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Buổi tập</Text>
-                        </View>
-                        <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                            <Text style={[styles.statValue, { color: colors.text }]}>{userProfile.currentStreak}</Text>
-                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Ngày streak</Text>
-                        </View>
-                        <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                            <Text style={[styles.statValue, { color: colors.text }]}>{userProfile.achievements}</Text>
-                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Thành tích</Text>
-                        </View>
-                    </View>
-                );
+            // case 'HoiVien':
+            //     return (
+            //         <View style={[styles.statsContainer, { backgroundColor: colors.surface }]}>
+            //             <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            //                 <Text style={[styles.statValue, { color: colors.text }]}>{userProfile.totalWorkouts}</Text>
+            //                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Buổi tập</Text>
+            //             </View>
+            //             <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            //                 <Text style={[styles.statValue, { color: colors.text }]}>{userProfile.currentStreak}</Text>
+            //                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Ngày streak</Text>
+            //             </View>
+            //             <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            //                 <Text style={[styles.statValue, { color: colors.text }]}>{userProfile.achievements}</Text>
+            //                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Thành tích</Text>
+            //             </View>
+            //         </View>
+            //     );
 
             case 'PT':
                 return (

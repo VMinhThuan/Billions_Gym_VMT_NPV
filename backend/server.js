@@ -14,6 +14,7 @@ console.log('urrl', process.env.FRONTEND_URL);
 const allowedOrigins = [
     process.env.FRONTEND_URL,
     process.env.FRONTEND_URL_CLIENT,
+    process.env.FRONTEND_URL_APP,
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:5174',
@@ -43,15 +44,16 @@ const path = require('path');
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 mongoose.connect(process.env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 15000, // Timeout after 15 seconds
-    socketTimeoutMS: 60000, // Close sockets after 60 seconds of inactivity
-    connectTimeoutMS: 20000, // Try initial connection for 20 seconds
+    serverSelectionTimeoutMS: 30000, // Tăng lên 30 giây
+    socketTimeoutMS: 75000, // Tăng socket timeout
+    connectTimeoutMS: 30000, // Tăng connection timeout
     retryWrites: true,
     retryReads: true,
-    maxPoolSize: 20, // Maintain up to 20 socket connections
-    minPoolSize: 2, // Maintain at least 2 socket connections
-    maxIdleTimeMS: 60000, // Close connections after 60 seconds of inactivity
-    family: 4 // Use IPv4, skip trying IPv6
+    maxPoolSize: 50, // Tăng pool size cho nhiều concurrent requests
+    minPoolSize: 5, // Tăng min pool
+    maxIdleTimeMS: 10000, // Giảm idle time để recycle connections nhanh hơn
+    family: 4, // Use IPv4, skip trying IPv6
+    heartbeatFrequencyMS: 10000 // Check connection mỗi 10s
 })
     .then(async () => {
         console.log('Đã kết nối MongoDB thành công');
@@ -94,20 +96,40 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 // Event handlers for MongoDB connection
 mongoose.connection.on('connected', () => {
-    console.log('Mongoose connected to MongoDB');
+    console.log('✅ Mongoose connected to MongoDB');
 });
 
 mongoose.connection.on('error', (err) => {
-    console.error('Mongoose connection error:', err);
+    console.error('❌ Mongoose connection error:', err);
+    console.error('Error name:', err.name);
+    console.error('Error code:', err.code);
 });
 
 mongoose.connection.on('disconnected', () => {
-    console.warn('Mongoose disconnected from MongoDB');
+    console.warn('⚠️ Mongoose disconnected from MongoDB');
 });
 
 mongoose.connection.on('reconnected', () => {
-    console.log('Mongoose reconnected to MongoDB');
+    console.log('🔄 Mongoose reconnected to MongoDB');
 });
+
+// Connection timeout handler
+mongoose.connection.on('timeout', () => {
+    console.error('⏱️ MongoDB connection timeout detected');
+});
+
+// Middleware để check MongoDB connection trước khi xử lý request
+const checkMongoConnection = (req, res, next) => {
+    if (mongoose.connection.readyState !== 1) {
+        console.error('⚠️ MongoDB not connected, state:', mongoose.connection.readyState);
+        return res.status(503).json({ 
+            message: 'Database not available. Please try again.',
+            state: mongoose.connection.readyState,
+            retryable: true
+        });
+    }
+    next();
+};
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
@@ -167,7 +189,7 @@ const sessionReviewRouter = require('./src/routes/session-review.route');
 app.use('/api/auth', authRouter);
 // app.use('/api/users', userRouter);
 app.use('/api/user', userRouter);
-app.use('/api/baitap', baiTapRouter);
+app.use('/api/baitap', checkMongoConnection, baiTapRouter);
 app.use('/api/lich-tap', lichTapRouter);
 app.use('/api/lichtap', lichTapRouter);
 app.use('/api/goitap', goiTapRouter);
@@ -201,8 +223,7 @@ app.use('/api/watch-history', watchHistoryRouter);
 app.use('/api/statistics', statisticsRouter);
 app.use('/api/yearly-goals', yearlyGoalsRouter);
 app.use('/api/nutrition', nutritionPlanRouter);
-app.use('/api/pt', ptRouter);
-app.use('/api/pt/templates', ptTemplatesRouter);
+app.use('/api/pt', checkMongoConnection, ptRouter);
 app.use('/api/pt/chat', ptChatRouter);
 app.use('/api/member/chat', memberChatRouter);
 app.use('/api/pt/statistics', ptStatisticsRouter);

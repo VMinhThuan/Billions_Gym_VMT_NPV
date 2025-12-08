@@ -136,6 +136,10 @@ class ApiService {
         return this.apiCall('/auth/login', 'POST', { sdt, matKhau }, false);
     }
 
+    async register(data) {
+        return this.apiCall('/auth/register', 'POST', data, false);
+    }
+
     async forgotPassword(sdt) {
         return this.apiCall('/auth/forgot-password', 'POST', { sdt }, false);
     }
@@ -172,20 +176,48 @@ class ApiService {
 
     async getAllPT() {
         try {
-            const result = await this.apiCall('/pt/list', 'GET', null, false);
-            return Array.isArray(result) ? result : [];
+            console.log('🔄 Fetching PT list...');
+            const result = await this.apiCall('/pt/list', 'GET');
+            
+            console.log('🔍 getAllPT - Type of result:', typeof result);
+            console.log('🔍 getAllPT - Is result array?', Array.isArray(result));
+            console.log('🔍 getAllPT - result.success:', result?.success);
+            console.log('🔍 getAllPT - result.data exists?', !!result?.data);
+            console.log('🔍 getAllPT - result.data is array?', Array.isArray(result?.data));
+            console.log('🔍 getAllPT - result.data length:', result?.data?.length);
+            
+            // Backend returns {success: true, data: [...], count: 50}
+            if (result?.success && Array.isArray(result.data) && result.data.length > 0) {
+                console.log('✅ getAllPT returning array with', result.data.length, 'items');
+                return result.data;
+            }
+            
+            console.log('⚠️ getAllPT returning empty array - invalid response');
+            return [];
+            
         } catch (error) {
-            console.error('Error fetching PT list:', error);
+            console.error('❌ Failed to fetch PT list:', error.message);
             return [];
         }
     }
 
     async getAllGoiTap() {
         try {
+            console.log('🔍 Fetching all packages...');
             const result = await this.apiCall('/user/goitap');
-            return Array.isArray(result) ? result : [];
+            console.log('📦 getAllGoiTap response:', result);
+            
+            // Handle different response formats
+            if (Array.isArray(result)) {
+                return result;
+            } else if (result && result.data && Array.isArray(result.data)) {
+                return result.data;
+            } else if (result && typeof result === 'object') {
+                return [result];
+            }
+            return [];
         } catch (error) {
-            console.error('Error fetching workout packages:', error);
+            console.error('❌ Error fetching workout packages:', error.message);
             return [];
         }
     }
@@ -424,14 +456,34 @@ class ApiService {
 
     // Membership APIs
     async getMyMembership() {
-        const token = await this.getAuthToken();
-        if (!token) throw new Error('No auth token');
+        try {
+            const token = await this.getAuthToken();
+            if (!token) {
+                console.warn('⚠️ No auth token for membership');
+                return [];
+            }
 
-        // Backend đã filter theo userId, không cần filter ở frontend
-        console.log('📞 Calling /user/chitietgoitap API...');
-        const memberships = await this.apiCall('/user/chitietgoitap');
-        console.log('📞 API returned memberships:', memberships);
-        return memberships;
+            console.log('📞 Calling /user/chitietgoitap API...');
+            const result = await this.apiCall('/user/chitietgoitap');
+            console.log('📞 getMyMembership response:', result);
+            
+            // Handle different response formats
+            if (Array.isArray(result)) {
+                return result;
+            } else if (result && result.data && Array.isArray(result.data)) {
+                return result.data;
+            } else if (result && result.success === false) {
+                // No membership found
+                return [];
+            } else if (result && typeof result === 'object') {
+                return [result];
+            }
+            return [];
+        } catch (error) {
+            console.error('❌ Error fetching membership:', error.message);
+            // Don't throw, return empty array
+            return [];
+        }
     }
 
     async createMembershipRegistration(data) {
@@ -493,30 +545,15 @@ class ApiService {
 
     // Exercises APIs
     async getAllBaiTap() {
-        const maxRetries = 3;
-        let lastError = null;
-
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-            try {
-                console.log(`🔄 Fetching exercises (attempt ${attempt + 1}/${maxRetries})...`);
-                const result = await this.apiCall('/baitap', 'GET', null, false);
-                console.log(`✅ Exercises fetched successfully:`, result?.length || 0);
-                return Array.isArray(result) ? result : [];
-            } catch (error) {
-                console.error(`❌ Attempt ${attempt + 1} failed:`, error.message);
-                lastError = error;
-
-                // Đợi trước khi retry (exponential backoff)
-                if (attempt < maxRetries - 1) {
-                    const waitTime = Math.min(1000 * Math.pow(2, attempt), 5000);
-                    console.log(`⏳ Waiting ${waitTime}ms before retry...`);
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
-                }
-            }
+        try {
+            console.log('🔄 Fetching exercises...');
+            const result = await this.apiCall('/baitap', 'GET', null, false);
+            console.log(`✅ Exercises fetched successfully:`, result?.length || 0);
+            return Array.isArray(result) ? result : [];
+        } catch (error) {
+            console.error('❌ Failed to fetch exercises:', error.message);
+            return []; // Return empty array on error
         }
-
-        console.error('❌ All attempts failed:', lastError?.message);
-        return [];
     }
 
     async getBaiTapById(id) {
@@ -596,9 +633,7 @@ class ApiService {
         return this.apiCall('/user/hoivien');
     }
 
-    async getAllPT() {
-        return this.apiCall('/pt/list', 'GET', null, false);
-    }
+    // REMOVED: Duplicate getAllPT() - using the detailed version at line 173 instead
 
     async getAllPayments() {
         return this.apiCall('/thanhtoan');

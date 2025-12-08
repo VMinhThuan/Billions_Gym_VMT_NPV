@@ -90,6 +90,15 @@ const HomeScreen = () => {
         fetchExercises();
     }, []);
 
+    // Debug: Log PTData changes
+    useEffect(() => {
+        console.log('💾 PTData state changed:', {
+            length: PTData?.length,
+            isArray: Array.isArray(PTData),
+            firstItem: PTData?.[0]?.hoTen
+        });
+    }, [PTData]);
+
     const Avatar = ({ userProfile, size = 50 }) => {
         const getInitial = (name) => {
             if (!name) return 'U';
@@ -359,10 +368,27 @@ const HomeScreen = () => {
 
     const fetchPTData = async () => {
         try {
+            console.log('🔄 HomeScreen - Fetching PT data...');
             const res = await apiService.getAllPT();
-            setPTData(res || []);
+            
+            console.log('📦 HomeScreen - Received from getAllPT():');
+            console.log('  - Type:', typeof res);
+            console.log('  - Is Array:', Array.isArray(res));
+            console.log('  - Length:', res?.length);
+            if (Array.isArray(res) && res.length > 0) {
+                console.log('  - First 2 items:', res.slice(0, 2));
+            }
+            
+            if (Array.isArray(res) && res.length > 0) {
+                console.log(`✅ Valid array with ${res.length} PTs - Setting state`);
+                setPTData(res);
+            } else {
+                console.log('⚠️ Invalid data or empty array - Setting to []');
+                setPTData([]);
+            }
         } catch (error) {
-            console.error('Error fetching PT data:', error);
+            console.error('❌ HomeScreen - Error fetching PT data:', error);
+            setPTData([]);
         }
     };
 
@@ -555,6 +581,26 @@ const HomeScreen = () => {
         const totalDays = 30;
         const progress = Math.min(daysLeft / totalDays, 1);
 
+        // Nếu đang loading, hiển thị loading state
+        if (loading) {
+            return (
+                <View style={[styles.progressContainer, { backgroundColor: colors.surface }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 18, marginBottom: 0 }]}>
+                            Trạng thái hội viên
+                        </Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
+                            Đang tải...
+                        </Text>
+                    </View>
+                    <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                        <Text style={{ color: colors.textSecondary }}>Đang kiểm tra gói tập...</Text>
+                    </View>
+                </View>
+            );
+        }
+
+        // Sau khi load xong, hiển thị theo trạng thái thực tế
         return (
             <View style={[styles.progressContainer, { backgroundColor: colors.surface }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: hasPackage ? 20 : 10 }}>
@@ -703,7 +749,7 @@ const HomeScreen = () => {
                     <Text style={{ color: colors.textSecondary }}>Đang tải...</Text>
                 </View>
             ) : upcomingClasses.length === 0 ? (
-                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 10, minHeight: 60 }}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 20, minHeight: 60 }}>
                     <Text style={{ color: colors.textSecondary, fontSize: 15, textAlign: 'center' }}>
                         Lịch tập hôm nay sẽ xuất hiện tại đây
                     </Text>
@@ -1004,20 +1050,28 @@ const HomeScreen = () => {
             return name.charAt(0).toUpperCase();
         };
 
+        const displayData = PTData && Array.isArray(PTData) ? PTData.slice(0, 5) : [];
+
         return (
             <View style={styles.coachesContainer}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>Huấn luyện viên</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>
+                        Huấn luyện viên
+                    </Text>
                     <TouchableOpacity>
                         <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
                     </TouchableOpacity>
                 </View>
-                <FlatList
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    data={PTData && Array.isArray(PTData) ? PTData.slice(0, 5) : []}
-                    renderItem={({ item: coach }) => (
-                        <View key={coach._id} style={[styles.coachCard, { backgroundColor: 'transparent', height: 190, padding: 0, marginRight: 20 }]}>
+                
+                {/* Debug: Show simple list first */}
+                {displayData.length > 0 ? (
+                    <FlatList
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        data={displayData}
+                        keyExtractor={(item, index) => item?._id || item?.id || `pt-${index}`}
+                        renderItem={({ item: coach }) => (
+                        <View style={[styles.coachCard, { backgroundColor: 'transparent', height: 190, padding: 0, marginRight: 20 }]}>
                             {coach.anhDaiDien ? (
                                 <ImageBackground
                                     source={{ uri: coach.anhDaiDien }}
@@ -1079,7 +1133,14 @@ const HomeScreen = () => {
                             )}
                         </View>
                     )}
-                />
+                    />
+                ) : (
+                    <View style={{ padding: 20, alignItems: 'center', backgroundColor: colors.card, borderRadius: 12 }}>
+                        <Text style={{ color: colors.text, opacity: 0.6 }}>
+                            {PTData.length === 0 ? 'Đang tải huấn luyện viên...' : 'Không có huấn luyện viên'}
+                        </Text>
+                    </View>
+                )}
             </View>
         );
     };
@@ -1141,9 +1202,12 @@ const HomeScreen = () => {
                 >
                     {renderCoachingBanner()}
 
+                    {renderMembershipStatus()}
+
                     {renderExercises()}
 
-                    {renderUpcomingClasses()}
+                    {/* Chỉ hiển thị Lịch tập hôm nay nếu đã có gói tập */}
+                    {hasPackage && renderUpcomingClasses()}
 
                     {renderHealthyMeals()}
 

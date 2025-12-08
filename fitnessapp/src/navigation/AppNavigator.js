@@ -9,12 +9,14 @@ import { useTheme } from '../hooks/useTheme';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import HomeScreen from '../screens/HomeScreen';
 import LoginScreen from '../screens/LoginScreen';
+import SignupScreen from '../screens/SignupScreen';
 import ForgotPassword from '../screens/ForgotPassword';
 import VerifyOTPScreen from '../screens/VerifyOTPScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import WorkoutPlansScreen from '../screens/WorkoutPlansScreen';
 import ClassBookingScreen from '../screens/ClassBookingScreen';
 import MembershipScreen from '../screens/MembershipScreen';
+import PackagesScreen from '../screens/PackagesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import EditFitnessGoalsScreen from '../screens/EditFitnessGoalsScreen';
@@ -273,12 +275,14 @@ const AppNavigator = () => {
             >
                 <Stack.Screen name="Onboarding" component={OnboardingScreen} />
                 <Stack.Screen name="Login" component={LoginScreen} />
+                <Stack.Screen name="Signup" component={SignupScreen} />
                 <Stack.Screen name="RoleTest" component={RoleTestScreen} />
                 <Stack.Screen name="Main" component={MainTabNavigator} />
                 <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
                 <Stack.Screen name="VerifyOTP" component={VerifyOTPScreen} />
                 <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
                 <Stack.Screen name="Membership" component={MembershipScreen} />
+                <Stack.Screen name="Packages" component={PackagesScreen} />
                 <Stack.Screen name="EditProfile" component={EditProfileScreen} />
                 <Stack.Screen name="EditFitnessGoals" component={EditFitnessGoalsScreen} />
                 <Stack.Screen name="EditAvatar" component={EditAvatarScreen} />

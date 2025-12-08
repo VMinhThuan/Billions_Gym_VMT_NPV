@@ -12,21 +12,42 @@ const mongoose = require('mongoose');
 // Lấy danh sách PT công khai (cho hội viên)
 exports.getPublicPTList = async (req, res) => {
     try {
-        const { limit = 10, sort = 'rating' } = req.query;
+        console.log('📋 getPublicPTList - Fetching PT list...');
+        const startTime = Date.now();
+        const { limit = 50, sort = 'rating' } = req.query; // Tăng limit lên 50
 
-        // Lấy danh sách PT
-        const pts = await PT.find({ trangThai: 'active' })
-            .select('hoTen anhDaiDien chuyenMon soDienThoai email moTa danhGiaTrungBinh')
+        // Optimized query with proper field and index
+        const pts = await PT.find({ 
+            vaiTro: 'PT', // Add explicit role filter
+            trangThaiPT: 'DANG_HOAT_DONG' 
+        })
+            .select('hoTen anhDaiDien chuyenMon soDienThoai email moTa danhGiaTrungBinh kinhNghiem bangCapChungChi gioiTinh chinhanh')
             .limit(parseInt(limit))
-            .sort(sort === 'rating' ? { danhGiaTrungBinh: -1 } : { createdAt: -1 });
+            .sort(sort === 'rating' ? { danhGiaTrungBinh: -1 } : { createdAt: -1 })
+            .maxTimeMS(15000) // Reduce to 15 seconds - should be enough with indexes
+            .lean()
+            .exec();
 
+        const duration = Date.now() - startTime;
+        console.log(`✅ Successfully fetched ${pts.length} PTs in ${duration}ms`);
+        
         res.json({
             success: true,
             data: pts
         });
     } catch (err) {
-        console.error('Error in getPublicPTList:', err);
-        res.status(500).json({ success: false, message: 'Lỗi server', error: err.message });
+        console.error('❌ getPublicPTList failed:', {
+            message: err.message,
+            code: err.code,
+            name: err.name
+        });
+        
+        // Trả về mảng rỗng thay vì error để tránh crash frontend
+        console.warn('⚠️ Returning empty array to prevent crash');
+        res.json({
+            success: true,
+            data: []
+        });
     }
 };
 
