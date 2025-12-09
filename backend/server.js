@@ -138,7 +138,7 @@ mongoose.connection.on('timeout', () => {
 const checkMongoConnection = (req, res, next) => {
     if (mongoose.connection.readyState !== 1) {
         console.error('⚠️ MongoDB not connected, state:', mongoose.connection.readyState);
-        return res.status(503).json({ 
+        return res.status(503).json({
             message: 'Database not available. Please try again.',
             state: mongoose.connection.readyState,
             retryable: true
@@ -201,6 +201,7 @@ const ptReportsRouter = require('./src/routes/pt-reports.route');
 const ptTemplatesRouter = require('./src/routes/pt-templates.route');
 const ptGoalsRouter = require('./src/routes/pt-goals.route');
 const sessionReviewRouter = require('./src/routes/session-review.route');
+const ptTemplatesController = require('./src/controllers/pt-templates.controller');
 
 app.use('/api/auth', authRouter);
 // app.use('/api/users', userRouter);
@@ -227,7 +228,9 @@ app.use('/api', reviewRouter);
 app.use('/api/payment', paymentRouter);
 app.use('/api/sessions', sessionRouter);
 app.use('/api/sessions/:sessionId/playlist', sessionPlaylistRouter);
+// Template buổi tập: giữ cả hai prefix để tương thích
 app.use('/api/session-templates', sessionTemplateRouter);
+app.use('/api/session-template', sessionTemplateRouter); // alias để tránh 404 trên mobile
 app.use('/api/exercises', exerciseRouter);
 app.use('/api/chinhanh', chiNhanhRouter);
 app.use('/api/notifications', notificationRouter);
@@ -249,6 +252,8 @@ app.use('/api/pt/work-history', ptWorkHistoryRouter);
 app.use('/api/pt/profile', ptProfileRouter);
 app.use('/api/pt/reports', ptReportsRouter);
 app.use('/api/pt/templates', ptTemplatesRouter);
+// Public template list cho mobile/app
+app.get('/api/pt-templates', ptTemplatesController.getTemplatesPublic);
 app.use('/api/pt/goals', ptGoalsRouter);
 app.use('/api/session-reviews', sessionReviewRouter);
 

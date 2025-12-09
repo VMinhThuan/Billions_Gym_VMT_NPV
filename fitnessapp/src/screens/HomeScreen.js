@@ -381,9 +381,23 @@ const HomeScreen = () => {
 
             if (Array.isArray(res) && res.length > 0) {
                 console.log(`✅ Valid array with ${res.length} PTs - Setting state`);
+                console.log('📋 First PT:', res[0] ? {
+                    id: res[0]._id || res[0].id,
+                    hoTen: res[0].hoTen,
+                    chuyenMon: res[0].chuyenMon,
+                    anhDaiDien: res[0].anhDaiDien ? 'has image' : 'no image'
+                } : 'null');
                 setPTData(res);
             } else {
                 console.log('⚠️ Invalid data or empty array - Setting to []');
+                console.log('🔍 Response details:', {
+                    type: typeof res,
+                    isArray: Array.isArray(res),
+                    length: res?.length,
+                    hasData: !!res?.data,
+                    dataIsArray: Array.isArray(res?.data),
+                    dataLength: res?.data?.length
+                });
                 setPTData([]);
             }
         } catch (error) {
@@ -653,66 +667,84 @@ const HomeScreen = () => {
                 return;
             }
 
-            const schedules = await apiService.getMemberSchedule(userId);
+            // Sử dụng endpoint tối ưu để lấy lịch tập hôm nay
+            const schedules = await apiService.getMemberTodaySchedule(userId);
+
+            console.log('📅 [fetchUpcomingClasses] Raw schedules response:', {
+                type: typeof schedules,
+                isArray: Array.isArray(schedules),
+                length: schedules?.length || 0,
+                firstSchedule: schedules?.[0] ? {
+                    id: schedules[0]._id,
+                    buoiTapCount: schedules[0].danhSachBuoiTap?.length || 0
+                } : null
+            });
+
             const items = [];
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            // Tính ngày hôm nay (Vietnam timezone GMT+7)
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
-            const todayStr = today.toLocaleDateString('vi-VN');
-
-            console.log('📅 [fetchUpcomingClasses] Filtering schedules for today:', todayStr);
             console.log('📅 [fetchUpcomingClasses] Total schedules received:', schedules?.length || 0);
+            console.log('📅 [fetchUpcomingClasses] Today date:', today.toISOString());
+            console.log('📅 [fetchUpcomingClasses] Current time:', now.toISOString(), 'Hours:', now.getHours(), 'Minutes:', now.getMinutes());
 
+            // Process schedules từ backend (đã được filter hôm nay)
+            // Backend đã filter hôm nay rồi, chỉ cần check thời gian chưa qua
             (schedules || []).forEach(lichTap => {
-                // ...existing code...
                 const buoiTaps = Array.isArray(lichTap.danhSachBuoiTap) ? lichTap.danhSachBuoiTap : [];
 
                 buoiTaps.forEach(buoiItem => {
-                    const ngayTap = buoiItem.ngayTap;
+                    // Lấy ngày tập và giờ bắt đầu từ buoiItem (theo model LichTap)
                     const buoiTapInfo = buoiItem.buoiTap || {};
-                    const gioBatDau = buoiItem.gioBatDau;
+                    const ngayTap = buoiItem.ngayTap; // ngayTap nằm trực tiếp trong buoiItem
+                    const gioBatDau = buoiItem.gioBatDau; // gioBatDau nằm trực tiếp trong buoiItem
 
                     if (ngayTap && gioBatDau) {
                         try {
-                            const buoiDate = new Date(ngayTap);
-                            buoiDate.setHours(0, 0, 0, 0);
+                            // Parse giờ bắt đầu tập
+                            const [hourStr, minuteStr] = gioBatDau.split(':');
+                            const startHour = parseInt(hourStr, 10);
+                            const startMinute = parseInt(minuteStr, 10) || 0;
 
-                            // Chỉ lấy lịch tập hôm nay
-                            if (buoiDate.getTime() === today.getTime()) {
-                                // Parse giờ bắt đầu tập
-                                const [hourStr, minuteStr] = gioBatDau.split(':');
-                                const startHour = parseInt(hourStr, 10);
-                                const startMinute = parseInt(minuteStr, 10) || 0;
+                            // Tính thời gian bắt đầu buổi tập (hôm nay + giờ bắt đầu)
+                            const sessionStartTime = new Date(today);
+                            sessionStartTime.setHours(startHour, startMinute, 0, 0);
 
-                                const now = new Date();
-                                // So sánh giờ bắt đầu tập với giờ hiện tại
-                                if (
-                                    startHour > now.getHours() ||
-                                    (startHour === now.getHours() && startMinute >= now.getMinutes())
-                                ) {
-                                    const id = buoiItem._id || `${lichTap._id}_${Math.random().toString(36).slice(2, 8)}`;
-                                    const tenBuoiTap = buoiTapInfo.tenBuoiTap || buoiItem.tenBuoiTap || 'Buổi tập';
-                                    const imageUrl = buoiTapInfo.hinhAnhMinhHoa?.[0] || buoiTapInfo.hinhAnh || null;
-                                    const timeText = gioBatDau || '';
-                                    const ptName = buoiItem.ptPhuTrach?.hoTen || 'Chưa có PT';
+                            // Backend đã filter hôm nay rồi, chỉ cần check chưa qua giờ
+                            // Hoặc hiển thị tất cả nếu đã qua giờ (để user biết đã có buổi tập)
+                            const shouldShow = true; // Backend đã filter hôm nay rồi
 
-                                    items.push({
-                                        id,
-                                        image: imageUrl ? { uri: imageUrl } : require('../../assets/images/onboarding-img1.avif'),
-                                        name: tenBuoiTap,
-                                        date: 'Hôm nay',
-                                        time: timeText || '--:--',
-                                        seatsLeft: buoiTapInfo.soLuongToiDa || 0,
-                                        timestamp: buoiDate.getTime(),
-                                        originalDate: ngayTap,
-                                        ptName: ptName,
-                                        chiNhanh: lichTap.chiNhanh?.tenChiNhanh || 'Chưa rõ'
-                                    });
-                                }
+                            if (shouldShow) {
+                                const id = buoiItem._id || `${lichTap._id}_${Math.random().toString(36).slice(2, 8)}`;
+                                const tenBuoiTap = buoiTapInfo.tenBuoiTap || buoiItem.tenBuoiTap || 'Buổi tập';
+                                const imageUrl = buoiTapInfo.hinhAnhMinhHoa?.[0] || buoiTapInfo.hinhAnh || null;
+                                const timeText = gioBatDau || '';
+                                const ptName = buoiItem.ptPhuTrach?.hoTen || buoiTapInfo.ptPhuTrach?.hoTen || 'Chưa có PT';
+
+                                items.push({
+                                    id,
+                                    image: imageUrl ? { uri: imageUrl } : require('../../assets/images/onboarding-img1.avif'),
+                                    name: tenBuoiTap,
+                                    date: 'Hôm nay',
+                                    time: timeText || '--:--',
+                                    seatsLeft: buoiTapInfo.soLuongToiDa || 0,
+                                    timestamp: new Date(ngayTap).getTime(),
+                                    originalDate: ngayTap,
+                                    ptName: ptName,
+                                    chiNhanh: lichTap.chiNhanh?.tenChiNhanh || buoiTapInfo.chiNhanh?.tenChiNhanh || 'Chưa rõ'
+                                });
+
+                                console.log('✅ Added item:', { name: tenBuoiTap, time: timeText });
                             }
                         } catch (e) {
-                            console.error('❌ Error parsing date:', e);
+                            console.error('❌ Error parsing date:', e, buoiItem);
                         }
+                    } else {
+                        console.log('⚠️ Missing ngayTap or gioBatDau:', {
+                            ngayTap: !!ngayTap,
+                            gioBatDau: !!gioBatDau
+                        });
                     }
                 });
             });
@@ -729,7 +761,14 @@ const HomeScreen = () => {
                 items: items.map(i => ({ name: i.name, time: i.time, date: i.originalDate }))
             });
 
-            setUpcomingClasses(items);
+            // Đảm bảo set state với data
+            if (items.length > 0) {
+                console.log('✅ Setting upcomingClasses with', items.length, 'items');
+                setUpcomingClasses(items);
+            } else {
+                console.log('⚠️ No items to display, setting empty array');
+                setUpcomingClasses([]);
+            }
         } catch (error) {
             console.error('❌ Error fetching upcoming classes:', error);
             setUpcomingClasses([]);
@@ -858,19 +897,58 @@ const HomeScreen = () => {
     const fetchExercises = async () => {
         try {
             setLoadingExercises(true);
-            const response = await apiService.getAllBaiTap();
 
-            console.log('💪 Exercises Response:', {
-                total: response?.length,
-                first3: response?.slice(0, 3).map(ex => ex.tenBaiTap)
+            // Lấy template buổi tập thay vì BaiTap
+            const templates = await apiService.getTemplateBuoiTap();
+
+            console.log('💪 Templates Response:', {
+                total: templates?.length,
+                first3: templates?.slice(0, 3).map(t => t.ten)
             });
 
-            if (response && Array.isArray(response)) {
-                // Lấy 3 bài tập đầu tiên
-                setExercises(response.slice(0, 3));
+            if (templates && Array.isArray(templates)) {
+                const difficultyLabel = (level) => {
+                    switch (level) {
+                        case 'DE':
+                            return { label: 'Dễ', color: '#4caf50' };
+                        case 'TRUNG_BINH':
+                            return { label: 'Trung bình', color: '#ff9800' };
+                        case 'KHO':
+                            return { label: 'Khó', color: '#f44336' };
+                        default:
+                            return { label: 'Không rõ', color: '#9e9e9e' };
+                    }
+                };
+
+                const mapped = templates.map(tpl => {
+                    const diff = difficultyLabel(tpl.doKho);
+                    const duration = tpl.thoiLuong || tpl.thoiGian || 0;
+                    const calories = tpl.caloTieuHao || tpl.kcal || 0;
+                    return {
+                        _id: tpl._id,
+                        tenBaiTap: tpl.ten || 'Buổi tập',
+                        moTa: tpl.moTa,
+                        hinhAnh: tpl.hinhAnh || tpl.hinhAnhMinhHoa || 'https://via.placeholder.com/319x200',
+                        imageUrl: tpl.hinhAnh || tpl.hinhAnhMinhHoa || 'https://via.placeholder.com/319x200',
+                        difficultyLabel: diff.label,
+                        difficultyColor: diff.color,
+                        duration,
+                        calories,
+                        mucDoKho: tpl.doKho || diff.label,
+                        loai: tpl.loai || '',
+                        targetMuscle: tpl.nhomCo || '',
+                        equipment: tpl.thietBiSuDung || '',
+                        goal: tpl.mucTieuBaiTap || tpl.loai || ''
+                    };
+                });
+
+                setExercises(mapped.slice(0, 3));
+            } else {
+                setExercises([]);
             }
         } catch (error) {
-            console.error('Error fetching exercises:', error);
+            console.error('Error fetching templates:', error);
+            setExercises([]);
         } finally {
             setLoadingExercises(false);
         }
@@ -985,7 +1063,7 @@ const HomeScreen = () => {
                 </View>
             ) : (
                 <View style={{ gap: 28 }}>
-                    {exercises.map((exercise, index) => (
+                    {((Array.isArray(exercises) ? exercises.slice(0, 10) : [])).map((exercise, index) => (
                         <TouchableOpacity
                             key={exercise._id || index}
                             style={[
@@ -1003,7 +1081,7 @@ const HomeScreen = () => {
                             {/* Image Container with Overlay Badge */}
                             <View style={styles.exerciseImageContainer}>
                                 <Image
-                                    source={{ uri: exercise.hinhAnh || 'https://via.placeholder.com/319x200' }}
+                                    source={{ uri: exercise.imageUrl || exercise.hinhAnh || 'https://via.placeholder.com/319x200' }}
                                     style={styles.exerciseImage}
                                 />
                             </View>
@@ -1013,6 +1091,14 @@ const HomeScreen = () => {
                                 <Text style={[styles.exerciseName, { color: colors.text }]} numberOfLines={2}>
                                     {exercise.tenBaiTap}
                                 </Text>
+
+                                {/* Difficulty badge */}
+                                <View style={[styles.difficultyBadge, { backgroundColor: '#1f2a3a' }]}>
+                                    <View style={[styles.difficultyDot, { backgroundColor: exercise.difficultyColor }]} />
+                                    <Text style={[styles.difficultyText]}>
+                                        {exercise.difficultyLabel}
+                                    </Text>
+                                </View>
 
                                 {/* Meta Information Row */}
                                 <View style={styles.exerciseMeta}>
@@ -1027,26 +1113,57 @@ const HomeScreen = () => {
                                     )}
 
                                     {/* Time */}
-                                    {exercise.thoiGian && (
+                                    {exercise.duration ? (
                                         <>
                                             <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                                                {exercise.thoiGian}
+                                                {exercise.duration}
                                             </Text>
                                             <Text style={[styles.metaText, { color: colors.textSecondary }]}>
                                                 {' phút'}
                                             </Text>
                                             <Text style={[styles.metaDot, { color: colors.textSecondary }]}>•</Text>
                                         </>
-                                    )}
+                                    ) : null}
 
                                     {/* Calories */}
                                     <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                                        {exercise.kcal || 0}
+                                        {exercise.calories || 0}
                                     </Text>
                                     <Text style={[styles.metaText, { color: colors.textSecondary }]}>
                                         {' kcal'}
                                     </Text>
                                 </View>
+
+                                {/* Extra info (type + tags, unique) */}
+                                {(() => {
+                                    const tags = [];
+                                    const pushTag = (val) => {
+                                        if (!val) return;
+                                        const key = val.toString().trim().toLowerCase();
+                                        if (!key) return;
+                                        if (!tags.find(t => t.key === key)) {
+                                            tags.push({ key, label: val });
+                                        }
+                                    };
+                                    pushTag(exercise.loai); // loại buổi tập từ DB
+                                    pushTag(exercise.targetMuscle);
+                                    pushTag(exercise.equipment);
+                                    pushTag(exercise.goal);
+
+                                    if (tags.length === 0) return null;
+
+                                    return (
+                                        <View style={styles.exerciseExtra}>
+                                            {tags.map(tag => (
+                                                <View key={tag.key} style={[styles.extraTag]}>
+                                                    <Text style={[styles.extraText]} numberOfLines={1}>
+                                                        {tag.label}
+                                                    </Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    );
+                                })()}
                             </View>
                         </TouchableOpacity>
                     ))}
@@ -1500,6 +1617,46 @@ const styles = StyleSheet.create({
         fontWeight: '400',
         fontFamily: 'Manrope',
         marginHorizontal: 4,
+    },
+    difficultyBadge: {
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+        marginTop: 6,
+        marginBottom: 8,
+    },
+    difficultyDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 6,
+    },
+    difficultyText: {
+        fontSize: 13,
+        fontWeight: '600',
+        fontFamily: 'Manrope',
+        color: '#f5f7ff',
+    },
+    exerciseExtra: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 8,
+    },
+    extraTag: {
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 8,
+        backgroundColor: '#1f2a3a',
+    },
+    extraText: {
+        fontSize: 13,
+        fontWeight: '500',
+        fontFamily: 'Manrope',
+        color: '#f5f7ff',
     },
     workoutsContainer: {
         padding: 20,

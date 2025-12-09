@@ -48,7 +48,7 @@ class ApiService {
             }
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // Tăng timeout lên 30s cho mobile network
+            const timeoutId = setTimeout(() => controller.abort(), 18000); // Timeout 18 giây (ít hơn backend 2s để tránh race condition)
 
             const fullUrl = `${API_URL}${endpoint}`;
             console.log(`[API] ${method} ${fullUrl}`);
@@ -187,8 +187,61 @@ class ApiService {
 
     async getAllPT() {
         try {
-            console.log('🔄 Fetching PT list...');
-            const result = await this.apiCall('/pt/list', 'GET');
+            console.log('🔄 Fetching PT list for member branch...');
+
+            // Lấy chi nhánh từ membership của hội viên
+            let branchId = null;
+            try {
+                const memberships = await this.getMyMembership();
+                console.log('📦 Memberships found:', memberships?.length || 0);
+
+                // Tìm gói tập đang hoạt động
+                const activeMembership = memberships.find(m => {
+                    const isPaid = m.trangThaiThanhToan === 'DA_THANH_TOAN';
+                    const isCompleted = ['HOAN_THANH', 'DA_TAO_LICH'].includes(m.trangThaiDangKy);
+                    const isActive = !m.trangThaiSuDung || !['HET_HAN', 'DA_HUY'].includes(m.trangThaiSuDung);
+                    const notExpired = !m.ngayKetThuc || new Date(m.ngayKetThuc) >= new Date();
+                    return isPaid && isCompleted && isActive && notExpired;
+                });
+
+                if (activeMembership) {
+                    // Xử lý cả trường hợp branchId là object (populated) hoặc string
+                    if (activeMembership.branchId) {
+                        branchId = typeof activeMembership.branchId === 'object'
+                            ? activeMembership.branchId._id || activeMembership.branchId
+                            : activeMembership.branchId;
+                    } else if (activeMembership.chiNhanh) {
+                        branchId = typeof activeMembership.chiNhanh === 'object'
+                            ? activeMembership.chiNhanh._id || activeMembership.chiNhanh
+                            : activeMembership.chiNhanh;
+                    }
+
+                    if (branchId) {
+                        // Convert ObjectId to string nếu cần
+                        branchId = branchId.toString ? branchId.toString() : branchId;
+                        console.log('✅ Found active membership with branchId:', branchId);
+                    } else {
+                        console.log('⚠️ Active membership found but no branchId');
+                    }
+                } else {
+                    console.log('⚠️ No active membership found, will fetch all PTs');
+                }
+            } catch (membershipError) {
+                console.warn('⚠️ Could not fetch membership for branch filter:', membershipError.message);
+                // Tiếp tục lấy tất cả PT nếu không lấy được membership
+            }
+
+            // Gọi API với branchId nếu có
+            let result;
+            if (branchId) {
+                console.log('📍 Fetching PTs for branch:', branchId);
+                // Sử dụng endpoint /pt/list với branchId query param (đã được sửa để hỗ trợ branchId)
+                result = await this.apiCall(`/pt/list?branchId=${branchId}`, 'GET', null, false);
+            } else {
+                // Fallback: lấy tất cả PT nếu không có branchId
+                console.log('📍 Fetching all PTs (no branch filter)');
+                result = await this.apiCall('/pt/list', 'GET', null, false);
+            }
 
             console.log('🔍 getAllPT - Type of result:', typeof result);
             console.log('🔍 getAllPT - Is result array?', Array.isArray(result));
@@ -197,13 +250,32 @@ class ApiService {
             console.log('🔍 getAllPT - result.data is array?', Array.isArray(result?.data));
             console.log('🔍 getAllPT - result.data length:', result?.data?.length);
 
-            // Backend returns {success: true, data: [...], count: 50}
-            if (result?.success && Array.isArray(result.data) && result.data.length > 0) {
-                console.log('✅ getAllPT returning array with', result.data.length, 'items');
-                return result.data;
+            // Backend returns {success: true, data: [...]}
+            // Xử lý response đúng cách
+            let ptList = [];
+
+            if (result && typeof result === 'object') {
+                if (result.success && Array.isArray(result.data)) {
+                    ptList = result.data;
+                    console.log('✅ getAllPT - Got data from result.data:', ptList.length, 'items');
+                } else if (Array.isArray(result)) {
+                    ptList = result;
+                    console.log('✅ getAllPT - Got direct array:', ptList.length, 'items');
+                } else if (result.data && Array.isArray(result.data)) {
+                    ptList = result.data;
+                    console.log('✅ getAllPT - Got data from result.data (no success field):', ptList.length, 'items');
+                }
+            } else if (Array.isArray(result)) {
+                ptList = result;
+                console.log('✅ getAllPT - Result is direct array:', ptList.length, 'items');
             }
 
-            console.log('⚠️ getAllPT returning empty array - invalid response');
+            if (ptList.length > 0) {
+                console.log('✅ getAllPT returning', ptList.length, 'PTs');
+                return ptList;
+            }
+
+            console.log('⚠️ getAllPT returning empty array - no valid data found');
             return [];
 
         } catch (error) {
@@ -217,6 +289,7 @@ class ApiService {
             console.log('🔍 Fetching all packages...');
             const result = await this.apiCall('/user/goitap');
             console.log('📦 getAllGoiTap response:', result);
+
 
             // Handle different response formats
             if (Array.isArray(result)) {
@@ -284,6 +357,28 @@ class ApiService {
         return this.apiCall(`/buoitap/${id}`);
     }
 
+    // Template buổi tập (danh sách mẫu)
+    async getTemplateBuoiTap() {
+        try {
+            // Thử endpoint public (nếu có)
+            let result;
+            try {
+                result = await this.apiCall('/session-template/public', 'GET', null, false);
+            } catch (e) {
+                // Fallback sang endpoint bảo vệ, cần token
+                result = await this.apiCall('/pt-templates', 'GET');
+            }
+
+            if (!result) return [];
+            if (Array.isArray(result)) return result;
+            if (result.data && Array.isArray(result.data)) return result.data;
+            return [];
+        } catch (error) {
+            console.error('❌ Error fetching template buổi tập:', error.message || error);
+            return [];
+        }
+    }
+
     async completeWorkout(workoutId) {
         return this.apiCall(`/buoitap/${workoutId}/hoanthanh`, 'PUT');
     }
@@ -318,6 +413,55 @@ class ApiService {
             return [];
         } catch (error) {
             console.error('Error fetching member schedule:', error.message || error);
+            return [];
+        }
+    }
+
+    async getMemberTodaySchedule(hoiVienId) {
+        try {
+            console.log('📅 [getMemberTodaySchedule] Fetching today schedule for:', hoiVienId);
+            const result = await this.apiCall(`/lichtap/member/${hoiVienId}/today`);
+
+            // Xử lý response đúng cách
+            let schedules = [];
+
+            if (result && typeof result === 'object') {
+                if (result.success && Array.isArray(result.data)) {
+                    schedules = result.data;
+                    console.log('✅ [getMemberTodaySchedule] Got data from result.data:', schedules.length, 'schedules');
+                } else if (Array.isArray(result)) {
+                    schedules = result;
+                    console.log('✅ [getMemberTodaySchedule] Got direct array:', schedules.length, 'schedules');
+                } else if (result.data && Array.isArray(result.data)) {
+                    schedules = result.data;
+                    console.log('✅ [getMemberTodaySchedule] Got data from result.data (no success field):', schedules.length, 'schedules');
+                }
+            } else if (Array.isArray(result)) {
+                schedules = result;
+                console.log('✅ [getMemberTodaySchedule] Result is direct array:', schedules.length, 'schedules');
+            }
+
+            if (schedules.length > 0) {
+                console.log('✅ [getMemberTodaySchedule] Returning', schedules.length, 'schedules');
+                // Log chi tiết để debug
+                schedules.forEach((schedule, idx) => {
+                    console.log(`📅 Schedule ${idx + 1}:`, {
+                        id: schedule._id,
+                        buoiTapCount: schedule.danhSachBuoiTap?.length || 0,
+                        firstBuoiTap: schedule.danhSachBuoiTap?.[0] ? {
+                            ngayTap: schedule.danhSachBuoiTap[0].ngayTap,
+                            gioBatDau: schedule.danhSachBuoiTap[0].gioBatDau,
+                            buoiTap: schedule.danhSachBuoiTap[0].buoiTap ? 'populated' : 'not populated'
+                        } : 'no buoiTap'
+                    });
+                });
+            } else {
+                console.log('⚠️ [getMemberTodaySchedule] No schedules found');
+            }
+
+            return schedules;
+        } catch (error) {
+            console.error('❌ Error fetching member today schedule:', error.message || error);
             return [];
         }
     }

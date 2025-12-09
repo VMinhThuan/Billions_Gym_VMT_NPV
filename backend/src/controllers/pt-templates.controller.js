@@ -145,6 +145,48 @@ exports.getTemplates = async (req, res) => {
     }
 };
 
+// Public endpoint cho mobile/app: không yêu cầu auth
+exports.getTemplatesPublic = async (req, res) => {
+    try {
+        await ensureDefaultTemplates();
+        const { limit = 20, search, doKho } = req.query;
+
+        const query = {};
+        if (search) {
+            query.$or = [
+                { ten: { $regex: search, $options: 'i' } },
+                { moTa: { $regex: search, $options: 'i' } }
+            ];
+        }
+        if (doKho) {
+            query.doKho = doKho;
+        }
+
+        const parsedLimit = parseInt(limit, 10);
+        const safeLimit = Number.isNaN(parsedLimit) ? 20 : Math.min(Math.max(parsedLimit, 1), 50);
+
+        const templates = await TemplateBuoiTap.find(query)
+            .select('ten moTa doKho loai baiTap hinhAnh caloTieuHao thoiLuong thoiGian thoiGianTap createdAt updatedAt')
+            .limit(safeLimit)
+            .sort({ updatedAt: -1 })
+            .lean()
+            .maxTimeMS(8000);
+
+        if (!templates || templates.length === 0) {
+            const paginated = paginateDefaults(DEFAULT_TEMPLATES, 1, safeLimit);
+            return res.json({ success: true, data: paginated.templates, total: paginated.total, fallback: true });
+        }
+
+        return res.json({ success: true, data: templates, total: templates.length });
+    } catch (err) {
+        console.error('❌ getTemplatesPublic failed:', err);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi lấy template buổi tập'
+        });
+    }
+};
+
 // Lấy template theo ID
 exports.getTemplateById = async (req, res) => {
     try {

@@ -14,23 +14,78 @@ exports.getPublicPTList = async (req, res) => {
     try {
         console.log('📋 getPublicPTList - Fetching PT list...');
         const startTime = Date.now();
-        const { limit = 50, sort = 'rating' } = req.query; // Tăng limit lên 50
+        const { limit = 50, sort = 'rating', branchId } = req.query;
 
-        // Optimized query with proper field and index
-        const pts = await PT.find({ 
-            vaiTro: 'PT', // Add explicit role filter
-            trangThaiPT: 'DANG_HOAT_DONG' 
-        })
-            .select('hoTen anhDaiDien chuyenMon soDienThoai email moTa danhGiaTrungBinh kinhNghiem bangCapChungChi gioiTinh chinhanh')
-            .limit(parseInt(limit))
-            .sort(sort === 'rating' ? { danhGiaTrungBinh: -1 } : { createdAt: -1 })
-            .maxTimeMS(15000) // Reduce to 15 seconds - should be enough with indexes
-            .lean()
-            .exec();
+        // Build query với filter theo chi nhánh nếu có
+        // Sử dụng query giống với /user/pt endpoint để đảm bảo tương thích
+        const query = {
+            trangThaiPT: 'DANG_HOAT_DONG'
+        };
+
+        // Thêm filter theo chi nhánh nếu có branchId
+        // Đảm bảo branchId là ObjectId nếu cần
+        if (branchId) {
+            try {
+                // Convert sang ObjectId nếu là string hợp lệ
+                if (mongoose.Types.ObjectId.isValid(branchId)) {
+                    query.chinhanh = new mongoose.Types.ObjectId(branchId);
+                } else {
+                    query.chinhanh = branchId;
+                }
+            } catch (e) {
+                query.chinhanh = branchId;
+            }
+            console.log('📍 Filtering PTs by branchId:', branchId, 'Query:', JSON.stringify(query));
+        }
+
+        // Query tối ưu: sử dụng PT model trực tiếp (giống web app)
+        // Không filter vaiTro vì PT model đã có discriminator
+        let pts;
+
+        // Giới hạn số lượng PT để tăng tốc độ (mặc định 20 thay vì 30 để nhanh hơn)
+        const actualLimit = Math.min(parseInt(limit) || 20, 20);
+
+        try {
+            // Chỉ select các field cần thiết để tăng tốc độ
+            // Bỏ các field không cần thiết như email, moTa chi tiết
+            // Không sort để tăng tốc độ tối đa
+            console.log('🔍 Executing PT query:', JSON.stringify(query));
+            const queryStart = Date.now();
+
+            // Sử dụng explain để debug nếu cần
+            // const explain = await PT.find(query).explain('executionStats');
+            // console.log('📊 Query explain:', JSON.stringify(explain, null, 2));
+
+            pts = await PT.find(query)
+                .select('hoTen anhDaiDien chuyenMon soDienThoai danhGia kinhNghiem bangCapChungChi gioiTinh chinhanh')
+                .limit(actualLimit)
+                .maxTimeMS(12000) // Timeout 12 giây (ít hơn frontend 6s)
+                .lean() // Sử dụng lean() để tăng tốc độ
+                .exec();
+
+            const queryDuration = Date.now() - queryStart;
+            console.log(`⏱️ PT query took ${queryDuration}ms, found ${pts.length} PTs`);
+
+            // Nếu query quá chậm, log warning
+            if (queryDuration > 5000) {
+                console.warn(`⚠️ PT query took ${queryDuration}ms - consider optimizing`);
+            }
+        } catch (ptError) {
+            // Fallback: thử query từ NguoiDung nếu PT model không hoạt động
+            console.warn('⚠️ PT model query failed, trying NguoiDung fallback:', ptError.message);
+            const { NguoiDung } = require('../models/NguoiDung');
+            query.vaiTro = 'PT';
+            pts = await NguoiDung.find(query)
+                .select('hoTen anhDaiDien chuyenMon soDienThoai danhGia kinhNghiem bangCapChungChi gioiTinh chinhanh')
+                .limit(actualLimit)
+                .maxTimeMS(12000)
+                .lean()
+                .exec();
+        }
 
         const duration = Date.now() - startTime;
-        console.log(`✅ Successfully fetched ${pts.length} PTs in ${duration}ms`);
-        
+        console.log(`✅ Successfully fetched ${pts.length} PTs in ${duration}ms${branchId ? ` (filtered by branch: ${branchId})` : ''}`);
+
         res.json({
             success: true,
             data: pts
@@ -39,9 +94,10 @@ exports.getPublicPTList = async (req, res) => {
         console.error('❌ getPublicPTList failed:', {
             message: err.message,
             code: err.code,
-            name: err.name
+            name: err.name,
+            stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
         });
-        
+
         // Trả về mảng rỗng thay vì error để tránh crash frontend
         console.warn('⚠️ Returning empty array to prevent crash');
         res.json({

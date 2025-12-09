@@ -100,6 +100,8 @@ const LichTapSchema = new mongoose.Schema({
 LichTapSchema.index({ hoiVien: 1, tuanBatDau: 1 });
 LichTapSchema.index({ chiNhanh: 1, tuanBatDau: 1 });
 LichTapSchema.index({ goiTap: 1, tuanBatDau: 1 });
+LichTapSchema.index({ hoiVien: 1, trangThai: 1 }); // Index cho query filter theo hoiVien và trangThai
+LichTapSchema.index({ 'danhSachBuoiTap.ngayTap': 1 }); // Index cho query filter theo ngày tập
 
 // Virtual để lấy số buổi đã đăng ký
 LichTapSchema.virtual('soBuoiDaDangKy').get(function () {

@@ -519,11 +519,23 @@ const getAllPT = async (options = {}) => {
 
     // Branch-specific PTs
     if (branchId) {
-        let pts = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG', chinhanh: branchId })
-            .select('+isOnline +lastActivity');
+        // Đảm bảo branchId là ObjectId
+        const mongoose = require('mongoose');
+        const branchObjectId = mongoose.Types.ObjectId.isValid(branchId)
+            ? new mongoose.Types.ObjectId(branchId)
+            : branchId;
+
+        let pts = await PT.find({ trangThaiPT: 'DANG_HOAT_DONG', chinhanh: branchObjectId })
+            .select('+isOnline +lastActivity')
+            .limit(20) // Giảm limit để nhanh hơn
+            .lean()
+            .maxTimeMS(12000);
         if (!pts || pts.length === 0) {
-            pts = await require('../models/NguoiDung').NguoiDung.find({ vaiTro: 'PT', chinhanh: branchId })
-                .select('+isOnline +lastActivity');
+            pts = await require('../models/NguoiDung').NguoiDung.find({ vaiTro: 'PT', chinhanh: branchObjectId })
+                .select('+isOnline +lastActivity')
+                .limit(20)
+                .lean()
+                .maxTimeMS(12000);
         }
         return pts;
     }

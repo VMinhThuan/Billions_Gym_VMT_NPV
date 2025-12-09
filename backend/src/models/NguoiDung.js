@@ -95,7 +95,8 @@ const PTSchema = new mongoose.Schema({
     chinhanh: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ChiNhanh',
-        required: true
+        required: true,
+        index: true // Thêm index cho chi nhánh
     },
     isOnline: { type: Boolean, default: false },
     lastActivity: { type: Date, default: Date.now },
@@ -137,6 +138,10 @@ PTSchema.pre('save', async function (next) {
 });
 
 const PT = NguoiDung.discriminator('PT', PTSchema);
+
+// Index để tối ưu query PT theo chi nhánh và trạng thái
+PT.schema.index({ chinhanh: 1, trangThaiPT: 1 });
+PT.schema.index({ vaiTro: 1, trangThaiPT: 1 });
 
 const HangHoiVien = require('./HangHoiVien');
 
