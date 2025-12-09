@@ -48,9 +48,12 @@ class ApiService {
             }
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000); // Giảm từ 30s xuống 15s
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // Tăng timeout lên 30s cho mobile network
 
-            const response = await fetch(`${API_URL}${endpoint}`, {
+            const fullUrl = `${API_URL}${endpoint}`;
+            console.log(`[API] ${method} ${fullUrl}`);
+
+            const response = await fetch(fullUrl, {
                 ...config,
                 signal: controller.signal
             });
@@ -107,17 +110,23 @@ class ApiService {
             }
 
             if (error.name === 'AbortError') {
+                console.error(`[API] Timeout: ${endpoint}`, error);
                 throw new Error('Connection timed out. Please try again.');
             } else if (error.message.includes('Network') || error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
-                throw new Error('Unable to connect to the server. Please check your network connection and ensure the server is running.');
+                console.error(`[API] Network error: ${endpoint}`, error);
+                throw new Error(`Unable to connect to the server at ${API_URL}. Please check your network connection and ensure the server is running.`);
             } else if (error.message.includes('timeout')) {
+                console.error(`[API] Timeout error: ${endpoint}`, error);
                 throw new Error('Connection timed out. Please try again later.');
             } else if (error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
-                throw new Error('Unable to connect to the server. Please check the server address and your network connection.');
+                console.error(`[API] Connection refused: ${endpoint}`, error);
+                throw new Error(`Unable to connect to the server at ${API_URL}. Please check the server address and your network connection.`);
             } else if (error.message.includes('TypeError')) {
+                console.error(`[API] TypeError: ${endpoint}`, error);
                 throw new Error('Connection error. Please check your network connection and try again.');
             }
 
+            console.error(`[API] Unknown error: ${endpoint}`, error);
             throw error;
         }
     }
@@ -127,7 +136,9 @@ class ApiService {
             await AsyncStorage.removeItem('userToken');
             await AsyncStorage.removeItem('userInfo');
         } catch (error) {
-            throw new Error('Failed to clear authentication data. Please try again.');
+            // Không throw error khi clear token để tránh lỗi cascade
+            console.error('Error clearing auth token:', error);
+            // Chỉ log error, không throw để tránh làm gián đoạn flow
         }
     }
 

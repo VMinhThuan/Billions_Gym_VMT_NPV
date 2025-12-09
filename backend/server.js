@@ -31,11 +31,27 @@ app.use(cors({
         if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
             callback(null, true);
         } else {
-            callback(new Error('Not allowed by CORS'));
+            // Trong development, cho phép tất cả origins để mobile app có thể kết nối
+            if (process.env.NODE_ENV === 'development') {
+                callback(null, true);
+            } else {
+                callback(new Error('Not allowed by CORS'));
+            }
         }
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400, // 24 hours
 }));
+// Increase timeout for all requests
+app.use((req, res, next) => {
+    req.setTimeout(30000); // 30 seconds timeout
+    res.setTimeout(30000);
+    next();
+});
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -258,9 +274,16 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Configure server timeout
+server.timeout = 30000; // 30 seconds
+server.keepAliveTimeout = 65000; // 65 seconds
+server.headersTimeout = 66000; // 66 seconds
+
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/health`);
     console.log(`Nutrition API: http://localhost:${PORT}/api/nutrition/plan`);
     console.log(`CORS enabled for: ${allowedOrigins.join(', ')}`);
+    console.log(`Server timeout: ${server.timeout}ms`);
+    console.log(`Keep-alive timeout: ${server.keepAliveTimeout}ms`);
 });

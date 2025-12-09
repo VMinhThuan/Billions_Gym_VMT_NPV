@@ -1093,9 +1093,35 @@ exports.getMemberSchedule = async (req, res) => {
         const lichTaps = await LichTap.find({ hoiVien: hoiVienId })
             .populate('goiTap', 'tenGoiTap donGia')
             .populate('chiNhanh', 'tenChiNhanh diaChi')
-            .populate('danhSachBuoiTap.ptPhuTrach', 'hoTen chuyenMon')
-            .populate('danhSachBuoiTap.buoiTap')
+            .populate('danhSachBuoiTap.ptPhuTrach', 'hoTen chuyenMon anhDaiDien')
+            .populate({
+                path: 'danhSachBuoiTap.buoiTap',
+                select: 'tenBuoiTap ngayTap gioBatDau gioKetThuc soLuongToiDa soLuongHienTai trangThai moTa chiNhanh ptPhuTrach',
+                populate: [
+                    {
+                        path: 'chiNhanh',
+                        select: 'tenChiNhanh diaChi'
+                    },
+                    {
+                        path: 'ptPhuTrach',
+                        select: 'hoTen chuyenMon anhDaiDien'
+                    }
+                ]
+            })
             .sort({ tuanBatDau: -1 });
+
+        console.log('📅 [getMemberSchedule] Found schedules:', lichTaps.length);
+        if (lichTaps.length > 0) {
+            console.log('📅 [getMemberSchedule] First schedule:', {
+                _id: lichTaps[0]._id,
+                danhSachBuoiTapCount: lichTaps[0].danhSachBuoiTap?.length || 0,
+                firstBuoiTap: lichTaps[0].danhSachBuoiTap?.[0] ? {
+                    buoiTap: lichTaps[0].danhSachBuoiTap[0].buoiTap ? 'populated' : 'not populated',
+                    ngayTap: lichTaps[0].danhSachBuoiTap[0].ngayTap,
+                    gioBatDau: lichTaps[0].danhSachBuoiTap[0].gioBatDau
+                } : 'no buoiTap'
+            });
+        }
 
         res.json({
             success: true,
@@ -1106,7 +1132,8 @@ exports.getMemberSchedule = async (req, res) => {
         console.error('Error getting member schedule:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi server khi lấy lịch tập'
+            message: 'Lỗi server khi lấy lịch tập',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
