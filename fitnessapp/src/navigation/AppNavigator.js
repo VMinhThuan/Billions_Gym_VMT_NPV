@@ -17,6 +17,9 @@ import WorkoutPlansScreen from '../screens/WorkoutPlansScreen';
 import ClassBookingScreen from '../screens/ClassBookingScreen';
 import MembershipScreen from '../screens/MembershipScreen';
 import PackagesScreen from '../screens/PackagesScreen';
+import PackageDetailScreen from '../screens/PackageDetailScreen';
+import PackageCompareScreen from '../screens/PackageCompareScreen';
+import CheckoutScreen from '../screens/CheckoutScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import EditFitnessGoalsScreen from '../screens/EditFitnessGoalsScreen';
@@ -283,6 +286,9 @@ const AppNavigator = () => {
                 <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
                 <Stack.Screen name="Membership" component={MembershipScreen} />
                 <Stack.Screen name="Packages" component={PackagesScreen} />
+                <Stack.Screen name="PackageDetail" component={PackageDetailScreen} />
+                <Stack.Screen name="PackageCompare" component={PackageCompareScreen} />
+                <Stack.Screen name="Checkout" component={CheckoutScreen} />
                 <Stack.Screen name="EditProfile" component={EditProfileScreen} />
                 <Stack.Screen name="EditFitnessGoals" component={EditFitnessGoalsScreen} />
                 <Stack.Screen name="EditAvatar" component={EditAvatarScreen} />

@@ -370,7 +370,7 @@ const HomeScreen = () => {
         try {
             console.log('🔄 HomeScreen - Fetching PT data...');
             const res = await apiService.getAllPT();
-            
+
             console.log('📦 HomeScreen - Received from getAllPT():');
             console.log('  - Type:', typeof res);
             console.log('  - Is Array:', Array.isArray(res));
@@ -378,7 +378,7 @@ const HomeScreen = () => {
             if (Array.isArray(res) && res.length > 0) {
                 console.log('  - First 2 items:', res.slice(0, 2));
             }
-            
+
             if (Array.isArray(res) && res.length > 0) {
                 console.log(`✅ Valid array with ${res.length} PTs - Setting state`);
                 setPTData(res);
@@ -425,6 +425,7 @@ const HomeScreen = () => {
         const currentMeal = getCurrentMealType();
         await Promise.all([
             fetchDashboardData(),
+            fetchPTData(),
             fetchHealthyMeals(currentMeal),
             fetchExercises()
         ]);
@@ -580,6 +581,7 @@ const HomeScreen = () => {
         const daysLeft = memberData.membershipDaysLeft;
         const totalDays = 30;
         const progress = Math.min(daysLeft / totalDays, 1);
+        const isExpired = hasPackage && daysLeft <= 0;
 
         // Nếu đang loading, hiển thị loading state
         if (loading) {
@@ -608,7 +610,7 @@ const HomeScreen = () => {
                         {hasPackage ? memberData.packageName : 'Trạng thái hội viên'}
                     </Text>
                     <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
-                        {hasPackage ? `${daysLeft} Ngày còn lại` : 'Chưa đăng ký'}
+                        {hasPackage ? (isExpired ? 'Đã hết hạn' : `${daysLeft} Ngày còn lại`) : 'Chưa đăng ký'}
                     </Text>
                 </View>
                 {hasPackage && (
@@ -629,10 +631,10 @@ const HomeScreen = () => {
                         alignItems: 'center',
                         marginTop: hasPackage ? 4 : 15
                     }}
-                    onPress={() => navigation.navigate('Membership')}
+                    onPress={() => navigation.navigate('Packages')}
                 >
                     <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>
-                        {hasPackage ? 'Làm mới ngay' : 'Đăng ký mới'}
+                        {hasPackage ? (isExpired ? 'Gia hạn ngay' : 'Xem gói') : 'Đăng ký ngay'}
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -802,16 +804,19 @@ const HomeScreen = () => {
     const fetchHealthyMeals = async (mealType = null) => {
         try {
             setLoadingMeals(true);
+            console.log('🔍 Fetching healthy meals with mealType:', mealType);
             const response = await apiService.getHealthyMeals(10, mealType);
 
-            console.log('📊 API Response:', {
-                success: response.success,
-                dataLength: response.data?.length,
-                total: response.total,
-                mealTypeRequested: mealType
+            console.log('📊 Full API Response:', response);
+            console.log('📊 Response details:', {
+                success: response?.success,
+                dataLength: response?.data?.length,
+                total: response?.total,
+                mealTypeRequested: mealType,
+                hasData: !!response?.data
             });
 
-            if (response.success && response.data) {
+            if (response && response.success && response.data && Array.isArray(response.data)) {
                 // Map dữ liệu từ Meal model sang format cũ để UI không bị lỗi
                 const mappedMeals = response.data.map(meal => ({
                     id: meal._id,
@@ -836,9 +841,15 @@ const HomeScreen = () => {
                 console.log('📋 Danh sách món:', mappedMeals.map(m => m.tenMonAn));
                 setHealthyMeals(mappedMeals);
                 setCurrentMealType(mealType || '');
+            } else {
+                console.log('⚠️ No meals data in response:', response);
+                setHealthyMeals([]);
+                setCurrentMealType(mealType || '');
             }
         } catch (error) {
-            console.error('Error fetching healthy meals:', error);
+            console.error('❌ Error fetching healthy meals:', error);
+            console.error('❌ Error details:', error.message);
+            setHealthyMeals([]);
         } finally {
             setLoadingMeals(false);
         }
@@ -1062,7 +1073,7 @@ const HomeScreen = () => {
                         <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
                     </TouchableOpacity>
                 </View>
-                
+
                 {/* Debug: Show simple list first */}
                 {displayData.length > 0 ? (
                     <FlatList
@@ -1071,68 +1082,68 @@ const HomeScreen = () => {
                         data={displayData}
                         keyExtractor={(item, index) => item?._id || item?.id || `pt-${index}`}
                         renderItem={({ item: coach }) => (
-                        <View style={[styles.coachCard, { backgroundColor: 'transparent', height: 190, padding: 0, marginRight: 20 }]}>
-                            {coach.anhDaiDien ? (
-                                <ImageBackground
-                                    source={{ uri: coach.anhDaiDien }}
-                                    style={[styles.coachImage, { height: 190, width: 170, borderRadius: 14, overflow: 'hidden', marginBottom: 0 }]}
-                                    imageStyle={{ borderRadius: 14 }}
-                                >
+                            <View style={[styles.coachCard, { backgroundColor: 'transparent', height: 190, padding: 0, marginRight: 20 }]}>
+                                {coach.anhDaiDien ? (
+                                    <ImageBackground
+                                        source={{ uri: coach.anhDaiDien }}
+                                        style={[styles.coachImage, { height: 190, width: 170, borderRadius: 14, overflow: 'hidden', marginBottom: 0 }]}
+                                        imageStyle={{ borderRadius: 14 }}
+                                    >
+                                        <View style={{
+                                            position: 'absolute',
+                                            bottom: 0,
+                                            left: 0,
+                                            right: 0,
+                                            top: 0,
+                                            backgroundColor: 'rgba(0,0,0,0.3)',
+                                            borderRadius: 14,
+                                        }} />
+                                        <View style={{
+                                            position: 'absolute',
+                                            bottom: 0,
+                                            left: 0,
+                                            right: 0,
+                                            paddingVertical: 8,
+                                            paddingHorizontal: 6,
+                                        }}>
+                                            <Text style={[styles.coachName, { color: '#fff', textShadowColor: '#000', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }]} numberOfLines={1}>{coach.hoTen}</Text>
+                                            <Text style={[styles.coachSpecialty, { color: '#fff', fontSize: 16, textShadowColor: '#000', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{coach.chuyenMon}</Text>
+                                        </View>
+                                    </ImageBackground>
+                                ) : (
                                     <View style={{
-                                        position: 'absolute',
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        top: 0,
-                                        backgroundColor: 'rgba(0,0,0,0.3)',
+                                        height: 190,
+                                        width: 170,
                                         borderRadius: 14,
-                                    }} />
-                                    <View style={{
-                                        position: 'absolute',
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        paddingVertical: 8,
-                                        paddingHorizontal: 6,
+                                        backgroundColor: '#DA2128',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        overflow: 'hidden',
                                     }}>
-                                        <Text style={[styles.coachName, { color: '#fff', textShadowColor: '#000', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }]} numberOfLines={1}>{coach.hoTen}</Text>
-                                        <Text style={[styles.coachSpecialty, { color: '#fff', fontSize: 16, textShadowColor: '#000', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{coach.chuyenMon}</Text>
+                                        <Text style={{
+                                            fontSize: 60,
+                                            fontWeight: 'bold',
+                                            color: '#fff',
+                                            marginBottom: 10,
+                                        }}>
+                                            {getCoachInitial(coach.hoTen)}
+                                        </Text>
+                                        <View style={{
+                                            position: 'absolute',
+                                            bottom: 0,
+                                            left: 0,
+                                            right: 0,
+                                            backgroundColor: 'rgba(0,0,0,0.3)',
+                                            paddingVertical: 8,
+                                            paddingHorizontal: 6,
+                                        }}>
+                                            <Text style={[styles.coachName, { color: '#fff' }]} numberOfLines={1}>{coach.hoTen}</Text>
+                                            <Text style={[styles.coachSpecialty, { color: '#fff', fontSize: 16 }]} numberOfLines={1}>{coach.chuyenMon}</Text>
+                                        </View>
                                     </View>
-                                </ImageBackground>
-                            ) : (
-                                <View style={{
-                                    height: 190,
-                                    width: 170,
-                                    borderRadius: 14,
-                                    backgroundColor: '#DA2128',
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    overflow: 'hidden',
-                                }}>
-                                    <Text style={{
-                                        fontSize: 60,
-                                        fontWeight: 'bold',
-                                        color: '#fff',
-                                        marginBottom: 10,
-                                    }}>
-                                        {getCoachInitial(coach.hoTen)}
-                                    </Text>
-                                    <View style={{
-                                        position: 'absolute',
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        backgroundColor: 'rgba(0,0,0,0.3)',
-                                        paddingVertical: 8,
-                                        paddingHorizontal: 6,
-                                    }}>
-                                        <Text style={[styles.coachName, { color: '#fff' }]} numberOfLines={1}>{coach.hoTen}</Text>
-                                        <Text style={[styles.coachSpecialty, { color: '#fff', fontSize: 16 }]} numberOfLines={1}>{coach.chuyenMon}</Text>
-                                    </View>
-                                </View>
-                            )}
-                        </View>
-                    )}
+                                )}
+                            </View>
+                        )}
                     />
                 ) : (
                     <View style={{ padding: 20, alignItems: 'center', backgroundColor: colors.card, borderRadius: 12 }}>
@@ -1197,7 +1208,7 @@ const HomeScreen = () => {
                 <ScrollView
                     style={styles.scrollView}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#da2128"]} tintColor="#da2128" />
                     }
                 >
                     {renderCoachingBanner()}
@@ -1209,7 +1220,8 @@ const HomeScreen = () => {
                     {/* Chỉ hiển thị Lịch tập hôm nay nếu đã có gói tập */}
                     {hasPackage && renderUpcomingClasses()}
 
-                    {renderHealthyMeals()}
+                    {/* Chỉ hiển thị Bữa ăn nếu đã có gói tập */}
+                    {hasPackage && renderHealthyMeals()}
 
                     {renderCoaches()}
                 </ScrollView>

@@ -189,23 +189,23 @@ class ApiService {
         try {
             console.log('🔄 Fetching PT list...');
             const result = await this.apiCall('/pt/list', 'GET');
-            
+
             console.log('🔍 getAllPT - Type of result:', typeof result);
             console.log('🔍 getAllPT - Is result array?', Array.isArray(result));
             console.log('🔍 getAllPT - result.success:', result?.success);
             console.log('🔍 getAllPT - result.data exists?', !!result?.data);
             console.log('🔍 getAllPT - result.data is array?', Array.isArray(result?.data));
             console.log('🔍 getAllPT - result.data length:', result?.data?.length);
-            
+
             // Backend returns {success: true, data: [...], count: 50}
             if (result?.success && Array.isArray(result.data) && result.data.length > 0) {
                 console.log('✅ getAllPT returning array with', result.data.length, 'items');
                 return result.data;
             }
-            
+
             console.log('⚠️ getAllPT returning empty array - invalid response');
             return [];
-            
+
         } catch (error) {
             console.error('❌ Failed to fetch PT list:', error.message);
             return [];
@@ -217,7 +217,7 @@ class ApiService {
             console.log('🔍 Fetching all packages...');
             const result = await this.apiCall('/user/goitap');
             console.log('📦 getAllGoiTap response:', result);
-            
+
             // Handle different response formats
             if (Array.isArray(result)) {
                 return result;
@@ -250,6 +250,18 @@ class ApiService {
         } catch (error) {
             console.error('Error fetching packages by time unit:', error);
             return [];
+        }
+    }
+
+    async getPackageById(packageId) {
+        try {
+            console.log('🔍 Fetching package by ID:', packageId);
+            const result = await this.apiCall(`/goitap/${packageId}`, 'GET', null, false);
+            console.log('📦 getPackageById response:', result);
+            return result;
+        } catch (error) {
+            console.error('❌ Error fetching package by ID:', error.message);
+            throw error;
         }
     }
 
@@ -456,13 +468,25 @@ class ApiService {
                 'CHIEU': 'Ăn nhẹ',
                 'TOI': 'Bữa tối'
             };
-            queryParams.append('mealType', mealTypeMap[mealType] || mealType);
+            const mappedType = mealTypeMap[mealType] || mealType;
+            queryParams.append('mealType', mappedType);
+            console.log('🔄 Mapped mealType:', mealType, '->', mappedType);
         }
 
         queryParams.append('limit', limit);
         queryParams.append('skip', 0);
 
-        return this.apiCall(`/nutrition/meals?${queryParams.toString()}`, 'GET', null, true);
+        const endpoint = `/nutrition/meals?${queryParams.toString()}`;
+        console.log('📡 Calling API:', endpoint);
+
+        try {
+            const result = await this.apiCall(endpoint, 'GET', null, true);
+            console.log('✅ API Result:', result);
+            return result;
+        } catch (error) {
+            console.error('❌ API Error:', error);
+            throw error;
+        }
     }
 
     // Membership APIs
@@ -477,7 +501,7 @@ class ApiService {
             console.log('📞 Calling /user/chitietgoitap API...');
             const result = await this.apiCall('/user/chitietgoitap');
             console.log('📞 getMyMembership response:', result);
-            
+
             // Handle different response formats
             if (Array.isArray(result)) {
                 return result;
@@ -548,6 +572,10 @@ class ApiService {
 
     async tinhHangHoiVien(hoiVienId) {
         return this.apiCall(`/hanghoivien/tinh-hang/${hoiVienId}`, 'POST');
+    }
+
+    async tinhHangHoiVienTheoThoiHan(userId) {
+        return this.apiCall(`/hanghoivien/tinh-hang-theo-thoi-han/${userId}`, 'GET');
     }
 
     async getThongKeHangHoiVien() {

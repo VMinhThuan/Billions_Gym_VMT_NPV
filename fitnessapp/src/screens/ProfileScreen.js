@@ -667,7 +667,6 @@ const ProfileScreen = () => {
                 }
             >
                 {renderProfileHeader()}
-                {renderStatsCards()}
 
                 {menuItems.map(renderMenuSection)}
 
