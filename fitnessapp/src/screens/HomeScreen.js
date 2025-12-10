@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet, ImageBackground, RefreshControl, Dimensions, Image, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuth } from "../hooks/useAuth";
 import { useTheme, DEFAULT_THEME } from "../hooks/useTheme";
 import apiService from '../api/apiService';
 import Chatbot from '../components/Chatbot';
 import NotificationBell from '../components/NotificationBell';
-
 const { width } = Dimensions.get('window');
 
 const HomeScreen = () => {
@@ -57,6 +56,7 @@ const HomeScreen = () => {
                 'Thanh toán thành công',
                 'Đơn hàng đã được thanh toán. Bạn có thể xem thông tin gói trong trang Hội viên.'
             );
+            fetchDashboardData(); // Refresh membership data ngay khi quay về
             navigation.setParams({ paymentSuccess: undefined });
         }
     }, [route?.params?.paymentSuccess]);
@@ -102,6 +102,14 @@ const HomeScreen = () => {
         fetchHealthyMeals(currentMeal);
         fetchExercises();
     }, []);
+
+    // Re-fetch khi màn hình Home được focus (để lấy gói tập mới sau thanh toán)
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchDashboardData();
+            return () => { };
+        }, [])
+    );
 
     // Debug: Log PTData changes
     useEffect(() => {
@@ -246,27 +254,21 @@ const HomeScreen = () => {
                         }))
                     });
 
-                    // Tìm gói tập đang hoạt động - điều kiện linh hoạt hơn
-                    const activeMembership = memberships.find(m => {
-                        // Kiểm tra thanh toán
-                        const isPaid = m.trangThaiThanhToan === 'DA_THANH_TOAN';
-
-                        // Kiểm tra không bị hủy
-                        const notCancelled = (!m.trangThaiDangKy || m.trangThaiDangKy !== 'DA_HUY') &&
-                            (!m.trangThaiSuDung || !['DA_HUY', 'HET_HAN'].includes(m.trangThaiSuDung));
-
-                        // Kiểm tra ngày kết thúc (nếu có)
-                        const hasValidEndDate = !m.ngayKetThuc || new Date(m.ngayKetThuc) > new Date();
-
-                        console.log('🔍 Check membership:', {
-                            isPaid,
-                            notCancelled,
-                            hasValidEndDate,
-                            result: isPaid && notCancelled && hasValidEndDate
-                        });
-
-                        return isPaid && notCancelled && hasValidEndDate;
-                    });
+                    // Tìm gói tập ưu tiên đã thanh toán (giống web - không chặn khi ngày hết hạn lệch giờ)
+                    const paidStatuses = ['DA_THANH_TOAN', 'DA_TT', 'THANH_CONG', 'SUCCESS'];
+                    const cancelStatuses = ['DA_HUY', 'HUY'];
+                    const activeMembership = memberships
+                        .filter(m => {
+                            const isPaid = paidStatuses.includes(m.trangThaiThanhToan);
+                            const notCancelled = !cancelStatuses.includes(m.trangThaiDangKy) &&
+                                !cancelStatuses.includes(m.trangThaiSuDung);
+                            return isPaid && notCancelled;
+                        })
+                        .sort((a, b) => {
+                            const endA = a.ngayKetThuc ? new Date(a.ngayKetThuc).getTime() : 0;
+                            const endB = b.ngayKetThuc ? new Date(b.ngayKetThuc).getTime() : 0;
+                            return endB - endA;
+                        })[0];
 
                     if (activeMembership) {
                         const startDate = activeMembership.ngayBatDau ? new Date(activeMembership.ngayBatDau) : new Date();
@@ -283,13 +285,9 @@ const HomeScreen = () => {
                         });
 
                         // Tính số ngày còn lại
-                        let daysLeft = 0;
-                        if (endDate) {
-                            daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
-                        } else {
-                            // Nếu không có ngày kết thúc, coi như còn nhiều ngày
-                            daysLeft = 999;
-                        }
+                        const daysLeft = endDate
+                            ? Math.ceil((endDate - today) / (1000 * 60 * 60 * 24))
+                            : 999; // Không có ngày kết thúc
 
                         // Lấy tên gói tập từ maGoiTap hoặc goiTapId
                         const packageName = activeMembership.maGoiTap?.tenGoiTap ||

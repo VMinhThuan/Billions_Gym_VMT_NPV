@@ -98,8 +98,10 @@ const ProfileScreen = () => {
             }
 
             if (workouts.status === 'fulfilled' && workouts.value) {
-                const workoutData = workouts.value;
-                const completedWorkouts = workoutData.filter(w => w.trangThai === 'DaHoanThanh');
+                const workoutData = Array.isArray(workouts.value)
+                    ? workouts.value
+                    : (Array.isArray(workouts.value?.data) ? workouts.value.data : []);
+                const completedWorkouts = workoutData.filter(w => w?.trangThai === 'DaHoanThanh');
                 const streak = calculateWorkoutStreak(completedWorkouts);
 
                 setUserProfile(prev => ({
@@ -120,15 +122,25 @@ const ProfileScreen = () => {
             }
 
             if (membership.status === 'fulfilled' && membership.value) {
-                const membershipData = membership.value;
-                const activeMembership = membershipData.find(m =>
-                    m.trangThai === 'DangHoatDong' && new Date(m.ngayKetThuc) > new Date()
-                );
+                const membershipData = Array.isArray(membership.value) ? membership.value
+                    : (Array.isArray(membership.value?.data) ? membership.value.data : []);
+                const paidStatuses = ['DA_THANH_TOAN', 'DA_TT', 'THANH_CONG', 'SUCCESS'];
+                const cancelStatuses = ['DA_HUY', 'HUY'];
+                const activeMembership = membershipData
+                    .filter(m => paidStatuses.includes(m.trangThaiThanhToan))
+                    .filter(m => !cancelStatuses.includes(m.trangThaiDangKy) && !cancelStatuses.includes(m.trangThaiSuDung))
+                    .sort((a, b) => {
+                        const endA = a.ngayKetThuc ? new Date(a.ngayKetThuc).getTime() : 0;
+                        const endB = b.ngayKetThuc ? new Date(b.ngayKetThuc).getTime() : 0;
+                        return endB - endA;
+                    })[0];
 
                 if (activeMembership) {
                     setUserProfile(prev => ({
                         ...prev,
-                        membershipType: activeMembership.maGoiTap?.tenGoiTap || 'Gói cơ bản'
+                        membershipType: activeMembership.maGoiTap?.tenGoiTap
+                            || activeMembership.goiTapId?.tenGoiTap
+                            || 'Gói cơ bản'
                     }));
                 }
             }

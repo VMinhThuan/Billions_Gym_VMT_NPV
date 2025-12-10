@@ -21,15 +21,419 @@ const BaoCao = require('../models/BaoCao');
 const ThongBao = require('../models/ThongBao');
 const PackageRegistration = require('../models/PackageRegistration');
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyAGnazb2y6mKo_FLwQjwomWXM2V3030nfo';
+// Hỗ trợ multiple API keys để rotate khi một key hết quota
+// Format: GEMINI_API_KEYS=key1,key2,key3 hoặc GEMINI_API_KEY=single_key
+const GEMINI_API_KEYS = process.env.GEMINI_API_KEYS
+    ? process.env.GEMINI_API_KEYS.split(',').map(k => k.trim()).filter(Boolean)
+    : process.env.GEMINI_API_KEY
+        ? [process.env.GEMINI_API_KEY]
+        : ['AIzaSyCCa-AIzaSyCvteMi55IQujL95QBEWEN88Wtw9fPGExc']; // Fallback key
 
-if (!GEMINI_API_KEY) {
-    console.warn('⚠️ GEMINI_API_KEY không được cấu hình trong .env');
+if (GEMINI_API_KEYS.length === 0) {
+    console.warn('⚠️ Không có GEMINI_API_KEY nào được cấu hình trong .env');
 }
 
-const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
-// Sử dụng gemini-2.5-flash (model mới nhất, nhanh và hiệu quả) hoặc gemini-2.5-pro (mạnh hơn, chậm hơn)
+// Sử dụng key đầu tiên làm default
+let currentKeyIndex = 0;
+const getCurrentAPIKey = () => GEMINI_API_KEYS[currentKeyIndex % GEMINI_API_KEYS.length];
+const rotateToNextKey = () => {
+    currentKeyIndex = (currentKeyIndex + 1) % GEMINI_API_KEYS.length;
+    console.log(`🔄 Rotated to API key ${currentKeyIndex + 1}/${GEMINI_API_KEYS.length}`);
+    return getCurrentAPIKey();
+};
+
+const genAI = GEMINI_API_KEYS.length > 0 ? new GoogleGenerativeAI(getCurrentAPIKey()) : null;
+
+// Chỉ dùng gemini-2.5-flash; có thể override bằng ENV GEMINI_MODELS
+const GEMINI_MODEL_CANDIDATES = (process.env.GEMINI_MODELS || 'gemini-2.5-flash')
+    .split(',')
+    .map(m => m.trim())
+    .filter(Boolean);
+
+// Model mặc định: gemini-2.5-flash
 const model = genAI ? genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }) : null;
+
+// DeepSeek API Configuration (Fallback khi Gemini fail)
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || 'sk-660c4c63f55b4ad59d3c4c29886eec9b';
+const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+
+// Groq API Configuration (Fallback cuối cùng khi cả Gemini và DeepSeek fail)
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_URL = process.env.GROQ_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'; // Updated: llama-3.1-70b-versatile đã bị decommissioned
+
+// Helper function để check xem Groq API có sẵn sàng không
+const isGroqAPIAvailable = () => {
+    return GROQ_API_KEY && GROQ_API_KEY !== '' && GROQ_API_KEY !== 'undefined' && GROQ_API_URL && GROQ_API_URL !== '';
+};
+
+/**
+ * Gọi DeepSeek API với OpenAI-compatible format (Fallback khi Gemini fail)
+ */
+const callDeepSeekAPI = async (prompt, generationConfig = {}) => {
+    try {
+        if (!DEEPSEEK_API_KEY || DEEPSEEK_API_KEY === '') {
+            throw new Error('DeepSeek API key không được cấu hình');
+        }
+
+        const maxTokens = generationConfig.maxOutputTokens || 8192;
+
+        console.log('🔄 Calling DeepSeek API as fallback...');
+
+        const response = await fetch(DEEPSEEK_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: DEEPSEEK_MODEL,
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'Bạn là chuyên gia dinh dưỡng AI. Trả về chỉ JSON, không có text khác.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                temperature: 0.7,
+                max_tokens: maxTokens,
+                response_format: { type: 'json_object' }
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`DeepSeek API error (${response.status}): ${errorText}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+            throw new Error('DeepSeek API response không hợp lệ');
+        }
+
+        const content = data.choices[0].message.content;
+
+        if (!content || content.trim().length === 0) {
+            throw new Error('DeepSeek trả về response rỗng');
+        }
+
+        // Loại bỏ markdown code blocks nếu có
+        let cleanedJson = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
+        console.log('✅ DeepSeek API thành công!');
+        return cleanedJson;
+    } catch (error) {
+        console.error('❌ DeepSeek API error:', error.message);
+        throw error;
+    }
+};
+
+/**
+ * Gọi Groq API với OpenAI-compatible format (Fallback cuối cùng khi cả Gemini và DeepSeek fail)
+ */
+const callGroqAPI = async (prompt, generationConfig = {}) => {
+    try {
+        if (!isGroqAPIAvailable()) {
+            throw new Error('Groq API key hoặc URL không được cấu hình');
+        }
+
+        if (!GROQ_API_URL || GROQ_API_URL === '') {
+            throw new Error('Groq API URL không được cấu hình');
+        }
+
+        const maxTokens = generationConfig.maxOutputTokens || 8192;
+
+        console.log('🔄 Calling Groq API as final fallback...');
+
+        let response;
+        try {
+            // Add timeout để tránh hang
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds timeout
+
+            try {
+                response = await fetch(GROQ_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${GROQ_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: GROQ_MODEL,
+                        messages: [
+                            {
+                                role: 'system',
+                                content: 'Bạn là chuyên gia dinh dưỡng AI. Trả về chỉ JSON, không có text khác.'
+                            },
+                            {
+                                role: 'user',
+                                content: prompt
+                            }
+                        ],
+                        temperature: 0.7,
+                        max_tokens: maxTokens,
+                        response_format: { type: 'json_object' }
+                    }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                if (fetchError.name === 'AbortError') {
+                    throw new Error('Groq API timeout: Request took too long (>60s)');
+                }
+                throw fetchError;
+            }
+        } catch (fetchError) {
+            console.error('❌ Groq API fetch error:', fetchError.message);
+            throw new Error(`Groq API connection error: ${fetchError.message}`);
+        }
+
+        if (!response || !response.ok) {
+            let errorText = 'Unknown error';
+            try {
+                errorText = await response.text();
+            } catch (e) {
+                errorText = response.statusText || 'Unknown error';
+            }
+            throw new Error(`Groq API error (${response?.status || 'unknown'}): ${errorText}`);
+        }
+
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            console.error('❌ Groq API JSON parse error:', jsonError.message);
+            throw new Error(`Groq API response không phải JSON hợp lệ: ${jsonError.message}`);
+        }
+
+        if (!data || !data.choices || !data.choices[0] || !data.choices[0].message) {
+            throw new Error('Groq API response không hợp lệ: thiếu choices hoặc message');
+        }
+
+        const content = data.choices[0].message.content;
+
+        if (!content || content.trim().length === 0) {
+            throw new Error('Groq trả về response rỗng');
+        }
+
+        // Loại bỏ markdown code blocks nếu có
+        let cleanedJson = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
+        console.log('✅ Groq API thành công!');
+        return cleanedJson;
+    } catch (error) {
+        console.error('❌ Groq API error:', error.message);
+        // Re-throw với message rõ ràng hơn
+        throw new Error(`Groq API failed: ${error.message}`);
+    }
+};
+
+/**
+ * Gọi Groq trước, sau đó fallback sang DeepSeek và Gemini nếu cần
+ */
+const callGroqJsonWithFallback = async (prompt, generationConfig = {}) => {
+    // Thử Groq trước
+    if (isGroqAPIAvailable()) {
+        console.log('🚀 Calling Groq API first...');
+        try {
+            const groqResult = await callGroqAPI(prompt, generationConfig);
+            console.log('✅ Groq API thành công!');
+            return groqResult;
+        } catch (groqError) {
+            console.error('❌ Groq API failed:', groqError.message);
+            console.log('🔄 Falling back to DeepSeek...');
+        }
+    }
+
+    // Fallback sang DeepSeek
+    if (DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== '') {
+        try {
+            const deepseekResult = await callDeepSeekAPI(prompt, generationConfig);
+            console.log('✅ DeepSeek API thành công!');
+            return deepseekResult;
+        } catch (deepseekError) {
+            console.error('❌ DeepSeek API cũng failed:', deepseekError.message);
+            console.log('🔄 Falling back to Gemini...');
+        }
+    }
+
+    // Fallback cuối cùng sang Gemini
+    return await callGeminiJsonWithFallbackInternal(prompt, generationConfig);
+};
+
+/**
+ * Gọi Gemini với fallback model + retry + API key rotation để tránh lỗi overload 503/429.
+ * Nếu Gemini fail hoàn toàn, fallback sang DeepSeek, sau đó Groq.
+ */
+const callGeminiJsonWithFallback = async (prompt, generationConfig = {}) => {
+    return await callGeminiJsonWithFallbackInternal(prompt, generationConfig);
+};
+
+/**
+ * Internal function: Gọi Gemini với fallback model + retry + API key rotation
+ */
+const callGeminiJsonWithFallbackInternal = async (prompt, generationConfig = {}) => {
+    if (GEMINI_API_KEYS.length === 0) {
+        throw new Error('Gemini API không được khởi tạo. Vui lòng kiểm tra API key.');
+    }
+
+    const errors = [];
+    let triedKeys = new Set();
+    const maxKeyRotations = GEMINI_API_KEYS.length;
+
+    // Thử với từng API key
+    for (let keyRotation = 0; keyRotation < maxKeyRotations; keyRotation++) {
+        const currentKey = getCurrentAPIKey();
+
+        // Nếu đã thử key này rồi, skip
+        if (triedKeys.has(currentKey)) {
+            rotateToNextKey();
+            continue;
+        }
+
+        triedKeys.add(currentKey);
+        const currentGenAI = new GoogleGenerativeAI(currentKey);
+        console.log(`🔑 Using API key ${keyRotation + 1}/${GEMINI_API_KEYS.length}`);
+
+        for (const modelName of GEMINI_MODEL_CANDIDATES) {
+            try {
+                const modelInstance = currentGenAI.getGenerativeModel({ model: modelName });
+
+                const maxRetry = 1; // Giảm retry để tránh spam khi overload
+                let attempt = 0;
+                while (attempt <= maxRetry) {
+                    try {
+                        const result = await modelInstance.generateContent({
+                            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                            generationConfig: {
+                                temperature: 0.7,
+                                topK: 40,
+                                topP: 0.95,
+                                maxOutputTokens: 8192, // Giảm từ 32768 để tránh overload
+                                responseMimeType: 'application/json',
+                                ...generationConfig,
+                            },
+                        });
+                        const response = await result.response;
+                        const jsonText = response.text();
+                        if (!jsonText || jsonText.trim().length === 0) {
+                            throw new Error('Gemini trả về response rỗng');
+                        }
+                        return jsonText;
+                    } catch (err) {
+                        const message = err?.message || '';
+                        const retryable = message.includes('503') || message.includes('overload') || message.includes('overloaded') || message.includes('429');
+
+                        if (retryable && attempt < maxRetry) {
+                            let backoff = 2000; // Default 2s
+
+                            // Parse retry delay từ error message (429 quota errors)
+                            if (message.includes('429') || message.includes('quota')) {
+                                const retryMatch = message.match(/retry in ([\d.]+)s/i);
+                                if (retryMatch) {
+                                    const retrySeconds = parseFloat(retryMatch[1]);
+                                    backoff = Math.ceil(retrySeconds * 1000) + 1000; // Thêm 1s buffer
+                                    console.log(`⚠️ Quota exceeded. Retrying after ${retrySeconds}s (${backoff}ms)...`);
+                                } else {
+                                    backoff = 20000; // 20s default cho quota errors
+                                    console.log(`⚠️ Quota exceeded. Retrying after ${backoff}ms...`);
+                                }
+                            } else if (message.includes('503') || message.includes('overload')) {
+                                backoff = 2000 * (attempt + 1); // 2s, 4s, 6s
+                                console.log(`⚠️ Model overloaded. Retrying after ${backoff}ms...`);
+                            } else {
+                                backoff = 1000 * (attempt + 1); // 1s, 2s, 3s
+                                console.log(`Retrying after ${backoff}ms...`);
+                            }
+
+                            await new Promise(res => setTimeout(res, backoff));
+                            attempt += 1;
+                            continue;
+                        }
+                        // Nếu là lỗi quota và có nhiều keys, rotate key và thử lại
+                        if ((message.includes('429') || message.includes('quota')) && GEMINI_API_KEYS.length > 1 && keyRotation < maxKeyRotations - 1) {
+                            console.log(`🔄 Quota exceeded với key hiện tại. Rotating to next API key...`);
+                            rotateToNextKey();
+                            throw new Error('QUOTA_EXCEEDED_ROTATE_KEY'); // Special error để break và rotate
+                        }
+                        throw err;
+                    }
+                }
+            } catch (err) {
+                const errMessage = err?.message || '';
+                // Nếu là lỗi đặc biệt để rotate key, break khỏi model loop
+                if (errMessage === 'QUOTA_EXCEEDED_ROTATE_KEY') {
+                    break; // Break khỏi model loop để thử với key mới
+                }
+                // Nếu là lỗi quota và có nhiều keys, rotate key
+                if ((errMessage.includes('429') || errMessage.includes('quota')) && GEMINI_API_KEYS.length > 1 && keyRotation < maxKeyRotations - 1) {
+                    console.log(`🔄 Quota exceeded với key hiện tại. Rotating to next API key...`);
+                    rotateToNextKey();
+                    break; // Break khỏi model loop để thử với key mới
+                }
+                errors.push({ model: modelName, key: currentKey.substring(0, 10) + '...', message: errMessage });
+                console.warn(`Gemini model "${modelName}" failed:`, errMessage);
+                // thử model tiếp theo
+            }
+        }
+    }
+
+    // Nếu Gemini fail hoàn toàn, thử fallback sang DeepSeek
+    if (DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== '') {
+        console.log('🔄 Tất cả Gemini API keys đều failed. Falling back to DeepSeek API...');
+        try {
+            const deepseekResult = await callDeepSeekAPI(prompt, generationConfig);
+            console.log('✅ DeepSeek API thành công!');
+            return deepseekResult;
+        } catch (deepseekError) {
+            console.error('❌ DeepSeek API cũng failed:', deepseekError.message);
+            // Thử fallback sang Groq nếu DeepSeek fail
+            if (isGroqAPIAvailable()) {
+                console.log('🔄 DeepSeek failed. Falling back to Groq API...');
+                try {
+                    const groqResult = await callGroqAPI(prompt, generationConfig);
+                    console.log('✅ Groq API thành công!');
+                    return groqResult;
+                } catch (groqError) {
+                    console.error('❌ Groq API cũng failed:', groqError.message);
+                    // Fall through để throw error tổng hợp
+                }
+            }
+        }
+    } else if (isGroqAPIAvailable()) {
+        // Nếu không có DeepSeek, thử Groq trực tiếp
+        console.log('🔄 Gemini failed và không có DeepSeek. Falling back to Groq API...');
+        try {
+            const groqResult = await callGroqAPI(prompt, generationConfig);
+            console.log('✅ Groq API thành công!');
+            return groqResult;
+        } catch (groqError) {
+            console.error('❌ Groq API cũng failed:', groqError.message);
+            // Fall through để throw error tổng hợp
+        }
+    }
+
+    // Tạo error message rõ ràng hơn
+    const errorMessages = errors.map(e => {
+        if (e.message.includes('429') || e.message.includes('quota')) {
+            const retryMatch = e.message.match(/retry in ([\d.]+)s/i);
+            if (retryMatch) {
+                const seconds = Math.ceil(parseFloat(retryMatch[1]));
+                return `API key đã hết quota (giới hạn 20 requests/ngày cho free tier). Vui lòng đợi ${seconds} giây hoặc sử dụng API key khác có quota cao hơn.`;
+            }
+            return `API key đã hết quota. Vui lòng đợi hoặc sử dụng API key khác.`;
+        }
+        return `${e.model}: ${e.message}`;
+    });
+
+    throw new Error('Lỗi khi gọi Gemini API: ' + errorMessages.join(' | '));
+};
 
 /**
  * Lấy context người dùng (profile, roles, branch_id)
@@ -824,17 +1228,87 @@ const detectResourcesFromMessage = (message) => {
 };
 
 /**
- * Xử lý chat message với Gemini
+ * Gọi Groq API cho chat message (với conversation history)
+ */
+const callGroqChatAPI = async (fullPrompt, conversationHistory = []) => {
+    try {
+        if (!isGroqAPIAvailable()) {
+            throw new Error('Groq API không được cấu hình');
+        }
+
+        // Chuyển đổi conversation history sang format OpenAI
+        const messages = [];
+
+        // Thêm system prompt
+        messages.push({
+            role: 'system',
+            content: fullPrompt.split('\n\nCÂU HỎI:')[0] // Lấy phần system prompt
+        });
+
+        // Thêm conversation history
+        for (const msg of conversationHistory.slice(-10)) { // Chỉ lấy 10 tin nhắn gần nhất
+            messages.push({
+                role: msg.role === 'user' ? 'user' : 'assistant',
+                content: msg.content
+            });
+        }
+
+        // Thêm user message cuối cùng
+        const userMessage = fullPrompt.split('\n\nCÂU HỎI:')[1];
+        if (userMessage) {
+            messages.push({
+                role: 'user',
+                content: userMessage
+            });
+        }
+
+        console.log('🚀 Calling Groq API for chat...');
+
+        const response = await fetch(GROQ_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${GROQ_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: GROQ_MODEL,
+                messages: messages,
+                temperature: 0.7,
+                max_tokens: 8192,
+                response_format: { type: 'json_object' }
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Groq API error (${response.status}): ${errorText}`);
+        }
+
+        const data = await response.json();
+        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+            throw new Error('Groq API response không hợp lệ');
+        }
+
+        const content = data.choices[0].message.content;
+        if (!content || content.trim().length === 0) {
+            throw new Error('Groq trả về response rỗng');
+        }
+
+        // Loại bỏ markdown code blocks nếu có
+        let cleanedJson = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+        console.log('✅ Groq API thành công!');
+        return cleanedJson;
+    } catch (error) {
+        console.error('❌ Groq API error:', error.message);
+        throw error;
+    }
+};
+
+/**
+ * Xử lý chat message - thử Groq trước, sau đó fallback sang Gemini
  */
 const processChatMessage = async (message, userContext, conversationHistory = []) => {
     try {
-        if (!genAI) {
-            throw new Error('Gemini API không được khởi tạo. Vui lòng kiểm tra API key.');
-        }
-
-        if (!model) {
-            throw new Error('Gemini model không được khởi tạo. Vui lòng kiểm tra model name.');
-        }
 
         // Tự động query database nếu cần - QUERY THÔNG MINH HƠN
         let databaseData = [];
@@ -1007,47 +1481,71 @@ const processChatMessage = async (message, userContext, conversationHistory = []
         // Chuẩn bị full prompt với system context + database data
         const fullPrompt = `${systemPrompt}${dataContext}\n\nCÂU HỎI: ${message}${formatInstruction}`;
 
-        // Đơn giản hóa: luôn dùng generateContent (ổn định nhất)
-        // Chỉ dùng startChat nếu thực sự cần conversation context
-        let result;
+        // Thử Groq trước
+        let text;
+        try {
+            if (isGroqAPIAvailable()) {
+                console.log('🚀 Trying Groq API first...');
+                const groqJson = await callGroqChatAPI(fullPrompt, conversationHistory);
+                text = groqJson;
+            } else {
+                throw new Error('Groq API không được cấu hình');
+            }
+        } catch (groqError) {
+            console.error('❌ Groq API failed:', groqError.message);
+            console.log('🔄 Falling back to Gemini...');
 
-        if (conversationHistory.length > 0) {
-            // Có history - thử dùng startChat
-            try {
-                // Chuyển đổi history sang format Gemini, đảm bảo bắt đầu với 'user'
-                const history = [];
-                for (let i = 0; i < conversationHistory.length && history.length < 10; i++) {
-                    const msg = conversationHistory[i];
-                    history.push({
-                        role: msg.role === 'user' ? 'user' : 'model',
-                        parts: [{ text: msg.content }]
-                    });
-                }
+            // Fallback sang Gemini
+            if (!genAI) {
+                throw new Error('Gemini API không được khởi tạo. Vui lòng kiểm tra API key.');
+            }
 
-                // Đảm bảo history bắt đầu với 'user'
-                if (history.length > 0 && history[0].role === 'user') {
-                    const chat = model.startChat({
-                        history: history
-                    });
+            if (!model) {
+                throw new Error('Gemini model không được khởi tạo. Vui lòng kiểm tra model name.');
+            }
 
-                    // Gửi message mới (có system prompt trong đó)
-                    result = await chat.sendMessage(fullPrompt);
-                } else {
-                    // History không hợp lệ, dùng generateContent
+            // Đơn giản hóa: luôn dùng generateContent (ổn định nhất)
+            // Chỉ dùng startChat nếu thực sự cần conversation context
+            let result;
+
+            if (conversationHistory.length > 0) {
+                // Có history - thử dùng startChat
+                try {
+                    // Chuyển đổi history sang format Gemini, đảm bảo bắt đầu với 'user'
+                    const history = [];
+                    for (let i = 0; i < conversationHistory.length && history.length < 10; i++) {
+                        const msg = conversationHistory[i];
+                        history.push({
+                            role: msg.role === 'user' ? 'user' : 'model',
+                            parts: [{ text: msg.content }]
+                        });
+                    }
+
+                    // Đảm bảo history bắt đầu với 'user'
+                    if (history.length > 0 && history[0].role === 'user') {
+                        const chat = model.startChat({
+                            history: history
+                        });
+
+                        // Gửi message mới (có system prompt trong đó)
+                        result = await chat.sendMessage(fullPrompt);
+                    } else {
+                        // History không hợp lệ, dùng generateContent
+                        result = await model.generateContent(fullPrompt);
+                    }
+                } catch (chatError) {
+                    // Nếu startChat lỗi, fallback về generateContent
+                    console.warn('startChat failed, using generateContent:', chatError.message);
                     result = await model.generateContent(fullPrompt);
                 }
-            } catch (chatError) {
-                // Nếu startChat lỗi, fallback về generateContent
-                console.warn('startChat failed, using generateContent:', chatError.message);
+            } else {
+                // Không có history, dùng generateContent
                 result = await model.generateContent(fullPrompt);
             }
-        } else {
-            // Không có history, dùng generateContent
-            result = await model.generateContent(fullPrompt);
-        }
 
-        const response = await result.response;
-        const text = response.text();
+            const response = await result.response;
+            text = response.text();
+        }
 
         // Parse JSON từ response
         let parsedResponse;
@@ -1117,163 +1615,53 @@ const generateNutritionPlan = async (request, userContext) => {
         }
         targetDate.setHours(0, 0, 0, 0);
 
-        // Tạo prompt chi tiết cho Gemini với đầy đủ thuộc tính
-        const prompt = `Bạn là chuyên gia dinh dưỡng AI. Tạo một kế hoạch dinh dưỡng ${period === 'weekly' ? '7 ngày' : '1 ngày'} cho mục tiêu "${goal}".
-
-YÊU CẦU:
-- Tổng calories mỗi ngày: ${calories} kcal
-- Số ngày: ${periodDays} ngày
-- Mục tiêu: ${goal}
-- Sở thích/ưu tiên: ${preferences || 'Không có'}
-- Loại bữa ăn: ${mealType || 'Tất cả các bữa'}
-
-ĐỊNH DẠNG JSON BẮT BUỘC (phải trả về đúng format này với ĐẦY ĐỦ thuộc tính):
-{
-  "planType": "${period}",
-  "days": [
-    {
-      "date": "YYYY-MM-DD",
-      "meals": [
-        {
-          "id": "unique-id",
-          "name": "Tên món ăn bằng tiếng Việt",
-          "description": "Mô tả ngắn gọn về món ăn",
-          "image": "https://images.pexels.com/photos/1234567/food-photography.jpg",
-          "mealType": "Bữa sáng" | "Phụ 1" | "Bữa trưa" | "Phụ 2" | "Bữa tối" | "Phụ 3",
-          "difficulty": "Dễ" | "Trung bình" | "Khó",
-          "cookingTimeMinutes": 15,
-          "healthScore": 85,
-          "stepCount": 4,
-          "caloriesKcal": 450,
-          "carbsGrams": 40,
-          "proteinGrams": 35,
-          "fatGrams": 12,
-          "fiberGrams": 4,
-          "sugarGrams": 2,
-          "sodiumMg": 350,
-          "rating": 4.8,
-          "ratingCount": 125,
-          "tags": ["low-fat", "high-protein", "balanced"],
-          "cuisineType": "Vietnamese" | "Western" | "Mediterranean" | "Mexican" | "Asian",
-          "dietaryRestrictions": ["vegetarian"] | ["vegan"] | ["gluten-free"] | [] | ...,
-          "allergens": ["nuts"] | ["dairy"] | ["shellfish"] | [] | ...,
-          "ingredients": [
-            {
-              "name": "Tên nguyên liệu",
-              "amount": 150,
-              "unit": "g" | "ml" | "cái" | "quả",
-              "notes": "Ghi chú nếu có"
+        // Tính toán ngày bắt đầu cho prompt
+        const startDateStr = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        let dateInstruction = '';
+        if (period === 'daily') {
+            dateInstruction = `NGÀY BẮT ĐẦU: ${startDateStr} (CHỈ TẠO 1 NGÀY VỚI NGÀY NÀY)`;
+        } else {
+            // Weekly: tính 7 ngày từ targetDate
+            const dates = [];
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(targetDate);
+                date.setDate(date.getDate() + i);
+                dates.push(date.toISOString().split('T')[0]);
             }
-          ],
-          "instructions": [
-            "Bước 1: Mô tả chi tiết",
-            "Bước 2: Mô tả chi tiết",
-            "Bước 3: Mô tả chi tiết"
-          ],
-          "cookingVideoUrl": "https://www.youtube.com/watch?v=VIDEO_ID",
-          "isFeatured": false,
-          "isPopular": false,
-          "isRecommended": false
+            dateInstruction = `NGÀY BẮT ĐẦU: ${startDateStr}. TẠO 7 NGÀY: ${dates.join(', ')}`;
         }
-      ]
-    }
-  ]
-}
 
-QUY TẮC QUAN TRỌNG:
-1. Mỗi ngày PHẢI có ĐẦY ĐỦ 6 bữa ăn theo thứ tự:
-   - Bữa sáng (bắt buộc)
-   - Phụ 1 (bắt buộc - bữa phụ giữa sáng và trưa)
-   - Bữa trưa (bắt buộc)
-   - Phụ 2 (bắt buộc - bữa phụ giữa trưa và tối)
-   - Bữa tối (bắt buộc)
-   - Phụ 3 (bắt buộc - bữa phụ buổi tối)
-   - KHÔNG được bỏ sót bất kỳ bữa nào. Mỗi ngày phải có đúng 6 bữa.
-   - Ví dụ: Một ngày phải có: [Bữa sáng, Phụ 1, Bữa trưa, Phụ 2, Bữa tối, Phụ 3] - không được thiếu bất kỳ bữa nào.
-2. Tổng calories mỗi ngày phải gần đúng ${calories} kcal (±50 kcal)
-   - Phân bổ calories: Bữa sáng (~25%), Phụ 1 (~10%), Bữa trưa (~30%), Phụ 2 (~10%), Bữa tối (~20%), Phụ 3 (~5%)
-3. Phân bổ macros hợp lý: Protein 25-35%, Carbs 40-50%, Fat 20-30%
-4. Đánh dấu 1 món là isFeatured: true cho mỗi ngày (món nổi bật nhất)
-5. Đánh dấu 2-3 món là isPopular: true (món phổ biến)
-6. Đánh dấu 2-3 món là isRecommended: true (món được đề xuất)
-7. Health score từ 70-100
-8. Rating từ 4.5-5.0
-9. Rating count từ 50-200
-10. Tên món ăn phải bằng tiếng Việt, mô tả ngắn gọn
-11. Difficulty: "Dễ" cho món đơn giản, "Trung bình" cho món thông thường, "Khó" cho món phức tạp
-12. Cooking time từ 5-60 phút
-13. Step count từ 3-8 bước
-14. PHẢI có đầy đủ: ingredients (ít nhất 3-5 nguyên liệu), instructions (ít nhất 3-6 bước)
-15. Tags phải phù hợp với món ăn (ví dụ: high-protein, low-fat, balanced, keto, etc.)
-16. CuisineType phù hợp với món ăn (Vietnamese cho món Việt, Western cho món Tây, etc.)
-17. DietaryRestrictions và allergens phải chính xác (nếu món có sữa thì allergens phải có "dairy")
-18. FiberGrams, sugarGrams, sodiumMg phải hợp lý (fiber 2-10g, sugar 0-25g, sodium 100-600mg)
-19. image: BẮT BUỘC - PHẢI là URL hình ảnh THẬT từ các trang web nấu ăn Việt Nam hoặc quốc tế, phù hợp chính xác với tên món ăn.
-KHÔNG được dùng Unsplash placeholder (source.unsplash.com) hoặc URL giả.
-PHẢI tìm kiếm và sử dụng link ảnh THẬT đại diện trực tiếp cho tên món ăn cụ thể (ví dụ: nếu món là "Cơm Gà Xé Phay", ảnh phải hiển thị cơm gà xé phay, không phải gà nướng hoặc món khác).
-Ưu tiên tìm ảnh từ các nguồn Việt Nam trước: phugiafood.com, cookpad.com, monngonmoingay.com, vnfood.vn, vietnamesefood.com.vn, hoặc các blog ẩm thực .vn như helenrecipes.com, bepmina.vn.
-Nếu không tìm thấy ở nguồn Việt, dùng nguồn quốc tế: AllRecipes.com, FoodNetwork.com, BBCGoodFood.com, SeriousEats.com, BonAppetit.com.
-Hoặc CDN ảnh thực phẩm chất lượng cao: images.pexels.com, cdn.pixabay.com, i.imgur.com, live.staticflickr.com - nhưng phải đảm bảo ảnh khớp với tên món (tìm kiếm bằng tên món để xác nhận).
-Ảnh PHẢI liên quan 100% đến tên món: sử dụng công cụ tìm kiếm hình ảnh để xác nhận (ví dụ: search "hình ảnh [tên món] Việt Nam" hoặc "recipe image [tên món]").
-Format URL hợp lệ: https://domain.com/path/to/image.jpg hoặc https://cdn.domain.com/image.png
-KHÔNG được để trống. Nếu không tìm được ảnh chính xác, chọn ảnh món tương tự có tên gần giống hoặc ảnh nguyên liệu chính, nhưng giải thích lý do trong comment.
-Ví dụ URL hợp lệ cho món Việt Nam:
-https://phugiafood.com/wp-content/uploads/2021/11/Com-ga-xe-phay-1-1024x768.jpg (Cơm Gà Xé Phay)
-https://cdn.tgdd.vn/2021/09/CookDish/cach-lam-sua-chua-hat-chia-giam-can-tot-cho-suc-khoe-avt-1200x676.jpg (Sữa Chua Không Đường với Hạt Chia)
-https://img-global.cpcdn.com/recipes/e276c175d20ca9b3/1200x630cq80/photo.jpg (Cơm Gạo Lứt, Cá Diêu Hồng Hấp Gừng)
-https://vietnamesefood.com.vn/pictures/VietnameseFood2/Grilled_Chicken_with_Honey_and_Boiled_Rice_Recipe_1.jpg (Cơm Gà Nướng Mật Ong)
-https://images.pexels.com/photos/2252616/pexels-photo-2252616.jpeg (Ảnh minh họa sinh tố chuối, nếu khớp tên)
+        // Prompt tối ưu tối đa để giảm tokens
+        const prompt = `Tạo thực đơn ${period === 'weekly' ? '7 ngày' : '1 ngày'}: ${goal}. Calories: ${calories} kcal/ngày. Sở thích: ${preferences || 'Không có'}.
 
-KHÔNG chấp nhận: source.unsplash.com, placeholder URLs, hoặc URL không tồn tại. Luôn kiểm tra URL hoạt động.
-QUAN TRỌNG: Sử dụng công cụ web search hoặc search_images để tìm URL ảnh thực tế dựa trên tên món chính xác, ưu tiên nguồn Việt Nam.
+${dateInstruction}
 
-20. cookingVideoUrl: PHẢI là link YouTube THỰC SỰ HOẠT ĐỘNG về hướng dẫn nấu món ăn, phù hợp chính xác với tên món ăn.
-Tìm kiếm video YouTube bằng query như: "cách nấu [tên món chính xác]" cho video tiếng Việt, hoặc "how to make [tên món tiếng Anh]" cho video quốc tế. TIÊU ĐỀ VIDEO PHẢI CHỨA TÊN MÓN HOẶC MÔ TẢ LIÊN QUAN TRỰC TIẾP.
-Sử dụng format: https://www.youtube.com/watch?v=VIDEO_ID hoặc https://youtu.be/VIDEO_ID
-Video phải là video HƯỚNG DẪN NẤU ĂN/RECIPE thực sự (ví dụ: tutorial nấu ăn, recipe video), không phải video ăn uống, review, nhạc, vlog, quảng cáo, hoặc không liên quan.
-Ưu tiên video tiếng Việt nếu món là Việt Nam, và tiêu đề khớp tên món (ví dụ: "Cách Làm Phở Gà Thanh Đạm Ngon Tại Nhà").
-Nếu không tìm được video đúng tên món, chọn video món tương tự (cùng loại, ví dụ: nếu "Phở Gà" thì video "Cách Nấu Phở Gà" thay vì "Phở Bò").
-Nếu vẫn không tìm được video nấu ăn phù hợp, để trống (empty string "") và giải thích lý do.
-KHÔNG được tạo video ID giả. PHẢI sử dụng video ID thực từ YouTube, xác nhận bằng công cụ web search hoặc x_search để tìm video phù hợp.
-Ví dụ video hợp lệ:
-https://www.youtube.com/watch?v=EXAMPLE_ID (Cách Nấu Phở Gà Thanh Đạm - Tiêu đề phải khớp)
-https://youtu.be/ybF0RQdDAK8 (Khoai Lang Luộc - Nếu video hướng dẫn luộc khoai lang)
-https://www.youtube.com/watch?v=w34Qnc-9KBU (Gỏi Cuốn Tôm Thịt - Video recipe gỏi cuốn)
+QUAN TRỌNG: Sử dụng ĐÚNG ngày được chỉ định ở trên. KHÔNG được tự tạo ngày khác.
 
-TRẢ VỀ CHỈ JSON, KHÔNG CÓ TEXT KHÁC.`;
+JSON format:
+{"planType":"${period}","days":[{"date":"${startDateStr}","meals":[{"name":"Tên món","description":"Mô tả","image":"https://images.pexels.com/photos/ID/pexels-photo-ID.jpeg","mealType":"Bữa sáng|Phụ 1|Bữa trưa|Phụ 2|Bữa tối|Phụ 3","difficulty":"Dễ|Trung bình|Khó","cookingTimeMinutes":15,"healthScore":85,"stepCount":4,"caloriesKcal":450,"carbsGrams":40,"proteinGrams":35,"fatGrams":12,"fiberGrams":4,"sugarGrams":2,"sodiumMg":350,"rating":4.8,"ratingCount":125,"tags":["high-protein"],"cuisineType":"Vietnamese","dietaryRestrictions":[],"allergens":[],"ingredients":[{"name":"Nguyên liệu","amount":150,"unit":"g"}],"instructions":["Bước 1","Bước 2"],"cookingVideoUrl":"https://youtube.com/watch?v=ID hoặc \"\"","isFeatured":false,"isPopular":false,"isRecommended":false}]}]}
 
-        // Gọi Gemini với JSON mode
-        let result;
-        let response;
+Quy tắc: 6 bữa/ngày (Sáng,Phụ1,Trưa,Phụ2,Tối,Phụ3). Calories: Sáng25% Phụ110% Trưa30% Phụ210% Tối20% Phụ35%. Macros: Protein25-35% Carbs40-50% Fat20-30%. Đánh dấu: 1 featured, 2-3 popular, 2-3 recommended. Health 70-100, Rating 4.5-5.0. Image từ pexels.com. Ingredients 3-5, Instructions 3-6 bước.`;
+
+        // Gọi Groq trước, sau đó fallback sang DeepSeek và Gemini
         let jsonText;
-
         try {
-            result = await model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig: {
-                    temperature: 0.7,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 32768, // Tăng lên 32768 để xử lý weekly plan (7 ngày x 6 bữa)
-                    responseMimeType: 'application/json'
-                }
+            jsonText = await callGroqJsonWithFallback(prompt, {
+                maxOutputTokens: period === 'weekly' ? 12288 : 6144, // Đủ cho 1 ngày (6 bữa) hoặc 7 ngày
             });
-
-            response = await result.response;
-            jsonText = response.text();
 
             if (!jsonText || jsonText.trim().length === 0) {
-                throw new Error('Gemini trả về response rỗng');
+                throw new Error('API trả về response rỗng');
             }
-        } catch (geminiError) {
-            console.error('Error calling Gemini API:', geminiError);
+        } catch (apiError) {
+            console.error('Error calling API:', apiError);
             console.error('Error details:', {
-                name: geminiError.name,
-                message: geminiError.message,
-                code: geminiError.code,
-                stack: geminiError.stack
+                name: apiError.name,
+                message: apiError.message,
+                code: apiError.code,
+                stack: apiError.stack
             });
-            throw new Error('Lỗi khi gọi Gemini API: ' + (geminiError.message || 'Không xác định'));
+            throw new Error('Lỗi khi gọi API: ' + (apiError.message || 'Không xác định'));
         }
 
         // Parse JSON response
@@ -1293,67 +1681,121 @@ TRẢ VỀ CHỈ JSON, KHÔNG CÓ TEXT KHÁC.`;
             console.error('Raw response (first 500 chars):', jsonText.substring(0, 500));
             console.error('Raw response (last 1000 chars):', jsonText.substring(Math.max(0, jsonText.length - 1000)));
 
-            // Extract error position from error message
-            let errorPosition = null;
-            const positionMatch = parseError.message.match(/position (\d+)/);
-            if (positionMatch) {
-                errorPosition = parseInt(positionMatch[1]);
-                console.log(`Error at position: ${errorPosition}`);
+            // Kiểm tra nếu JSON quá ngắn hoặc bị cắt nghiêm trọng, fallback sang DeepSeek ngay
+            // Bao gồm các lỗi: Unexpected end, Unterminated, Expected (syntax errors), và position errors
+            const isSeverelyTruncated = jsonText.length < (period === 'weekly' ? 2000 : 800) ||
+                parseError.message.includes('Unexpected end') ||
+                parseError.message.includes('Unterminated') ||
+                parseError.message.includes('Expected') ||
+                (parseError.message.includes('position') && /\d+/.test(parseError.message)) ||
+                parseError.message.includes('double-quoted') ||
+                parseError.message.includes('property name');
+
+            if (isSeverelyTruncated && DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== '') {
+                console.log('🔄 JSON từ Gemini có vẻ bị cắt nghiêm trọng (length: ' + jsonText.length + '). Falling back to DeepSeek API ngay...');
+                try {
+                    const deepseekResult = await callDeepSeekAPI(prompt, {
+                        maxOutputTokens: period === 'weekly' ? 12288 : 6144,
+                    });
+
+                    if (!deepseekResult || deepseekResult.trim().length === 0) {
+                        throw new Error('DeepSeek trả về response rỗng');
+                    }
+
+                    // Parse DeepSeek response
+                    let cleanedDeepseekJson = deepseekResult.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+                    planData = JSON.parse(cleanedDeepseekJson);
+                    console.log('✅ DeepSeek API thành công và parse được JSON!');
+
+                    // Skip phần recovery, planData đã được set
+                    // Continue to validation below
+                } catch (deepseekError) {
+                    console.error('❌ DeepSeek API cũng failed:', deepseekError.message);
+                    // Fallback sang Groq nếu DeepSeek fail
+                    if (isGroqAPIAvailable()) {
+                        console.log('🔄 DeepSeek failed. Falling back to Groq API...');
+                        try {
+                            const groqResult = await callGroqAPI(prompt, {
+                                maxOutputTokens: period === 'weekly' ? 12288 : 6144,
+                            });
+
+                            if (!groqResult || groqResult.trim().length === 0) {
+                                throw new Error('Groq trả về response rỗng');
+                            }
+
+                            // Parse Groq response
+                            let cleanedGroqJson = groqResult.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+                            planData = JSON.parse(cleanedGroqJson);
+                            console.log('✅ Groq API thành công và parse được JSON!');
+                            // Skip phần recovery, planData đã được set
+                        } catch (groqError) {
+                            console.error('❌ Groq API cũng failed:', groqError.message);
+                            // Fall through để thử recovery
+                        }
+                    } else {
+                        // Fall through để thử recovery
+                    }
+                }
+            } else if (isSeverelyTruncated && isGroqAPIAvailable()) {
+                // Nếu không có DeepSeek, thử Groq trực tiếp
+                console.log('🔄 JSON từ Gemini có vẻ bị cắt nghiêm trọng (length: ' + jsonText.length + '). Falling back to Groq API ngay...');
+                try {
+                    const groqResult = await callGroqAPI(prompt, {
+                        maxOutputTokens: period === 'weekly' ? 12288 : 6144,
+                    });
+
+                    if (!groqResult || groqResult.trim().length === 0) {
+                        throw new Error('Groq trả về response rỗng');
+                    }
+
+                    // Parse Groq response
+                    let cleanedGroqJson = groqResult.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+                    planData = JSON.parse(cleanedGroqJson);
+                    console.log('✅ Groq API thành công và parse được JSON!');
+                    // Skip phần recovery, planData đã được set
+                } catch (groqError) {
+                    console.error('❌ Groq API cũng failed:', groqError.message);
+                    // Fall through để thử recovery
+                }
             }
 
-            // Thử fix JSON bị cắt
-            try {
-                let fixedJson = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+            // Nếu đã dùng DeepSeek thành công, skip recovery
+            if (!planData) {
+                // Extract error position from error message
+                let errorPosition = null;
+                const positionMatch = parseError.message.match(/position (\d+)/);
+                if (positionMatch) {
+                    errorPosition = parseInt(positionMatch[1]);
+                    console.log(`Error at position: ${errorPosition}`);
+                }
 
-                // Nếu có error position, cắt đến vị trí đó và thử fix
-                if (errorPosition && errorPosition < fixedJson.length) {
-                    // Tìm vị trí hợp lệ gần nhất trước error position
-                    let cutPosition = errorPosition;
+                // Thử fix JSON bị cắt
+                try {
+                    let fixedJson = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
 
-                    // Tìm dấu phẩy hoặc dấu đóng ngoặc gần nhất trước error
-                    for (let i = errorPosition - 1; i >= Math.max(0, errorPosition - 100); i--) {
-                        if (fixedJson[i] === ',' || fixedJson[i] === '}' || fixedJson[i] === ']') {
-                            cutPosition = i + 1;
-                            break;
+                    // Nếu có error position, cắt đến vị trí đó và thử fix
+                    if (errorPosition && errorPosition < fixedJson.length) {
+                        // Tìm vị trí hợp lệ gần nhất trước error position
+                        let cutPosition = errorPosition;
+
+                        // Tìm dấu phẩy hoặc dấu đóng ngoặc gần nhất trước error
+                        for (let i = errorPosition - 1; i >= Math.max(0, errorPosition - 100); i--) {
+                            if (fixedJson[i] === ',' || fixedJson[i] === '}' || fixedJson[i] === ']') {
+                                cutPosition = i + 1;
+                                break;
+                            }
                         }
-                    }
 
-                    // Cắt JSON đến vị trí hợp lệ
-                    fixedJson = fixedJson.substring(0, cutPosition);
-
-                    // Đóng các dấu ngoặc còn thiếu
-                    const openBraces = (fixedJson.match(/\{/g) || []).length;
-                    const closeBraces = (fixedJson.match(/\}/g) || []).length;
-                    const openBrackets = (fixedJson.match(/\[/g) || []).length;
-                    const closeBrackets = (fixedJson.match(/\]/g) || []).length;
-
-                    // Đóng các dấu ngoặc còn thiếu theo thứ tự đúng
-                    let closingChars = '';
-                    for (let i = 0; i < openBrackets - closeBrackets; i++) {
-                        closingChars += ']';
-                    }
-                    for (let i = 0; i < openBraces - closeBraces; i++) {
-                        closingChars += '}';
-                    }
-
-                    fixedJson += closingChars;
-                    console.log(`Đã cắt JSON tại vị trí ${cutPosition} và đóng ${closingChars.length} dấu ngoặc`);
-                } else {
-                    // Nếu không có error position, thử fix bằng cách đóng tất cả dấu ngoặc
-                    const openBraces = (fixedJson.match(/\{/g) || []).length;
-                    const closeBraces = (fixedJson.match(/\}/g) || []).length;
-                    const openBrackets = (fixedJson.match(/\[/g) || []).length;
-                    const closeBrackets = (fixedJson.match(/\]/g) || []).length;
-
-                    // Tìm vị trí cắt hợp lệ (tìm dấu đóng ngoặc cuối cùng)
-                    const lastBrace = fixedJson.lastIndexOf('}');
-                    const lastBracket = fixedJson.lastIndexOf(']');
-                    const lastValidChar = Math.max(lastBrace, lastBracket);
-
-                    if (lastValidChar > fixedJson.length / 2) {
-                        fixedJson = fixedJson.substring(0, lastValidChar + 1);
+                        // Cắt JSON đến vị trí hợp lệ
+                        fixedJson = fixedJson.substring(0, cutPosition);
 
                         // Đóng các dấu ngoặc còn thiếu
+                        const openBraces = (fixedJson.match(/\{/g) || []).length;
+                        const closeBraces = (fixedJson.match(/\}/g) || []).length;
+                        const openBrackets = (fixedJson.match(/\[/g) || []).length;
+                        const closeBrackets = (fixedJson.match(/\]/g) || []).length;
+
+                        // Đóng các dấu ngoặc còn thiếu theo thứ tự đúng
                         let closingChars = '';
                         for (let i = 0; i < openBrackets - closeBrackets; i++) {
                             closingChars += ']';
@@ -1363,36 +1805,136 @@ TRẢ VỀ CHỈ JSON, KHÔNG CÓ TEXT KHÁC.`;
                         }
 
                         fixedJson += closingChars;
-                        console.log(`Đã cắt JSON tại vị trí ${lastValidChar} và đóng ${closingChars.length} dấu ngoặc`);
+                        console.log(`Đã cắt JSON tại vị trí ${cutPosition} và đóng ${closingChars.length} dấu ngoặc`);
+                    } else {
+                        // Nếu không có error position, thử fix bằng cách đóng tất cả dấu ngoặc
+                        const openBraces = (fixedJson.match(/\{/g) || []).length;
+                        const closeBraces = (fixedJson.match(/\}/g) || []).length;
+                        const openBrackets = (fixedJson.match(/\[/g) || []).length;
+                        const closeBrackets = (fixedJson.match(/\]/g) || []).length;
+
+                        // Tìm vị trí cắt hợp lệ (tìm dấu đóng ngoặc cuối cùng)
+                        const lastBrace = fixedJson.lastIndexOf('}');
+                        const lastBracket = fixedJson.lastIndexOf(']');
+                        const lastValidChar = Math.max(lastBrace, lastBracket);
+
+                        if (lastValidChar > fixedJson.length / 2) {
+                            fixedJson = fixedJson.substring(0, lastValidChar + 1);
+
+                            // Đóng các dấu ngoặc còn thiếu
+                            let closingChars = '';
+                            for (let i = 0; i < openBrackets - closeBrackets; i++) {
+                                closingChars += ']';
+                            }
+                            for (let i = 0; i < openBraces - closeBraces; i++) {
+                                closingChars += '}';
+                            }
+
+                            fixedJson += closingChars;
+                            console.log(`Đã cắt JSON tại vị trí ${lastValidChar} và đóng ${closingChars.length} dấu ngoặc`);
+                        }
+                    }
+
+                    // Thử parse lại
+                    planData = JSON.parse(fixedJson);
+                    console.log('✅ Đã parse thành công sau khi fix JSON bị cắt');
+
+                    // Validate structure
+                    if (!planData.days || !Array.isArray(planData.days)) {
+                        throw new Error('JSON đã fix nhưng thiếu days array');
+                    }
+
+                    // Nếu là weekly plan và bị cắt, có thể một số ngày bị thiếu
+                    if (planData.planType === 'weekly' && planData.days.length < 7) {
+                        console.warn(`⚠️ Weekly plan chỉ có ${planData.days.length}/7 ngày. Có thể response bị cắt.`);
+                    }
+
+                } catch (recoveryError) {
+                    console.error('❌ Không thể recover JSON:', recoveryError);
+                    console.error('Recovery error:', recoveryError.message);
+
+                    // Log thêm thông tin để debug
+                    if (errorPosition) {
+                        const contextStart = Math.max(0, errorPosition - 100);
+                        const contextEnd = Math.min(jsonText.length, errorPosition + 100);
+                        console.error('Context around error:', jsonText.substring(contextStart, contextEnd));
+                    }
+
+                    // Fallback sang DeepSeek khi JSON bị cắt và không thể recover
+                    if (DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== '') {
+                        console.log('🔄 JSON từ Gemini bị cắt/không hợp lệ. Falling back to DeepSeek API...');
+                        try {
+                            const deepseekResult = await callDeepSeekAPI(prompt, {
+                                maxOutputTokens: period === 'weekly' ? 12288 : 6144,
+                            });
+
+                            if (!deepseekResult || deepseekResult.trim().length === 0) {
+                                throw new Error('DeepSeek trả về response rỗng');
+                            }
+
+                            // Parse DeepSeek response
+                            let cleanedDeepseekJson = deepseekResult.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+                            planData = JSON.parse(cleanedDeepseekJson);
+                            console.log('✅ DeepSeek API thành công và parse được JSON!');
+
+                            // Skip phần validate phía dưới, planData đã được set
+                        } catch (deepseekError) {
+                            console.error('❌ DeepSeek API cũng failed:', deepseekError.message);
+                            // Fallback sang Groq nếu DeepSeek fail
+                            if (isGroqAPIAvailable()) {
+                                console.log('🔄 DeepSeek failed. Falling back to Groq API...');
+                                try {
+                                    const groqResult = await callGroqAPI(prompt, {
+                                        maxOutputTokens: period === 'weekly' ? 12288 : 6144,
+                                    });
+
+                                    if (!groqResult || groqResult.trim().length === 0) {
+                                        throw new Error('Groq trả về response rỗng');
+                                    }
+
+                                    // Parse Groq response
+                                    let cleanedGroqJson = groqResult.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+                                    planData = JSON.parse(cleanedGroqJson);
+                                    console.log('✅ Groq API thành công và parse được JSON!');
+                                    // Skip phần validate phía dưới, planData đã được set
+                                } catch (groqError) {
+                                    console.error('❌ Groq API cũng failed:', groqError.message);
+                                    throw new Error('Không thể parse response từ Gemini. Response có vẻ bị cắt. Length: ' + jsonText.length + '. Error: ' + parseError.message + '. DeepSeek fallback failed: ' + deepseekError.message + '. Groq fallback cũng failed: ' + groqError.message);
+                                }
+                            } else {
+                                // Nếu không có Groq API, thông báo rõ ràng
+                                const errorMsg = 'Không thể parse response từ Gemini. Response có vẻ bị cắt. Length: ' + jsonText.length + '. Error: ' + parseError.message + '. DeepSeek fallback cũng failed: ' + deepseekError.message;
+                                if (!isGroqAPIAvailable()) {
+                                    console.warn('⚠️ Groq API không được cấu hình. Không thể fallback.');
+                                }
+                                throw new Error(errorMsg + (isGroqAPIAvailable() ? '' : '. Groq API không được cấu hình để fallback.'));
+                            }
+                        }
+                    } else if (isGroqAPIAvailable()) {
+                        // Nếu không có DeepSeek, thử Groq trực tiếp
+                        console.log('🔄 JSON từ Gemini bị cắt/không hợp lệ. Falling back to Groq API...');
+                        try {
+                            const groqResult = await callGroqAPI(prompt, {
+                                maxOutputTokens: period === 'weekly' ? 12288 : 6144,
+                            });
+
+                            if (!groqResult || groqResult.trim().length === 0) {
+                                throw new Error('Groq trả về response rỗng');
+                            }
+
+                            // Parse Groq response
+                            let cleanedGroqJson = groqResult.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+                            planData = JSON.parse(cleanedGroqJson);
+                            console.log('✅ Groq API thành công và parse được JSON!');
+                            // Skip phần validate phía dưới, planData đã được set
+                        } catch (groqError) {
+                            console.error('❌ Groq API cũng failed:', groqError.message);
+                            throw new Error('Không thể parse response từ Gemini. Response có vẻ bị cắt. Length: ' + jsonText.length + '. Error: ' + parseError.message + '. Groq fallback cũng failed: ' + groqError.message);
+                        }
+                    } else {
+                        throw new Error('Không thể parse response từ Gemini. Response có vẻ bị cắt. Length: ' + jsonText.length + '. Error: ' + parseError.message);
                     }
                 }
-
-                // Thử parse lại
-                planData = JSON.parse(fixedJson);
-                console.log('✅ Đã parse thành công sau khi fix JSON bị cắt');
-
-                // Validate structure
-                if (!planData.days || !Array.isArray(planData.days)) {
-                    throw new Error('JSON đã fix nhưng thiếu days array');
-                }
-
-                // Nếu là weekly plan và bị cắt, có thể một số ngày bị thiếu
-                if (planData.planType === 'weekly' && planData.days.length < 7) {
-                    console.warn(`⚠️ Weekly plan chỉ có ${planData.days.length}/7 ngày. Có thể response bị cắt.`);
-                }
-
-            } catch (recoveryError) {
-                console.error('❌ Không thể recover JSON:', recoveryError);
-                console.error('Recovery error:', recoveryError.message);
-
-                // Log thêm thông tin để debug
-                if (errorPosition) {
-                    const contextStart = Math.max(0, errorPosition - 100);
-                    const contextEnd = Math.min(jsonText.length, errorPosition + 100);
-                    console.error('Context around error:', jsonText.substring(contextStart, contextEnd));
-                }
-
-                throw new Error('Không thể parse response từ Gemini. Response có vẻ bị cắt. Length: ' + jsonText.length + '. Error: ' + parseError.message);
             }
         }
 
@@ -1410,35 +1952,46 @@ TRẢ VỀ CHỈ JSON, KHÔNG CÓ TEXT KHÁC.`;
             throw new Error('Response không có ngày nào trong plan');
         }
 
-        // Normalize dates nếu chưa có hoặc không hợp lệ
-        // For daily plans, use the target date from request
+        // Normalize dates - FORCE sử dụng đúng ngày từ request
+        // For daily plans, ALWAYS use target date regardless of what AI returns
+        const targetDateStr = targetDate.toISOString().split('T')[0];
         planData.days = planData.days.map((day, index) => {
-            if (!day.date) {
-                // Use target date from request for daily plans
-                if (period === 'daily') {
-                    day.date = targetDate.toISOString().split('T')[0];
-                } else {
-                    // For weekly, calculate from target date
+            if (period === 'daily') {
+                // Daily plan: ALWAYS force target date
+                day.date = targetDateStr;
+                console.log(`✅ Force date for daily plan: ${day.date} (index ${index})`);
+            } else {
+                // Weekly plan: calculate from target date
+                if (!day.date) {
                     const date = new Date(targetDate);
                     date.setDate(date.getDate() + index);
                     day.date = date.toISOString().split('T')[0];
-                }
-            } else {
-                // Validate date format
-                const testDate = new Date(day.date);
-                if (isNaN(testDate.getTime())) {
-                    // Invalid date, use target date + index
-                    if (period === 'daily') {
-                        day.date = targetDate.toISOString().split('T')[0];
-                    } else {
+                } else {
+                    // Validate date format
+                    const testDate = new Date(day.date);
+                    if (isNaN(testDate.getTime())) {
+                        // Invalid date, use target date + index
                         const date = new Date(targetDate);
                         date.setDate(date.getDate() + index);
                         day.date = date.toISOString().split('T')[0];
+                        console.log(`⚠️ Invalid date at index ${index}, using calculated: ${day.date}`);
+                    } else {
+                        // Check if date is reasonable (within expected range)
+                        const expectedDate = new Date(targetDate);
+                        expectedDate.setDate(expectedDate.getDate() + index);
+                        const expectedDateStr = expectedDate.toISOString().split('T')[0];
+
+                        // If date is way off (more than 1 day difference), force correct date
+                        const dayDate = new Date(day.date);
+                        const diffDays = Math.abs((dayDate - expectedDate) / (1000 * 60 * 60 * 24));
+                        if (diffDays > 1) {
+                            console.log(`⚠️ Date mismatch at index ${index}: AI returned ${day.date}, expected ${expectedDateStr}, forcing correct date`);
+                            day.date = expectedDateStr;
+                        } else {
+                            // Ensure format is YYYY-MM-DD
+                            day.date = dayDate.toISOString().split('T')[0];
+                        }
                     }
-                } else {
-                    // Ensure format is YYYY-MM-DD
-                    const date = new Date(day.date);
-                    day.date = date.toISOString().split('T')[0];
                 }
             }
             return day;

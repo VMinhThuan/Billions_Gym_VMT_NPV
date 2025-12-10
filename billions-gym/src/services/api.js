@@ -112,6 +112,16 @@ export const apiRequest = async (endpoint, options = {}) => {
             if (response.status === 404) {
                 throw new Error(data?.message || 'Resource not found.');
             }
+            if (response.status === 429) {
+                // Quota exceeded - Too Many Requests
+                const errorMessage = data?.message || 'API đã hết quota. Vui lòng đợi vài phút hoặc thử lại sau.';
+                throw new Error(errorMessage);
+            }
+            if (response.status === 503) {
+                // Service Unavailable - Overload
+                const errorMessage = data?.message || 'AI service đang quá tải. Vui lòng thử lại sau vài phút.';
+                throw new Error(errorMessage);
+            }
             if (response.status >= 500) {
                 // Log chi tiết lỗi server để debug
                 console.error(`Server error (${response.status}):`, {
