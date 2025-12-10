@@ -19,37 +19,48 @@ const getBuoiTapById = async (id) => {
 };
 
 const getBuoiTapByHoiVien = async (maHoiVien, trangThai = null) => {
-    let query = { hoiVien: maHoiVien };
-    if (trangThai) {
-        query.trangThaiTap = trangThai;
+    try {
+        let query = { hoiVien: maHoiVien };
+        if (trangThai) {
+            query.trangThaiTap = trangThai;
+        }
+
+        const buoiTaps = await BuoiTap.find(query)
+            .populate('ptPhuTrach', 'hoTen sdt chuyenMon')
+            .populate('chiNhanh', 'tenChiNhanh')
+            .populate({
+                path: 'cacBaiTap.baiTap',
+                options: { strictPopulate: false }
+            })
+            .sort({ ngayTap: -1 });
+
+        if (buoiTaps.length > 0) {
+            return buoiTaps;
+        }
+
+        const lichTap = await LichTap.findOne({ hoiVien: maHoiVien })
+            .populate({
+                path: 'cacBuoiTap',
+                populate: [
+                    { path: 'ptPhuTrach', select: 'hoTen sdt chuyenMon' },
+                    { path: 'chiNhanh', select: 'tenChiNhanh' },
+                    {
+                        path: 'cacBaiTap.baiTap',
+                        options: { strictPopulate: false }
+                    }
+                ],
+                match: trangThai ? { trangThaiTap: trangThai } : {}
+            });
+
+        if (lichTap && lichTap.cacBuoiTap.length > 0) {
+            return lichTap.cacBuoiTap;
+        }
+
+        return [];
+    } catch (error) {
+        console.error('Lỗi trong getBuoiTapByHoiVien service:', error);
+        throw error;
     }
-
-    const buoiTaps = await BuoiTap.find(query)
-        .populate('ptPhuTrach', 'hoTen sdt chuyenMon')
-        .populate('chiNhanh', 'tenChiNhanh')
-        .populate('cacBaiTap.baiTap')
-        .sort({ ngayTap: -1 });
-
-    if (buoiTaps.length > 0) {
-        return buoiTaps;
-    }
-
-    const lichTap = await LichTap.findOne({ hoiVien: maHoiVien })
-        .populate({
-            path: 'cacBuoiTap',
-            populate: [
-                { path: 'ptPhuTrach', select: 'hoTen sdt chuyenMon' },
-                { path: 'chiNhanh', select: 'tenChiNhanh' },
-                { path: 'cacBaiTap.baiTap' }
-            ],
-            match: trangThai ? { trangThaiTap: trangThai } : {}
-        });
-
-    if (lichTap && lichTap.cacBuoiTap.length > 0) {
-        return lichTap.cacBuoiTap;
-    }
-
-    return [];
 };
 
 const getAllBuoiTap = async (trangThai = null) => {

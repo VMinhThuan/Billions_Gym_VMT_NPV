@@ -7,6 +7,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useTheme, DEFAULT_THEME } from "../hooks/useTheme";
 import apiService from '../api/apiService';
 import Chatbot from '../components/Chatbot';
+import NotificationBell from '../components/NotificationBell';
 
 const { width } = Dimensions.get('window');
 
@@ -1329,9 +1330,7 @@ const HomeScreen = () => {
                             </Text>
                         </View>
                     </View>
-                    <TouchableOpacity style={[styles.notificationButton, { backgroundColor: colors.card }]}>
-                        <MaterialIcons name="notifications" size={30} color={colors.text} />
-                    </TouchableOpacity>
+                    <NotificationBell />
                 </View>
 
                 <ScrollView

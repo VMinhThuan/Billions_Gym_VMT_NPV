@@ -7,12 +7,16 @@ class ApiService {
     async getAuthToken() {
         try {
             const token = await AsyncStorage.getItem('userToken');
+            console.log('📱 AsyncStorage.getItem("userToken"):', token ? `${token.substring(0, 30)}...` : 'NULL');
             if (token) {
                 try {
                     const payload = JSON.parse(atob(token.split('.')[1]));
+                    console.log('🔓 Token payload:', payload);
                 } catch (decodeError) {
                     console.error('GetAuthToken - Failed to decode token:', decodeError);
                 }
+            } else {
+                console.warn('⚠️ No token found in AsyncStorage');
             }
             return token;
         } catch (error) {
@@ -32,10 +36,12 @@ class ApiService {
             let token;
             if (requiresAuth) {
                 token = await this.getAuthToken();
+                console.log('🔑 Auth token for', endpoint, ':', token ? `${token.substring(0, 20)}...` : 'NULL');
                 if (!token) {
                     throw new Error('Not logged in or your session has expired. Please log in again.');
                 } else {
                     headers.Authorization = `Bearer ${token}`;
+                    console.log('✅ Authorization header set for', endpoint);
                 }
             }
 
@@ -44,10 +50,13 @@ class ApiService {
                 headers,
             };
 
-            if (data && (method === 'POST' || method === 'PUT')) {
+            if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE')) {
                 config.body = JSON.stringify(data);
+                console.log(`[API] Request body for ${method}:`, data);
             }
 
+            // Timeout dài hơn cho AI endpoints (90s thay vì 30s)
+            const timeoutDuration = endpoint.includes('/nutrition/plan') || endpoint.includes('/workout/predict') ? 90000 : 30000;
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 18000); // Timeout 18 giây (ít hơn backend 2s để tránh race condition)
 
