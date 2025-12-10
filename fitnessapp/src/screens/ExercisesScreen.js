@@ -1,311 +1,370 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, RefreshControl, ActivityIndicator, Alert, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    TextInput,
+    RefreshControl,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Animated,
+    Image,
+    Modal
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
-import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../hooks/useTheme';
 import { useNavigation } from '@react-navigation/native';
 import apiService from '../api/apiService';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+const PHASES = [
+    { id: 'warmup', label: 'Khởi động', icon: 'whatshot', color: '#FF9800' },
+    { id: 'main', label: 'Chính', icon: 'fitness-center', color: '#00E676' },
+    { id: 'cooldown', label: 'Hồi phục', icon: 'self-improvement', color: '#2196F3' }
+];
 
 const ExercisesScreen = () => {
     const navigation = useNavigation();
     const { colors } = useTheme();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [selectedCategory, setSelectedCategory] = useState('Tất cả');
+    const [selectedFilter, setSelectedFilter] = useState('Tất cả');
     const [searchQuery, setSearchQuery] = useState('');
     const [exercises, setExercises] = useState([]);
-    const [workoutHistory, setWorkoutHistory] = useState([]);
-
-    const categories = [
-        { id: 'all', name: 'Tất cả', icon: 'apps-outline' },
-        { id: 'chest', name: 'Ngực', icon: 'fitness-outline' },
-        { id: 'back', name: 'Lưng', icon: 'body-outline' },
-        { id: 'legs', name: 'Chân', icon: 'walk-outline' },
-        { id: 'arms', name: 'Tay', icon: 'hand-left-outline' },
-        { id: 'core', name: 'Core', icon: 'ellipse-outline' },
-        { id: 'cardio', name: 'Cardio', icon: 'heart-outline' }
-    ];
+    const [muscleGroups, setMuscleGroups] = useState(['Tất cả']);
+    const [completedExercises, setCompletedExercises] = useState({});
+    const [showVideoModal, setShowVideoModal] = useState(false);
+    const [selectedExercise, setSelectedExercise] = useState(null);
+    const scrollViewRef = useRef(null);
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
     useEffect(() => {
-        fetchExercises();
-        fetchWorkoutHistory();
+        loadExercises();
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 500,
+                useNativeDriver: true
+            }),
+            Animated.spring(scaleAnim, {
+                toValue: 1,
+                friction: 8,
+                tension: 40,
+                useNativeDriver: true
+            })
+        ]).start();
     }, []);
 
-    const fetchExercises = async () => {
+    const loadExercises = async () => {
         try {
             setLoading(true);
-            const data = await apiService.getAllBaiTap();
-            setExercises(data || []);
+            const result = await apiService.apiCall('/baitap', 'GET', null, true);
+
+            if (result?.success && result.data) {
+                const exercisesData = result.data;
+                setExercises(exercisesData);
+
+                // Extract unique muscle groups
+                const groups = ['Tất cả', ...new Set(exercisesData.map(ex => ex.nhomCo).filter(Boolean))];
+                setMuscleGroups(groups);
+            }
         } catch (error) {
-            console.error('Error fetching exercises:', error);
+            console.error('Error loading exercises:', error);
             Alert.alert('Lỗi', 'Không thể tải danh sách bài tập');
         } finally {
             setLoading(false);
         }
     };
 
-    const fetchWorkoutHistory = async () => {
-        try {
-            const data = await apiService.getMyWorkoutHistory();
-            setWorkoutHistory(data || []);
-        } catch (error) {
-            console.error('Error fetching workout history:', error);
-        }
-    };
-
     const onRefresh = async () => {
         setRefreshing(true);
-        await Promise.all([fetchExercises(), fetchWorkoutHistory()]);
+        await loadExercises();
         setRefreshing(false);
     };
 
-    const getCategoryIcon = (category) => {
-        const categoryMap = {
-            'Ngực': 'fitness-outline',
-            'Lưng': 'body-outline',
-            'Chân': 'walk-outline',
-            'Tay': 'hand-left-outline',
-            'Core': 'ellipse-outline',
-            'Cardio': 'heart-outline'
+    // Group exercises by phase (warm-up, main, cool-down)
+    const groupExercisesByPhase = () => {
+        const filtered = exercises.filter(ex => {
+            const matchesFilter = selectedFilter === 'Tất cả' || ex.nhomCo === selectedFilter;
+            const matchesSearch = (ex.tenBaiTap || '').toLowerCase().includes(searchQuery.toLowerCase());
+            return matchesFilter && matchesSearch;
+        });
+
+        // Simple grouping: first 20% warm-up, middle 60% main, last 20% cool-down
+        const total = filtered.length;
+        const warmupCount = Math.ceil(total * 0.2);
+        const cooldownCount = Math.ceil(total * 0.2);
+
+        return {
+            warmup: filtered.slice(0, warmupCount),
+            main: filtered.slice(warmupCount, total - cooldownCount),
+            cooldown: filtered.slice(total - cooldownCount)
         };
-        return categoryMap[category] || 'fitness-outline';
     };
 
-    const getDifficultyColor = (difficulty) => {
-        switch (difficulty) {
-            case 'Dễ': return '#4CAF50';
-            case 'Trung bình': return '#FF9800';
-            case 'Khó': return '#F44336';
-            default: return colors.primary;
-        }
+    const groupedExercises = groupExercisesByPhase();
+
+    const toggleComplete = (exerciseId) => {
+        setCompletedExercises(prev => ({
+            ...prev,
+            [exerciseId]: !prev[exerciseId]
+        }));
     };
 
-    const getDifficultyIcon = (difficulty) => {
-        switch (difficulty) {
-            case 'Dễ': return 'checkmark-circle-outline';
-            case 'Trung bình': return 'alert-circle-outline';
-            case 'Khó': return 'warning-outline';
-            default: return 'help-circle-outline';
-        }
+    const calculateTotalStats = () => {
+        const allExercises = [...groupedExercises.warmup, ...groupedExercises.main, ...groupedExercises.cooldown];
+        const totalTime = allExercises.reduce((sum, ex) => sum + (ex.thoiGian || 0), 0);
+        const totalCalories = allExercises.reduce((sum, ex) => sum + (ex.kcal || 0), 0);
+        const completedCount = Object.values(completedExercises).filter(Boolean).length;
+
+        return { totalTime, totalCalories, completedCount, total: allExercises.length };
     };
 
-    const filteredExercises = exercises.filter(exercise => {
-        const name = exercise?.tenBaiTap || '';
-        const desc = exercise?.moTa || '';
-        const group = exercise?.nhomCo || '';
-        const matchesCategory = selectedCategory === 'Tất cả' || group === selectedCategory;
-        const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) || desc.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesCategory && matchesSearch;
-    });
+    const stats = calculateTotalStats();
 
-    const renderCategoryFilter = () => (
-        <View style={styles.categoryContainer}>
-            <FlatList
-                data={categories}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
+    const scrollToPhase = (phaseId) => {
+        // Find position and scroll
+        let yOffset = 0;
+        if (phaseId === 'warmup') yOffset = 0;
+        else if (phaseId === 'main') yOffset = 300;
+        else if (phaseId === 'cooldown') yOffset = 600;
+
+        scrollViewRef.current?.scrollTo({ y: yOffset, animated: true });
+    };
+
+    const renderHeader = () => (
+        <View style={styles.header}>
+            <Text style={styles.headerTitle}>BÀI TẬP HÔM NAY</Text>
+
+            {/* Search Bar */}
+            <View style={styles.searchContainer}>
+                <MaterialIcons name="search" size={20} color="#8A8C90" />
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Tìm squat, plank..."
+                    placeholderTextColor="#666"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                />
+                {searchQuery ? (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                        <MaterialIcons name="close" size={20} color="#8A8C90" />
+                    </TouchableOpacity>
+                ) : null}
+            </View>
+
+            {/* Filter Chips */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+                {muscleGroups.map((group) => (
                     <TouchableOpacity
+                        key={group}
                         style={[
-                            styles.categoryButton,
-                            {
-                                backgroundColor: selectedCategory === item.name ? colors.primary : colors.surface,
-                                borderColor: selectedCategory === item.name ? colors.primary : colors.border
-                            }
+                            styles.filterChip,
+                            selectedFilter === group && styles.filterChipActive
                         ]}
-                        onPress={() => setSelectedCategory(item.name)}
+                        onPress={() => setSelectedFilter(group)}
                     >
-                        <Ionicons
-                            name={item.icon}
-                            size={20}
-                            color={selectedCategory === item.name ? '#fff' : colors.textSecondary}
-                        />
-                        <Text
+                        <Text style={[
+                            styles.filterChipText,
+                            selectedFilter === group && styles.filterChipTextActive
+                        ]}>
+                            {group}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
+        </View>
+    );
+
+    const renderTimeline = (phase, phaseExercises) => {
+        const phaseConfig = PHASES.find(p => p.id === phase);
+        if (!phaseExercises || phaseExercises.length === 0) return null;
+
+        return (
+            <View style={styles.timelineBlock} key={phase}>
+                {/* Timeline Header */}
+                <View style={styles.timelineHeader}>
+                    <View style={[styles.phaseIcon, { backgroundColor: phaseConfig.color + '20' }]}>
+                        <MaterialIcons name={phaseConfig.icon} size={20} color={phaseConfig.color} />
+                    </View>
+                    <Text style={styles.phaseLabel}>{phaseConfig.label}</Text>
+                    <Text style={styles.phaseCount}>{phaseExercises.length} bài</Text>
+                </View>
+
+                {/* Timeline Line with Dots */}
+                <View style={styles.timelineLine}>
+                    <View style={[styles.timelineBar, { backgroundColor: phaseConfig.color }]} />
+                    {phaseExercises.map((_, index) => (
+                        <View
+                            key={index}
                             style={[
-                                styles.categoryText,
+                                styles.timelineDot,
                                 {
-                                    color: selectedCategory === item.name ? '#fff' : colors.textSecondary
+                                    backgroundColor: phaseConfig.color,
+                                    left: `${(index / Math.max(phaseExercises.length - 1, 1)) * 100}%`
                                 }
                             ]}
                         >
-                            {item.name}
-                        </Text>
-                    </TouchableOpacity>
-                )}
-            />
-        </View>
-    );
-
-    const renderSearchBar = () => (
-        <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
-            <Ionicons name="search-outline" size={20} color={colors.textSecondary} />
-            <TextInput
-                style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Tìm kiếm bài tập..."
-                placeholderTextColor={colors.textSecondary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-            )}
-        </View>
-    );
-
-    const renderExerciseCard = ({ item }) => {
-        const safe = item || {};
-        return (
-            <TouchableOpacity
-                style={[styles.exerciseCard, { backgroundColor: colors.surface }]}
-                onPress={() => navigation.navigate('ExerciseDetail', { exercise: safe })}
-            >
-                <View style={styles.exerciseHeader}>
-                    <View style={styles.exerciseIconContainer}>
-                        <Ionicons
-                            name={getCategoryIcon(safe.nhomCo)}
-                            size={24}
-                            color={colors.primary}
-                        />
-                    </View>
-                    <View style={styles.exerciseInfo}>
-                        <Text style={[styles.exerciseName, { color: colors.text }]}>
-                            {safe.tenBaiTap}
-                        </Text>
-                        <Text style={[styles.exerciseCategory, { color: colors.textSecondary }]}>
-                            {safe.nhomCo}
-                        </Text>
-                    </View>
-                    <View style={styles.exerciseBadges}>
-                        <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(item.mucDo) }]}>
-                            <Ionicons
-                                name={getDifficultyIcon(safe.mucDo)}
-                                size={12}
-                                color="#fff"
-                            />
-                            <Text style={styles.difficultyText}>{safe.mucDo}</Text>
+                            <Text style={styles.dotNumber}>{index + 1}</Text>
                         </View>
-                    </View>
-                </View>
-                <Text style={[styles.exerciseDescription, { color: colors.textSecondary }]} numberOfLines={2}>
-                    {safe.moTa}
-                </Text>
-
-                <View style={styles.exerciseStats}>
-                    <View style={styles.statItem}>
-                        <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                        <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                            {safe.thoiGian || 0} phút
-                        </Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Ionicons name="repeat-outline" size={16} color={colors.textSecondary} />
-                        <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                            {safe.soLanLap || 0} lần
-                        </Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Ionicons name="layers-outline" size={16} color={colors.textSecondary} />
-                        <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                            {safe.soSet || 0} set
-                        </Text>
-                    </View>
+                    ))}
                 </View>
 
-                <View style={styles.exerciseActions}>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: colors.primary }]}
-                        onPress={() => navigation.navigate('ExerciseDetail', { exercise: safe })}
-                    >
-                        <Ionicons name="eye-outline" size={16} color="#fff" />
-                        <Text style={styles.actionButtonText}>Xem chi tiết</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: colors.secondary }]}
-                        onPress={() => navigation.navigate('WorkoutTracking')}
-                    >
-                        <Ionicons name="play-outline" size={16} color="#fff" />
-                        <Text style={styles.actionButtonText}>Bắt đầu</Text>
-                    </TouchableOpacity>
+                {/* Exercise Grid Cards */}
+                <View style={styles.exerciseGrid}>
+                    {phaseExercises.map((exercise, index) => renderExerciseCard(exercise, index, phaseConfig.color))}
                 </View>
-            </TouchableOpacity>
+            </View>
         );
     };
 
-    const renderEmptyState = () => (
-        <View style={styles.emptyState}>
-            <Ionicons name="fitness-outline" size={64} color={colors.textSecondary} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                Không tìm thấy bài tập
-            </Text>
-            <Text style={[styles.emptyDescription, { color: colors.textSecondary }]}>
-                Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm
-            </Text>
+    const renderExerciseCard = (exercise, index, phaseColor) => {
+        const isCompleted = completedExercises[exercise._id];
+        const progress = isCompleted ? 100 : 0;
+
+        return (
+            <Animated.View
+                key={exercise._id}
+                style={[
+                    styles.exerciseCard,
+                    { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }
+                ]}
+            >
+                <TouchableOpacity
+                    style={styles.cardContent}
+                    onPress={() => navigation.navigate('ExerciseDetail', { exercise })}
+                    activeOpacity={0.8}
+                >
+                    {/* Left: Thumbnail */}
+                    <View style={styles.cardLeft}>
+                        <View style={styles.thumbnail}>
+                            <MaterialIcons name="fitness-center" size={40} color={phaseColor} />
+                        </View>
+                        <View style={[styles.completeBadge, isCompleted && styles.completeBadgeActive]}>
+                            <MaterialIcons
+                                name={isCompleted ? "check-circle" : "radio-button-unchecked"}
+                                size={20}
+                                color={isCompleted ? phaseColor : "#666"}
+                            />
+                        </View>
+                    </View>
+
+                    {/* Right: Details */}
+                    <View style={styles.cardRight}>
+                        <Text style={styles.exerciseName} numberOfLines={2}>{exercise.tenBaiTap}</Text>
+
+                        <View style={styles.exerciseMetrics}>
+                            <View style={[styles.metricBadge, { backgroundColor: '#667eea20' }]}>
+                                <MaterialIcons name="repeat" size={14} color="#667eea" />
+                                <Text style={styles.metricText}>{exercise.soSet || 3}×{exercise.soLanLap || 10}</Text>
+                            </View>
+
+                            <View style={[styles.metricBadge, { backgroundColor: '#FF980020' }]}>
+                                <MaterialIcons name="local-fire-department" size={14} color="#FF9800" />
+                                <Text style={styles.metricText}>{exercise.kcal || 150} kcal</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.restTimer}>
+                            <MaterialIcons name="timer" size={14} color="#2196F3" />
+                            <Text style={styles.restText}>Nghỉ {exercise.thoiGianNghi || 60}s</Text>
+                        </View>
+
+                        {/* Progress Bar */}
+                        <View style={styles.progressBarContainer}>
+                            <View style={[styles.progressBar, { width: `${progress}%`, backgroundColor: phaseColor }]} />
+                        </View>
+
+                        {/* Action Buttons */}
+                        <View style={styles.cardActions}>
+                            <TouchableOpacity
+                                style={[styles.completeButton, isCompleted && { backgroundColor: phaseColor }]}
+                                onPress={() => toggleComplete(exercise._id)}
+                            >
+                                <MaterialIcons name={isCompleted ? "check" : "play-arrow"} size={16} color="#fff" />
+                                <Text style={styles.completeButtonText}>
+                                    {isCompleted ? 'Hoàn thành' : 'Bắt đầu'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            </Animated.View>
+        );
+    };
+
+    const renderFooter = () => (
+        <View style={styles.footer}>
+            {/* Stats Summary */}
+            <View style={styles.statsContainer}>
+                <View style={styles.statCard}>
+                    <MaterialIcons name="access-time" size={20} color="#00E676" />
+                    <Text style={styles.statValue}>{stats.totalTime}</Text>
+                    <Text style={styles.statLabel}>phút</Text>
+                </View>
+
+                <View style={styles.statCard}>
+                    <MaterialIcons name="local-fire-department" size={20} color="#FF9800" />
+                    <Text style={styles.statValue}>{stats.totalCalories}</Text>
+                    <Text style={styles.statLabel}>kcal</Text>
+                </View>
+
+                <View style={styles.statCard}>
+                    <MaterialIcons name="emoji-events" size={20} color="#FFD700" />
+                    <Text style={styles.statValue}>{stats.completedCount}/{stats.total}</Text>
+                    <Text style={styles.statLabel}>hoàn thành</Text>
+                </View>
+            </View>
+
+            {/* CTA Button */}
+            <TouchableOpacity
+                style={styles.ctaButton}
+                onPress={() => navigation.navigate('WorkoutTracking')}
+            >
+                <Text style={styles.ctaButtonText}>BẮT ĐẦU BUỔI TẬP</Text>
+                <MaterialIcons name="arrow-forward" size={20} color="#fff" />
+            </TouchableOpacity>
+
+            {/* Streak Badge */}
+            <View style={styles.streakBadge}>
+                <Text style={styles.streakText}>🔥 5 Ngày Liên Tiếp</Text>
+            </View>
         </View>
     );
 
     if (loading) {
         return (
-            <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.text }]}>
-                    Đang tải bài tập...
-                </Text>
+            <View style={[styles.loadingContainer, { backgroundColor: '#0a0a0a' }]}>
+                <ActivityIndicator size="large" color="#00E676" />
+                <Text style={styles.loadingText}>Đang tải bài tập...</Text>
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            {/* Header */}
-            <View style={[styles.header, { backgroundColor: colors.surface }]}>
-                <View style={styles.headerContent}>
-                    <TouchableOpacity
-                        style={styles.backButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <MaterialIcons name="arrow-back" size={24} color={colors.text} />
-                    </TouchableOpacity>
-                    <View style={styles.headerTextContainer}>
-                        <Text style={[styles.headerTitle, { color: colors.text }]}>
-                            Bài Tập
-                        </Text>
-                        <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-                            {filteredExercises.length} bài tập có sẵn
-                        </Text>
-                    </View>
-                    <TouchableOpacity
-                        style={[styles.headerButton, { backgroundColor: colors.primary }]}
-                        onPress={() => navigation.navigate('WorkoutTracking')}
-                    >
-                        <Ionicons name="time-outline" size={20} color="#fff" />
-                    </TouchableOpacity>
-                </View>
-            </View>
+        <SafeAreaView style={styles.container} edges={['top']}>
+            {renderHeader()}
 
-            {/* Search Bar */}
-            {renderSearchBar()}
-
-            {/* Category Filters */}
-            {renderCategoryFilter()}
-
-            {/* Exercises List */}
-            <FlatList
-                data={filteredExercises}
-                keyExtractor={(item) => item._id}
-                renderItem={renderExerciseCard}
-                contentContainerStyle={styles.exercisesList}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                }
-                ListEmptyComponent={renderEmptyState}
+            <ScrollView
+                ref={scrollViewRef}
+                style={styles.content}
                 showsVerticalScrollIndicator={false}
-            />
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00E676" />
+                }
+            >
+                {renderTimeline('warmup', groupedExercises.warmup)}
+                {renderTimeline('main', groupedExercises.main)}
+                {renderTimeline('cooldown', groupedExercises.cooldown)}
+            </ScrollView>
+
+            {renderFooter()}
         </SafeAreaView>
     );
 };
@@ -313,196 +372,311 @@ const ExercisesScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#0a0a0a',
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: '#0a0a0a',
     },
     loadingText: {
-        marginTop: 16,
-        fontSize: 16,
+        marginTop: 12,
+        fontSize: 14,
+        color: '#8A8C90',
     },
+
+    // Header Styles
     header: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 16,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 12,
+        backgroundColor: '#0a0a0a',
         borderBottomWidth: 1,
-        borderBottomColor: '#E5E5E5',
-    },
-    headerContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    backButton: {
-        padding: 8,
-        borderRadius: 20,
-        marginRight: 12,
-    },
-    headerTextContainer: {
-        flex: 1,
+        borderBottomColor: '#1a1a1a',
     },
     headerTitle: {
-        fontSize: 28,
+        fontSize: 24,
         fontWeight: 'bold',
-    },
-    headerSubtitle: {
-        fontSize: 14,
-        marginTop: 4,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        justifyContent: 'center',
-        alignItems: 'center',
+        color: '#FFFFFF',
+        marginBottom: 16,
+        letterSpacing: 1,
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginHorizontal: 20,
-        marginVertical: 16,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        backgroundColor: '#1a1a1a',
         borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E5E5E5',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 12,
     },
     searchInput: {
         flex: 1,
-        marginLeft: 12,
-        fontSize: 16,
+        fontSize: 14,
+        color: '#FFFFFF',
+        marginLeft: 8,
     },
-    categoryContainer: {
-        paddingHorizontal: 20,
-        marginBottom: 16,
-    },
-    categoryButton: {
+    filterContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
+    },
+    filterChip: {
         paddingHorizontal: 16,
         paddingVertical: 8,
-        marginRight: 12,
         borderRadius: 20,
+        backgroundColor: '#1a1a1a',
+        marginRight: 8,
         borderWidth: 1,
+        borderColor: '#2a2a2a',
     },
-    categoryText: {
-        marginLeft: 6,
-        fontSize: 14,
+    filterChipActive: {
+        backgroundColor: '#00E676',
+        borderColor: '#00E676',
+    },
+    filterChipText: {
+        fontSize: 13,
+        color: '#8A8C90',
         fontWeight: '500',
     },
-    exercisesList: {
-        paddingHorizontal: 20,
-        paddingBottom: 20,
+    filterChipTextActive: {
+        color: '#000000',
+        fontWeight: '600',
     },
-    exerciseCard: {
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
+
+    // Content Styles
+    content: {
+        flex: 1,
     },
-    exerciseHeader: {
+
+    // Timeline Styles
+    timelineBlock: {
+        marginBottom: 24,
+        paddingHorizontal: 16,
+    },
+    timelineHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 12,
     },
-    exerciseIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: '#F5F5F5',
-        justifyContent: 'center',
+    phaseIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
+        justifyContent: 'center',
         marginRight: 12,
     },
-    exerciseInfo: {
+    phaseLabel: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#FFFFFF',
         flex: 1,
     },
-    exerciseName: {
-        fontSize: 18,
+    phaseCount: {
+        fontSize: 12,
+        color: '#8A8C90',
+        backgroundColor: '#1a1a1a',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    timelineLine: {
+        height: 40,
+        marginBottom: 16,
+        position: 'relative',
+    },
+    timelineBar: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 19,
+        height: 2,
+    },
+    timelineDot: {
+        position: 'absolute',
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        top: 4,
+        marginLeft: -16,
+        borderWidth: 3,
+        borderColor: '#0a0a0a',
+    },
+    dotNumber: {
+        fontSize: 12,
         fontWeight: 'bold',
-        marginBottom: 4,
+        color: '#000',
     },
-    exerciseCategory: {
-        fontSize: 14,
+
+    // Exercise Grid Styles
+    exerciseGrid: {
+        gap: 12,
     },
-    exerciseBadges: {
+    exerciseCard: {
+        backgroundColor: '#1a1a1a',
+        borderRadius: 16,
+        padding: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#2a2a2a',
+    },
+    cardContent: {
         flexDirection: 'row',
     },
-    difficultyBadge: {
+    cardLeft: {
+        width: '40%',
+        marginRight: 12,
+        position: 'relative',
+    },
+    thumbnail: {
+        width: '100%',
+        aspectRatio: 1.5,
+        backgroundColor: '#2a2a2a',
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    completeBadge: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        backgroundColor: '#0a0a0a',
+        borderRadius: 12,
+        padding: 2,
+    },
+    completeBadgeActive: {
+        backgroundColor: '#00E67620',
+    },
+    cardRight: {
+        flex: 1,
+        justifyContent: 'space-between',
+    },
+    exerciseName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#FFFFFF',
+        marginBottom: 8,
+    },
+    exerciseMetrics: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 6,
+    },
+    metricBadge: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 8,
         paddingVertical: 4,
-        borderRadius: 12,
+        borderRadius: 8,
+        gap: 4,
     },
-    difficultyText: {
-        color: '#fff',
-        fontSize: 12,
+    metricText: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#FFFFFF',
+    },
+    restTimer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginBottom: 8,
+    },
+    restText: {
+        fontSize: 11,
+        color: '#2196F3',
         fontWeight: '500',
-        marginLeft: 4,
     },
-    exerciseDescription: {
-        fontSize: 14,
-        lineHeight: 20,
-        marginBottom: 16,
+    progressBarContainer: {
+        height: 4,
+        backgroundColor: '#2a2a2a',
+        borderRadius: 2,
+        marginBottom: 8,
+        overflow: 'hidden',
     },
-    exerciseStats: {
+    progressBar: {
+        height: '100%',
+        borderRadius: 2,
+    },
+    cardActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    completeButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#2a2a2a',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        gap: 4,
+    },
+    completeButtonText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#FFFFFF',
+    },
+
+    // Footer Styles
+    footer: {
+        backgroundColor: '#0a0a0a',
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 8,
+        borderTopWidth: 1,
+        borderTopColor: '#1a1a1a',
+    },
+    statsContainer: {
         flexDirection: 'row',
         justifyContent: 'space-around',
         marginBottom: 16,
-        paddingTop: 16,
-        borderTopWidth: 1,
-        borderTopColor: '#F0F0F0',
     },
-    statItem: {
-        flexDirection: 'row',
+    statCard: {
         alignItems: 'center',
+        backgroundColor: '#1a1a1a',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        minWidth: 90,
     },
-    statText: {
-        marginLeft: 6,
-        fontSize: 12,
-    },
-    exerciseActions: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    actionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
-        flex: 1,
-        marginHorizontal: 4,
-        justifyContent: 'center',
-    },
-    actionButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '500',
-        marginLeft: 6,
-    },
-    emptyState: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 60,
-    },
-    emptyTitle: {
-        fontSize: 20,
+    statValue: {
+        fontSize: 18,
         fontWeight: 'bold',
-        marginTop: 16,
-        marginBottom: 8,
+        color: '#FFFFFF',
+        marginTop: 4,
     },
-    emptyDescription: {
+    statLabel: {
+        fontSize: 11,
+        color: '#8A8C90',
+        marginTop: 2,
+    },
+    ctaButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#00E676',
+        paddingVertical: 16,
+        borderRadius: 12,
+        marginBottom: 12,
+        gap: 8,
+    },
+    ctaButtonText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#000000',
+        letterSpacing: 0.5,
+    },
+    streakBadge: {
+        alignItems: 'center',
+        paddingVertical: 8,
+    },
+    streakText: {
         fontSize: 14,
-        textAlign: 'center',
-        lineHeight: 20,
+        fontWeight: '600',
+        color: '#FFD700',
     },
 });
 

@@ -543,6 +543,70 @@ export const checkInAPI = {
     },
 };
 
+export const ptCheckInAPI = {
+    // Get today's sessions for PT
+    getTodaySessions: async () => {
+        return apiRequest('/pt/checkin/today-sessions');
+    },
+    // PT Check-in
+    checkIn: async (buoiTapId, qrCode, image) => {
+        return apiRequest('/pt/checkin/checkin', {
+            method: 'POST',
+            body: JSON.stringify({
+                buoiTapId,
+                qrCode,
+                image
+            }),
+        });
+    },
+    // PT Check-out
+    checkOut: async (checkInRecordId, qrCode, image) => {
+        return apiRequest('/pt/checkin/checkout', {
+            method: 'POST',
+            body: JSON.stringify({
+                checkInRecordId,
+                qrCode,
+                image
+            }),
+        });
+    },
+    // Get PT check-in history
+    getHistory: async (limit = 50, startDate, endDate) => {
+        const params = new URLSearchParams({ limit: limit.toString() });
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+        return apiRequest(`/pt/checkin/history?${params.toString()}`);
+    },
+    // Get PT QR code
+    getQRCode: async () => {
+        return apiRequest('/pt/checkin/qr-code');
+    },
+};
+
+export const sessionReviewAPI = {
+    // Tạo hoặc cập nhật đánh giá buổi tập
+    createOrUpdateReview: async (checkInRecordId, ptRating, ptComment, branchRating, branchComment) => {
+        return apiRequest('/session-reviews', {
+            method: 'POST',
+            body: JSON.stringify({
+                checkInRecordId,
+                ptRating,
+                ptComment,
+                branchRating,
+                branchComment
+            }),
+        });
+    },
+    // Lấy đánh giá theo check-in record
+    getReviewByCheckInRecord: async (checkInRecordId) => {
+        return apiRequest(`/session-reviews/checkin/${checkInRecordId}`);
+    },
+    // Lấy danh sách đánh giá chưa hoàn thành
+    getPendingReviews: async () => {
+        return apiRequest('/session-reviews/pending');
+    },
+};
+
 export const scheduleAPI = {
     // Đăng ký buổi tập
     registerSession: async (buoiTapId) => {
@@ -619,5 +683,7 @@ export default {
     chatbotAPI,
     paymentAPI,
     checkInAPI,
+    ptCheckInAPI,
+    sessionReviewAPI,
     api,
 };

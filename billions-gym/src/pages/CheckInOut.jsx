@@ -7,6 +7,8 @@ import CheckInCamera from '../components/face/CheckInCamera';
 import FaceEnrollment from '../components/face/FaceEnrollment';
 import QRScanner from '../components/qr/QRScanner';
 import QRCodeDisplay from '../components/qr/QRCodeDisplay';
+import ReviewModal from '../components/checkin/ReviewModal';
+import { sessionReviewAPI } from '../services/api';
 import './CheckInOut.css';
 
 const CheckInOut = () => {
@@ -26,7 +28,7 @@ const CheckInOut = () => {
     const [verificationError, setVerificationError] = useState(null);
     const verificationRetryCountRef = useRef(0);
     const isProcessingRef = useRef(false); // Track if we're processing a scan
-    const [checkInMode, setCheckInMode] = useState('face'); // 'face' or 'qr'
+    const [checkInMode, setCheckInMode] = useState('qr'); // 'face' or 'qr'
     const [showQRCodeDisplay, setShowQRCodeDisplay] = useState(false);
     const [qrCode, setQrCode] = useState(null);
     const [qrCodeLoading, setQrCodeLoading] = useState(false);
@@ -34,6 +36,9 @@ const CheckInOut = () => {
     const [checkInSuccessData, setCheckInSuccessData] = useState(null);
     const [checkOutSuccessData, setCheckOutSuccessData] = useState(null);
     const [shouldStopCamera, setShouldStopCamera] = useState(false);
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [reviewCheckInRecordId, setReviewCheckInRecordId] = useState(null);
+    const [reviewBuoiTap, setReviewBuoiTap] = useState(null);
 
     // Get user and auth status at component level
     const user = authUtils.getUser();
@@ -106,7 +111,26 @@ const CheckInOut = () => {
         try {
             const result = await checkInAPI.getHistory(20);
             if (result.success) {
-                setHistory(result.data || []);
+                const historyData = result.data || [];
+                // Load review status for each history item
+                const historyWithReviews = await Promise.all(
+                    historyData.map(async (record) => {
+                        if (record.checkOutTime) {
+                            try {
+                                const reviewResult = await sessionReviewAPI.getReviewByCheckInRecord(record._id);
+                                return {
+                                    ...record,
+                                    hasReview: reviewResult.success && reviewResult.data && reviewResult.data.isCompleted,
+                                    review: reviewResult.success ? reviewResult.data : null
+                                };
+                            } catch (err) {
+                                return { ...record, hasReview: false, review: null };
+                            }
+                        }
+                        return { ...record, hasReview: false, review: null };
+                    })
+                );
+                setHistory(historyWithReviews);
             }
         } catch (err) {
             console.error('Error loading history:', err);
@@ -328,6 +352,19 @@ const CheckInOut = () => {
                 setCheckInSuccessData(null);
                 // Reload sessions to get updated status
                 await loadTodaySessions();
+
+                // Hiện pop-up đánh giá sau 2 giây
+                setTimeout(() => {
+                    if (result.data && result.data.checkInRecord && result.data.buoiTap) {
+                        const checkInRecordId = result.data.checkInRecord._id || (result.data.checkInRecord.checkInTime ? result.data.checkInRecord : null);
+                        if (checkInRecordId) {
+                            setReviewCheckInRecordId(checkInRecordId);
+                            setReviewBuoiTap(result.data.buoiTap);
+                            setShowReviewModal(true);
+                        }
+                    }
+                }, 2000);
+
                 // Keep UI visible, don't clear selectedSession immediately
                 setTimeout(() => {
                     setCheckInStatus(null);
@@ -504,6 +541,15 @@ const CheckInOut = () => {
                 if (isCheckOut) {
                     setCheckOutSuccessData(result.data || null);
                     setCheckInSuccessData(null);
+
+                    // Hiện pop-up đánh giá sau 2 giây nếu check-out thành công
+                    setTimeout(() => {
+                        if (result.data && result.data.checkInRecord && result.data.buoiTap) {
+                            setReviewCheckInRecordId(result.data.checkInRecord._id);
+                            setReviewBuoiTap(result.data.buoiTap);
+                            setShowReviewModal(true);
+                        }
+                    }, 2000);
                 } else {
                     setCheckInSuccessData(result.data || null);
                     setCheckOutSuccessData(null);
@@ -983,29 +1029,64 @@ const CheckInOut = () => {
                                     ) : (
                                         history.map((record) => (
                                             <div key={record._id} className="history-item">
-                                                <div className="history-info">
-                                                    <h4>{record.buoiTap?.tenBuoiTap || 'Buổi tập'}</h4>
-                                                    <p>
-                                                        {new Date(record.checkInTime).toLocaleString('vi-VN')}
-                                                        {record.checkOutTime && (
-                                                            <> - {new Date(record.checkOutTime).toLocaleString('vi-VN')}</>
-                                                        )}
-                                                    </p>
+                                                <div className="history-item-left">
+                                                    <div className="history-info">
+                                                        <h4>{record.buoiTap?.tenBuoiTap || 'Buổi tập'}</h4>
+                                                        <div className="history-time-info">
+                                                            <div className="history-time-row">
+                                                                <span className="history-time-label">Check-in:</span>
+                                                                <span className="history-time-value">
+                                                                    {new Date(record.checkInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                                    {' '}
+                                                                    {new Date(record.checkInTime).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                                                </span>
+                                                            </div>
+                                                            {record.checkOutTime && (
+                                                                <div className="history-time-row">
+                                                                    <span className="history-time-label">Check-out:</span>
+                                                                    <span className="history-time-value">
+                                                                        {new Date(record.checkOutTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                                        {' '}
+                                                                        {new Date(record.checkOutTime).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="history-status">
-                                                    <span
-                                                        className="status-badge"
-                                                        style={{ backgroundColor: getStatusColor(record.checkInStatus) }}
-                                                    >
-                                                        Check-in: {getStatusText(record.checkInStatus)}
-                                                    </span>
-                                                    {record.checkOutStatus && (
+                                                <div className="history-item-right">
+                                                    <div className="history-status">
                                                         <span
-                                                            className="status-badge"
-                                                            style={{ backgroundColor: getStatusColor(record.checkOutStatus) }}
+                                                            className="status-badge history-status-badge"
+                                                            style={{ backgroundColor: getStatusColor(record.checkInStatus) }}
                                                         >
-                                                            Check-out: {getStatusText(record.checkOutStatus)}
+                                                            CHECK-IN: {getStatusText(record.checkInStatus).toUpperCase()}
                                                         </span>
+                                                        {record.checkOutStatus && (
+                                                            <span
+                                                                className="status-badge history-status-badge"
+                                                                style={{ backgroundColor: getStatusColor(record.checkOutStatus) }}
+                                                            >
+                                                                CHECK-OUT: {getStatusText(record.checkOutStatus).toUpperCase()}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {record.checkOutTime && !record.hasReview && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setReviewCheckInRecordId(record._id);
+                                                                setReviewBuoiTap(record.buoiTap);
+                                                                setShowReviewModal(true);
+                                                            }}
+                                                            className="history-review-btn"
+                                                        >
+                                                            ⭐ Đánh giá buổi tập
+                                                        </button>
+                                                    )}
+                                                    {record.hasReview && (
+                                                        <div className="history-reviewed">
+                                                            ✅ Đã đánh giá
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -1310,6 +1391,25 @@ const CheckInOut = () => {
                             </div>
                         </div>
                     )}
+
+                    {/* Review Modal */}
+                    <ReviewModal
+                        isOpen={showReviewModal}
+                        onClose={() => {
+                            setShowReviewModal(false);
+                            setReviewCheckInRecordId(null);
+                            setReviewBuoiTap(null);
+                        }}
+                        checkInRecordId={reviewCheckInRecordId}
+                        buoiTap={reviewBuoiTap}
+                        onReviewComplete={(reviewData) => {
+                            console.log('Review completed:', reviewData);
+                            // Reload history to update review status
+                            if (showHistory) {
+                                loadHistory();
+                            }
+                        }}
+                    />
                 </div>
             </div>
         </div>

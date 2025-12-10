@@ -7,6 +7,7 @@ import {
     Check, X, AlertCircle, User, Phone, Mail, MessageSquare,
     RefreshCw, Target, Activity, TrendingUp
 } from 'lucide-react';
+import ptService from '../../services/pt.service';
 
 const PTScheduleNew = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -27,94 +28,18 @@ const PTScheduleNew = () => {
     const [showEventModal, setShowEventModal] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showParticipantsModal, setShowParticipantsModal] = useState(false);
+    const [selectedParticipants, setSelectedParticipants] = useState([]);
 
-    // Mock Data
+    // Data thực từ API
     const [scheduleData, setScheduleData] = useState({
-        events: [
-            {
-                id: '1',
-                hoiVien: { _id: 'hv1', hoTen: 'Nguyễn Văn An', soDienThoai: '0901234567', email: 'an@gmail.com' },
-                ngayHen: '2025-12-03',
-                gioHen: '08:00',
-                thoiLuong: 60,
-                trangThaiLichHen: 'DA_XAC_NHAN',
-                loaiBuoiTap: 'HIIT',
-                ghiChu: 'Tập trung phần core, tăng cường cardio',
-                diaDiem: 'Phòng Tập 1'
-            },
-            {
-                id: '2',
-                hoiVien: { _id: 'hv2', hoTen: 'Phạm Thu Hà', soDienThoai: '0912345678', email: 'ha@gmail.com' },
-                ngayHen: '2025-12-03',
-                gioHen: '10:00',
-                thoiLuong: 60,
-                trangThaiLichHen: 'DA_XAC_NHAN',
-                loaiBuoiTap: 'Yoga',
-                ghiChu: 'Buổi đầu tiên, cần hướng dẫn cơ bản',
-                diaDiem: 'Phòng Yoga'
-            },
-            {
-                id: '3',
-                hoiVien: { _id: 'hv3', hoTen: 'Trần Minh Tuấn', soDienThoai: '0923456789', email: 'tuan@gmail.com' },
-                ngayHen: '2025-12-03',
-                gioHen: '14:00',
-                thoiLuong: 90,
-                trangThaiLichHen: 'CHO_XAC_NHAN',
-                loaiBuoiTap: 'Strength Training',
-                ghiChu: 'Tập tạ, tăng sức mạnh chân',
-                diaDiem: 'Khu Vực Tạ'
-            },
-            {
-                id: '4',
-                hoiVien: { _id: 'hv4', hoTen: 'Lê Thị Bích', soDienThoai: '0934567890', email: 'bich@gmail.com' },
-                ngayHen: '2025-12-03',
-                gioHen: '16:00',
-                thoiLuong: 60,
-                trangThaiLichHen: 'DA_XAC_NHAN',
-                loaiBuoiTap: 'Cardio',
-                ghiChu: 'Chạy bộ, đạp xe',
-                diaDiem: 'Khu Vực Cardio'
-            },
-            {
-                id: '5',
-                hoiVien: { _id: 'hv5', hoTen: 'Hoàng Đức Minh', soDienThoai: '0945678901', email: 'minh@gmail.com' },
-                ngayHen: '2025-12-04',
-                gioHen: '09:00',
-                thoiLuong: 60,
-                trangThaiLichHen: 'DA_XAC_NHAN',
-                loaiBuoiTap: 'HIIT',
-                ghiChu: 'Tăng độ khó so với buổi trước',
-                diaDiem: 'Phòng Tập 2'
-            },
-            {
-                id: '6',
-                hoiVien: { _id: 'hv1', hoTen: 'Nguyễn Văn An', soDienThoai: '0901234567', email: 'an@gmail.com' },
-                ngayHen: '2025-12-04',
-                gioHen: '15:00',
-                thoiLuong: 60,
-                trangThaiLichHen: 'DA_XAC_NHAN',
-                loaiBuoiTap: 'Strength Training',
-                ghiChu: 'Tập ngực, vai',
-                diaDiem: 'Khu Vực Tạ'
-            },
-            {
-                id: '7',
-                hoiVien: { _id: 'hv2', hoTen: 'Phạm Thu Hà', soDienThoai: '0912345678', email: 'ha@gmail.com' },
-                ngayHen: '2025-12-05',
-                gioHen: '10:30',
-                thoiLuong: 60,
-                trangThaiLichHen: 'CHO_XAC_NHAN',
-                loaiBuoiTap: 'Yoga',
-                ghiChu: 'Focus vào flexibility',
-                diaDiem: 'Phòng Yoga'
-            }
-        ],
+        events: [],
         summary: {
-            todaySessions: 4,
-            weekSessions: 15,
-            freeSlots: ['13:00', '17:00', '18:00'],
-            workload: 65,
-            topSessionType: 'HIIT'
+            todaySessions: 0,
+            weekSessions: 0,
+            freeSlots: [],
+            workload: 0,
+            topSessionType: ''
         }
     });
 
@@ -133,14 +58,43 @@ const PTScheduleNew = () => {
     const loadScheduleData = async () => {
         setLoading(true);
         try {
-            // TODO: API Integration
-            // const response = await fetch('/api/lichhenpt/pt/my');
-            // const data = await response.json();
-            // setScheduleData(transformData(data));
+            const { start, end } = getRangeByView();
+            const response = await ptService.getMySessions({
+                ngayBatDau: start.toISOString(),
+                ngayKetThuc: end.toISOString(),
+                limit: 800
+            });
 
-            setTimeout(() => setLoading(false), 500);
+            if (response.success && response.data?.buoiTaps) {
+                const events = response.data.buoiTaps.map((s, idx) => ({
+                    id: s._id || `session-${idx}`,
+                    hoiVien: s.danhSachHoiVien?.[0]?.hoiVien || null,
+                    danhSachHoiVien: s.danhSachHoiVien || [],
+                    ngayHen: s.ngayTap,
+                    gioHen: s.gioBatDau,
+                    gioKetThuc: s.gioKetThuc,
+                    thoiLuong: computeDuration(s.gioBatDau, s.gioKetThuc),
+                    trangThaiLichHen: s.trangThai || 'DA_XAC_NHAN',
+                    loaiBuoiTap: s.tenBuoiTap || s.doKho || 'Buổi tập',
+                    ghiChu: s.moTa || '',
+                    diaDiem: s.chiNhanh?.tenChiNhanh || s.chiNhanh || '',
+                    imageUrl: s.hinhAnh || s.hinhAnhMinhHoa || s.template?.hinhAnh || ''
+                }));
+
+                setScheduleData({
+                    events,
+                    summary: {
+                        todaySessions: events.filter(e => isSameDay(e.ngayHen, new Date())).length,
+                        weekSessions: events.length,
+                        freeSlots: [],
+                        workload: events.length,
+                        topSessionType: ''
+                    }
+                });
+            }
         } catch (error) {
             console.error('Error loading schedule:', error);
+        } finally {
             setLoading(false);
         }
     };
@@ -166,14 +120,101 @@ const PTScheduleNew = () => {
         return texts[status] || status;
     };
 
+    // Hàm hash để convert tên buổi tập thành số
+    const hashString = (str) => {
+        let hash = 0;
+        const normalizedStr = (str || '').toLowerCase().trim();
+        for (let i = 0; i < normalizedStr.length; i++) {
+            const char = normalizedStr.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return Math.abs(hash);
+    };
+
+    // Bảng màu cố định với nhiều màu đẹp (Tailwind classes)
+    const sessionColorPalette = [
+        'bg-red-500',      // Đỏ
+        'bg-orange-500',   // Cam
+        'bg-amber-500',    // Vàng cam
+        'bg-yellow-500',   // Vàng
+        'bg-lime-500',     // Xanh lá nhạt
+        'bg-green-500',    // Xanh lá
+        'bg-emerald-500',  // Xanh lá đậm
+        'bg-teal-500',     // Xanh ngọc
+        'bg-cyan-500',     // Xanh dương nhạt
+        'bg-blue-500',     // Xanh dương
+        'bg-indigo-500',   // Chàm
+        'bg-violet-500',   // Tím
+        'bg-purple-500',   // Tím đậm
+        'bg-fuchsia-500',  // Hồng tím
+        'bg-pink-500',     // Hồng
+        'bg-rose-500',     // Hồng đỏ
+        'bg-red-600',      // Đỏ đậm
+        'bg-orange-600',   // Cam đậm
+        'bg-green-600',    // Xanh lá đậm
+        'bg-blue-600',     // Xanh dương đậm
+        'bg-purple-600',   // Tím đậm
+        'bg-pink-600',     // Hồng đậm
+        'bg-teal-600',     // Xanh ngọc đậm
+        'bg-indigo-600',   // Chàm đậm
+    ];
+
+    // Map Tailwind color class sang hex color để dùng trong style
+    const tailwindToHex = {
+        'bg-red-500': '#ef4444',
+        'bg-orange-500': '#f97316',
+        'bg-amber-500': '#f59e0b',
+        'bg-yellow-500': '#eab308',
+        'bg-lime-500': '#84cc16',
+        'bg-green-500': '#22c55e',
+        'bg-emerald-500': '#10b981',
+        'bg-teal-500': '#14b8a6',
+        'bg-cyan-500': '#06b6d4',
+        'bg-blue-500': '#3b82f6',
+        'bg-indigo-500': '#6366f1',
+        'bg-violet-500': '#8b5cf6',
+        'bg-purple-500': '#a855f7',
+        'bg-fuchsia-500': '#d946ef',
+        'bg-pink-500': '#ec4899',
+        'bg-rose-500': '#f43f5e',
+        'bg-red-600': '#dc2626',
+        'bg-orange-600': '#ea580c',
+        'bg-green-600': '#16a34a',
+        'bg-blue-600': '#2563eb',
+        'bg-purple-600': '#9333ea',
+        'bg-pink-600': '#db2777',
+        'bg-teal-600': '#0d9488',
+        'bg-indigo-600': '#4f46e5',
+        'bg-gray-500': '#6b7280',
+    };
+
     const getSessionTypeColor = (type) => {
-        const colors = {
-            'HIIT': 'bg-red-500',
-            'Yoga': 'bg-purple-500',
-            'Strength Training': 'bg-blue-500',
-            'Cardio': 'bg-green-500'
+        // Nếu không có type, trả về màu mặc định
+        if (!type || !type.trim()) {
+            return 'bg-gray-500';
+        }
+
+        // Sử dụng hash để map tên buổi tập thành màu nhất quán
+        const hash = hashString(type);
+        const colorIndex = hash % sessionColorPalette.length;
+        return sessionColorPalette[colorIndex];
+    };
+
+    // Hàm helper để lấy hex color từ tên buổi tập (dùng cho style)
+    const getSessionTypeHexColor = (type) => {
+        const tailwindClass = getSessionTypeColor(type);
+        return tailwindToHex[tailwindClass] || '#6b7280'; // Mặc định gray nếu không tìm thấy
+    };
+
+    const getEventStyle = (event) => {
+        if (!event?.imageUrl) return {};
+        return {
+            backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.60), rgba(0,0,0,0.35)), url(${event.imageUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
         };
-        return colors[type] || 'bg-gray-500';
     };
 
     const getWeekDays = () => {
@@ -189,9 +230,54 @@ const PTScheduleNew = () => {
         return days;
     };
 
+    const getRangeByView = () => {
+        const start = new Date(currentDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+
+        if (viewMode === 'day') {
+            end.setDate(start.getDate() + 1);
+        } else if (viewMode === 'week') {
+            start.setDate(start.getDate() - start.getDay());
+            end.setDate(start.getDate() + 7);
+        } else {
+            // month view
+            start.setDate(1);
+            end.setMonth(start.getMonth() + 1, 1);
+        }
+
+        end.setHours(23, 59, 59, 999);
+        return { start, end };
+    };
+
+    const computeDuration = (startTime, endTime) => {
+        if (!startTime || !endTime) return 60;
+        const [sh, sm] = startTime.split(':').map(Number);
+        const [eh, em] = endTime.split(':').map(Number);
+        return (eh * 60 + em) - (sh * 60 + sm);
+    };
+
+    const isSameDay = (dateA, dateB) => {
+        const a = new Date(dateA);
+        const b = new Date(dateB);
+        return a.getFullYear() === b.getFullYear() &&
+            a.getMonth() === b.getMonth() &&
+            a.getDate() === b.getDate();
+    };
+
     const getEventsForDate = (date) => {
         const dateStr = date.toISOString().split('T')[0];
-        return scheduleData.events.filter(event => event.ngayHen === dateStr);
+        return scheduleData.events.filter(event => {
+            if (event.ngayHen && new Date(event.ngayHen).toISOString().split('T')[0] !== dateStr) return false;
+            if (filterStatus !== 'all' && event.trangThaiLichHen !== filterStatus) return false;
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                const name = (event.hoiVien?.hoTen || '').toLowerCase();
+                const title = (event.loaiBuoiTap || '').toLowerCase();
+                if (!name.includes(q) && !title.includes(q)) return false;
+            }
+            return true;
+        });
     };
 
     const handlePreviousPeriod = () => {
@@ -217,7 +303,9 @@ const PTScheduleNew = () => {
 
     const handleEventClick = (event) => {
         setSelectedEvent(event);
-        setShowEventModal(true);
+        setSelectedParticipants(event.danhSachHoiVien || []);
+        setShowParticipantsModal(true);
+        setShowEventModal(false);
     };
 
     const handleConfirmBooking = async (eventId) => {
@@ -484,11 +572,12 @@ const PTScheduleNew = () => {
                                                                     <div
                                                                         key={event.id}
                                                                         onClick={() => handleEventClick(event)}
-                                                                        className={`${getSessionTypeColor(event.loaiBuoiTap)} px-1.5 py-1 rounded text-white cursor-pointer hover:opacity-80 transition-opacity h-full flex flex-col justify-center overflow-hidden`}
-                                                                        title={`${event.hoiVien.hoTen}\n${event.diaDiem}`}
+                                                                        className={`${event.imageUrl ? '' : getSessionTypeColor(event.loaiBuoiTap)} px-1.5 py-1 rounded text-white cursor-pointer hover:opacity-80 transition-opacity h-full flex flex-col justify-center overflow-hidden`}
+                                                                        style={getEventStyle(event)}
+                                                                        title={`${event.hoiVien?.hoTen || 'Không rõ học viên'}\n${event.diaDiem || ''}`}
                                                                     >
                                                                         <div className="text-[10px] font-medium leading-tight">{event.gioHen}</div>
-                                                                        <div className="text-[10px] truncate leading-tight font-medium">{event.hoiVien.hoTen}</div>
+                                                                        <div className="text-[10px] truncate leading-tight font-medium">{event.hoiVien?.hoTen || 'Không rõ học viên'}</div>
                                                                         <div className="text-[9px] truncate opacity-80 leading-tight">PT: {event.loaiBuoiTap}</div>
                                                                     </div>
                                                                 ))}
@@ -557,46 +646,50 @@ const PTScheduleNew = () => {
                                                         <div className="w-20 p-4 bg-[#1a1a1a] text-sm text-gray-400 flex-shrink-0">{time}</div>
                                                         <div className="flex-1 p-4">
                                                             {timeEvents.length > 0 ? (
-                                                                timeEvents.map((event) => (
-                                                                    <div
-                                                                        key={event.id}
-                                                                        onClick={() => handleEventClick(event)}
-                                                                        className="bg-[#1a1a1a] rounded-xl p-4 mb-2 hover:bg-[#2a2a2a] transition-colors cursor-pointer border-l-4 border-l-[#da2128]"
-                                                                        style={{ borderLeftColor: getSessionTypeColor(event.loaiBuoiTap).replace('bg-', '') }}
-                                                                    >
-                                                                        <div className="flex items-start justify-between mb-3">
-                                                                            <div className="flex items-center gap-3">
-                                                                                <div className="w-10 h-10 bg-[#da2128]/10 rounded-full flex items-center justify-center">
-                                                                                    <User className="w-5 h-5 text-[#da2128]" />
+                                                                timeEvents.map((event) => {
+                                                                    const learnerName = event.hoiVien?.hoTen || 'Không rõ học viên';
+                                                                    const borderColor = getSessionTypeHexColor(event.loaiBuoiTap);
+                                                                    return (
+                                                                        <div
+                                                                            key={event.id}
+                                                                            onClick={() => handleEventClick(event)}
+                                                                            className="bg-[#1a1a1a] rounded-xl p-4 mb-2 hover:bg-[#2a2a2a] transition-colors cursor-pointer border-l-4"
+                                                                            style={{ borderLeftColor: borderColor }}
+                                                                        >
+                                                                            <div className="flex items-start justify-between mb-3">
+                                                                                <div className="flex items-center gap-3">
+                                                                                    <div className="w-10 h-10 bg-[#da2128]/10 rounded-full flex items-center justify-center">
+                                                                                        <User className="w-5 h-5 text-[#da2128]" />
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <h4 className="text-white font-bold">{learnerName}</h4>
+                                                                                        <p className="text-sm text-gray-400">{event.loaiBuoiTap}</p>
+                                                                                    </div>
                                                                                 </div>
-                                                                                <div>
-                                                                                    <h4 className="text-white font-bold">{event.hoiVien.hoTen}</h4>
-                                                                                    <p className="text-sm text-gray-400">{event.loaiBuoiTap}</p>
-                                                                                </div>
+                                                                                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(event.trangThaiLichHen)}`}>
+                                                                                    {getStatusText(event.trangThaiLichHen)}
+                                                                                </span>
                                                                             </div>
-                                                                            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(event.trangThaiLichHen)}`}>
-                                                                                {getStatusText(event.trangThaiLichHen)}
-                                                                            </span>
-                                                                        </div>
 
-                                                                        <div className="space-y-2 text-sm">
-                                                                            <div className="flex items-center gap-2 text-gray-400">
-                                                                                <Clock className="w-4 h-4" />
-                                                                                <span>{event.gioHen} ({event.thoiLuong} phút)</span>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2 text-gray-400">
-                                                                                <MapPin className="w-4 h-4" />
-                                                                                <span>{event.diaDiem}</span>
-                                                                            </div>
-                                                                            {event.ghiChu && (
-                                                                                <div className="flex items-start gap-2 text-gray-400">
-                                                                                    <MessageSquare className="w-4 h-4 mt-0.5" />
-                                                                                    <span className="flex-1">{event.ghiChu}</span>
+                                                                            <div className="space-y-2 text-sm">
+                                                                                <div className="flex items-center gap-2 text-gray-400">
+                                                                                    <Clock className="w-4 h-4" />
+                                                                                    <span>{event.gioHen} ({event.thoiLuong} phút)</span>
                                                                                 </div>
-                                                                            )}
+                                                                                <div className="flex items-center gap-2 text-gray-400">
+                                                                                    <MapPin className="w-4 h-4" />
+                                                                                    <span>{event.diaDiem}</span>
+                                                                                </div>
+                                                                                {event.ghiChu && (
+                                                                                    <div className="flex items-start gap-2 text-gray-400">
+                                                                                        <MessageSquare className="w-4 h-4 mt-0.5" />
+                                                                                        <span className="flex-1">{event.ghiChu}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
-                                                                    </div>
-                                                                ))
+                                                                    );
+                                                                })
                                                             ) : (
                                                                 <div className="text-center py-8 text-gray-400">
                                                                     <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -756,15 +849,16 @@ const PTScheduleNew = () => {
                                                                         {dayEvents.slice(0, 2).map((event, idx) => (
                                                                             <div
                                                                                 key={idx}
-                                                                                className={`text-[11px] px-1.5 py-1 rounded ${getSessionTypeColor(event.loaiBuoiTap)} text-white overflow-hidden cursor-pointer transition-opacity hover:opacity-80 flex-shrink-0`}
-                                                                                title={`${event.gioHen} - ${event.hoiVien.hoTen}`}
+                                                                                className={`text-[11px] px-1.5 py-1 rounded ${event.imageUrl ? '' : getSessionTypeColor(event.loaiBuoiTap)} text-white overflow-hidden cursor-pointer transition-opacity hover:opacity-80 flex-shrink-0`}
+                                                                                style={getEventStyle(event)}
+                                                                                title={`${event.gioHen} - ${event.hoiVien?.hoTen || 'Không rõ học viên'}`}
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
                                                                                     handleEventClick(event);
                                                                                 }}
                                                                             >
                                                                                 <div className="font-medium truncate">{event.gioHen}</div>
-                                                                                <div className="truncate">{event.hoiVien.hoTen}</div>
+                                                                                <div className="truncate">{event.hoiVien?.hoTen || 'Không rõ học viên'}</div>
                                                                             </div>
                                                                         ))}
                                                                         {dayEvents.length > 2 && (
@@ -909,6 +1003,45 @@ const PTScheduleNew = () => {
                                     </>
                                 )}
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Participants Modal */}
+            {showParticipantsModal && selectedEvent && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 flex items-center justify-center p-4 mt-16 sm:mt-20">
+                    <div className="bg-[#141414] rounded-2xl border border-[#2a2a2a] max-w-xl w-full max-h-[calc(90vh-5rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-[#2a2a2a] scrollbar-track-[#141414]">
+                        <div className="p-6 border-b border-[#2a2a2a] flex items-center justify-between">
+                            <div>
+                                <h2 className="text-2xl font-bold text-white">Học viên tham gia</h2>
+                                <p className="text-gray-400 text-sm mt-1">
+                                    {new Date(selectedEvent.ngayHen).toLocaleDateString('vi-VN')} • {selectedEvent.gioHen} - {selectedEvent.gioKetThuc}
+                                </p>
+                            </div>
+                            <button onClick={() => setShowParticipantsModal(false)} className="w-10 h-10 bg-[#1a1a1a] hover:bg-[#2a2a2a] rounded-lg flex items-center justify-center transition-colors cursor-pointer">
+                                <X className="w-5 h-5 text-white" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            {selectedParticipants.length === 0 ? (
+                                <div className="text-center py-8 text-gray-400">
+                                    Không có học viên đăng ký
+                                </div>
+                            ) : (
+                                selectedParticipants.map((p, idx) => (
+                                    <div key={p._id || idx} className="bg-[#1a1a1a] rounded-xl p-4 border border-[#2a2a2a]">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-white font-semibold">{p.hoiVien?.hoTen || 'Học viên'}</p>
+                                                <p className="text-gray-400 text-sm">{p.hoiVien?.email || ''}</p>
+                                            </div>
+                                            <span className="text-sm text-gray-400">Trạng thái: {p.trangThai || 'DA_DANG_KY'}</span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>

@@ -11,10 +11,27 @@ exports.createBaiTap = async (req, res) => {
 
 exports.getAllBaiTap = async (req, res) => {
     try {
+        console.log('📋 getAllBaiTap - Request received');
         const baiTaps = await baiTapService.getAllBaiTap();
+        console.log(`📋 getAllBaiTap - Returning ${baiTaps.length} exercises`);
         res.json(baiTaps);
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        console.error('📋 getAllBaiTap - Error:', err.message);
+        console.error('📋 getAllBaiTap - Stack:', err.stack);
+        
+        // Kiểm tra loại lỗi
+        if (err.name === 'MongooseError' || err.message.includes('timeout') || err.message.includes('timed out')) {
+            res.status(503).json({ 
+                message: 'Database connection timeout. Please try again.',
+                error: err.message,
+                retryable: true
+            });
+        } else {
+            res.status(500).json({ 
+                message: err.message,
+                retryable: false
+            });
+        }
     }
 };
 

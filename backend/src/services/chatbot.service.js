@@ -5,6 +5,10 @@ const lichHenPTService = require('./lichhenpt.service');
 const { HoiVien } = require('../models/NguoiDung');
 const ChiSoCoThe = require('../models/ChiSoCoThe');
 const LichSuTap = require('../models/LichSuTap');
+const BuoiTap = require('../models/BuoiTap');
+const Session = require('../models/Session');
+const Exercise = require('../models/BaiTap');
+const ChiNhanh = require('../models/ChiNhanh');
 
 // Tạo session mới cho chatbot
 const createChatbotSession = async (hoiVienId) => {
@@ -60,7 +64,9 @@ const analyzeIntent = (message) => {
         'thực phẩm chức năng', 'supplement', 'whey', 'creatine', 'bcaa', 'omega',
         'cholesterol', 'đường', 'sugar', 'keto', 'paleo', 'vegan', 'vegetarian',
         'ăn kiêng', 'diet', 'thực đơn giảm cân', 'thực đơn tăng cân', 'meal plan',
-        'ăn', 'thức ăn', 'food', 'drink', 'uống', 'nước', 'water'
+        'ăn', 'thức ăn', 'food', 'drink', 'uống', 'nước', 'water',
+        'tạo thực đơn', 'tao thuc don', 'thực đơn dinh dưỡng', 'thuc don dinh duong',
+        'tạo menu', 'tao menu', 'menu dinh dưỡng', 'menu dinh duong'
     ];
 
     // Mở rộng từ khóa tập luyện
@@ -71,7 +77,8 @@ const analyzeIntent = (message) => {
         'bench press', 'squat', 'deadlift', 'pull up', 'push up', 'plank', 'crunch',
         'chạy bộ', 'running', 'đi bộ', 'walking', 'bơi lội', 'swimming', 'yoga', 'pilates',
         'aerobic', 'zumba', 'kickboxing', 'boxing', 'martial arts', 'võ thuật',
-        'tập', 'bài tập', 'luyện tập', 'thể dục', 'sport', 'thể thao'
+        'tập', 'bài tập', 'luyện tập', 'thể dục', 'sport', 'thể thao',
+        'gợi ý bài tập', 'goi y bai tap', 'tập gì', 'tap gi', 'workout plan'
     ];
 
     // Mở rộng từ khóa gói tập
@@ -89,7 +96,10 @@ const analyzeIntent = (message) => {
         'đặt lịch', 'booking', 'book', 'lịch tập', 'schedule', 'pt', 'personal trainer',
         'huấn luyện viên', 'trainer', 'coach', 'lớp học', 'group class', 'class',
         'thời gian', 'time', 'ca tập', 'session', 'hủy lịch', 'cancel', 'reschedule',
-        'appointment', 'meeting', 'lịch hẹn', 'thay đổi lịch', 'change schedule'
+        'appointment', 'meeting', 'lịch hẹn', 'thay đổi lịch', 'change schedule',
+        'đăng ký buổi tập', 'dang ky buoi tap', 'buổi tập', 'buoi tap', 'rảnh',
+        'có thể đăng ký', 'co the dang ky', 'giờ', 'gio', 'ngày mai', 'ngay mai',
+        'hôm nay', 'hom nay', 'có buổi tập nào', 'co buoi tap nao'
     ];
 
     // Mở rộng từ khóa sức khỏe
@@ -218,11 +228,104 @@ const analyzeIntent = (message) => {
 // Xử lý tin nhắn dinh dưỡng
 const handleNutritionQuery = async (session, message, userProfile) => {
     try {
+        const messageLower = message.toLowerCase();
         const { mucTieu, hoatDongTap } = userProfile;
 
-        // Tạo gợi ý dinh dưỡng AI
+        // Kiểm tra xem có yêu cầu tạo thực đơn dinh dưỡng không
+        if (messageLower.includes('thực đơn') || messageLower.includes('thuc don') ||
+            messageLower.includes('menu') || messageLower.includes('tạo thực đơn') ||
+            messageLower.includes('tao thuc don') || messageLower.includes('meal plan')) {
+
+            // Sử dụng AI service để tạo thực đơn dinh dưỡng
+            const aiService = require('./ai.service');
+            const userContext = await aiService.getUserContext(session.hoiVien._id || session.hoiVien, 'HoiVien');
+
+            // Parse thời gian từ câu hỏi (nếu có)
+            const timeInfo = parseTimeFromMessage(message);
+            const targetDate = timeInfo ? timeInfo.date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+            // Xác định mục tiêu và calories
+            let goal = 'DUY_TRI';
+            let calories = 2000; // Mặc định
+
+            if (messageLower.includes('giảm cân') || messageLower.includes('giam can') || messageLower.includes('giảm mỡ')) {
+                goal = 'GIAM_CAN';
+                calories = 1500;
+            } else if (messageLower.includes('tăng cân') || messageLower.includes('tang can') || messageLower.includes('tăng cơ')) {
+                goal = 'TANG_CAN';
+                calories = 2500;
+            } else if (messageLower.includes('duy trì') || messageLower.includes('duy tri')) {
+                goal = 'DUY_TRI';
+                calories = 2000;
+            } else if (userProfile.mucTieu) {
+                goal = userProfile.mucTieu;
+                // Tính calories dựa trên BMI và mục tiêu
+                if (userProfile.canNang && userProfile.chieuCao) {
+                    const bmi = userProfile.canNang / Math.pow(userProfile.chieuCao / 100, 2);
+                    if (goal === 'GIAM_CAN') {
+                        calories = Math.round(userProfile.canNang * 22 - 500); // Giảm 500 cal để giảm cân
+                    } else if (goal === 'TANG_CAN') {
+                        calories = Math.round(userProfile.canNang * 22 + 500); // Tăng 500 cal để tăng cân
+                    } else {
+                        calories = Math.round(userProfile.canNang * 22); // Duy trì
+                    }
+                }
+            }
+
+            try {
+                const nutritionPlan = await aiService.generateNutritionPlan({
+                    goal: goal,
+                    calories: calories,
+                    period: messageLower.includes('tuần') || messageLower.includes('tuan') || messageLower.includes('weekly') ? 'weekly' : 'daily',
+                    preferences: messageLower.includes('chay') || messageLower.includes('vegetarian') ? 'vegetarian' :
+                        messageLower.includes('thuần chay') || messageLower.includes('vegan') ? 'vegan' : null,
+                    date: targetDate
+                }, userContext);
+
+                if (nutritionPlan.success && nutritionPlan.plan) {
+                    let response = `🍎 **Thực đơn dinh dưỡng ${nutritionPlan.plan.planType === 'weekly' ? '7 ngày' : '1 ngày'} cho bạn:**\n\n`;
+                    response += `**Mục tiêu:** ${goal === 'GIAM_CAN' ? 'Giảm cân' : goal === 'TANG_CAN' ? 'Tăng cân' : 'Duy trì'}\n`;
+                    response += `**Calories mỗi ngày:** ~${calories} kcal\n\n`;
+
+                    nutritionPlan.plan.days.forEach((day, dayIndex) => {
+                        const date = new Date(day.date);
+                        response += `**📅 ${date.toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })}:**\n\n`;
+
+                        day.meals.forEach((meal, mealIndex) => {
+                            response += `**${meal.mealType}:** ${meal.name}\n`;
+                            response += `   📊 ${meal.caloriesKcal} kcal | Protein: ${meal.proteinGrams}g | Carbs: ${meal.carbsGrams}g | Fat: ${meal.fatGrams}g\n`;
+                            if (meal.description) {
+                                response += `   📝 ${meal.description}\n`;
+                            }
+                            if (meal.cookingTimeMinutes) {
+                                response += `   ⏰ Thời gian nấu: ${meal.cookingTimeMinutes} phút\n`;
+                            }
+                            response += `\n`;
+                        });
+
+                        if (dayIndex < nutritionPlan.plan.days.length - 1) {
+                            response += `\n---\n\n`;
+                        }
+                    });
+
+                    response += `💡 **Lưu ý:**\n`;
+                    response += `• Uống đủ 2-3L nước mỗi ngày\n`;
+                    response += `• Ăn đúng giờ, không bỏ bữa\n`;
+                    response += `• Kết hợp với tập luyện đều đặn\n`;
+                    response += `• Điều chỉnh calories nếu cần\n\n`;
+                    response += `Bạn muốn tôi tạo thực đơn cho tuần tiếp theo hoặc điều chỉnh gì không?`;
+
+                    return response;
+                }
+            } catch (aiError) {
+                console.error('Lỗi tạo thực đơn bằng AI:', aiError);
+                // Fallback về gợi ý dinh dưỡng cơ bản
+            }
+        }
+
+        // Gợi ý dinh dưỡng cơ bản (không phải thực đơn chi tiết)
         const nutritionAdvice = await dinhDuongService.taoGoiYDinhDuongAI(
-            session.hoiVien._id,
+            session.hoiVien._id || session.hoiVien,
             mucTieu || 'DUY_TRI',
             {
                 canNang: userProfile.canNang,
@@ -237,7 +340,7 @@ const handleNutritionQuery = async (session, message, userProfile) => {
         response += `**${goiY.tieuDe}**\n\n`;
         response += `${goiY.noiDungGoiY}\n\n`;
 
-        if (goiY.cacThucPhamNenAn.length > 0) {
+        if (goiY.cacThucPhamNenAn && goiY.cacThucPhamNenAn.length > 0) {
             response += `✅ **Thực phẩm nên ăn:**\n`;
             goiY.cacThucPhamNenAn.forEach(food => {
                 response += `• ${food}\n`;
@@ -245,7 +348,7 @@ const handleNutritionQuery = async (session, message, userProfile) => {
             response += `\n`;
         }
 
-        if (goiY.cacThucPhamNenTranh.length > 0) {
+        if (goiY.cacThucPhamNenTranh && goiY.cacThucPhamNenTranh.length > 0) {
             response += `❌ **Thực phẩm nên tránh:**\n`;
             goiY.cacThucPhamNenTranh.forEach(food => {
                 response += `• ${food}\n`;
@@ -253,7 +356,7 @@ const handleNutritionQuery = async (session, message, userProfile) => {
             response += `\n`;
         }
 
-        if (goiY.thoidDiemAnUong.length > 0) {
+        if (goiY.thoidDiemAnUong && goiY.thoidDiemAnUong.length > 0) {
             response += `⏰ **Thời điểm ăn uống:**\n`;
             goiY.thoidDiemAnUong.forEach(tip => {
                 response += `• ${tip}\n`;
@@ -261,12 +364,15 @@ const handleNutritionQuery = async (session, message, userProfile) => {
             response += `\n`;
         }
 
-        if (goiY.luuYDacBiet.length > 0) {
+        if (goiY.luuYDacBiet && goiY.luuYDacBiet.length > 0) {
             response += `💡 **Lưu ý đặc biệt:**\n`;
             goiY.luuYDacBiet.forEach(note => {
                 response += `• ${note}\n`;
             });
         }
+
+        response += `\n💡 **Bạn muốn tạo thực đơn chi tiết?**\n`;
+        response += `Hãy hỏi tôi: "Tạo thực đơn dinh dưỡng cho tôi" hoặc "Tạo menu 7 ngày"\n`;
 
         return response;
     } catch (error) {
@@ -357,28 +463,212 @@ const handleMembershipQuery = async (session, message) => {
     }
 };
 
+// Parse thời gian từ câu hỏi (ví dụ: "11 giờ ngày mai", "15h hôm nay")
+const parseTimeFromMessage = (message) => {
+    const msg = message.toLowerCase();
+    const now = new Date();
+    let targetDate = new Date(now);
+    let targetHour = null;
+    let targetMinute = 0;
+
+    // Parse ngày
+    if (msg.includes('ngày mai') || msg.includes('ngay mai') || msg.includes('tomorrow')) {
+        targetDate.setDate(targetDate.getDate() + 1);
+    } else if (msg.includes('hôm nay') || msg.includes('hom nay') || msg.includes('today')) {
+        targetDate = new Date(now);
+    } else if (msg.includes('hôm qua') || msg.includes('hom qua') || msg.includes('yesterday')) {
+        targetDate.setDate(targetDate.getDate() - 1);
+    }
+
+    // Parse giờ
+    // Tìm pattern "11 giờ", "11h", "15:00", "15 giờ", etc.
+    const hourPatterns = [
+        /(\d{1,2})\s*gi[ờờ]/i,  // "11 giờ"
+        /(\d{1,2})h/i,          // "11h"
+        /(\d{1,2}):(\d{2})/i,   // "11:00"
+        /lúc\s*(\d{1,2})/i,     // "lúc 11"
+        /(\d{1,2})\s*giờ/i      // "11 giờ" (không dấu)
+    ];
+
+    for (const pattern of hourPatterns) {
+        const match = message.match(pattern);
+        if (match) {
+            targetHour = parseInt(match[1]);
+            if (match[2]) {
+                targetMinute = parseInt(match[2]);
+            }
+            break;
+        }
+    }
+
+    // Nếu không tìm thấy giờ cụ thể, trả về null
+    if (targetHour === null) {
+        return null;
+    }
+
+    // Đảm bảo giờ hợp lệ (0-23)
+    if (targetHour < 0 || targetHour > 23) {
+        return null;
+    }
+
+    // Tạo Date object với giờ cụ thể
+    targetDate.setHours(targetHour, targetMinute, 0, 0);
+
+    return {
+        date: targetDate,
+        hour: targetHour,
+        minute: targetMinute,
+        timeString: `${targetHour.toString().padStart(2, '0')}:${targetMinute.toString().padStart(2, '0')}`
+    };
+};
+
 // Xử lý tin nhắn về đặt lịch
 const handleBookingQuery = async (session, message) => {
     try {
+        const messageLower = message.toLowerCase();
+        const hoiVienId = session.hoiVien._id || session.hoiVien;
+
+        // Kiểm tra xem có yêu cầu tìm buổi tập theo thời gian cụ thể không
+        const timeInfo = parseTimeFromMessage(message);
+
+        if (timeInfo) {
+            // Tìm buổi tập có sẵn vào thời gian cụ thể
+            const targetDate = timeInfo.date;
+            const targetTime = timeInfo.timeString;
+
+            // Tìm buổi tập trong khoảng thời gian (trước 1 giờ và sau 1 giờ)
+            const startTime = new Date(targetDate);
+            startTime.setHours(targetDate.getHours() - 1, 0, 0, 0);
+            const endTime = new Date(targetDate);
+            endTime.setHours(targetDate.getHours() + 1, 59, 59, 999);
+
+            // Query BuoiTap
+            const availableSessions = await BuoiTap.find({
+                ngayTap: {
+                    $gte: startTime,
+                    $lte: endTime
+                },
+                trangThai: { $in: ['CHUAN_BI', 'DANG_DIEN_RA'] },
+                $expr: {
+                    $lt: ['$soLuongHienTai', '$soLuongToiDa']
+                }
+            })
+                .populate('chiNhanh', 'tenChiNhanh diaChi')
+                .populate('ptPhuTrach', 'hoTen chuyenMon')
+                .populate('cacBaiTap.baiTap', 'tenBaiTap')
+                .sort({ gioBatDau: 1 })
+                .limit(10);
+
+            // Query Session (model mới)
+            const availableNewSessions = await Session.find({
+                ngay: {
+                    $gte: startTime,
+                    $lte: endTime
+                },
+                trangThai: { $in: ['CHUAN_BI', 'DANG_DIEN_RA'] }
+            })
+                .populate('chiNhanh', 'tenChiNhanh')
+                .populate('ptPhuTrach', 'hoTen')
+                .populate('goiTap', 'tenGoiTap')
+                .sort({ gioBatDau: 1 })
+                .limit(10);
+
+            let response = `📅 **Buổi tập có sẵn vào ${timeInfo.timeString} ${targetDate.toLocaleDateString('vi-VN')}:**\n\n`;
+
+            if (availableSessions.length === 0 && availableNewSessions.length === 0) {
+                response += `❌ Không tìm thấy buổi tập nào vào thời gian này.\n\n`;
+                response += `💡 **Gợi ý:**\n`;
+                response += `• Thử thời gian khác (sáng: 6-9h, trưa: 11-13h, chiều: 17-20h)\n`;
+                response += `• Đặt lịch PT cá nhân linh hoạt hơn\n`;
+                response += `• Xem lịch tập tuần trong app\n\n`;
+                response += `Bạn muốn tôi tìm buổi tập vào thời gian khác không?`;
+            } else {
+                // Hiển thị buổi tập từ BuoiTap
+                if (availableSessions.length > 0) {
+                    response += `**🏋️ Buổi tập có sẵn:**\n\n`;
+                    availableSessions.forEach((session, index) => {
+                        const slotsLeft = session.soLuongToiDa - session.soLuongHienTai;
+                        response += `${index + 1}. **${session.tenBuoiTap || 'Buổi tập'}**\n`;
+                        response += `   ⏰ ${session.gioBatDau} - ${session.gioKetThuc}\n`;
+                        response += `   📍 ${session.chiNhanh?.tenChiNhanh || 'N/A'}\n`;
+                        response += `   👨‍💼 PT: ${session.ptPhuTrach?.hoTen || 'N/A'}\n`;
+                        if (session.cacBaiTap && session.cacBaiTap.length > 0) {
+                            const baiTapNames = session.cacBaiTap.slice(0, 3).map(bt => bt.baiTap?.tenBaiTap || 'N/A').join(', ');
+                            response += `   💪 Bài tập: ${baiTapNames}${session.cacBaiTap.length > 3 ? '...' : ''}\n`;
+                        }
+                        response += `   ✅ Còn ${slotsLeft} chỗ trống\n\n`;
+                    });
+                }
+
+                // Hiển thị buổi tập từ Session
+                if (availableNewSessions.length > 0) {
+                    if (availableSessions.length > 0) {
+                        response += `\n**📋 Phiên tập khác:**\n\n`;
+                    } else {
+                        response += `**📋 Phiên tập có sẵn:**\n\n`;
+                    }
+                    availableNewSessions.forEach((sess, index) => {
+                        response += `${availableSessions.length + index + 1}. **${sess.tenBuoiTap || 'Phiên tập'}**\n`;
+                        response += `   ⏰ ${sess.gioBatDau} - ${sess.gioKetThuc}\n`;
+                        response += `   📍 ${sess.chiNhanh?.tenChiNhanh || 'N/A'}\n`;
+                        response += `   👨‍💼 PT: ${sess.ptPhuTrach?.hoTen || 'N/A'}\n`;
+                        if (sess.goiTap) {
+                            response += `   📦 Gói tập: ${sess.goiTap.tenGoiTap}\n`;
+                        }
+                        response += `\n`;
+                    });
+                }
+
+                response += `\n💡 **Cách đăng ký:**\n`;
+                response += `• Vào màn hình "Đặt lịch" trong app\n`;
+                response += `• Chọn buổi tập phù hợp\n`;
+                response += `• Xác nhận đăng ký\n\n`;
+                response += `Bạn muốn đăng ký buổi tập nào?`;
+            }
+
+            return response;
+        }
+
+        // Nếu không có thời gian cụ thể, trả về thông tin chung
         let response = `📅 **Hỗ trợ đặt lịch tập:**\n\n`;
 
-        response += `**🏋️ Lớp học nhóm:**\n`;
-        response += `• Yoga - 6:00-7:00 (T2,4,6)\n`;
-        response += `• Cardio - 18:00-19:00 (T3,5,7)\n`;
-        response += `• Zumba - 19:00-20:00 (T2,4,6)\n\n`;
+        // Tìm buổi tập sắp tới (trong 7 ngày)
+        const nextWeek = new Date();
+        nextWeek.setDate(nextWeek.getDate() + 7);
 
-        response += `**👨‍💼 PT cá nhân:**\n`;
-        response += `• Có thể đặt lịch linh hoạt theo thời gian của bạn\n`;
-        response += `• Hỗ trợ 1-1 với huấn luyện viên chuyên nghiệp\n`;
-        response += `• Phù hợp cho người mới bắt đầu\n\n`;
+        const upcomingSessions = await BuoiTap.find({
+            ngayTap: {
+                $gte: new Date(),
+                $lte: nextWeek
+            },
+            trangThai: { $in: ['CHUAN_BI', 'DANG_DIEN_RA'] },
+            $expr: {
+                $lt: ['$soLuongHienTai', '$soLuongToiDa']
+            }
+        })
+            .populate('chiNhanh', 'tenChiNhanh')
+            .populate('ptPhuTrach', 'hoTen')
+            .sort({ ngayTap: 1, gioBatDau: 1 })
+            .limit(5);
 
-        response += `**📱 Cách đặt lịch:**\n`;
+        if (upcomingSessions.length > 0) {
+            response += `**🏋️ Buổi tập sắp tới (7 ngày):**\n\n`;
+            upcomingSessions.forEach((sess, index) => {
+                const slotsLeft = sess.soLuongToiDa - sess.soLuongHienTai;
+                const dateStr = new Date(sess.ngayTap).toLocaleDateString('vi-VN');
+                response += `${index + 1}. **${sess.tenBuoiTap || 'Buổi tập'}**\n`;
+                response += `   📅 ${dateStr} - ${sess.gioBatDau} - ${sess.gioKetThuc}\n`;
+                response += `   📍 ${sess.chiNhanh?.tenChiNhanh || 'N/A'}\n`;
+                response += `   ✅ Còn ${slotsLeft} chỗ\n\n`;
+            });
+        }
+
+        response += `**💡 Cách tìm buổi tập:**\n`;
+        response += `• Hỏi tôi: "Buổi tập lúc 11 giờ ngày mai" hoặc "Buổi tập hôm nay"\n`;
         response += `• Vào màn hình "Đặt lịch" trong app\n`;
-        response += `• Chọn loại hình tập (nhóm/PT)\n`;
-        response += `• Chọn thời gian phù hợp\n`;
-        response += `• Xác nhận đặt lịch\n\n`;
+        response += `• Xem lịch tập tuần\n\n`;
 
-        response += `Bạn muốn đặt lịch loại nào? Tôi có thể hướng dẫn chi tiết hơn!`;
+        response += `Bạn muốn tìm buổi tập vào thời gian nào?`;
 
         return response;
     } catch (error) {
@@ -474,23 +764,127 @@ const handleWorkoutQuery = async (session, message) => {
 
     // Câu hỏi về bài tập cụ thể
     if (messageLower.includes('bài tập') || messageLower.includes('exercise') ||
-        messageLower.includes('tập gì') || messageLower.includes('workout plan')) {
-        return `💪 **Gợi ý bài tập cho bạn:**\n\n` +
-            `**🏋️ Bài tập cơ bản:**\n` +
-            `• Push-up: 3 sets x 10-15 reps\n` +
-            `• Squat: 3 sets x 15-20 reps\n` +
-            `• Plank: 3 sets x 30-60 giây\n` +
-            `• Lunges: 3 sets x 10 mỗi chân\n\n` +
-            `**🔥 Bài tập nâng cao:**\n` +
-            `• Deadlift: 4 sets x 5-8 reps\n` +
-            `• Bench Press: 4 sets x 6-10 reps\n` +
-            `• Pull-ups: 3 sets x 5-10 reps\n` +
-            `• Burpees: 3 sets x 10-15 reps\n\n` +
-            `**⏰ Lịch tập gợi ý:**\n` +
-            `• Thứ 2,4,6: Tập thân trên\n` +
-            `• Thứ 3,5,7: Tập thân dưới\n` +
-            `• Chủ nhật: Nghỉ ngơi hoặc cardio nhẹ\n\n` +
-            `Bạn muốn tôi tạo lịch tập chi tiết hơn không?`;
+        messageLower.includes('tập gì') || messageLower.includes('workout plan') ||
+        messageLower.includes('gợi ý bài tập')) {
+        try {
+            // Lấy bài tập từ database
+            const exercises = await Exercise.find({
+                status: { $ne: 'inactive' }
+            })
+                .sort({ 'ratings.averageRating': -1, createdAt: -1 })
+                .limit(20);
+
+            let response = `💪 **Gợi ý bài tập cho bạn:**\n\n`;
+
+            if (exercises.length > 0) {
+                // Phân loại bài tập theo độ khó
+                const beginnerExercises = exercises.filter(ex =>
+                    !ex.mucDoKho || ex.mucDoKho === 'DE' || ex.difficulty === 'beginner'
+                ).slice(0, 5);
+
+                const intermediateExercises = exercises.filter(ex =>
+                    ex.mucDoKho === 'TRUNG_BINH' || ex.difficulty === 'intermediate'
+                ).slice(0, 5);
+
+                const advancedExercises = exercises.filter(ex =>
+                    ex.mucDoKho === 'KHO' || ex.difficulty === 'advanced'
+                ).slice(0, 5);
+
+                if (beginnerExercises.length > 0) {
+                    response += `**🏋️ Bài tập cơ bản (dành cho người mới):**\n`;
+                    beginnerExercises.forEach((ex, idx) => {
+                        const name = ex.tenBaiTap || ex.title || 'Bài tập';
+                        const duration = ex.duration_sec || ex.thoiGian || 0;
+                        const rating = ex.ratings?.averageRating || 0;
+                        response += `${idx + 1}. **${name}**`;
+                        if (duration > 0) {
+                            response += ` (${Math.floor(duration / 60)} phút)`;
+                        }
+                        if (rating > 0) {
+                            response += ` ⭐ ${rating.toFixed(1)}`;
+                        }
+                        response += `\n`;
+                    });
+                    response += `\n`;
+                }
+
+                if (intermediateExercises.length > 0) {
+                    response += `**🔥 Bài tập trung bình:**\n`;
+                    intermediateExercises.forEach((ex, idx) => {
+                        const name = ex.tenBaiTap || ex.title || 'Bài tập';
+                        const duration = ex.duration_sec || ex.thoiGian || 0;
+                        const rating = ex.ratings?.averageRating || 0;
+                        response += `${idx + 1}. **${name}**`;
+                        if (duration > 0) {
+                            response += ` (${Math.floor(duration / 60)} phút)`;
+                        }
+                        if (rating > 0) {
+                            response += ` ⭐ ${rating.toFixed(1)}`;
+                        }
+                        response += `\n`;
+                    });
+                    response += `\n`;
+                }
+
+                if (advancedExercises.length > 0) {
+                    response += `**💥 Bài tập nâng cao:**\n`;
+                    advancedExercises.forEach((ex, idx) => {
+                        const name = ex.tenBaiTap || ex.title || 'Bài tập';
+                        const duration = ex.duration_sec || ex.thoiGian || 0;
+                        const rating = ex.ratings?.averageRating || 0;
+                        response += `${idx + 1}. **${name}**`;
+                        if (duration > 0) {
+                            response += ` (${Math.floor(duration / 60)} phút)`;
+                        }
+                        if (rating > 0) {
+                            response += ` ⭐ ${rating.toFixed(1)}`;
+                        }
+                        response += `\n`;
+                    });
+                    response += `\n`;
+                }
+
+                response += `**⏰ Lịch tập gợi ý:**\n`;
+                response += `• Thứ 2,4,6: Tập thân trên (30-45 phút)\n`;
+                response += `• Thứ 3,5,7: Tập thân dưới (30-45 phút)\n`;
+                response += `• Chủ nhật: Nghỉ ngơi hoặc cardio nhẹ (20-30 phút)\n\n`;
+                response += `💡 **Lưu ý:**\n`;
+                response += `• Bắt đầu với bài tập cơ bản nếu bạn mới tập\n`;
+                response += `• Tăng dần độ khó khi đã quen\n`;
+                response += `• Nghỉ ngơi đủ giữa các buổi tập\n\n`;
+                response += `Bạn muốn tôi tạo lịch tập chi tiết hơn hoặc gợi ý bài tập cho mục tiêu cụ thể không?`;
+            } else {
+                // Fallback nếu không có dữ liệu
+                response += `**🏋️ Bài tập cơ bản:**\n` +
+                    `• Push-up: 3 sets x 10-15 reps\n` +
+                    `• Squat: 3 sets x 15-20 reps\n` +
+                    `• Plank: 3 sets x 30-60 giây\n` +
+                    `• Lunges: 3 sets x 10 mỗi chân\n\n` +
+                    `**🔥 Bài tập nâng cao:**\n` +
+                    `• Deadlift: 4 sets x 5-8 reps\n` +
+                    `• Bench Press: 4 sets x 6-10 reps\n` +
+                    `• Pull-ups: 3 sets x 5-10 reps\n` +
+                    `• Burpees: 3 sets x 10-15 reps\n\n` +
+                    `Bạn muốn tôi tạo lịch tập chi tiết hơn không?`;
+            }
+
+            return response;
+        } catch (error) {
+            console.error('Lỗi lấy bài tập từ database:', error);
+            // Fallback response
+            return `💪 **Gợi ý bài tập cho bạn:**\n\n` +
+                `**🏋️ Bài tập cơ bản:**\n` +
+                `• Push-up: 3 sets x 10-15 reps\n` +
+                `• Squat: 3 sets x 15-20 reps\n` +
+                `• Plank: 3 sets x 30-60 giây\n` +
+                `• Lunges: 3 sets x 10 mỗi chân\n\n` +
+                `**🔥 Bài tập nâng cao:**\n` +
+                `• Deadlift: 4 sets x 5-8 reps\n` +
+                `• Bench Press: 4 sets x 6-10 reps\n` +
+                `• Pull-ups: 3 sets x 5-10 reps\n` +
+                `• Burpees: 3 sets x 10-15 reps\n\n` +
+                `Bạn muốn tôi tạo lịch tập chi tiết hơn không?`;
+        }
     }
 
     // Câu hỏi về cardio

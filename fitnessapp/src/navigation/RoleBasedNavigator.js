@@ -20,6 +20,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import WorkoutPlansScreen from '../screens/WorkoutPlansScreen';
+import ScheduleScreen from '../screens/ScheduleScreen';
 import NutritionScreen from '../screens/NutritionScreen';
 import ClassBookingScreen from '../screens/ClassBookingScreen';
 import MembershipScreen from '../screens/MembershipScreen';
@@ -42,8 +43,8 @@ const HoiVienTabNavigator = () => {
 
                     if (route.name === 'Home') {
                         iconName = 'home';
-                    } else if (route.name === 'WorkoutPlans') {
-                        iconName = 'fitness-center';
+                    } else if (route.name === 'Schedule') {
+                        iconName = 'event-note';
                     } else if (route.name === 'Nutrition') {
                         iconName = 'restaurant';
                     } else if (route.name === 'Booking') {
@@ -68,8 +69,8 @@ const HoiVienTabNavigator = () => {
                 options={{ tabBarLabel: 'Trang chủ' }}
             />
             <Tab.Screen
-                name="WorkoutPlans"
-                component={WorkoutPlansScreen}
+                name="Schedule"
+                component={ScheduleScreen}
                 options={{ tabBarLabel: 'Lịch tập' }}
             />
             <Tab.Screen

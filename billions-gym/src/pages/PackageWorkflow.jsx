@@ -52,7 +52,10 @@ const PackageWorkflow = () => {
         const init = async () => {
             const response = await fetchWorkflowStatus();
             // If workflow is completed, don't load branches
-            if (response?.data?.currentStep !== 'completed') {
+            if (response?.data?.currentStep !== 'completed' &&
+                response?.data?.workflowSteps?.completed?.status !== 'completed' &&
+                response?.data?.registration?.trangThaiDangKy !== 'HOAN_THANH' &&
+                response?.data?.registration?.trangThai !== 'HOAN_THANH') {
                 fetchBranches();
             }
         };
@@ -121,12 +124,15 @@ const PackageWorkflow = () => {
 
                 // If workflow is completed, stop here and don't update step
                 if (response.data.currentStep === 'completed' ||
-                    response.data.workflowSteps?.completed?.status === 'completed') {
+                    response.data.workflowSteps?.completed?.status === 'completed' ||
+                    response.data.registration?.trangThaiDangKy === 'HOAN_THANH' ||
+                    response.data.registration?.trangThai === 'HOAN_THANH') {
                     setCurrentStep(getStepIndex('completed', response.data.isOwner));
                     return response;
                 }
 
                 // Force stay at step 0 for owners until explicitly confirmed in this session
+                // BUT only if workflow is not completed
                 if (response.data.isOwner && !hasConfirmedBranch) {
                     setCurrentStep(0);
                 } else {
@@ -174,16 +180,34 @@ const PackageWorkflow = () => {
 
             // 1. Cập nhật branchId
             if (previousPackageInfo.branchId) {
-                await api.patch(`/chitietgoitap/${registrationId}/branch`, {
-                    branchId: previousPackageInfo.branchId
-                });
+                try {
+                    await api.patch(`/chitietgoitap/${registrationId}/branch`, {
+                        branchId: previousPackageInfo.branchId
+                    });
+                    console.log('✅ [Workflow] Branch updated successfully');
+                } catch (err) {
+                    console.error('❌ [Workflow] Error updating branch:', err);
+                    throw new Error('Không thể cập nhật chi nhánh. Vui lòng thử lại.');
+                }
             }
 
             // 2. Cập nhật PT nếu có
             if (previousPackageInfo.ptId) {
-                await api.post(`/package-workflow/select-trainer/${registrationId}`, {
-                    trainerId: previousPackageInfo.ptId
-                });
+                try {
+                    const trainerResponse = await api.post(`/package-workflow/select-trainer/${registrationId}`, {
+                        ptId: previousPackageInfo.ptId,
+                        gioTapUuTien: null,
+                        soNgayTapTrongTuan: null
+                    });
+                    console.log('✅ [Workflow] Trainer selected successfully:', trainerResponse);
+                } catch (err) {
+                    console.error('❌ [Workflow] Error selecting trainer:', err);
+                    // Nếu lỗi 404, có thể là route không tồn tại hoặc registrationId không hợp lệ
+                    if (err.message?.includes('404') || err.message?.includes('Not Found')) {
+                        throw new Error('Không tìm thấy endpoint chọn PT. Vui lòng liên hệ hỗ trợ.');
+                    }
+                    throw new Error('Không thể chọn PT. Vui lòng thử lại.');
+                }
             }
 
             // 3. Nếu có cả branchId và ptId, cố gắng hoàn tất luôn workflow bằng cách bỏ qua bước tạo lịch tập
@@ -338,10 +362,7 @@ const PackageWorkflow = () => {
                 throw new Error('Không tìm thấy thông tin đăng ký.');
             }
 
-            if (!statusCheck.data.registration.lichTapDuocTao) {
-                throw new Error('Lịch tập chưa được tạo. Vui lòng tạo lịch tập trước.');
-            }
-
+            // Kiểm tra nếu đã hoàn thành
             if (statusCheck.data.registration.trangThaiDangKy === 'HOAN_THANH' ||
                 statusCheck.data.registration.trangThai === 'HOAN_THANH' ||
                 statusCheck.data.currentStep === 'completed') {
@@ -355,11 +376,26 @@ const PackageWorkflow = () => {
                 return;
             }
 
-            // Đảm bảo đã lưu lịch tập
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Kiểm tra xem có thể bỏ qua bước tạo lịch tập không
+            // Trường hợp 1: Đang sử dụng thông tin cũ (keepPreviousInfo)
+            // Trường hợp 2: Đã có PT và branch nhưng chưa có lịch tập (có thể đăng ký sau)
+            const hasPTAndBranch = statusCheck.data.registration.ptDuocChon && statusCheck.data.registration.branchId;
+            const shouldSkipSchedule = (keepPreviousInfo && previousPackageInfo?.branchId && previousPackageInfo?.ptId) ||
+                (hasPTAndBranch && !statusCheck.data.registration.lichTapDuocTao);
 
-            // Gọi API hoàn thành workflow
-            const response = await api.post(`/package-workflow/complete-workflow/${registrationId}`);
+            if (!shouldSkipSchedule && !statusCheck.data.registration.lichTapDuocTao) {
+                throw new Error('Lịch tập chưa được tạo. Vui lòng tạo lịch tập trước.');
+            }
+
+            // Đảm bảo đã lưu lịch tập (nếu có)
+            if (!shouldSkipSchedule) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            // Gọi API hoàn thành workflow với skipScheduleForReuse nếu có thể bỏ qua lịch tập
+            const requestBody = shouldSkipSchedule ? { skipScheduleForReuse: true } : {};
+            console.log('🔍 Calling complete-workflow with:', { shouldSkipSchedule, requestBody });
+            const response = await api.post(`/package-workflow/complete-workflow/${registrationId}`, requestBody);
 
             if (response.success) {
                 console.log('✅ Workflow completed successfully');
@@ -383,10 +419,13 @@ const PackageWorkflow = () => {
                     finalStatus.data?.registration?.trangThai === 'HOAN_THANH') {
                     // Cập nhật workflow status và chuyển hướng
                     await fetchWorkflowStatus();
+                    const successMessage = shouldSkipSchedule
+                        ? 'Đăng ký gói tập thành công! Bạn có thể đăng ký lịch tập sau trong phần lịch tập của mình.'
+                        : 'Đăng ký gói tập thành công! Bạn có thể bắt đầu tập luyện ngay.';
                     navigate('/', {
                         state: {
                             completedWorkflow: true,
-                            message: 'Đăng ký gói tập thành công! Bạn có thể bắt đầu tập luyện ngay.'
+                            message: successMessage
                         }
                     });
                 } else {

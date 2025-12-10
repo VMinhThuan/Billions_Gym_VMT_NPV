@@ -36,6 +36,7 @@ router.get('/checkin', auth, authorize(['OngChu', 'Admin']), statisticsControlle
 
 // GET /api/statistics/checkin/recent - Lấy danh sách check-in real-time hôm nay
 router.get('/checkin/recent', auth, authorize(['OngChu', 'Admin']), statisticsController.getRecentCheckIns);
+router.get('/pt-checkin/recent', auth, authorize(['OngChu', 'Admin']), statisticsController.getRecentPTCheckIns);
 
 module.exports = router;
 

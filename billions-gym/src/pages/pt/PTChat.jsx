@@ -12,6 +12,7 @@ const PTChat = () => {
     const [messages, setMessages] = useState([]);
     const [messageText, setMessageText] = useState('');
     const [loading, setLoading] = useState(true);
+    const [roomMessagesCache, setRoomMessagesCache] = useState({}); // Cache messages cho từng room
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
@@ -29,10 +30,29 @@ const PTChat = () => {
         const handleNewMessage = (message) => {
             // Cập nhật tin nhắn trong phòng đang mở
             if (selectedRoom && message.room === selectedRoom._id) {
-                setMessages(prev => [...prev, message]);
+                setMessages(prev => {
+                    const updated = [...prev, message];
+                    // Cập nhật cache
+                    setRoomMessagesCache(cache => ({
+                        ...cache,
+                        [selectedRoom._id]: updated
+                    }));
+                    return updated;
+                });
                 scrollToBottom();
                 // Mark as read ngay khi nhận tin trong phòng đang mở
                 chatService.markRead(selectedRoom._id);
+            } else {
+                // Cập nhật cache cho room khác (nếu đã có cache)
+                setRoomMessagesCache(cache => {
+                    if (cache[message.room]) {
+                        return {
+                            ...cache,
+                            [message.room]: [...cache[message.room], message]
+                        };
+                    }
+                    return cache;
+                });
             }
 
             // Cập nhật danh sách rooms với lastMessage và unreadCount
@@ -89,15 +109,30 @@ const PTChat = () => {
             r._id === room._id ? { ...r, unreadCount: 0 } : r
         ));
 
-        try {
-            const response = await chatService.getChatMessages(room._id);
-            if (response.success) {
-                setMessages(response.data || []);
-                chatService.joinRoom(room._id);
-                chatService.markRead(room._id);
+        // Kiểm tra cache trước
+        if (roomMessagesCache[room._id]) {
+            // Nếu đã có cache, dùng luôn không cần load lại
+            setMessages(roomMessagesCache[room._id]);
+            chatService.joinRoom(room._id);
+            chatService.markRead(room._id);
+        } else {
+            // Nếu chưa có cache, load từ server
+            try {
+                const response = await chatService.getChatMessages(room._id);
+                if (response.success) {
+                    const messagesData = response.data || [];
+                    setMessages(messagesData);
+                    // Lưu vào cache
+                    setRoomMessagesCache(prev => ({
+                        ...prev,
+                        [room._id]: messagesData
+                    }));
+                    chatService.joinRoom(room._id);
+                    chatService.markRead(room._id);
+                }
+            } catch (error) {
+                console.error('Error loading messages:', error);
             }
-        } catch (error) {
-            console.error('Error loading messages:', error);
         }
     };
 
@@ -112,17 +147,18 @@ const PTChat = () => {
     const mainMarginLeft = sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-80';
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a]">
+        <div className="h-screen bg-[#0a0a0a] overflow-hidden flex flex-col">
             <Header />
             <PTSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-            <main className={`ml-0 ${mainMarginLeft} mt-16 sm:mt-20 p-4 sm:p-6 transition-all duration-300`}>
-                <div className="max-w-7xl mx-auto">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-white mb-6">Tin nhắn</h2>
-
-                    <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-12rem)]">
+            <main className={`ml-0 ${mainMarginLeft} transition-all duration-300 flex-1 flex flex-col overflow-hidden pt-16 sm:pt-20`}>
+                <div className="px-4 sm:px-6 py-4">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-white">Tin nhắn</h2>
+                </div>
+                <div className="flex-1 px-4 sm:px-6 pb-4 sm:pb-6 overflow-hidden">
+                    <div className="flex flex-col lg:flex-row gap-4 h-full">
                         {/* Sidebar - Danh sách phòng chat */}
-                        <div className="w-full lg:w-1/3 bg-[#1a1a1a] rounded-lg border border-[#2a2a2a] flex flex-col">
+                        <div className="w-full lg:w-1/3 bg-[#1a1a1a] rounded-lg flex flex-col">
                             <div className="p-4 border-b border-[#2a2a2a]">
                                 <h3 className="text-white font-semibold">Cuộc trò chuyện</h3>
                             </div>
@@ -156,7 +192,9 @@ const PTChat = () => {
                                                     )}
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-white font-semibold truncate">{room.hoiVien?.hoTen || 'N/A'}</p>
-                                                        <p className="text-gray-400 text-sm truncate">{room.lastMessage || 'Chưa có tin nhắn'}</p>
+                                                        <p className={`text-white text-sm truncate ${room.unreadCount > 0 ? 'font-bold' : ''}`}>
+                                                            {room.lastMessage || 'Chưa có tin nhắn'}
+                                                        </p>
                                                     </div>
                                                     {room.unreadCount > 0 && (
                                                         <div className="flex-shrink-0">
@@ -176,7 +214,7 @@ const PTChat = () => {
                         </div>
 
                         {/* Main chat area */}
-                        <div className="flex-1 bg-[#1a1a1a] rounded-lg border border-[#2a2a2a] flex flex-col">
+                        <div className="flex-1 bg-[#1a1a1a] rounded-lg flex flex-col">
                             {selectedRoom ? (
                                 <>
                                     <div className="p-4 border-b border-[#2a2a2a] flex items-center gap-3">
@@ -194,7 +232,7 @@ const PTChat = () => {
                                         <h3 className="text-white font-semibold">{selectedRoom.hoiVien?.hoTen}</h3>
                                     </div>
 
-                                    <div className="flex-1 p-4 overflow-y-auto space-y-3">
+                                    <div className="flex-1 p-4 overflow-y-auto space-y-3 custom-scrollbar">
                                         {messages.length > 0 ? (
                                             messages.map(msg => {
                                                 const currentUserId = authUtils.getUserId();
@@ -222,9 +260,9 @@ const PTChat = () => {
                                                                     📎 {msg.fileName || 'File'}
                                                                 </a>
                                                             ) : (
-                                                                <p className="whitespace-pre-wrap">{msg.message}</p>
+                                                                <p className="whitespace-pre-wrap text-white">{msg.message}</p>
                                                             )}
-                                                            <p className={`text-xs mt-1 ${isMyMessage ? 'text-red-100' : 'text-gray-400'}`}>
+                                                            <p className={`text-xs mt-1 ${isMyMessage ? 'text-red-100' : 'text-white opacity-70'}`}>
                                                                 {new Date(msg.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                                                             </p>
                                                         </div>

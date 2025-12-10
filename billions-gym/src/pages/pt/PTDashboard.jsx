@@ -56,6 +56,11 @@ const PTDashboard = () => {
     // Analytics data  
     const [analyticsData, setAnalyticsData] = useState(null);
 
+    // Lazy load flags
+    const [hasLoadedStudents, setHasLoadedStudents] = useState(false);
+    const [hasLoadedRevenue, setHasLoadedRevenue] = useState(false);
+    const [hasLoadedAnalytics, setHasLoadedAnalytics] = useState(false);
+
     useEffect(() => {
         const handleSidebarToggle = (event) => {
             setSidebarCollapsed(event.detail.collapsed);
@@ -148,15 +153,13 @@ const PTDashboard = () => {
     const loadAllData = async () => {
         try {
             setLoading(true);
+            // Chỉ tải gói tối thiểu để trang vào nhanh
             await Promise.all([
                 loadDashboard(),
                 loadStatistics(),
                 loadStudentStats(),
                 loadChatRooms(),
-                loadStudentsData(),
-                loadRevenueData(),
-                loadTodayGoals(),
-                loadAnalyticsData()
+                loadTodayGoals()
             ]);
         } catch (error) {
             console.error('Error loading dashboard data:', error);
@@ -164,6 +167,25 @@ const PTDashboard = () => {
             setLoading(false);
         }
     };
+
+    // Khi đổi tab, chỉ lúc cần mới tải dữ liệu nặng
+    useEffect(() => {
+        const loadByTab = async () => {
+            if (activeTab === 'students' && !hasLoadedStudents) {
+                await loadStudentsData();
+                setHasLoadedStudents(true);
+            }
+            if (activeTab === 'revenue' && !hasLoadedRevenue) {
+                await loadRevenueData();
+                setHasLoadedRevenue(true);
+            }
+            if (activeTab === 'analytics' && !hasLoadedAnalytics) {
+                await loadAnalyticsData();
+                setHasLoadedAnalytics(true);
+            }
+        };
+        loadByTab();
+    }, [activeTab]);
 
     // Load sessions for current month (for calendar dots & modal)
     const loadCalendarSessions = async (year, month) => {
@@ -179,7 +201,7 @@ const PTDashboard = () => {
             const response = await ptService.getMySessions({
                 ngayBatDau: startOfMonth.toISOString(),
                 ngayKetThuc: endOfMonth.toISOString(),
-                limit: 1000
+                limit: 500 // giảm payload, đủ cho 1 tháng
             });
 
             if (response.success && response.data?.buoiTaps) {
@@ -413,7 +435,16 @@ const PTDashboard = () => {
     const loadRevenueData = async () => {
         try {
             // Lấy toàn bộ sessions (giới hạn 2000 buổi gần nhất)
-            const sessionsResponse = await ptService.getMySessions({ limit: 2000 });
+            const nowRevenue = new Date();
+            const startOfMonth = new Date(nowRevenue.getFullYear(), nowRevenue.getMonth(), 1);
+            const endOfMonth = new Date(nowRevenue.getFullYear(), nowRevenue.getMonth() + 1, 0);
+            endOfMonth.setHours(23, 59, 59, 999);
+
+            const sessionsResponse = await ptService.getMySessions({
+                ngayBatDau: startOfMonth.toISOString(),
+                ngayKetThuc: endOfMonth.toISOString(),
+                limit: 500 // giảm payload
+            });
             const sessions = sessionsResponse.success && sessionsResponse.data?.buoiTaps
                 ? sessionsResponse.data.buoiTaps
                 : [];
@@ -611,7 +642,7 @@ const PTDashboard = () => {
     const loadAnalyticsData = async () => {
         try {
             // Lấy reviews từ API
-            const reviewsResponse = await ptService.getReviews({ limit: 100 });
+            const reviewsResponse = await ptService.getReviews({ limit: 50 });
 
             // Sử dụng statistics đã load từ loadStatistics()
             const statsResponse = statistics || {};

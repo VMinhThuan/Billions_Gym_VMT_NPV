@@ -1,0 +1,68 @@
+graph TB
+    %% Actors
+    HoiVien[👤 Hội Viên]
+    PT[💪 Personal Trainer]
+    OngChu[👔 Chủ Phòng Gym]
+    System[⚙️ Hệ Thống]
+    
+    %% Hội Viên Use Cases
+    HoiVien --> UC1[Đăng ký/Đăng nhập]
+    HoiVien --> UC2[Xem danh sách gói tập]
+    HoiVien --> UC3[Đăng ký gói tập]
+    HoiVien --> UC4[Thanh toán gói tập]
+    HoiVien --> UC5[Xem lịch tập]
+    HoiVien --> UC6[Đăng ký buổi tập]
+    HoiVien --> UC7[Check-in/Check-out]
+    HoiVien --> UC8[Xem bài tập]
+    HoiVien --> UC9[Ghi nhận lịch sử tập]
+    HoiVien --> UC10[Xem thống kê cá nhân]
+    HoiVien --> UC11[Quản lý chỉ số cơ thể]
+    HoiVien --> UC12[Đặt lịch hẹn với PT]
+    HoiVien --> UC13[Chat với PT]
+    HoiVien --> UC14[Xem kế hoạch dinh dưỡng]
+    HoiVien --> UC15[Yêu cầu kế hoạch dinh dưỡng AI]
+    HoiVien --> UC16[Xem thông báo]
+    HoiVien --> UC17[Đánh giá buổi tập]
+    HoiVien --> UC18[Xem lịch sử thanh toán]
+    
+    %% PT Use Cases
+    PT --> UC1
+    PT --> UC19[Tạo buổi tập]
+    PT --> UC20[Quản lý lịch tập cho hội viên]
+    PT --> UC21[Thêm/sửa/xóa bài tập]
+    PT --> UC22[Xem danh sách hội viên]
+    PT --> UC23[Chat với hội viên]
+    PT --> UC24[Check-in PT]
+    PT --> UC25[Xem lịch làm việc]
+    PT --> UC26[Quản lý mục tiêu hội viên]
+    PT --> UC27[Tạo template buổi tập]
+    PT --> UC28[Xem thống kê PT]
+    PT --> UC29[Tạo báo cáo]
+    PT --> UC30[Quản lý ghi chú hội viên]
+    
+    %% Chủ Phòng Gym Use Cases
+    OngChu --> UC1
+    OngChu --> UC31[Quản lý gói tập CRUD]
+    OngChu --> UC32[Quản lý hội viên]
+    OngChu --> UC33[Quản lý PT]
+    OngChu --> UC34[Quản lý chi nhánh]
+    OngChu --> UC35[Xem báo cáo tổng hợp]
+    OngChu --> UC36[Quản lý thanh toán]
+    OngChu --> UC37[Quản lý hạng hội viên]
+    OngChu --> UC38[Quản lý bài tập]
+    OngChu --> UC39[Xem thống kê doanh thu]
+    
+    %% System Use Cases
+    System --> UC40[Tự động check-out hết hạn]
+    System --> UC41[Gửi thông báo buổi tập]
+    System --> UC42[Tạo kế hoạch dinh dưỡng AI]
+    System --> UC43[Dự đoán workout AI]
+    System --> UC44[Nhận diện khuôn mặt]
+    System --> UC45[Xử lý thanh toán]
+    System --> UC46[Gửi OTP]
+    
+    style HoiVien fill:#4CAF50
+    style PT fill:#2196F3
+    style OngChu fill:#FF9800
+    style System fill:#9E9E9E
+

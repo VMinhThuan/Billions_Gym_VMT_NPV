@@ -37,15 +37,82 @@ exports.getBuoiTapByHoiVien = async (req, res) => {
     try {
         const { maHoiVien } = req.params;
         const { trangThai } = req.query;
+        const requesterId = req.user?.id;
+        const requesterRole = req.user?.vaiTro;
 
         if (!isValidObjectId(maHoiVien)) {
-            return res.status(400).json({ message: 'ID hội viên không hợp lệ' });
+            return res.status(400).json({ success: false, message: 'ID hội viên không hợp lệ' });
         }
 
-        const buoiTaps = await buoiTapService.getBuoiTapByHoiVien(maHoiVien, trangThai);
-        res.json(buoiTaps);
+        // Chỉ cho phép hội viên xem lịch của chính mình (trừ PT/Admin)
+        if (requesterRole === 'HoiVien' && requesterId && requesterId !== maHoiVien) {
+            return res.status(403).json({ success: false, message: 'Không có quyền truy cập' });
+        }
+
+        const LichTap = require('../models/LichTap');
+
+        const queryStart = Date.now();
+        const lichTaps = await LichTap.find({
+            hoiVien: maHoiVien,
+            trangThai: { $ne: 'HUY' }
+        })
+            .populate('chiNhanh', 'tenChiNhanh diaChi')
+            .populate({
+                path: 'danhSachBuoiTap.ptPhuTrach',
+                select: 'hoTen chuyenMon anhDaiDien'
+            })
+            .populate({
+                path: 'danhSachBuoiTap.buoiTap',
+                select: 'tenBuoiTap ngayTap gioBatDau gioKetThuc soLuongToiDa soLuongHienTai trangThai moTa chiNhanh ptPhuTrach',
+                populate: [
+                    { path: 'chiNhanh', select: 'tenChiNhanh diaChi' },
+                    { path: 'ptPhuTrach', select: 'hoTen chuyenMon anhDaiDien' }
+                ]
+            })
+            .sort({ tuanBatDau: -1 })
+            .limit(10)
+            .lean()
+            .maxTimeMS(15000);
+
+        // Chuyển đổi dữ liệu về list các buổi tập (flatten)
+        const buoiTapList = [];
+        (lichTaps || []).forEach(lichTap => {
+            const ds = Array.isArray(lichTap.danhSachBuoiTap) ? lichTap.danhSachBuoiTap : [];
+            ds.forEach(item => {
+                const buoiTapInfo = item.buoiTap || {};
+                const status = item.trangThai || buoiTapInfo.trangThai;
+
+                if (trangThai && status !== trangThai) return;
+
+                buoiTapList.push({
+                    _id: buoiTapInfo._id || item._id,
+                    tenBuoiTap: buoiTapInfo.tenBuoiTap || 'Buổi tập',
+                    ngayTap: item.ngayTap || buoiTapInfo.ngayTap,
+                    gioBatDau: item.gioBatDau || buoiTapInfo.gioBatDau,
+                    gioKetThuc: item.gioKetThuc || buoiTapInfo.gioKetThuc,
+                    trangThai: status,
+                    chiNhanh: buoiTapInfo.chiNhanh || lichTap.chiNhanh,
+                    ptPhuTrach: item.ptPhuTrach || buoiTapInfo.ptPhuTrach,
+                    lichTapId: lichTap._id,
+                    raw: item
+                });
+            });
+        });
+
+        const duration = Date.now() - queryStart;
+        console.log(`✅ [getBuoiTapByHoiVien] Found ${buoiTapList.length} sessions in ${duration}ms for hoiVien=${maHoiVien}`);
+
+        return res.json({
+            success: true,
+            data: buoiTapList
+        });
     } catch (err) {
-        res.status(500).json({ message: 'Lỗi server', error: err.message });
+        console.error('❌ getBuoiTapByHoiVien error:', err);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi lấy buổi tập của hội viên',
+            error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
     }
 };
 

@@ -59,35 +59,145 @@ const tinhHangHoiVien = async (hoiVienId) => {
             throw new Error('Không tìm thấy hội viên');
         }
 
-        // Tính tổng số tiền đã chi
+        // Tính tổng số tiền đã chi - Hỗ trợ cả field mới (nguoiDungId, goiTapId) và field cũ (maHoiVien, maGoiTap)
+        // Ưu tiên dùng soTienThanhToan (số tiền thực tế đã thanh toán) thay vì donGia
+        const hoiVienObjectId = mongoose.Types.ObjectId.isValid(hoiVienId)
+            ? new mongoose.Types.ObjectId(hoiVienId)
+            : hoiVienId;
+
         const tongTienDaChi = await ChiTietGoiTap.aggregate([
-            { $match: { maHoiVien: hoiVienId, trangThaiThanhToan: 'DA_THANH_TOAN' } },
-            { $lookup: { from: 'goitaps', localField: 'maGoiTap', foreignField: '_id', as: 'goiTap' } },
-            { $unwind: '$goiTap' },
-            { $group: { _id: null, tongTien: { $sum: '$goiTap.donGia' } } }
+            {
+                $match: {
+                    $or: [
+                        { nguoiDungId: hoiVienObjectId },
+                        { maHoiVien: hoiVienObjectId }
+                    ],
+                    trangThaiThanhToan: 'DA_THANH_TOAN'
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    tongTien: {
+                        $sum: {
+                            $ifNull: ['$soTienThanhToan', 0] // Ưu tiên dùng soTienThanhToan
+                        }
+                    }
+                }
+            }
         ]);
 
-        const soTienTichLuy = tongTienDaChi.length > 0 ? tongTienDaChi[0].tongTien : 0;
+        // Nếu không có soTienThanhToan, fallback về donGia từ GoiTap
+        let soTienTichLuy = tongTienDaChi.length > 0 ? tongTienDaChi[0].tongTien : 0;
+
+        if (soTienTichLuy === 0) {
+            // Fallback: Tính từ donGia của GoiTap (cho dữ liệu cũ)
+            const tongTienDaChiFallback = await ChiTietGoiTap.aggregate([
+                {
+                    $match: {
+                        $or: [
+                            { nguoiDungId: hoiVienObjectId },
+                            { maHoiVien: hoiVienObjectId }
+                        ],
+                        trangThaiThanhToan: 'DA_THANH_TOAN'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'goitaps',
+                        localField: 'goiTapId',
+                        foreignField: '_id',
+                        as: 'goiTapNew'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'goitaps',
+                        localField: 'maGoiTap',
+                        foreignField: '_id',
+                        as: 'goiTapOld'
+                    }
+                },
+                {
+                    $project: {
+                        donGia: {
+                            $ifNull: [
+                                { $arrayElemAt: ['$goiTapNew.donGia', 0] },
+                                { $arrayElemAt: ['$goiTapOld.donGia', 0] },
+                                0
+                            ]
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        tongTien: { $sum: '$donGia' }
+                    }
+                }
+            ]);
+
+            soTienTichLuy = tongTienDaChiFallback.length > 0 ? tongTienDaChiFallback[0].tongTien : 0;
+        }
 
         // Tính số tháng liên tục là hội viên
-        const ngayThamGia = dayjs(hoiVien.ngayThamGia);
+        const ngayThamGia = hoiVien.ngayThamGia ? dayjs(hoiVien.ngayThamGia) : dayjs();
         const soThangLienTuc = dayjs().diff(ngayThamGia, 'month');
 
-        // Tính số buổi tập đã thực hiện
-        const soBuoiTapDaTap = await LichSuTap.countDocuments({ maHoiVien: hoiVienId });
+        // Tính số buổi tập đã thực hiện - Hỗ trợ cả field mới và cũ
+        const LichSuTap = require('../models/LichSuTap');
+        const soBuoiTapDaTap = await LichSuTap.countDocuments({
+            $or: [
+                { hoiVien: hoiVienObjectId },
+                { maHoiVien: hoiVienObjectId }
+            ]
+        });
 
         // Cập nhật thông tin hội viên
         hoiVien.soTienTichLuy = soTienTichLuy;
         hoiVien.soThangLienTuc = soThangLienTuc;
         hoiVien.soBuoiTapDaTap = soBuoiTapDaTap;
 
-        // Tìm hạng phù hợp
-        const hangPhuHop = await HangHoiVien.findOne({
-            kichHoat: true,
-            'dieuKienDatHang.soTienTichLuy': { $lte: soTienTichLuy },
-            'dieuKienDatHang.soThangLienTuc': { $lte: soThangLienTuc },
-            'dieuKienDatHang.soBuoiTapToiThieu': { $lte: soBuoiTapDaTap }
-        }).sort({ thuTu: -1 });
+        // Lấy tất cả hạng hội viên để tìm hạng phù hợp nhất
+        // Sắp xếp theo soTienTichLuy giảm dần để tìm hạng cao nhất mà hội viên đạt được
+        const allHangs = await HangHoiVien.find({ kichHoat: true })
+            .sort({ 'dieuKienDatHang.soTienTichLuy': -1, thuTu: -1 });
+
+        // Tìm hạng phù hợp nhất dựa trên soTienTichLuy (điều kiện chính)
+        // Chỉ cần soTienTichLuy >= soTienYeuCau là đủ
+        let hangPhuHop = null;
+        for (const hang of allHangs) {
+            const dieuKien = hang.dieuKienDatHang || {};
+            const soTienYeuCau = dieuKien.soTienTichLuy || 0;
+
+            // Điều kiện chính: soTienTichLuy phải >= soTienYeuCau
+            // Các điều kiện khác (soThangLienTuc, soBuoiTapToiThieu) là optional nếu có trong schema
+            if (soTienTichLuy >= soTienYeuCau) {
+                // Kiểm tra các điều kiện optional nếu có
+                const soThangYeuCau = dieuKien.soThangLienTuc;
+                const soBuoiTapYeuCau = dieuKien.soBuoiTapToiThieu;
+
+                // Nếu có điều kiện optional, kiểm tra chúng
+                if (soThangYeuCau !== undefined && soThangLienTuc < soThangYeuCau) {
+                    continue; // Không đạt điều kiện tháng
+                }
+                if (soBuoiTapYeuCau !== undefined && soBuoiTapDaTap < soBuoiTapYeuCau) {
+                    continue; // Không đạt điều kiện buổi tập
+                }
+
+                // Đạt tất cả điều kiện, chọn hạng này (hạng cao nhất)
+                hangPhuHop = hang;
+                break;
+            }
+        }
+
+        // Nếu không tìm thấy hạng nào (có thể do điều kiện optional), tìm hạng chỉ dựa trên soTienTichLuy
+        if (!hangPhuHop) {
+            hangPhuHop = await HangHoiVien.findOne({
+                kichHoat: true,
+                'dieuKienDatHang.soTienTichLuy': { $lte: soTienTichLuy }
+            }).sort({ 'dieuKienDatHang.soTienTichLuy': -1, thuTu: -1 });
+        }
 
         if (hangPhuHop) {
             // Kiểm tra xem hạng có thay đổi không
@@ -95,11 +205,15 @@ const tinhHangHoiVien = async (hoiVienId) => {
                 hoiVien.hangHoiVien = hangPhuHop._id;
                 hoiVien.ngayDatHang = new Date();
             }
+        } else {
+            // Nếu không có hạng nào phù hợp, giữ nguyên hạng hiện tại hoặc set về null
+            console.warn(`Không tìm thấy hạng phù hợp cho hội viên ${hoiVienId} với soTienTichLuy: ${soTienTichLuy}`);
         }
 
         await hoiVien.save();
         return hoiVien;
     } catch (error) {
+        console.error('Lỗi tính hạng hội viên:', error);
         throw error;
     }
 };

@@ -147,49 +147,55 @@ const PTStudents = () => {
         }
     ]);
 
-    const [stats] = useState({
-        totalStudents: 25,
-        activeStudents: 20,
-        upcomingSessions: 15,
-        avgRating: 4.6
-    });
 
     useEffect(() => {
         loadStudents();
     }, [searchQuery]);
 
+    const [stats, setStats] = useState({
+        totalStudents: 0,
+        activeStudents: 0,
+        upcomingSessions: 0,
+        avgRating: 0
+    });
+
     const loadStudents = async () => {
         try {
             setLoading(true);
-            // Try to fetch from API
-            const response = await ptService.getMyStudents({ search: searchQuery });
-            if (response.success && response.data.hoiViens?.length > 0) {
-                // Map API data to match our structure
-                const mappedStudents = response.data.hoiViens.map(student => ({
-                    ...student,
-                    trangThai: 'active',
-                    goiTap: {
-                        tenGoi: 'PT Package',
-                        sobuoiConLai: 10,
-                        tongSoBuoi: 20,
-                        ngayHetHan: '2025-12-31',
-                        trangThai: 'DANG_HOAT_DONG'
-                    },
-                    tienDo: {
-                        sobuoiDaTap: 5,
-                        tyLeHoanThanh: 25,
-                        rating: 4.5
-                    }
-                }));
-                setStudents(mappedStudents);
+            console.log('[PTStudents] Đang tải danh sách học viên...');
+            const response = await ptService.getMyStudents({
+                search: searchQuery,
+                limit: 100
+            });
+
+            if (response.success) {
+                console.log('[PTStudents] API response:', response.data);
+
+                // Cập nhật stats từ API
+                if (response.data.stats) {
+                    setStats({
+                        totalStudents: response.data.stats.totalStudents || 0,
+                        activeStudents: response.data.stats.activeStudents || 0,
+                        upcomingSessions: response.data.stats.upcomingSessions || 0,
+                        avgRating: 0 // Bỏ rating như yêu cầu
+                    });
+                }
+
+                // Sử dụng dữ liệu từ API
+                if (response.data.hoiViens && response.data.hoiViens.length > 0) {
+                    setStudents(response.data.hoiViens);
+                    console.log('[PTStudents] Đã tải', response.data.hoiViens.length, 'học viên');
+                } else {
+                    setStudents([]);
+                    console.log('[PTStudents] Không có học viên nào');
+                }
             } else {
-                // Use mock data if no API data
-                setStudents(mockStudents);
+                console.error('[PTStudents] API response không thành công:', response);
+                setStudents([]);
             }
         } catch (error) {
-            console.error('Error loading students:', error);
-            // Fallback to mock data on error
-            setStudents(mockStudents);
+            console.error('[PTStudents] Lỗi khi tải học viên:', error);
+            setStudents([]);
         } finally {
             setLoading(false);
         }
@@ -269,8 +275,8 @@ const PTStudents = () => {
                     </div>
 
                     {/* Overview Cards */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer"
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                        <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer border border-[#141414]"
                             onClick={() => setFilterStatus('all')}>
                             <div className="flex items-center justify-between mb-2">
                                 <Users className="w-5 h-5 text-blue-400" />
@@ -280,17 +286,17 @@ const PTStudents = () => {
                             <div className="text-xs text-gray-400">Tổng Học Viên</div>
                         </div>
 
-                        <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer"
+                        <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer border border-[#141414]"
                             onClick={() => setFilterStatus('active')}>
                             <div className="flex items-center justify-between mb-2">
                                 <Activity className="w-5 h-5 text-green-400" />
-                                <div className="text-xs text-green-400 font-medium">+12%</div>
+                                <CheckCircle className="w-4 h-4 text-green-400" />
                             </div>
                             <div className="text-2xl font-bold text-green-400 mb-1">{stats.activeStudents}</div>
                             <div className="text-xs text-gray-400">Đang Hoạt Động</div>
                         </div>
 
-                        <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer"
+                        <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer border border-[#141414]"
                             onClick={() => setFilterStatus('upcoming')}>
                             <div className="flex items-center justify-between mb-2">
                                 <Calendar className="w-5 h-5 text-purple-400" />
@@ -298,16 +304,6 @@ const PTStudents = () => {
                             </div>
                             <div className="text-2xl font-bold text-purple-400 mb-1">{stats.upcomingSessions}</div>
                             <div className="text-xs text-gray-400">Buổi Sắp Tới</div>
-                        </div>
-
-                        <div className="bg-[#141414] rounded-xl p-4 hover:border-[#3a3a3a] transition-all cursor-pointer"
-                            onClick={() => setFilterStatus('avgRating')}>
-                            <div className="flex items-center justify-between mb-2">
-                                <Award className="w-5 h-5 text-yellow-400" />
-                                <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                            </div>
-                            <div className="text-2xl font-bold text-yellow-400 mb-1">{stats.avgRating}</div>
-                            <div className="text-xs text-gray-400">Đánh Giá TB</div>
                         </div>
                     </div>
 
@@ -439,13 +435,7 @@ const PTStudents = () => {
                                                     <div className="flex-1 min-w-0">
                                                         <h3 className="text-base font-bold text-white truncate">{student.hoTen}</h3>
                                                         <div className="flex items-center gap-2 text-xs text-gray-400">
-                                                            <span>{student.tuoi || 25} tuổi</span>
-                                                            {student.tienDo?.rating && (
-                                                                <span className="flex items-center gap-0.5">
-                                                                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                                                                    {student.tienDo.rating}
-                                                                </span>
-                                                            )}
+                                                            <span>{student.tuoi ? `${student.tuoi} tuổi` : 'Chưa cập nhật'}</span>
                                                         </div>
                                                     </div>
 
@@ -477,11 +467,15 @@ const PTStudents = () => {
                                                         <div className="text-[10px] text-gray-400">Buổi còn</div>
                                                     </div>
                                                     <div className="bg-[#1a1a1a] rounded p-2 text-center">
-                                                        <div className="text-xs font-bold text-white">{student.thongSo?.canNang || '--'}kg</div>
+                                                        <div className="text-xs font-bold text-white">
+                                                            {student.thongSo?.canNang ? `${student.thongSo.canNang}kg` : '--'}
+                                                        </div>
                                                         <div className="text-[10px] text-gray-400">Cân nặng</div>
                                                     </div>
                                                     <div className="bg-[#1a1a1a] rounded p-2 text-center">
-                                                        <div className="text-xs font-bold text-white">{student.thongSo?.bmi || '--'}</div>
+                                                        <div className="text-xs font-bold text-white">
+                                                            {student.thongSo?.bmi ? student.thongSo.bmi : '--'}
+                                                        </div>
                                                         <div className="text-[10px] text-gray-400">BMI</div>
                                                     </div>
                                                 </div>
@@ -538,13 +532,7 @@ const PTStudents = () => {
                                                         </span>
                                                     </div>
                                                     <div className="flex items-center gap-4 text-sm text-gray-400">
-                                                        <span>{student.tuoi || 25} tuổi • {student.gioiTinh || 'Nam'}</span>
-                                                        {student.tienDo?.rating && (
-                                                            <span className="flex items-center gap-1">
-                                                                <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                                                                {student.tienDo.rating}
-                                                            </span>
-                                                        )}
+                                                        <span>{student.tuoi ? `${student.tuoi} tuổi` : 'Chưa cập nhật'} • {student.gioiTinh || 'Nam'}</span>
                                                     </div>
                                                 </div>
 
@@ -610,25 +598,24 @@ const PTStudents = () => {
                                             )}
 
                                             {/* Stats Grid */}
-                                            {student.thongSo && (
-                                                <div className="grid grid-cols-3 gap-3 mb-4">
-                                                    <div className="bg-[#1a1a1a] rounded-lg p-2 text-center">
-                                                        <div className="text-sm font-bold text-white mb-1">{student.thongSo.canNang}kg</div>
-                                                        <div className="text-xs text-gray-400 flex items-center justify-center gap-1">
-                                                            {getTrendIcon(student.thongSo.trend)}
-                                                            Cân nặng
-                                                        </div>
+                                            <div className="grid grid-cols-3 gap-3 mb-4">
+                                                <div className="bg-[#1a1a1a] rounded-lg p-2 text-center">
+                                                    <div className="text-sm font-bold text-white mb-1">
+                                                        {student.thongSo?.canNang ? `${student.thongSo.canNang}kg` : '--'}
                                                     </div>
-                                                    <div className="bg-[#1a1a1a] rounded-lg p-2 text-center">
-                                                        <div className="text-sm font-bold text-white mb-1">{student.thongSo.bmi}</div>
-                                                        <div className="text-xs text-gray-400">BMI</div>
-                                                    </div>
-                                                    <div className="bg-[#1a1a1a] rounded-lg p-2 text-center">
-                                                        <div className="text-sm font-bold text-white mb-1">{student.tienDo?.sobuoiDaTap || 0}</div>
-                                                        <div className="text-xs text-gray-400">Buổi tập</div>
-                                                    </div>
+                                                    <div className="text-xs text-gray-400">Cân nặng</div>
                                                 </div>
-                                            )}
+                                                <div className="bg-[#1a1a1a] rounded-lg p-2 text-center">
+                                                    <div className="text-sm font-bold text-white mb-1">
+                                                        {student.thongSo?.bmi ? student.thongSo.bmi : '--'}
+                                                    </div>
+                                                    <div className="text-xs text-gray-400">BMI</div>
+                                                </div>
+                                                <div className="bg-[#1a1a1a] rounded-lg p-2 text-center">
+                                                    <div className="text-sm font-bold text-white mb-1">{student.tienDo?.sobuoiDaTap || 0}</div>
+                                                    <div className="text-xs text-gray-400">Buổi tập</div>
+                                                </div>
+                                            </div>
 
                                             {/* Quick Actions */}
                                             <div className="grid grid-cols-3 gap-2">

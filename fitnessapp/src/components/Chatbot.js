@@ -337,10 +337,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.25,
-        shadowRadius: 6,
+        boxShadow: '0px 6px 6px rgba(0, 0, 0, 0.25)',
         backgroundColor: 'transparent'
     },
     chatbotInner: {

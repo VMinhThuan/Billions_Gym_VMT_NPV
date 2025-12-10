@@ -95,13 +95,53 @@ const PTSchema = new mongoose.Schema({
     chinhanh: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ChiNhanh',
-        required: true
+        required: true,
+        index: true // Thêm index cho chi nhánh
     },
     isOnline: { type: Boolean, default: false },
-    lastActivity: { type: Date, default: Date.now }
+    lastActivity: { type: Date, default: Date.now },
+    qrCode: {
+        type: String,
+        unique: true,
+        sparse: true, // Allow null values for existing records
+        index: true
+    }
+});
+
+// Pre-save middleware to auto-generate QR code for PT if not exists
+PTSchema.pre('save', async function (next) {
+    // Only generate QR code if it doesn't exist
+    if (!this.qrCode) {
+        let qrCode;
+        let isUnique = false;
+        let attempts = 0;
+        const maxAttempts = 10; // Prevent infinite loop
+
+        // Keep generating until we get a unique code
+        while (!isUnique && attempts < maxAttempts) {
+            qrCode = generateQRCode();
+            // Check if this QR code already exists using this.constructor (which is PT model)
+            const existing = await this.constructor.findOne({ qrCode: qrCode });
+            if (!existing) {
+                isUnique = true;
+            }
+            attempts++;
+        }
+
+        if (!isUnique) {
+            return next(new Error('Không thể tạo mã QR duy nhất. Vui lòng thử lại.'));
+        }
+
+        this.qrCode = qrCode;
+    }
+    next();
 });
 
 const PT = NguoiDung.discriminator('PT', PTSchema);
+
+// Index để tối ưu query PT theo chi nhánh và trạng thái
+PT.schema.index({ chinhanh: 1, trangThaiPT: 1 });
+PT.schema.index({ vaiTro: 1, trangThaiPT: 1 });
 
 const HangHoiVien = require('./HangHoiVien');
 

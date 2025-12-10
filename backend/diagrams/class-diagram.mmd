@@ -1,0 +1,316 @@
+classDiagram
+    %% Core User Classes
+    class NguoiDung {
+        +String soCCCD
+        +String hoTen
+        +Date ngaySinh
+        +String diaChi
+        +String gioiTinh
+        +String anhDaiDien
+        +String email
+        +String sdt
+        +String vaiTro
+    }
+    
+    class HoiVien {
+        +Date ngayThamGia
+        +Date ngayHetHan
+        +String trangThaiHoiVien
+        +Number soTienTichLuy
+        +Number soThangLienTuc
+        +Number soBuoiTapDaTap
+        +String qrCode
+        +dangKyGoiTap()
+        +checkIn()
+        +checkOut()
+        +xemLichTap()
+    }
+    
+    class PT {
+        +Number kinhNghiem
+        +String bangCapChungChi
+        +String chuyenMon
+        +Number danhGia
+        +String moTa
+        +Date ngayVaoLam
+        +String trangThaiPT
+        +Boolean isOnline
+        +String qrCode
+        +taoBuoiTap()
+        +quanLyHoiVien()
+        +chatVoiHoiVien()
+    }
+    
+    class OngChu {
+        +quanLyGoiTap()
+        +quanLyHoiVien()
+        +quanLyPT()
+        +xemBaoCao()
+    }
+    
+    class TaiKhoan {
+        +String tenDangNhap
+        +String matKhau
+        +String vaiTro
+        +dangNhap()
+        +dangXuat()
+    }
+    
+    %% Package Management
+    class GoiTap {
+        +String tenGoiTap
+        +String moTa
+        +Number donGia
+        +Number thoiHan
+        +String donViThoiHan
+        +String loaiThoiHan
+        +Number soLuongNguoiThamGia
+        +String loaiGoiTap
+        +Boolean kichHoat
+        +Array quyenLoi
+    }
+    
+    class ChiTietGoiTap {
+        +ObjectId goiTapId
+        +ObjectId nguoiDungId
+        +Date thoiGianDangKy
+        +Date ngayBatDau
+        +String trangThaiThanhToan
+        +String trangThaiDangKy
+        +ObjectId ptDuocChon
+        +ObjectId lichTapDuocTao
+        +Number soTienThanhToan
+        +dangKy()
+        +thanhToan()
+    }
+    
+    %% Workout Management
+    class Session {
+        +ObjectId chiNhanh
+        +ObjectId ptPhuTrach
+        +ObjectId goiTap
+        +Date ngay
+        +String gioBatDau
+        +String gioKetThuc
+        +Array taiLieuBaiTap
+        +String doKho
+        +Number soLuongToiDa
+        +Number soLuongDaDangKy
+        +String trangThai
+        +canRegister()
+    }
+    
+    class BuoiTap {
+        +String tenBuoiTap
+        +ObjectId chiNhanh
+        +ObjectId ptPhuTrach
+        +Date ngayTap
+        +String gioBatDau
+        +String gioKetThuc
+        +Number soLuongToiDa
+        +Number soLuongHienTai
+        +String trangThai
+        +Array danhSachHoiVien
+        +Array baiTap
+        +themHoiVien()
+        +xoaHoiVien()
+        +updateAttendanceStatus()
+    }
+    
+    class BaiTap {
+        +String tenBaiTap
+        +String type
+        +String file_url
+        +String source_url
+        +Number thoiGian
+        +String moTa
+        +String mucDoKho
+        +Number kcal
+        +Object ratings
+    }
+    
+    class LichTap {
+        +ObjectId hoiVien
+        +ObjectId pt
+        +Date ngayBatDau
+        +Date ngayKetThuc
+        +Array lichTapChiTiet
+    }
+    
+    class LichSuTap {
+        +ObjectId buoiTap
+        +ObjectId hoiVien
+        +String ketQua
+        +Number caloTieuHao
+        +Number danhGia
+    }
+    
+    %% Payment
+    class ThanhToan {
+        +ObjectId hoiVien
+        +Number soTien
+        +Date ngayThanhToan
+        +String phuongThuc
+        +String trangThaiThanhToan
+        +Boolean isLocked
+        +ObjectId maChiTietGoiTap
+    }
+    
+    %% Nutrition
+    class NutritionPlan {
+        +ObjectId hoiVien
+        +String planType
+        +Object request
+        +Array days
+        +Date generatedAt
+        +String generatedBy
+        +String status
+    }
+    
+    class Meal {
+        +String tenMon
+        +Number calories
+        +Object dinhDuong
+        +String hinhAnh
+    }
+    
+    %% Chat
+    class ChatRoom {
+        +Array participants
+        +String participantModel
+        +String lastMessage
+        +Date lastMessageAt
+        +findOrCreateRoom()
+    }
+    
+    class ChatMessage {
+        +ObjectId roomId
+        +ObjectId senderId
+        +String senderModel
+        +String content
+        +String messageType
+        +Date timestamp
+    }
+    
+    %% Check-in
+    class CheckInRecord {
+        +ObjectId hoiVien
+        +ObjectId buoiTap
+        +Date checkInTime
+        +Date checkOutTime
+        +String checkInStatus
+        +String checkOutStatus
+        +Number sessionDuration
+        +calculateDuration()
+    }
+    
+    class PTCheckInRecord {
+        +ObjectId pt
+        +ObjectId session
+        +Date checkInTime
+        +Date checkOutTime
+        +String trangThai
+    }
+    
+    %% Body Metrics
+    class ChiSoCoThe {
+        +ObjectId hoiVien
+        +Number chieuCao
+        +Number canNang
+        +Number vongNguc
+        +Number vongEo
+        +Number vongMong
+        +Number bmi
+        +Number tyLeMoCoThe
+        +Number tyLeCoBap
+        +Number nhipTim
+        +String tinhTrangSuckhoe
+        +Date ngayDo
+    }
+    
+    %% Branch
+    class ChiNhanh {
+        +String tenChiNhanh
+        +String diaChi
+        +String soDienThoai
+        +Object location
+        +Number thuTu
+    }
+    
+    %% Member Tier
+    class HangHoiVien {
+        +String tenHang
+        +Number soTienToiThieu
+        +Number soThangToiThieu
+        +Array quyenLoi
+    }
+    
+    %% PT Schedule
+    class LichHenPT {
+        +ObjectId hoiVien
+        +ObjectId pt
+        +Date ngayHen
+        +String gioHen
+        +String trangThaiLichHen
+    }
+    
+    class LichLamViecPT {
+        +ObjectId pt
+        +Date ngay
+        +Array caLamViec
+    }
+    
+    %% Relationships
+    NguoiDung <|-- HoiVien
+    NguoiDung <|-- PT
+    NguoiDung <|-- OngChu
+    NguoiDung "1" --> "1" TaiKhoan
+    
+    HoiVien "1" --> "*" ChiTietGoiTap
+    ChiTietGoiTap "*" --> "1" GoiTap
+    ChiTietGoiTap "*" --> "1" PT : chọn
+    ChiTietGoiTap "*" --> "1" LichTap : tạo
+    
+    HoiVien "1" --> "*" ThanhToan
+    ThanhToan "*" --> "1" ChiTietGoiTap
+    
+    HoiVien "*" --> "*" BuoiTap : đăng ký
+    BuoiTap "*" --> "1" PT
+    BuoiTap "*" --> "1" ChiNhanh
+    BuoiTap "*" --> "*" BaiTap
+    
+    HoiVien "1" --> "*" LichSuTap
+    LichSuTap "*" --> "1" BuoiTap
+    
+    HoiVien "1" --> "*" Session : đăng ký
+    Session "*" --> "1" PT
+    Session "*" --> "1" ChiNhanh
+    Session "*" --> "*" BaiTap
+    
+    HoiVien "1" --> "*" CheckInRecord
+    CheckInRecord "*" --> "1" BuoiTap
+    
+    PT "1" --> "*" PTCheckInRecord
+    PTCheckInRecord "*" --> "1" Session
+    
+    HoiVien "1" --> "*" ChiSoCoThe
+    HoiVien "*" --> "1" HangHoiVien
+    
+    HoiVien "*" --> "*" PT : lịch hẹn
+    LichHenPT "*" --> "1" HoiVien
+    LichHenPT "*" --> "1" PT
+    
+    PT "*" --> "1" ChiNhanh
+    PT "1" --> "*" LichLamViecPT
+    
+    HoiVien "*" --> "*" PT : chat
+    ChatRoom "*" --> "*" HoiVien
+    ChatRoom "*" --> "*" PT
+    ChatRoom "1" --> "*" ChatMessage
+    
+    HoiVien "1" --> "*" NutritionPlan
+    NutritionPlan "*" --> "*" Meal
+    
+    HoiVien "1" --> "*" LichTap
+    LichTap "*" --> "1" PT
+

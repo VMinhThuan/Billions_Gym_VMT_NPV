@@ -9,12 +9,22 @@ import { useTheme } from '../hooks/useTheme';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import HomeScreen from '../screens/HomeScreen';
 import LoginScreen from '../screens/LoginScreen';
+import SignupScreen from '../screens/SignupScreen';
 import ForgotPassword from '../screens/ForgotPassword';
 import VerifyOTPScreen from '../screens/VerifyOTPScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import WorkoutPlansScreen from '../screens/WorkoutPlansScreen';
+import ScheduleScreen from '../screens/ScheduleScreen';
+import NutritionScreen from '../screens/NutritionScreen';
+import MealDetailScreen from '../screens/MealDetailScreen';
+import MyMealsScreen from '../screens/MyMealsScreen';
 import ClassBookingScreen from '../screens/ClassBookingScreen';
 import MembershipScreen from '../screens/MembershipScreen';
+import PackagesScreen from '../screens/PackagesScreen';
+import PackageDetailScreen from '../screens/PackageDetailScreen';
+import PackageCompareScreen from '../screens/PackageCompareScreen';
+import PackageWorkflowScreen from '../screens/PackageWorkflowScreen';
+import CheckoutScreen from '../screens/CheckoutScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import EditFitnessGoalsScreen from '../screens/EditFitnessGoalsScreen';
@@ -31,6 +41,9 @@ import PTScheduleScreen from '../screens/PTScheduleScreen';
 import PTStudentsScreen from '../screens/PTStudentsScreen';
 import PTRevenueScreen from '../screens/PTRevenueScreen';
 import PTPaymentScreen from '../screens/PTPaymentScreen';
+import PaymentWebViewScreen from '../screens/PaymentWebViewScreen';
+import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
+import { navigationRef } from './RootNavigation';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -39,8 +52,9 @@ const MainTabNavigator = () => {
     const { colors } = useTheme();
     const tabLabels = {
         Home: 'Trang chủ',
-        Workout: 'Tập luyện',
-        Classes: 'Lớp',
+        Workout: 'Bài tập',
+        Nutrition: 'Dinh dưỡng',
+        Classes: 'Lịch tập',
         Profile: 'Hồ sơ',
     };
 
@@ -204,6 +218,7 @@ const MainTabNavigator = () => {
                         let iconName = 'ellipse';
                         if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
                         if (route.name === 'Workout') iconName = focused ? 'barbell' : 'barbell-outline';
+                        if (route.name === 'Nutrition') iconName = focused ? 'restaurant' : 'restaurant-outline';
                         if (route.name === 'Classes') iconName = focused ? 'calendar' : 'calendar-outline';
                         if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
 
@@ -236,7 +251,8 @@ const MainTabNavigator = () => {
         <Tab.Navigator tabBar={(props) => <AnimatedTabBar {...props} />} screenOptions={{ headerShown: false }}>
             <Tab.Screen name="Home" component={HomeScreen} />
             <Tab.Screen name="Workout" component={WorkoutPlansScreen} />
-            <Tab.Screen name="Classes" component={ClassBookingScreen} />
+            <Tab.Screen name="Nutrition" component={NutritionScreen} />
+            <Tab.Screen name="Classes" component={ScheduleScreen} />
             <Tab.Screen name="Profile" component={ProfileScreen} />
         </Tab.Navigator>
     );
@@ -266,25 +282,35 @@ const AppNavigator = () => {
     }
 
     return (
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
             <Stack.Navigator
                 initialRouteName={initialRouteName}
                 screenOptions={{ headerShown: false }}
             >
                 <Stack.Screen name="Onboarding" component={OnboardingScreen} />
                 <Stack.Screen name="Login" component={LoginScreen} />
+                <Stack.Screen name="Signup" component={SignupScreen} />
                 <Stack.Screen name="RoleTest" component={RoleTestScreen} />
                 <Stack.Screen name="Main" component={MainTabNavigator} />
                 <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
                 <Stack.Screen name="VerifyOTP" component={VerifyOTPScreen} />
                 <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
                 <Stack.Screen name="Membership" component={MembershipScreen} />
+                <Stack.Screen name="Packages" component={PackagesScreen} />
+                <Stack.Screen name="PackageDetail" component={PackageDetailScreen} />
+                <Stack.Screen name="PackageCompare" component={PackageCompareScreen} />
+                <Stack.Screen name="PackageWorkflow" component={PackageWorkflowScreen} />
+                <Stack.Screen name="Checkout" component={CheckoutScreen} />
+                <Stack.Screen name="PaymentWebView" component={PaymentWebViewScreen} />
+                <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
                 <Stack.Screen name="EditProfile" component={EditProfileScreen} />
                 <Stack.Screen name="EditFitnessGoals" component={EditFitnessGoalsScreen} />
                 <Stack.Screen name="EditAvatar" component={EditAvatarScreen} />
                 <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
                 <Stack.Screen name="Exercises" component={ExercisesScreen} />
                 <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
+                <Stack.Screen name="MealDetail" component={MealDetailScreen} />
+                <Stack.Screen name="MyMeals" component={MyMealsScreen} />
                 <Stack.Screen name="WorkoutTracking" component={WorkoutTrackingScreen} />
                 <Stack.Screen name="MonthlyMembership" component={MonthlyMembershipScreen} />
                 <Stack.Screen name="PTDashboard" component={PTDashboardScreen} />

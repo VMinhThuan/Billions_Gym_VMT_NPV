@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getPaymentRedirectUrl } from '../utils/paymentDeepLink';
 
 const API_URL = require('./ApiManagerPublic');
 
@@ -6,12 +7,16 @@ class ApiService {
     async getAuthToken() {
         try {
             const token = await AsyncStorage.getItem('userToken');
+            console.log('📱 AsyncStorage.getItem("userToken"):', token ? `${token.substring(0, 30)}...` : 'NULL');
             if (token) {
                 try {
                     const payload = JSON.parse(atob(token.split('.')[1]));
+                    console.log('🔓 Token payload:', payload);
                 } catch (decodeError) {
                     console.error('GetAuthToken - Failed to decode token:', decodeError);
                 }
+            } else {
+                console.warn('⚠️ No token found in AsyncStorage');
             }
             return token;
         } catch (error) {
@@ -31,10 +36,12 @@ class ApiService {
             let token;
             if (requiresAuth) {
                 token = await this.getAuthToken();
+                console.log('🔑 Auth token for', endpoint, ':', token ? `${token.substring(0, 20)}...` : 'NULL');
                 if (!token) {
                     throw new Error('Not logged in or your session has expired. Please log in again.');
                 } else {
                     headers.Authorization = `Bearer ${token}`;
+                    console.log('✅ Authorization header set for', endpoint);
                 }
             }
 
@@ -43,14 +50,20 @@ class ApiService {
                 headers,
             };
 
-            if (data && (method === 'POST' || method === 'PUT')) {
+            if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE')) {
                 config.body = JSON.stringify(data);
+                console.log(`[API] Request body for ${method}:`, data);
             }
 
+            // Timeout dài hơn cho AI endpoints (90s thay vì 30s)
+            const timeoutDuration = endpoint.includes('/nutrition/plan') || endpoint.includes('/workout/predict') ? 90000 : 30000;
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000);
+            const timeoutId = setTimeout(() => controller.abort(), 18000); // Timeout 18 giây (ít hơn backend 2s để tránh race condition)
 
-            const response = await fetch(`${API_URL}${endpoint}`, {
+            const fullUrl = `${API_URL}${endpoint}`;
+            console.log(`[API] ${method} ${fullUrl}`);
+
+            const response = await fetch(fullUrl, {
                 ...config,
                 signal: controller.signal
             });
@@ -107,17 +120,23 @@ class ApiService {
             }
 
             if (error.name === 'AbortError') {
+                console.error(`[API] Timeout: ${endpoint}`, error);
                 throw new Error('Connection timed out. Please try again.');
             } else if (error.message.includes('Network') || error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
-                throw new Error('Unable to connect to the server. Please check your network connection and ensure the server is running.');
+                console.error(`[API] Network error: ${endpoint}`, error);
+                throw new Error(`Unable to connect to the server at ${API_URL}. Please check your network connection and ensure the server is running.`);
             } else if (error.message.includes('timeout')) {
+                console.error(`[API] Timeout error: ${endpoint}`, error);
                 throw new Error('Connection timed out. Please try again later.');
             } else if (error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
-                throw new Error('Unable to connect to the server. Please check the server address and your network connection.');
+                console.error(`[API] Connection refused: ${endpoint}`, error);
+                throw new Error(`Unable to connect to the server at ${API_URL}. Please check the server address and your network connection.`);
             } else if (error.message.includes('TypeError')) {
+                console.error(`[API] TypeError: ${endpoint}`, error);
                 throw new Error('Connection error. Please check your network connection and try again.');
             }
 
+            console.error(`[API] Unknown error: ${endpoint}`, error);
             throw error;
         }
     }
@@ -127,13 +146,19 @@ class ApiService {
             await AsyncStorage.removeItem('userToken');
             await AsyncStorage.removeItem('userInfo');
         } catch (error) {
-            throw new Error('Failed to clear authentication data. Please try again.');
+            // Không throw error khi clear token để tránh lỗi cascade
+            console.error('Error clearing auth token:', error);
+            // Chỉ log error, không throw để tránh làm gián đoạn flow
         }
     }
 
     // Auth APIs
     async login(sdt, matKhau) {
         return this.apiCall('/auth/login', 'POST', { sdt, matKhau }, false);
+    }
+
+    async register(data) {
+        return this.apiCall('/auth/register', 'POST', data, false);
     }
 
     async forgotPassword(sdt) {
@@ -172,19 +197,121 @@ class ApiService {
 
     async getAllPT() {
         try {
-            const result = await this.apiCall('/user/pt');
-            return Array.isArray(result) ? result : [];
+            console.log('🔄 Fetching PT list for member branch...');
+
+            // Lấy chi nhánh từ membership của hội viên
+            let branchId = null;
+            try {
+                const memberships = await this.getMyMembership();
+                console.log('📦 Memberships found:', memberships?.length || 0);
+
+                // Tìm gói tập đang hoạt động
+                const activeMembership = memberships.find(m => {
+                    const isPaid = m.trangThaiThanhToan === 'DA_THANH_TOAN';
+                    const isCompleted = ['HOAN_THANH', 'DA_TAO_LICH'].includes(m.trangThaiDangKy);
+                    const isActive = !m.trangThaiSuDung || !['HET_HAN', 'DA_HUY'].includes(m.trangThaiSuDung);
+                    const notExpired = !m.ngayKetThuc || new Date(m.ngayKetThuc) >= new Date();
+                    return isPaid && isCompleted && isActive && notExpired;
+                });
+
+                if (activeMembership) {
+                    // Xử lý cả trường hợp branchId là object (populated) hoặc string
+                    if (activeMembership.branchId) {
+                        branchId = typeof activeMembership.branchId === 'object'
+                            ? activeMembership.branchId._id || activeMembership.branchId
+                            : activeMembership.branchId;
+                    } else if (activeMembership.chiNhanh) {
+                        branchId = typeof activeMembership.chiNhanh === 'object'
+                            ? activeMembership.chiNhanh._id || activeMembership.chiNhanh
+                            : activeMembership.chiNhanh;
+                    }
+
+                    if (branchId) {
+                        // Convert ObjectId to string nếu cần
+                        branchId = branchId.toString ? branchId.toString() : branchId;
+                        console.log('✅ Found active membership with branchId:', branchId);
+                    } else {
+                        console.log('⚠️ Active membership found but no branchId');
+                    }
+                } else {
+                    console.log('⚠️ No active membership found, will fetch all PTs');
+                }
+            } catch (membershipError) {
+                console.warn('⚠️ Could not fetch membership for branch filter:', membershipError.message);
+                // Tiếp tục lấy tất cả PT nếu không lấy được membership
+            }
+
+            // Gọi API với branchId nếu có
+            let result;
+            if (branchId) {
+                console.log('📍 Fetching PTs for branch:', branchId);
+                // Sử dụng endpoint /pt/list với branchId query param (đã được sửa để hỗ trợ branchId)
+                result = await this.apiCall(`/pt/list?branchId=${branchId}`, 'GET', null, false);
+            } else {
+                // Fallback: lấy tất cả PT nếu không có branchId
+                console.log('📍 Fetching all PTs (no branch filter)');
+                result = await this.apiCall('/pt/list', 'GET', null, false);
+            }
+
+            console.log('🔍 getAllPT - Type of result:', typeof result);
+            console.log('🔍 getAllPT - Is result array?', Array.isArray(result));
+            console.log('🔍 getAllPT - result.success:', result?.success);
+            console.log('🔍 getAllPT - result.data exists?', !!result?.data);
+            console.log('🔍 getAllPT - result.data is array?', Array.isArray(result?.data));
+            console.log('🔍 getAllPT - result.data length:', result?.data?.length);
+
+            // Backend returns {success: true, data: [...]}
+            // Xử lý response đúng cách
+            let ptList = [];
+
+            if (result && typeof result === 'object') {
+                if (result.success && Array.isArray(result.data)) {
+                    ptList = result.data;
+                    console.log('✅ getAllPT - Got data from result.data:', ptList.length, 'items');
+                } else if (Array.isArray(result)) {
+                    ptList = result;
+                    console.log('✅ getAllPT - Got direct array:', ptList.length, 'items');
+                } else if (result.data && Array.isArray(result.data)) {
+                    ptList = result.data;
+                    console.log('✅ getAllPT - Got data from result.data (no success field):', ptList.length, 'items');
+                }
+            } else if (Array.isArray(result)) {
+                ptList = result;
+                console.log('✅ getAllPT - Result is direct array:', ptList.length, 'items');
+            }
+
+            if (ptList.length > 0) {
+                console.log('✅ getAllPT returning', ptList.length, 'PTs');
+                return ptList;
+            }
+
+            console.log('⚠️ getAllPT returning empty array - no valid data found');
+            return [];
+
         } catch (error) {
+            console.error('❌ Failed to fetch PT list:', error.message);
             return [];
         }
     }
 
     async getAllGoiTap() {
         try {
+            console.log('🔍 Fetching all packages...');
             const result = await this.apiCall('/user/goitap');
-            return Array.isArray(result) ? result : [];
+            console.log('📦 getAllGoiTap response:', result);
+
+
+            // Handle different response formats
+            if (Array.isArray(result)) {
+                return result;
+            } else if (result && result.data && Array.isArray(result.data)) {
+                return result.data;
+            } else if (result && typeof result === 'object') {
+                return [result];
+            }
+            return [];
         } catch (error) {
-            console.error('Error fetching workout packages:', error);
+            console.error('❌ Error fetching workout packages:', error.message);
             return [];
         }
     }
@@ -209,6 +336,18 @@ class ApiService {
         }
     }
 
+    async getPackageById(packageId) {
+        try {
+            console.log('🔍 Fetching package by ID:', packageId);
+            const result = await this.apiCall(`/goitap/${packageId}`, 'GET', null, false);
+            console.log('📦 getPackageById response:', result);
+            return result;
+        } catch (error) {
+            console.error('❌ Error fetching package by ID:', error.message);
+            throw error;
+        }
+    }
+
     // Workout Plans APIs
     async getMyWorkoutPlans() {
         const token = await this.getAuthToken();
@@ -226,6 +365,71 @@ class ApiService {
 
     async getWorkoutPlanById(id) {
         return this.apiCall(`/buoitap/${id}`);
+    }
+
+    // Template buổi tập (danh sách mẫu)
+    async getTemplateBuoiTap() {
+        try {
+            // Thử endpoint public (nếu có)
+            let result;
+            try {
+                result = await this.apiCall('/session-template/public', 'GET', null, false);
+            } catch (e) {
+                // Fallback sang endpoint bảo vệ, cần token
+                result = await this.apiCall('/pt-templates', 'GET');
+            }
+
+            if (!result) return [];
+            if (Array.isArray(result)) return result;
+            if (result.data && Array.isArray(result.data)) return result.data;
+            return [];
+        } catch (error) {
+            console.error('❌ Error fetching template buổi tập:', error.message || error);
+            return [];
+        }
+    }
+
+    // Payment creation (MoMo / ZaloPay)
+    async createPayment({ packageId, userId, branchId, startDate, paymentMethod, payload = {} }) {
+        try {
+            if (!paymentMethod) throw new Error('paymentMethod is required');
+            if (!userId) throw new Error('userId is required');
+
+            const endpoint = paymentMethod === 'zalopay' ? '/payment/zalo/create' : '/payment/momo/create';
+
+            // Format request body giống web version
+            const body = {
+                packageId: packageId,
+                userId: userId,
+                paymentData: {
+                    firstName: payload.firstName || '',
+                    lastName: payload.lastName || '',
+                    phone: payload.phone || '',
+                    email: payload.email || '',
+                    partnerPhone: payload.partnerPhone || null,
+                    branchId: branchId,
+                    startDate: startDate,
+                    isUpgrade: payload.isUpgrade || false,
+                    upgradeAmount: payload.upgradeAmount || 0,
+                    existingPackageId: payload.existingPackageId || null,
+                    giaGoiTapGoc: payload.giaGoiTapGoc || 0,
+                    soTienBu: payload.soTienBu || 0,
+                    keepPreviousInfo: payload.keepPreviousInfo || false,
+                    previousBranchId: payload.previousBranchId || null,
+                    previousPtId: payload.previousPtId || null,
+                    appRedirectUrl: getPaymentRedirectUrl(),
+                    platform: 'mobile'
+                }
+            };
+
+            console.log('💳 [createPayment] Request body:', JSON.stringify(body, null, 2));
+            const result = await this.apiCall(endpoint, 'POST', body, true);
+            console.log('💳 [createPayment] Response:', result);
+            return result;
+        } catch (error) {
+            console.error('❌ createPayment error:', error.message || error);
+            throw error;
+        }
     }
 
     async completeWorkout(workoutId) {
@@ -249,6 +453,68 @@ class ApiService {
             return Array.isArray(result) ? result : [];
         } catch (error) {
             console.error('Error fetching all workout schedules:', error.message || error);
+            return [];
+        }
+    }
+
+    async getMemberSchedule(hoiVienId) {
+        try {
+            const result = await this.apiCall(`/lichtap/member/${hoiVienId}`);
+            if (result && result.data) {
+                return result.data;
+            }
+            return [];
+        } catch (error) {
+            console.error('Error fetching member schedule:', error.message || error);
+            return [];
+        }
+    }
+
+    async getMemberTodaySchedule(hoiVienId) {
+        try {
+            console.log('📅 [getMemberTodaySchedule] Fetching today schedule for:', hoiVienId);
+            const result = await this.apiCall(`/lichtap/member/${hoiVienId}/today`);
+
+            // Xử lý response đúng cách
+            let schedules = [];
+
+            if (result && typeof result === 'object') {
+                if (result.success && Array.isArray(result.data)) {
+                    schedules = result.data;
+                    console.log('✅ [getMemberTodaySchedule] Got data from result.data:', schedules.length, 'schedules');
+                } else if (Array.isArray(result)) {
+                    schedules = result;
+                    console.log('✅ [getMemberTodaySchedule] Got direct array:', schedules.length, 'schedules');
+                } else if (result.data && Array.isArray(result.data)) {
+                    schedules = result.data;
+                    console.log('✅ [getMemberTodaySchedule] Got data from result.data (no success field):', schedules.length, 'schedules');
+                }
+            } else if (Array.isArray(result)) {
+                schedules = result;
+                console.log('✅ [getMemberTodaySchedule] Result is direct array:', schedules.length, 'schedules');
+            }
+
+            if (schedules.length > 0) {
+                console.log('✅ [getMemberTodaySchedule] Returning', schedules.length, 'schedules');
+                // Log chi tiết để debug
+                schedules.forEach((schedule, idx) => {
+                    console.log(`📅 Schedule ${idx + 1}:`, {
+                        id: schedule._id,
+                        buoiTapCount: schedule.danhSachBuoiTap?.length || 0,
+                        firstBuoiTap: schedule.danhSachBuoiTap?.[0] ? {
+                            ngayTap: schedule.danhSachBuoiTap[0].ngayTap,
+                            gioBatDau: schedule.danhSachBuoiTap[0].gioBatDau,
+                            buoiTap: schedule.danhSachBuoiTap[0].buoiTap ? 'populated' : 'not populated'
+                        } : 'no buoiTap'
+                    });
+                });
+            } else {
+                console.log('⚠️ [getMemberTodaySchedule] No schedules found');
+            }
+
+            return schedules;
+        } catch (error) {
+            console.error('❌ Error fetching member today schedule:', error.message || error);
             return [];
         }
     }
@@ -386,40 +652,70 @@ class ApiService {
         return this.apiCall(`/dinhduong/goi-y/${suggestionId}/phan-hoi`, 'PUT', data);
     }
 
-    // Thực đơn APIs
-    async getHealthyMeals(limit = 10) {
-        const token = await this.getAuthToken();
-        let hoiVienId = null;
+    // Nutrition Meals APIs - Lấy món ăn từ Nutrition
+    async getHealthyMeals(limit = 10, mealType = null) {
+        const queryParams = new URLSearchParams();
 
-        if (token) {
-            try {
-                const payload = JSON.parse(atob(token.split('.')[1]));
-                hoiVienId = payload.id;
-            } catch (error) {
-                console.error('Error parsing token:', error);
-            }
+        // Map mealType từ format cũ sang format mới của Meal model
+        // SANG -> 'Bữa sáng', TRUA -> 'Bữa trưa', CHIEU -> 'Ăn nhẹ', TOI -> 'Bữa tối'
+        if (mealType) {
+            const mealTypeMap = {
+                'SANG': 'Bữa sáng',
+                'TRUA': 'Bữa trưa',
+                'CHIEU': 'Ăn nhẹ',
+                'TOI': 'Bữa tối'
+            };
+            const mappedType = mealTypeMap[mealType] || mealType;
+            queryParams.append('mealType', mappedType);
+            console.log('🔄 Mapped mealType:', mealType, '->', mappedType);
         }
 
-        const queryParams = new URLSearchParams();
-        if (hoiVienId) queryParams.append('hoiVienId', hoiVienId);
         queryParams.append('limit', limit);
+        queryParams.append('skip', 0);
 
-        return this.apiCall(`/thucdon/healthy-meals?${queryParams.toString()}`, 'GET', null, false);
+        const endpoint = `/nutrition/meals?${queryParams.toString()}`;
+        console.log('📡 Calling API:', endpoint);
+
+        try {
+            const result = await this.apiCall(endpoint, 'GET', null, true);
+            console.log('✅ API Result:', result);
+            return result;
+        } catch (error) {
+            console.error('❌ API Error:', error);
+            throw error;
+        }
     }
 
     // Membership APIs
     async getMyMembership() {
-        const token = await this.getAuthToken();
-        if (!token) throw new Error('No auth token');
+        try {
+            const token = await this.getAuthToken();
+            if (!token) {
+                console.warn('⚠️ No auth token for membership');
+                return [];
+            }
 
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const userId = payload.id;
+            console.log('📞 Calling /user/chitietgoitap API...');
+            const result = await this.apiCall('/user/chitietgoitap');
+            console.log('📞 getMyMembership response:', result);
 
-        // Get all membership details and filter by current user
-        const allMemberships = await this.apiCall('/user/chitietgoitap');
-        return allMemberships.filter(membership =>
-            membership.maHoiVien && membership.maHoiVien._id === userId
-        );
+            // Handle different response formats
+            if (Array.isArray(result)) {
+                return result;
+            } else if (result && result.data && Array.isArray(result.data)) {
+                return result.data;
+            } else if (result && result.success === false) {
+                // No membership found
+                return [];
+            } else if (result && typeof result === 'object') {
+                return [result];
+            }
+            return [];
+        } catch (error) {
+            console.error('❌ Error fetching membership:', error.message);
+            // Don't throw, return empty array
+            return [];
+        }
     }
 
     async createMembershipRegistration(data) {
@@ -429,10 +725,6 @@ class ApiService {
     // Payment APIs
     async getMyPayments() {
         return this.apiCall('/thanhtoan/my');
-    }
-
-    async createPayment(data) {
-        return this.apiCall('/thanhtoan', 'POST', data);
     }
 
     async getCurrentUserId() {
@@ -475,6 +767,10 @@ class ApiService {
         return this.apiCall(`/hanghoivien/tinh-hang/${hoiVienId}`, 'POST');
     }
 
+    async tinhHangHoiVienTheoThoiHan(userId) {
+        return this.apiCall(`/hanghoivien/tinh-hang-theo-thoi-han/${userId}`, 'GET');
+    }
+
     async getThongKeHangHoiVien() {
         return this.apiCall('/hanghoivien/thong-ke/overview');
     }
@@ -482,23 +778,13 @@ class ApiService {
     // Exercises APIs
     async getAllBaiTap() {
         try {
-            try {
-                const result = await this.apiCall('/baitap');
-                if (Array.isArray(result) && result.length) return result;
-            } catch (authErr) {
-                console.error('getAllBaiTap - authenticated fetch failed:', authErr && authErr.message ? authErr.message : authErr);
-            }
-
-            try {
-                const publicResult = await this.apiCall('/baitap', 'GET', null, false);
-                return Array.isArray(publicResult) ? publicResult : [];
-            } catch (publicErr) {
-                console.error('getAllBaiTap - unauthenticated fetch failed:', publicErr && publicErr.message ? publicErr.message : publicErr);
-                return [];
-            }
+            console.log('🔄 Fetching exercises...');
+            const result = await this.apiCall('/baitap', 'GET', null, false);
+            console.log(`✅ Exercises fetched successfully:`, result?.length || 0);
+            return Array.isArray(result) ? result : [];
         } catch (error) {
-            console.error('Error fetching exercises:', error);
-            return [];
+            console.error('❌ Failed to fetch exercises:', error.message);
+            return []; // Return empty array on error
         }
     }
 
@@ -579,9 +865,7 @@ class ApiService {
         return this.apiCall('/user/hoivien');
     }
 
-    async getAllPT() {
-        return this.apiCall('/user/pt');
-    }
+    // REMOVED: Duplicate getAllPT() - using the detailed version at line 173 instead
 
     async getAllPayments() {
         return this.apiCall('/thanhtoan');

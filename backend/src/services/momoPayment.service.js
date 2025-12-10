@@ -157,19 +157,23 @@ class MomoPaymentService {
                 orderInfo
             } = callbackData;
 
+            // Chuẩn hóa kiểu dữ liệu để tránh so sánh sai khi MoMo trả về string
+            const normalizedResultCode = Number.isNaN(Number(resultCode)) ? resultCode : Number(resultCode);
+            const normalizedAmount = Number.isNaN(Number(amount)) ? amount : Number(amount);
+
             // resultCode = 0: giao dịch thành công
             // resultCode = 9000: giao dịch được cấp quyền thành công
             // resultCode <> 0: giao dịch thất bại
-            const isSuccess = resultCode === 0 || resultCode === 9000;
+            const isSuccess = normalizedResultCode === 0 || normalizedResultCode === 9000;
 
             return {
                 success: isSuccess,
                 orderId: orderId,
-                amount: amount,
+                amount: normalizedAmount,
                 transId: transId,
                 message: message,
                 orderInfo: orderInfo,
-                resultCode: resultCode,
+                resultCode: normalizedResultCode,
                 paymentMethod: 'momo'
             };
 

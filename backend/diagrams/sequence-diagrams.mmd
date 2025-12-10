@@ -1,0 +1,122 @@
+%% Sequence Diagram 1: Đăng ký gói tập và thanh toán
+sequenceDiagram
+    participant HV as Hội Viên
+    participant API as API Server
+    participant DB as MongoDB
+    participant PG as Payment Gateway
+    
+    HV->>API: GET /api/goitap (Xem danh sách gói)
+    API->>DB: Query GoiTap
+    DB-->>API: Danh sách gói tập
+    API-->>HV: Trả về danh sách
+    
+    HV->>API: POST /api/chitietgoitap/dangky
+    API->>DB: Tạo ChiTietGoiTap (trạng thái: CHO_THANH_TOAN)
+    DB-->>API: ChiTietGoiTap created
+    API-->>HV: Trả về thông tin đăng ký
+    
+    HV->>API: POST /api/payment/create (Tạo thanh toán)
+    API->>PG: Tạo payment request
+    PG-->>API: Payment URL
+    API-->>HV: Trả về payment URL
+    
+    HV->>PG: Thanh toán qua MoMo/ZaloPay
+    PG->>API: Webhook callback (thanh toán thành công)
+    API->>DB: Cập nhật ChiTietGoiTap (DA_THANH_TOAN)
+    API->>DB: Tạo ThanhToan record
+    API->>HV: Gửi thông báo thanh toán thành công
+
+---
+
+%% Sequence Diagram 2: Tạo và tham gia buổi tập
+sequenceDiagram
+    participant PT as Personal Trainer
+    participant HV as Hội Viên
+    participant API as API Server
+    participant DB as MongoDB
+    participant WS as WebSocket
+    
+    PT->>API: POST /api/buoitap (Tạo buổi tập)
+    API->>DB: Tạo BuoiTap
+    DB-->>API: BuoiTap created
+    API->>WS: Broadcast thông báo buổi tập mới
+    WS-->>HV: Thông báo buổi tập mới
+    API-->>PT: Trả về thông tin buổi tập
+    
+    HV->>API: GET /api/buoitap (Xem danh sách)
+    API->>DB: Query BuoiTap
+    DB-->>API: Danh sách buổi tập
+    API-->>HV: Trả về danh sách
+    
+    HV->>API: POST /api/buoitap/:id/dangky (Đăng ký)
+    API->>DB: Thêm hội viên vào danhSachHoiVien
+    DB-->>API: Updated
+    API->>WS: Broadcast cập nhật
+    API-->>HV: Đăng ký thành công
+    
+    HV->>API: POST /api/checkin (Check-in)
+    API->>DB: Tạo CheckInRecord
+    DB-->>API: CheckInRecord created
+    API->>WS: Broadcast check-in
+    API-->>HV: Check-in thành công
+    
+    HV->>API: PUT /api/checkin/:id/checkout (Check-out)
+    API->>DB: Cập nhật CheckInRecord (checkOutTime)
+    DB-->>API: Updated
+    API->>DB: Tạo LichSuTap
+    API-->>HV: Check-out thành công
+
+---
+
+%% Sequence Diagram 3: Chat real-time
+sequenceDiagram
+    participant HV as Hội Viên
+    participant PT as Personal Trainer
+    participant API as API Server
+    participant WS as WebSocket
+    participant DB as MongoDB
+    
+    HV->>API: POST /api/pt/chat/room (Tạo/tìm room)
+    API->>DB: Tìm hoặc tạo ChatRoom
+    DB-->>API: ChatRoom
+    API-->>HV: Room ID
+    
+    HV->>WS: Connect WebSocket
+    WS-->>HV: Connected
+    
+    HV->>WS: Send message (roomId, content)
+    WS->>DB: Lưu ChatMessage
+    WS->>PT: Broadcast message (real-time)
+    DB-->>WS: Message saved
+    WS-->>HV: Message sent confirmation
+    
+    PT->>WS: Send reply
+    WS->>DB: Lưu ChatMessage
+    WS->>HV: Broadcast message (real-time)
+    DB-->>WS: Message saved
+    WS-->>PT: Message sent confirmation
+
+---
+
+%% Sequence Diagram 4: Tạo kế hoạch dinh dưỡng AI
+sequenceDiagram
+    participant HV as Hội Viên
+    participant API as API Server
+    participant AI as Gemini AI
+    participant DB as MongoDB
+    
+    HV->>API: POST /api/nutrition/plan (Yêu cầu kế hoạch)
+    Note over HV,API: {goal, calories, period, preferences}
+    API->>DB: Lấy ChiSoCoThe của hội viên
+    DB-->>API: ChiSoCoThe data
+    
+    API->>AI: Generate nutrition plan
+    Note over API,AI: Prompt với thông tin hội viên
+    AI-->>API: Nutrition plan JSON
+    
+    API->>DB: Lưu NutritionPlan
+    API->>DB: Tạo/lấy Meal records
+    DB-->>API: NutritionPlan created
+    
+    API-->>HV: Trả về kế hoạch dinh dưỡng
+

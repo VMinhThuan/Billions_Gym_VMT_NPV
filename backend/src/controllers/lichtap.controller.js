@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const ChiNhanh = require('../models/ChiNhanh');
 const { PT } = require('../models/NguoiDung');
 const BuoiTap = require('../models/BuoiTap');
@@ -665,6 +666,8 @@ exports.getAvailableSessionsThisWeek = async (req, res) => {
 
         let chiNhanhId = null;
         let goiTapId = null;
+        const chiNhanhIdFromQuery = req.query?.chiNhanhId || req.query?.branchId;
+        const goiTapIdFromQuery = req.query?.goiTapId;
 
         if (lichTap && lichTap.chiNhanh) {
             chiNhanhId = lichTap.chiNhanh._id;
@@ -754,6 +757,18 @@ exports.getAvailableSessionsThisWeek = async (req, res) => {
                     });
                 }
             }
+        }
+
+        // Cho phép override chi nhánh/gói từ query (case: user chọn chi nhánh khác)
+        if (chiNhanhIdFromQuery) {
+            chiNhanhId = chiNhanhIdFromQuery;
+            if (goiTapIdFromQuery) {
+                goiTapId = goiTapIdFromQuery;
+            }
+            console.log('🔀 [available-sessions-this-week] Override chi nhánh từ query:', {
+                chiNhanhId,
+                goiTapId
+            });
         }
 
         if (!chiNhanhId) {
@@ -1061,6 +1076,100 @@ exports.createWorkoutSchedule = async (req, res) => {
 };
 
 /**
+ * Lấy lịch tập hôm nay của hội viên (tối ưu query)
+ */
+exports.getMemberTodaySchedule = async (req, res) => {
+    try {
+        const { hoiVienId } = req.params;
+        const userId = req.user.id;
+
+        // Kiểm tra quyền truy cập
+        if (hoiVienId !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền truy cập'
+            });
+        }
+
+        const startTime = Date.now();
+
+        // Tính ngày hôm nay (Vietnam timezone)
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+        console.log('📅 [getMemberTodaySchedule] Querying for today:', {
+            hoiVienId,
+            todayStart: todayStart.toISOString(),
+            todayEnd: todayEnd.toISOString()
+        });
+
+        // Query đơn giản hơn: lấy tất cả lịch tập của hội viên và filter ở application level
+        // Điều này đơn giản hơn và tránh lỗi với aggregation + populate
+        const lichTaps = await LichTap.find({
+            hoiVien: hoiVienId,
+            trangThai: { $ne: 'HUY' }
+        })
+            .populate('goiTap', 'tenGoiTap donGia')
+            .populate('chiNhanh', 'tenChiNhanh diaChi')
+            .populate('danhSachBuoiTap.ptPhuTrach', 'hoTen chuyenMon anhDaiDien')
+            .populate({
+                path: 'danhSachBuoiTap.buoiTap',
+                select: 'tenBuoiTap ngayTap gioBatDau gioKetThuc soLuongToiDa soLuongHienTai trangThai moTa chiNhanh ptPhuTrach',
+                populate: [
+                    { path: 'chiNhanh', select: 'tenChiNhanh diaChi' },
+                    { path: 'ptPhuTrach', select: 'hoTen chuyenMon anhDaiDien' }
+                ]
+            })
+            .sort({ tuanBatDau: -1 })
+            .limit(5) // Giới hạn số lượng lịch tập
+            .lean() // Sử dụng lean() để tăng tốc độ
+            .maxTimeMS(20000); // Timeout 20 giây
+
+        // Filter buổi tập hôm nay ở application level
+        // Xử lý timezone: convert ngayTap về local date để so sánh
+        const filteredLichTaps = lichTaps.map(lichTap => {
+            const filteredBuoiTaps = (lichTap.danhSachBuoiTap || []).filter(buoiTap => {
+                if (!buoiTap.ngayTap) return false;
+
+                // Convert ngayTap về local date để so sánh
+                const ngayTap = new Date(buoiTap.ngayTap);
+                const ngayTapLocal = new Date(ngayTap.getFullYear(), ngayTap.getMonth(), ngayTap.getDate(), 0, 0, 0, 0);
+
+                // So sánh với todayStart (đã là local date)
+                const isToday = ngayTapLocal.getTime() === todayStart.getTime();
+
+                return isToday && buoiTap.trangThai !== 'HUY';
+            });
+
+            // Chỉ trả về lịch tập có buổi tập hôm nay
+            if (filteredBuoiTaps.length === 0) return null;
+
+            return {
+                ...lichTap,
+                danhSachBuoiTap: filteredBuoiTaps
+            };
+        }).filter(lichTap => lichTap !== null); // Loại bỏ null
+
+        const duration = Date.now() - startTime;
+        console.log(`✅ [getMemberTodaySchedule] Found ${filteredLichTaps.length} schedules with today's sessions in ${duration}ms`);
+
+        res.json({
+            success: true,
+            data: filteredLichTaps
+        });
+
+    } catch (error) {
+        console.error('❌ Error getting member today schedule:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi lấy lịch tập hôm nay',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
+/**
  * Lấy lịch tập của hội viên
  */
 exports.getMemberSchedule = async (req, res) => {
@@ -1076,12 +1185,37 @@ exports.getMemberSchedule = async (req, res) => {
             });
         }
 
-        const lichTaps = await LichTap.find({ hoiVien: hoiVienId })
+        const startTime = Date.now();
+
+        // Query tối ưu với limit và lean
+        const lichTaps = await LichTap.find({
+            hoiVien: hoiVienId,
+            trangThai: { $ne: 'HUY' }
+        })
             .populate('goiTap', 'tenGoiTap donGia')
             .populate('chiNhanh', 'tenChiNhanh diaChi')
-            .populate('danhSachBuoiTap.ptPhuTrach', 'hoTen chuyenMon')
-            .populate('danhSachBuoiTap.buoiTap')
-            .sort({ tuanBatDau: -1 });
+            .populate('danhSachBuoiTap.ptPhuTrach', 'hoTen chuyenMon anhDaiDien')
+            .populate({
+                path: 'danhSachBuoiTap.buoiTap',
+                select: 'tenBuoiTap ngayTap gioBatDau gioKetThuc soLuongToiDa soLuongHienTai trangThai moTa chiNhanh ptPhuTrach',
+                populate: [
+                    {
+                        path: 'chiNhanh',
+                        select: 'tenChiNhanh diaChi'
+                    },
+                    {
+                        path: 'ptPhuTrach',
+                        select: 'hoTen chuyenMon anhDaiDien'
+                    }
+                ]
+            })
+            .sort({ tuanBatDau: -1 })
+            .limit(10) // Giới hạn số lượng để tối ưu
+            .lean() // Sử dụng lean() để tăng tốc độ
+            .maxTimeMS(20000); // Timeout 20 giây
+
+        const duration = Date.now() - startTime;
+        console.log(`📅 [getMemberSchedule] Found ${lichTaps.length} schedules in ${duration}ms`);
 
         res.json({
             success: true,
@@ -1092,7 +1226,8 @@ exports.getMemberSchedule = async (req, res) => {
         console.error('Error getting member schedule:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi server khi lấy lịch tập'
+            message: 'Lỗi server khi lấy lịch tập',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };

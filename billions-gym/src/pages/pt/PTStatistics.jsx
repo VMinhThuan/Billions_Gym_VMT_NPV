@@ -119,41 +119,497 @@ const PTStatistics = () => {
         loadStatistics();
     }, [timeFilter]);
 
+    // Helper: xác định khoảng thời gian theo bộ lọc
+    const getDateRange = () => {
+        const now = new Date();
+        const endDate = new Date(now);
+        endDate.setHours(23, 59, 59, 999);
+
+        const startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0);
+
+        switch (timeFilter) {
+            case 'day':
+                // hôm nay
+                break;
+            case 'week':
+                startDate.setDate(startDate.getDate() - 6);
+                break;
+            case 'month':
+                startDate.setDate(1);
+                break;
+            case 'year':
+                startDate.setMonth(0, 1);
+                break;
+            default:
+                break;
+        }
+
+        return { startDate, endDate };
+    };
+
     const loadStatistics = async () => {
+        const loadStartTime = performance.now();
+        console.log('[PTStatistics] ===== BẮT ĐẦU LOAD STATISTICS =====');
+        console.log('[PTStatistics] Time filter:', timeFilter);
+        console.log('[PTStatistics] Timestamp:', new Date().toISOString());
+
+        // TẮT logic skip để tránh stuck - luôn cho phép load lại
+        // if (loading) {
+        //     console.log('[PTStatistics] Đang loading, bỏ qua request này');
+        //     return;
+        // }
         setLoading(true);
         try {
-            // TODO: API Integration - Thay thế mock data bằng API thực
-            // Ví dụ:
-            // const response = await ptService.getDetailedStatistics({ 
-            //     period: timeFilter,  // 'day', 'week', 'month', 'year'
-            //     startDate: startDate,
-            //     endDate: endDate
-            // });
-            // 
-            // Response format:
-            // {
-            //   quickStats: { sessionsToday, revenueWeek, activeClients, avgRating, ... },
-            //   performance: { totalSessions, completionRate, sessionsData: [{ date, sessions }, ...] },
-            //   clientManagement: { retentionRate, topClients: [...], clientProgress: {...} },
-            //   revenue: { monthlyRevenue, commission, breakdown: [...], monthlyTrend: [...] },
-            //   sessionAnalysis: { byType: [...], ratingDistribution: {...}, feedback: [...] },
-            //   insights: { summary, actions: [...] }
-            // }
-            // setStatsData(response.data);
+            const { startDate, endDate } = getDateRange();
+            console.log('[PTStatistics] Date range:', { startDate, endDate });
 
-            // Simulate API delay (REMOVE when using real API)
-            setTimeout(() => {
-                setLoading(false);
-            }, 500);
+            const apiStartTime = performance.now();
+            console.log('[PTStatistics] Bắt đầu gọi 3 API song song...');
+
+            // Gọi API statistics và sessions song song với timeout
+            const [statsRes, sessionsRes, reviewsRes] = await Promise.allSettled([
+                Promise.race([
+                    ptService.getStatistics({
+                        startDate: startDate.toISOString(),
+                        endDate: endDate.toISOString()
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Statistics API timeout')), 10000))
+                ]).catch(err => {
+                    console.warn('[PTStatistics] getStatistics timeout hoặc lỗi:', err.message);
+                    // Trả về dữ liệu mặc định, không throw error để không pause debugger
+                    return { success: false, data: null };
+                }),
+                Promise.race([
+                    ptService.getMySessions({
+                        ngayBatDau: startDate.toISOString(),
+                        ngayKetThuc: endDate.toISOString(),
+                        limit: 100 // Tăng lên 100 để có đủ dữ liệu
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Sessions API timeout')), 10000))
+                ]).catch(err => {
+                    console.warn('[PTStatistics] getMySessions timeout hoặc lỗi:', err.message);
+                    // Trả về dữ liệu mặc định, không throw error để không pause debugger
+                    return { success: false, data: { buoiTaps: [] } };
+                }),
+                Promise.race([
+                    ptService.getReviews({ limit: 20 }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Reviews API timeout')), 10000))
+                ]).catch(err => {
+                    console.warn('[PTStatistics] getReviews timeout hoặc lỗi (không ảnh hưởng):', err.message);
+                    // Trả về dữ liệu mặc định, không throw error để không pause debugger
+                    return { success: false, data: { reviews: [], summary: { avgRating: 0, ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } } } };
+                })
+            ]);
+
+            // Xử lý kết quả
+            const statsData = statsRes.status === 'fulfilled' ? statsRes.value : { success: false, data: null };
+            const sessionsData = sessionsRes.status === 'fulfilled' ? sessionsRes.value : { success: false, data: { buoiTaps: [] } };
+            const reviewsData = reviewsRes.status === 'fulfilled' ? reviewsRes.value : { success: false, data: { reviews: [], summary: { avgRating: 0, ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } } } };
+
+            const apiEndTime = performance.now();
+            console.log(`[PTStatistics] Tất cả 3 API response nhận được sau: ${(apiEndTime - apiStartTime).toFixed(2)}ms (${((apiEndTime - apiStartTime) / 1000).toFixed(2)}s)`);
+            console.log('[PTStatistics] Sessions response:', sessionsData);
+            console.log('[PTStatistics] Sessions count:', sessionsData.success ? sessionsData.data?.buoiTaps?.length : 0);
+            console.log('[PTStatistics] Statistics response:', statsData);
+            console.log('[PTStatistics] Statistics:', statsData.success ? 'OK' : 'FAILED');
+            console.log('[PTStatistics] Reviews response:', reviewsData);
+            console.log('[PTStatistics] Reviews count:', reviewsData.success ? reviewsData.data?.reviews?.length : 0);
+
+            const sessions = sessionsData.success && sessionsData.data?.buoiTaps
+                ? sessionsData.data.buoiTaps
+                : [];
+
+            const statistics = statsData.success ? statsData.data : null;
+
+            console.log('[PTStatistics] Processed sessions count:', sessions.length);
+            console.log('[PTStatistics] Statistics data:', statistics);
+
+            // ---------- QUICK STATS ----------
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            const sessionsToday = sessions.filter(s => {
+                if (!s.ngayTap) return false;
+                const d = new Date(s.ngayTap);
+                return d >= today && d < tomorrow;
+            }).length;
+
+            // Doanh thu & hoa hồng (logic giống dashboard)
+            const basePricePerMember = 100000; // 100k/người
+            const difficultyMultiplier = { DE: 0.8, TRUNG_BINH: 1, KHO: 1.2 };
+            const commissionRate = 0.35;
+
+            let totalRevenue = 0;
+            let totalCommission = 0;
+            const clientMap = {};
+            const typeMap = {};
+
+            sessions.forEach(session => {
+                if (!session.ngayTap) return;
+
+                const attendees = session.soLuongHienTai
+                    ?? (Array.isArray(session.danhSachHoiVien)
+                        ? session.danhSachHoiVien.filter(hv => hv.trangThai !== 'HUY').length
+                        : 0);
+
+                const difficulty = session.doKho || 'TRUNG_BINH';
+                const multiplier = difficultyMultiplier[difficulty] ?? 1;
+                const revenue = attendees * basePricePerMember * multiplier;
+                const commission = revenue * commissionRate;
+
+                totalRevenue += revenue;
+                totalCommission += commission;
+
+                // Top khách hàng
+                if (Array.isArray(session.danhSachHoiVien)) {
+                    session.danhSachHoiVien.forEach(hv => {
+                        if (hv.trangThai === 'HUY') return;
+                        const name = hv.hoiVien?.hoTen || 'Học viên';
+                        if (!clientMap[name]) {
+                            clientMap[name] = { name, sessions: 0, revenue: 0, progress: 0, status: 'active' };
+                        }
+                        clientMap[name].sessions += 1;
+                        clientMap[name].revenue += revenue / Math.max(attendees || 1, 1);
+                    });
+                }
+
+                // Phân loại theo loại buổi
+                const typeKey = session.tenBuoiTap || 'Buổi tập';
+                if (!typeMap[typeKey]) {
+                    typeMap[typeKey] = { type: typeKey, count: 0, revenue: 0 };
+                }
+                typeMap[typeKey].count += 1;
+                typeMap[typeKey].revenue += revenue;
+            });
+
+            const activeClients = Object.keys(clientMap).length;
+
+            const quickStats = {
+                sessionsToday,
+                sessionsChange: 0, // Có thể so sánh với kỳ trước nếu cần
+                revenueWeek: totalRevenue,
+                revenueChange: 0,
+                activeClients,
+                clientsChange: 0,
+                avgRating: reviewsRes.success && reviewsRes.data?.summary
+                    ? reviewsRes.data.summary.avgRating
+                    : 0,
+                ratingChange: 0
+            };
+
+            // ---------- PERFORMANCE ----------
+            const totalSessions = sessions.length;
+            const completedSessions = sessions.filter(s => s.trangThai === 'HOAN_THANH').length;
+            const cancelledSessions = sessions.filter(s => s.trangThai === 'HUY').length;
+
+            const completionRate = totalSessions > 0
+                ? (completedSessions / totalSessions) * 100
+                : 0;
+
+            const cancelRate = totalSessions > 0
+                ? (cancelledSessions / totalSessions) * 100
+                : 0;
+
+            // Trung bình thời lượng buổi
+            const durations = sessions
+                .map(s => {
+                    if (!s.gioBatDau || !s.gioKetThuc) return null;
+                    const [sh, sm] = s.gioBatDau.split(':').map(Number);
+                    const [eh, em] = s.gioKetThuc.split(':').map(Number);
+                    return (eh * 60 + em) - (sh * 60 + sm);
+                })
+                .filter(v => v !== null && !Number.isNaN(v));
+
+            const avgDuration = durations.length > 0
+                ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+                : 0;
+
+            // sessionsData cho chart
+            const sessionsByDate = {};
+            sessions.forEach(s => {
+                if (!s.ngayTap) return;
+                const d = new Date(s.ngayTap);
+                const key = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+                if (!sessionsByDate[key]) sessionsByDate[key] = 0;
+                sessionsByDate[key] += 1;
+            });
+
+            const performanceData = {
+                totalSessions,
+                completionRate: Number(completionRate.toFixed(1)),
+                avgDuration,
+                cancelRate: Number(cancelRate.toFixed(1)),
+                sessionsData: Object.entries(sessionsByDate).map(([date, count]) => ({
+                    date,
+                    sessions: count
+                }))
+            };
+
+            // ---------- CLIENT MANAGEMENT ----------
+            const topClients = Object.values(clientMap)
+                .sort((a, b) => b.revenue - a.revenue)
+                .slice(0, 5)
+                .map(c => ({
+                    id: c.name,
+                    name: c.name,
+                    sessions: c.sessions,
+                    revenue: c.revenue,
+                    progress: 0,
+                    status: 'active'
+                }));
+
+            const clientProgress = {
+                onTrack: topClients.filter(c => c.sessions >= 10).length,
+                needsAttention: topClients.filter(c => c.sessions >= 5 && c.sessions < 10).length,
+                atRisk: topClients.filter(c => c.sessions < 5).length
+            };
+
+            const clientManagement = {
+                retentionRate: statistics?.tyLeThamGia || 0,
+                topClients,
+                clientProgress
+            };
+
+            // ---------- REVENUE ----------
+            const revenue = {
+                monthlyRevenue: totalRevenue,
+                commission: totalCommission,
+                commissionRate: totalRevenue > 0
+                    ? Math.round((totalCommission / totalRevenue) * 100)
+                    : 0,
+                forecast: totalRevenue * 1.05, // dự đoán +5%
+                breakdown: Object.values(typeMap)
+                    .sort((a, b) => b.revenue - a.revenue)
+                    .slice(0, 4)
+                    .map(item => ({
+                        type: item.type,
+                        count: item.count,
+                        revenue: item.revenue,
+                        percentage: totalRevenue > 0
+                            ? Math.round((item.revenue / totalRevenue) * 100)
+                            : 0
+                    })),
+                monthlyTrend: [] // có thể bổ sung sau bằng cách gom theo tháng
+            };
+
+            // ---------- SESSION ANALYSIS ----------
+            // Lấy rating distribution từ API (đã được tính phần trăm trong backend)
+            const ratingDistribution = reviewsRes.success && reviewsRes.data?.summary?.ratingDistribution
+                ? reviewsRes.data.summary.ratingDistribution
+                : { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+
+            console.log('[PTStatistics] Rating distribution từ API:', ratingDistribution);
+            console.log('[PTStatistics] Reviews data:', {
+                success: reviewsRes.success,
+                hasSummary: !!reviewsRes.data?.summary,
+                hasRatingDistribution: !!reviewsRes.data?.summary?.ratingDistribution,
+                totalReviews: reviewsRes.data?.summary?.totalReviews || 0
+            });
+
+            const feedback = reviewsRes.success && reviewsRes.data?.reviews
+                ? reviewsRes.data.reviews.slice(0, 5).map(r => ({
+                    client: r.hoiVienId?.hoTen || 'Khách hàng',
+                    rating: r.rating,
+                    comment: r.noiDung || 'Không có nhận xét',
+                    date: r.ngayTao || new Date().toISOString()
+                }))
+                : [];
+
+            const sessionAnalysis = {
+                byType: Object.values(typeMap).map(item => ({
+                    type: item.type,
+                    count: item.count,
+                    percentage: totalSessions > 0
+                        ? Number(((item.count / totalSessions) * 100).toFixed(1))
+                        : 0
+                })),
+                ratingDistribution,
+                feedback
+            };
+
+            // ---------- INSIGHTS ----------
+            const summary = `Trong khoảng ${timeFilter === 'day' ? 'hôm nay' : timeFilter === 'week' ? '7 ngày qua' : timeFilter === 'month' ? 'tháng này' : 'năm nay'}, bạn đã có ${totalSessions} buổi tập với ${activeClients} khách hàng tham gia.`;
+
+            const actions = [];
+            if (clientProgress.atRisk > 0) {
+                actions.push({
+                    type: 'warning',
+                    text: `${clientProgress.atRisk} khách hàng có ít buổi tập, nên chủ động liên hệ.`,
+                    action: 'Liên hệ ngay'
+                });
+            }
+            if (quickStats.avgRating > 0) {
+                actions.push({
+                    type: 'success',
+                    text: `Điểm đánh giá trung bình ${quickStats.avgRating}/5. Hãy tiếp tục duy trì chất lượng buổi tập!`,
+                    action: 'Xem đánh giá'
+                });
+            }
+            if (!actions.length) {
+                actions.push({
+                    type: 'info',
+                    text: 'Hãy tiếp tục theo dõi lịch làm việc và phản hồi từ học viên để tối ưu hiệu suất.',
+                    action: 'Xem lịch'
+                });
+            }
+
+            const insights = { summary, actions };
+
+            const transformEndTime = performance.now();
+            console.log(`[PTStatistics] Transform data hoàn thành sau: ${(transformEndTime - apiEndTime).toFixed(2)}ms`);
+
+            setStatsData({
+                quickStats,
+                performance: performanceData,
+                clientManagement,
+                revenue,
+                sessionAnalysis,
+                insights
+            });
+
+            const totalTime = performance.now() - loadStartTime;
+            console.log(`[PTStatistics] ===== HOÀN THÀNH LOAD STATISTICS =====`);
+            console.log(`[PTStatistics] Tổng thời gian: ${totalTime.toFixed(2)}ms (${(totalTime / 1000).toFixed(2)}s)`);
+            console.log('[PTStatistics] Set loading = false');
+
+            setLoading(false);
         } catch (error) {
-            console.error('Error loading statistics:', error);
+            const errorTime = performance.now();
+            const totalTime = errorTime - loadStartTime;
+            console.error(`[PTStatistics] ERROR sau ${totalTime.toFixed(2)}ms:`, error);
+            console.error('[PTStatistics] Error details:', {
+                message: error?.message,
+                stack: error?.stack,
+                name: error?.name
+            });
             setLoading(false);
         }
     };
 
     const handleExportReport = (format) => {
-        // TODO: Implement export functionality
-        alert(`Xuất báo cáo ${format.toUpperCase()} - Tính năng đang phát triển`);
+        const fileNameBase = `pt-report-${timeFilter}-${new Date().toISOString().slice(0, 10)}`;
+
+        if (format === 'excel') {
+            // Xuất CSV (Excel mở được)
+            const rows = [];
+
+            rows.push(['Thống kê nhanh']);
+            rows.push(['Buổi tập hôm nay', statsData.quickStats.sessionsToday]);
+            rows.push(['Doanh thu', statsData.quickStats.revenueWeek]);
+            rows.push(['Khách hàng đang hoạt động', statsData.quickStats.activeClients]);
+            rows.push(['Đánh giá TB', statsData.quickStats.avgRating]);
+            rows.push([]);
+
+            rows.push(['Hiệu suất']);
+            rows.push(['Tổng buổi', statsData.performance.totalSessions]);
+            rows.push(['Tỷ lệ hoàn thành (%)', statsData.performance.completionRate]);
+            rows.push(['Tỷ lệ hủy (%)', statsData.performance.cancelRate]);
+            rows.push(['Thời lượng TB (phút)', statsData.performance.avgDuration]);
+            rows.push([]);
+
+            rows.push(['Khách hàng']);
+            rows.push(['Tỷ lệ giữ chân (%)', statsData.clientManagement.retentionRate]);
+            rows.push(['Tên', 'Số buổi', 'Doanh thu']);
+            statsData.clientManagement.topClients.forEach(c => {
+                rows.push([c.name, c.sessions, c.revenue]);
+            });
+            rows.push([]);
+
+            rows.push(['Doanh thu']);
+            rows.push(['Tổng doanh thu', statsData.revenue.monthlyRevenue]);
+            rows.push(['Hoa hồng', statsData.revenue.commission]);
+            rows.push(['Tỷ lệ hoa hồng (%)', statsData.revenue.commissionRate]);
+            rows.push(['Loại buổi', 'Số buổi', 'Doanh thu', 'Tỷ lệ (%)']);
+            statsData.revenue.breakdown.forEach(item => {
+                rows.push([item.type, item.count, item.revenue, item.percentage]);
+            });
+
+            const csvContent = rows
+                .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+                .join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${fileNameBase}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } else if (format === 'pdf') {
+            // Tạo HTML đơn giản cho báo cáo và mở hộp thoại in (Save as PDF)
+            const reportWindow = window.open('', '_blank');
+            if (!reportWindow) return;
+
+            const html = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Báo cáo PT</title>
+  <style>
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; color: #111; }
+    h1 { font-size: 24px; margin-bottom: 4px; }
+    h2 { font-size: 18px; margin-top: 24px; margin-bottom: 8px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { border: 1px solid #ccc; padding: 6px 8px; font-size: 12px; }
+    th { background: #f3f4f6; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>Báo cáo PT - Thống kê & Báo cáo</h1>
+  <p>Khoảng thời gian: ${timeFilter}</p>
+
+  <h2>Thống kê nhanh</h2>
+  <table>
+    <tr><th>Chỉ số</th><th>Giá trị</th></tr>
+    <tr><td>Buổi tập hôm nay</td><td>${statsData.quickStats.sessionsToday}</td></tr>
+    <tr><td>Doanh thu</td><td>${statsData.quickStats.revenueWeek}</td></tr>
+    <tr><td>Khách hàng đang hoạt động</td><td>${statsData.quickStats.activeClients}</td></tr>
+    <tr><td>Đánh giá TB</td><td>${statsData.quickStats.avgRating}/5</td></tr>
+  </table>
+
+  <h2>Hiệu suất</h2>
+  <table>
+    <tr><th>Tổng buổi</th><th>Tỷ lệ hoàn thành (%)</th><th>Tỷ lệ hủy (%)</th><th>Thời lượng TB (phút)</th></tr>
+    <tr>
+      <td>${statsData.performance.totalSessions}</td>
+      <td>${statsData.performance.completionRate}</td>
+      <td>${statsData.performance.cancelRate}</td>
+      <td>${statsData.performance.avgDuration}</td>
+    </tr>
+  </table>
+
+  <h2>Top khách hàng</h2>
+  <table>
+    <tr><th>Tên</th><th>Số buổi</th><th>Doanh thu</th></tr>
+    ${statsData.clientManagement.topClients.map(c => `
+      <tr><td>${c.name}</td><td>${c.sessions}</td><td>${c.revenue}</td></tr>
+    `).join('')}
+  </table>
+
+  <h2>Doanh thu theo loại buổi</h2>
+  <table>
+    <tr><th>Loại buổi</th><th>Số buổi</th><th>Doanh thu</th><th>Tỷ lệ (%)</th></tr>
+    ${statsData.revenue.breakdown.map(item => `
+      <tr><td>${item.type}</td><td>${item.count}</td><td>${item.revenue}</td><td>${item.percentage}</td></tr>
+    `).join('')}
+  </table>
+</body>
+</html>`;
+
+            reportWindow.document.open();
+            reportWindow.document.write(html);
+            reportWindow.document.close();
+            reportWindow.focus();
+
+            // Mở hộp thoại in để người dùng chọn "Save as PDF"
+            reportWindow.print();
+        }
     };
 
     const sidebarWidth = sidebarCollapsed ? 80 : 320;
@@ -308,7 +764,7 @@ const PTStatistics = () => {
                             {/* Center - Main Charts */}
                             <div className="col-span-12 lg:col-span-6 space-y-6">
                                 {/* Performance Chart */}
-                                <div className="bg-[#141414] rounded-2xl p-6">
+                                <div className="bg-[#141414] rounded-2xl p-6 overflow-x-auto">
                                     <div className="flex items-center justify-between mb-6">
                                         <div>
                                             <h2 className="text-xl font-bold text-white mb-1">Hiệu Suất Cá Nhân</h2>
@@ -320,7 +776,7 @@ const PTStatistics = () => {
                                     {/* Bar Chart */}
                                     <div className="space-y-4">
                                         {/* Thêm padding top để chứa số hiển thị */}
-                                        <div className="relative h-48 flex items-end justify-between gap-2 px-2 pt-8">
+                                        <div className="relative h-48 flex items-end gap-2 px-2 pt-8 min-w-[480px] sm:min-w-[640px]">
                                             {statsData.performance.sessionsData.map((day, index) => {
                                                 // Tìm giá trị max để scale biểu đồ
                                                 const maxSessions = Math.max(...statsData.performance.sessionsData.map(d => d.sessions));

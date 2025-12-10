@@ -18,7 +18,6 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import apiService from '../api/apiService';
 import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
-import axios from 'axios';
 
 const { width } = Dimensions.get('window');
 const removeDiacritics = (value = '') => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -168,22 +167,28 @@ const MembershipScreen = () => {
     const fetchMembershipInfo = async () => {
         try {
             const userId = await apiService.getCurrentUserId();
-            const response = await axios.get(`/api/hanghoivien/tinh-hang-theo-thoi-han/${userId}`);
-            setMembershipInfo(response.data.data);
+            const response = await apiService.tinhHangHoiVienTheoThoiHan(userId);
+            if (response && response.data) {
+                setMembershipInfo(response.data);
+            }
         } catch (error) {
-            console.error('Lỗi khi tải thông tin hạng hội viên:', error);
+            // Xử lý lỗi gracefully - người dùng có thể chưa có thông tin thời hạn
+            console.log('ℹ️ Người dùng chưa có thông tin hạng hội viên theo thời hạn');
+            setMembershipInfo(null);
         }
     };
 
     const fetchTimeRemaining = async () => {
         try {
             const userId = await apiService.getCurrentUserId();
-            const response = await axios.get(`/api/hanghoivien/thoi-gian-con-lai/${userId}`);
+            const response = await apiService.getMembershipTimeRemaining(userId);
             // backend returns { success: true, data: { userId, timeRemaining } }
-            const timeData = response && response.data && response.data.data ? response.data.data : null;
+            const timeData = response && response.data ? response.data : null;
             setTimeRemaining(timeData ? timeData.timeRemaining : 0);
         } catch (error) {
-            console.error('Lỗi khi tải thông tin thời gian còn lại:', error);
+            // Xử lý lỗi gracefully - người dùng có thể chưa có thông tin thời gian
+            console.log('ℹ️ Người dùng chưa có thông tin thời gian còn lại');
+            setTimeRemaining(0);
         }
     };
 
@@ -405,29 +410,29 @@ const MembershipScreen = () => {
                 {hangHoiVien.tenHang && (
                     <View style={styles.hangStats}>
                         <View style={styles.hangStatItem}>
-                            <View style={[styles.statIconContainer, { backgroundColor: colors.primary + '20' }]}>
+                            <View style={[styles.statIconContainer, { backgroundColor: `${colors.primary}20` }]}>
                                 <MaterialIcons name="attach-money" size={20} color={colors.primary} />
                             </View>
                             <Text style={[styles.hangStatValue, { color: colors.text }]}>
-                                {hangHoiVien.soTienTichLuy.toLocaleString('vi-VN')}đ
+                                {hangHoiVien.soTienTichLuy ? hangHoiVien.soTienTichLuy.toLocaleString('vi-VN') : '0'}đ
                             </Text>
                             <Text style={[styles.hangStatLabel, { color: colors.textSecondary }]}>Tích lũy</Text>
                         </View>
                         <View style={styles.hangStatItem}>
-                            <View style={[styles.statIconContainer, { backgroundColor: colors.success + '20' }]}>
-                                <MaterialIcons name="schedule" size={20} color={colors.success} />
+                            <View style={[styles.statIconContainer, { backgroundColor: `${colors.success || '#4CAF50'}20` }]}>
+                                <MaterialIcons name="schedule" size={20} color={colors.success || '#4CAF50'} />
                             </View>
                             <Text style={[styles.hangStatValue, { color: colors.text }]}>
-                                {hangHoiVien.soThangLienTuc} tháng
+                                {hangHoiVien.soThangLienTuc || 0} tháng
                             </Text>
                             <Text style={[styles.hangStatLabel, { color: colors.textSecondary }]}>Liên tục</Text>
                         </View>
                         <View style={styles.hangStatItem}>
-                            <View style={[styles.statIconContainer, { backgroundColor: colors.warning + '20' }]}>
-                                <MaterialIcons name="fitness-center" size={20} color={colors.warning} />
+                            <View style={[styles.statIconContainer, { backgroundColor: `${colors.warning || '#FF9800'}20` }]}>
+                                <MaterialIcons name="fitness-center" size={20} color={colors.warning || '#FF9800'} />
                             </View>
                             <Text style={[styles.hangStatValue, { color: colors.text }]}>
-                                {hangHoiVien.soBuoiTapDaTap} buổi
+                                {hangHoiVien.soBuoiTapDaTap || 0} buổi
                             </Text>
                             <Text style={[styles.hangStatLabel, { color: colors.textSecondary }]}>Đã tập</Text>
                         </View>

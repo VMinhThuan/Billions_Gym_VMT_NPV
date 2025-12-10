@@ -146,6 +146,18 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     const activeResponse = await api.get(`/dang-ky-goi-tap/hoi-vien/${userId}/active`, {}, { requireAuth: false, allow404: true });
 
                     if (activeResponse && activeResponse._id) {
+                        // Kiểm tra xem gói có hết hạn hay không
+                        const isExpired = activeResponse.isExpired === true;
+
+                        // Nếu gói đã hết hạn, không tính số tiền bù (đây là đăng ký gói mới, không phải nâng cấp)
+                        if (isExpired) {
+                            console.log('Package is expired - treating as new registration, not upgrade');
+                            setExistingPackage(null);
+                            setIsUpgrade(false);
+                            setUpgradeAmount(0);
+                            return;
+                        }
+
                         setExistingPackage(activeResponse);
 
                         // Calculate upgrade amount
@@ -287,6 +299,13 @@ const Checkout = ({ onNavigateToLogin, onNavigateToRegister }) => {
         if (isNaN(endDate.getTime())) {
             console.error('❌ Invalid endDate');
             return newPackagePrice; // Fallback
+        }
+
+        // Kiểm tra xem gói đã hết hạn chưa - nếu đã hết hạn thì không tính số tiền bù
+        const currentDate = new Date();
+        if (endDate < currentDate) {
+            console.log('⚠️ Package has expired - should not calculate upgrade amount');
+            return 0; // Gói đã hết hạn, không tính số tiền bù
         }
 
         // Calculate total days of current package

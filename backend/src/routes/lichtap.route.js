@@ -31,4 +31,7 @@ router.post('/create-schedule', auth, authorize(hoiVien), lichTapController.crea
 // Lấy lịch tập của hội viên
 router.get('/member/:hoiVienId', auth, authorize(hoiVien), lichTapController.getMemberSchedule);
 
+// Lấy lịch tập hôm nay của hội viên (tối ưu)
+router.get('/member/:hoiVienId/today', auth, authorize(hoiVien), lichTapController.getMemberTodaySchedule);
+
 module.exports = router;

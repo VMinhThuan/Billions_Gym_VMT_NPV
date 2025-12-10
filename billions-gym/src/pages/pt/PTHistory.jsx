@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '../../components/layout/Header';
 import PTSidebar from '../../components/pt/PTSidebar';
 import { ptService } from '../../services/pt.service';
@@ -8,7 +9,6 @@ import {
     TrendingUp,
     Award,
     ChevronDown,
-    Filter,
     Search,
     Clock,
     Flame,
@@ -20,147 +20,18 @@ import {
     Activity
 } from 'lucide-react';
 
-// Mock data
-const mockStudents = [
-    {
-        _id: '1',
-        hoTen: 'Nguyễn Văn A',
-        email: 'nguyenvana@gmail.com'
-    },
-    {
-        _id: '2',
-        hoTen: 'Trần Thị B',
-        email: 'tranthib@gmail.com'
-    },
-    {
-        _id: '3',
-        hoTen: 'Lê Văn C',
-        email: 'levanc@gmail.com'
-    }
-];
-
-const mockHistory = [
-    {
-        _id: '1',
-        ngayTap: '2025-12-03T08:00:00Z',
-        caloTieuHao: 450,
-        danhGia: 5,
-        ketQua: 'Hoàn thành tốt, form chuẩn',
-        buoiTap: {
-            tenBuoiTap: 'Tập ngực - Vai - Tay sau',
-            pt: { hoTen: 'PT Minh Thuận' },
-            cacBaiTap: [
-                { tenBaiTap: 'Bench Press' },
-                { tenBaiTap: 'Dumbbell Fly' },
-                { tenBaiTap: 'Shoulder Press' },
-                { tenBaiTap: 'Lateral Raise' },
-                { tenBaiTap: 'Tricep Dips' },
-                { tenBaiTap: 'Rope Pushdown' }
-            ]
-        }
-    },
-    {
-        _id: '2',
-        ngayTap: '2025-12-01T09:30:00Z',
-        caloTieuHao: 380,
-        danhGia: 4,
-        ketQua: 'Tốt, cần chú ý thêm về hơi thở',
-        buoiTap: {
-            tenBuoiTap: 'Tập lưng - Tay trước',
-            pt: { hoTen: 'PT Minh Thuận' },
-            cacBaiTap: [
-                { tenBaiTap: 'Deadlift' },
-                { tenBaiTap: 'Pull Up' },
-                { tenBaiTap: 'Barbell Row' },
-                { tenBaiTap: 'Bicep Curl' },
-                { tenBaiTap: 'Hammer Curl' }
-            ]
-        }
-    },
-    {
-        _id: '3',
-        ngayTap: '2025-11-29T07:00:00Z',
-        caloTieuHao: 520,
-        danhGia: 5,
-        ketQua: 'Xuất sắc, tăng cường độ tốt',
-        buoiTap: {
-            tenBuoiTap: 'Tập chân - Mông',
-            pt: { hoTen: 'PT Minh Thuận' },
-            cacBaiTap: [
-                { tenBaiTap: 'Squat' },
-                { tenBaiTap: 'Leg Press' },
-                { tenBaiTap: 'Lunges' },
-                { tenBaiTap: 'Leg Curl' },
-                { tenBaiTap: 'Calf Raise' },
-                { tenBaiTap: 'Hip Thrust' }
-            ]
-        }
-    },
-    {
-        _id: '4',
-        ngayTap: '2025-11-27T08:30:00Z',
-        caloTieuHao: 0,
-        danhGia: 0,
-        ketQua: '',
-        buoiTap: {
-            tenBuoiTap: 'Cardio & Core',
-            pt: { hoTen: 'PT Minh Thuận' },
-            cacBaiTap: [
-                { tenBaiTap: 'Running' },
-                { tenBaiTap: 'Plank' },
-                { tenBaiTap: 'Crunches' }
-            ]
-        }
-    },
-    {
-        _id: '5',
-        ngayTap: '2025-11-25T10:00:00Z',
-        caloTieuHao: 410,
-        danhGia: 4,
-        ketQua: 'Tốt, cần nghỉ ngơi đầy đủ',
-        buoiTap: {
-            tenBuoiTap: 'Full Body Workout',
-            pt: { hoTen: 'PT Minh Thuận' },
-            cacBaiTap: [
-                { tenBaiTap: 'Burpees' },
-                { tenBaiTap: 'Push Ups' },
-                { tenBaiTap: 'Mountain Climbers' },
-                { tenBaiTap: 'Jump Squats' }
-            ]
-        }
-    }
-];
-
-const mockStatistics = {
-    tongQuan: {
-        tongSoBuoiTap: 15,
-        tongCaloTieuHao: 6240,
-        danhGiaTrungBinh: 4.5,
-        ngayTapDauTien: '2025-11-01T08:00:00Z',
-        ngayTapGanNhat: '2025-12-03T08:00:00Z'
-    },
-    thongKeTheoThang: [
-        {
-            _id: { nam: 2025, thang: 12 },
-            soBuoiTap: 3,
-            caloTieuHao: 1250
-        },
-        {
-            _id: { nam: 2025, thang: 11 },
-            soBuoiTap: 12,
-            caloTieuHao: 4990
-        }
-    ]
-};
-
 const PTHistory = () => {
+    const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [students, setStudents] = useState(mockStudents);
-    const [selectedStudent, setSelectedStudent] = useState(mockStudents[0]);
-    const [history, setHistory] = useState(mockHistory);
-    const [statistics, setStatistics] = useState(mockStatistics);
+    const [students, setStudents] = useState([]);
+    const [selectedStudent, setSelectedStudent] = useState(null);
+    const [history, setHistory] = useState([]);
+    const [statistics, setStatistics] = useState({
+        tongQuan: {},
+        thongKeTheoThang: []
+    });
     const [filters, setFilters] = useState({
         startDate: '',
         endDate: '',
@@ -182,18 +53,15 @@ const PTHistory = () => {
 
     // Fetch students on mount
     useEffect(() => {
-        // fetchStudents();
-        // Using mock data for now
+        fetchStudents();
     }, []);
 
     // Fetch history when student or filters change
     useEffect(() => {
         if (selectedStudent) {
-            // fetchHistory();
-            // fetchStatistics();
-            // Using mock data for now
+            fetchHistory();
         }
-    }, [selectedStudent, filters.startDate, filters.endDate, filters.page]);
+    }, [selectedStudent, filters.startDate, filters.endDate, filters.page, filters.status]);
 
     const fetchStudents = async () => {
         try {
@@ -201,7 +69,7 @@ const PTHistory = () => {
             if (response?.data?.hoiViens) {
                 setStudents(response.data.hoiViens);
                 // Auto-select first student if available
-                if (response.data.hoiViens.length > 0) {
+                if (!selectedStudent && response.data.hoiViens.length > 0) {
                     setSelectedStudent(response.data.hoiViens[0]);
                 }
             }
@@ -215,43 +83,82 @@ const PTHistory = () => {
 
         setLoading(true);
         try {
-            const response = await ptService.getStudentHistory(selectedStudent._id, {
-                startDate: filters.startDate,
-                endDate: filters.endDate,
-                page: filters.page,
-                limit: filters.limit
-            });
-
-            if (response?.data?.lichSu) {
-                setHistory(response.data.lichSu);
+            // Lấy chi tiết học viên (đã bao gồm lichSuTap, lichSuBuoiTapPT)
+            const res = await ptService.getStudentDetail(selectedStudent._id);
+            if (res?.success && res.data) {
+                const allHistory = [
+                    ...(res.data.lichSuTap || []),
+                    ...(res.data.lichSuBuoiTapPT || [])
+                ];
+                // Filter by date
+                const filteredByDate = allHistory.filter(h => {
+                    const d = new Date(h.ngayTap || h.buoiTap?.ngayTap);
+                    if (Number.isNaN(d)) return true;
+                    if (filters.startDate && new Date(filters.startDate) > d) return false;
+                    if (filters.endDate) {
+                        const end = new Date(filters.endDate);
+                        end.setHours(23, 59, 59, 999);
+                        if (end < d) return false;
+                    }
+                    return true;
+                });
+                setHistory(filteredByDate);
+                computeStatsFromHistory(filteredByDate);
+            } else {
+                setHistory([]);
+                computeStatsFromHistory([]);
             }
         } catch (error) {
             console.error('Error fetching history:', error);
+            setHistory([]);
+            computeStatsFromHistory([]);
         } finally {
             setLoading(false);
         }
     };
 
-    const fetchStatistics = async () => {
-        if (!selectedStudent) return;
-
-        try {
-            const response = await ptService.getHistoryStatistics(selectedStudent._id, {
-                startDate: filters.startDate,
-                endDate: filters.endDate
-            });
-
-            if (response?.data) {
-                setStatistics(response.data);
-            }
-        } catch (error) {
-            console.error('Error fetching statistics:', error);
+    const computeStatsFromHistory = (his) => {
+        if (!Array.isArray(his) || his.length === 0) {
+            setStatistics({ tongQuan: {}, thongKeTheoThang: [] });
+            return;
         }
+        const total = his.length;
+        const totalCalories = his.reduce((sum, h) => sum + (h.caloTieuHao || 0), 0);
+        const ratings = his.filter(h => h.danhGia).map(h => h.danhGia);
+        const avgRating = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+        const dates = his.map(h => new Date(h.ngayTap || h.buoiTap?.ngayTap || h.checkInTime)).filter(d => !Number.isNaN(d));
+        const first = dates.length ? new Date(Math.min(...dates)) : null;
+        const last = dates.length ? new Date(Math.max(...dates)) : null;
+
+        // Monthly stats
+        const byMonth = {};
+        his.forEach(h => {
+            const d = new Date(h.ngayTap || h.buoiTap?.ngayTap || h.checkInTime);
+            if (Number.isNaN(d)) return;
+            const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+            if (!byMonth[key]) byMonth[key] = { _id: { nam: d.getFullYear(), thang: d.getMonth() + 1 }, soBuoiTap: 0, caloTieuHao: 0 };
+            byMonth[key].soBuoiTap += 1;
+            byMonth[key].caloTieuHao += h.caloTieuHao || 0;
+        });
+
+        setStatistics({
+            tongQuan: {
+                tongSoBuoiTap: total,
+                tongCaloTieuHao: totalCalories,
+                danhGiaTrungBinh: avgRating,
+                ngayTapDauTien: first,
+                ngayTapGanNhat: last
+            },
+            thongKeTheoThang: Object.values(byMonth).sort((a, b) => {
+                if (a._id.nam === b._id.nam) return b._id.thang - a._id.thang;
+                return b._id.nam - a._id.nam;
+            })
+        });
     };
 
     const getStatusBadge = (item) => {
-        // If there's a rating, it means the session was completed
-        if (item.danhGia) {
+        const status = item.trangThai || item.buoiTap?.trangThai;
+        if (status === 'HOAN_THANH' || item.danhGia) {
             return (
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
                     <CheckCircle size={14} />
@@ -259,20 +166,18 @@ const PTHistory = () => {
                 </div>
             );
         }
-        // If no rating but has date, consider it attended
-        if (item.ngayTap) {
+        if (status === 'HUY') {
             return (
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-[#f59e0b]/20 text-[#f59e0b] rounded-full text-xs font-medium">
-                    <CheckCircle size={14} />
-                    Vắng mặt
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-medium">
+                    <XCircle size={14} />
+                    Đã hủy
                 </div>
             );
         }
-        // Otherwise absent
         return (
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-medium">
-                <XCircle size={14} />
-                Vắng mặt
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-[#f59e0b]/20 text-[#f59e0b] rounded-full text-xs font-medium">
+                <CheckCircle size={14} />
+                Đang diễn ra
             </div>
         );
     };
@@ -284,11 +189,54 @@ const PTHistory = () => {
 
     // Filter history by status
     const filteredHistory = history.filter(item => {
+        const status = item.trangThai || item.buoiTap?.trangThai;
         if (filters.status === 'all') return true;
-        if (filters.status === 'completed') return item.danhGia > 0;
-        if (filters.status === 'absent') return !item.danhGia && !item.caloTieuHao;
+        if (filters.status === 'completed') return status === 'HOAN_THANH';
+        if (filters.status === 'absent') return status === 'HUY' || status === 'VANG_MAT';
         return true;
     });
+
+    const formatSessionName = (item) => item.tenBuoiTap || item.buoiTap?.tenBuoiTap || 'Buổi tập';
+    const formatExercises = (item) => item.cacBaiTap || item.buoiTap?.cacBaiTap || [];
+    const formatPTName = (item) => item.ptPhuTrach?.hoTen || item.buoiTap?.ptPhuTrach?.hoTen || 'N/A';
+    const formatTimeRange = (item) => {
+        const start = item.gioBatDau || item.buoiTap?.gioBatDau;
+        const end = item.gioKetThuc || item.buoiTap?.gioKetThuc;
+        if (start && end) return `${start} - ${end}`;
+        return start || end || '';
+    };
+
+    const handleExportReport = () => {
+        const rows = filteredHistory.map((h) => ({
+            BuoiTap: formatSessionName(h),
+            PT: formatPTName(h),
+            Ngay: formatDate(h.ngayTap || h.buoiTap?.ngayTap),
+            Gio: formatTimeRange(h) || '---',
+            TrangThai: h.trangThai || h.buoiTap?.trangThai || '',
+            Calo: h.caloTieuHao || '',
+            DanhGia: h.danhGia || '',
+            KetQua: h.ketQua || ''
+        }));
+        const header = Object.keys(rows[0] || {});
+        const csvLines = [
+            header.join(','),
+            ...rows.map(r => header.map(key => `"${(r[key] ?? '').toString().replace(/"/g, '""')}"`).join(','))
+        ];
+        const csvContent = csvLines.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `lich-su-tap-${selectedStudent?.hoTen || 'hoc-vien'}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleViewSchedule = () => {
+        navigate('/pt/sessions');
+    };
 
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
@@ -437,19 +385,17 @@ const PTHistory = () => {
                                                     </div>
                                                     <div>
                                                         <h3 className="text-lg font-semibold text-white mb-1">
-                                                            {item.buoiTap?.tenBuoiTap || 'Buổi tập'}
+                                                            {formatSessionName(item)}
                                                         </h3>
                                                         <div className="flex items-center gap-3 text-sm text-gray-400">
                                                             <span className="flex items-center gap-1.5">
                                                                 <Calendar size={14} />
-                                                                {formatDate(item.ngayTap)}
+                                                                {formatDate(item.ngayTap || item.buoiTap?.ngayTap)}
                                                             </span>
-                                                            {item.ngayTap && (
-                                                                <span className="flex items-center gap-1.5">
-                                                                    <Clock size={14} />
-                                                                    {formatTime(item.ngayTap)}
-                                                                </span>
-                                                            )}
+                                                            <span className="flex items-center gap-1.5">
+                                                                <Clock size={14} />
+                                                                {formatTimeRange(item) || formatTimeRange(item.buoiTap || {}) || '---'}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -461,10 +407,10 @@ const PTHistory = () => {
                                                 {/* PT Info */}
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 bg-[#2a2a2a] rounded-lg flex items-center justify-center overflow-hidden">
-                                                        {item.buoiTap?.pt?.anhDaiDien ? (
+                                                        {item.ptPhuTrach?.anhDaiDien || item.buoiTap?.ptPhuTrach?.anhDaiDien ? (
                                                             <img
-                                                                src={item.buoiTap.pt.anhDaiDien}
-                                                                alt={item.buoiTap.pt.hoTen}
+                                                                src={item.ptPhuTrach?.anhDaiDien || item.buoiTap?.ptPhuTrach?.anhDaiDien}
+                                                                alt={formatPTName(item)}
                                                                 className="w-full h-full object-cover"
                                                             />
                                                         ) : (
@@ -474,7 +420,7 @@ const PTHistory = () => {
                                                     <div>
                                                         <p className="text-xs text-gray-400">Huấn luyện viên</p>
                                                         <p className="text-sm font-medium text-white">
-                                                            {item.buoiTap?.pt?.hoTen || 'N/A'}
+                                                            {formatPTName(item)}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -519,14 +465,14 @@ const PTHistory = () => {
                                             </div>
 
                                             {/* Exercises */}
-                                            {item.buoiTap?.cacBaiTap && item.buoiTap.cacBaiTap.length > 0 && (
+                                            {formatExercises(item).length > 0 && (
                                                 <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
                                                     <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
                                                         <Target size={16} />
-                                                        Bài tập ({item.buoiTap.cacBaiTap.length})
+                                                        Bài tập ({formatExercises(item).length})
                                                     </h4>
                                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                                        {item.buoiTap.cacBaiTap.map((exercise, idx) => (
+                                                        {formatExercises(item).map((exercise, idx) => (
                                                             <div
                                                                 key={idx}
                                                                 className="px-3 py-2 bg-[#1a1a1a] rounded-lg border border-[#2a2a2a] text-xs text-gray-300"
@@ -744,11 +690,17 @@ const PTHistory = () => {
                             <div>
                                 <h3 className="text-sm font-semibold text-white mb-3">Thao tác nhanh</h3>
                                 <div className="space-y-2">
-                                    <button className="w-full px-4 py-2.5 bg-[#da2128] text-white rounded-lg hover:bg-[#c01d24] transition-all text-sm font-medium flex items-center justify-center gap-2 cursor-pointer">
+                                    <button
+                                        onClick={handleExportReport}
+                                        className="w-full px-4 py-2.5 bg-[#da2128] text-white rounded-lg hover:bg-[#c01d24] transition-all text-sm font-medium flex items-center justify-center gap-2 cursor-pointer"
+                                    >
                                         <BarChart3 size={16} />
                                         Xuất báo cáo
                                     </button>
-                                    <button className="w-full px-4 py-2.5 bg-[#1a1a1a] text-gray-300 rounded-lg hover:bg-[#2a2a2a] border border-[#2a2a2a] transition-all text-sm font-medium flex items-center justify-center gap-2 cursor-pointer">
+                                    <button
+                                        onClick={handleViewSchedule}
+                                        className="w-full px-4 py-2.5 bg-[#1a1a1a] text-gray-300 rounded-lg hover:bg-[#2a2a2a] border border-[#2a2a2a] transition-all text-sm font-medium flex items-center justify-center gap-2 cursor-pointer"
+                                    >
                                         <Calendar size={16} />
                                         Xem lịch chi tiết
                                     </button>
@@ -758,7 +710,7 @@ const PTHistory = () => {
                     </div>
                 </div>
 
-                <style jsx>{`
+                <style>{`
                     .sidebar-scroll::-webkit-scrollbar {
                         width: 6px;
                     }

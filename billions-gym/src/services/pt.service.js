@@ -163,6 +163,12 @@ export const ptService = {
         });
     },
 
+    getStudentReviews: async (hoiVienId) => {
+        return apiRequest(`${PT_API_BASE}/reviews/student/${hoiVienId}`, {
+            method: 'GET'
+        });
+    },
+
     // Lịch sử làm việc
     getWorkHistory: async (params = {}) => {
         const queryParams = new URLSearchParams();
