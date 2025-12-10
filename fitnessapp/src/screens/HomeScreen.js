@@ -886,7 +886,11 @@ const HomeScreen = () => {
                     danhGia: meal.rating,
                     mucDoKho: meal.difficulty,
                     thoiGianNau: meal.cookingTimeMinutes,
-                    buaAn: mealType
+                    buaAn: mealType,
+                    // Thêm các field quan trọng cho MealDetail
+                    nguyenLieu: meal.ingredients || [],
+                    huongDanNau: meal.instructions || [],
+                    videoHuongDan: meal.cookingVideoUrl || null
                 }));
 
                 console.log('🍽️ Số món ăn nhận được:', mappedMeals.length);
@@ -1009,7 +1013,46 @@ const HomeScreen = () => {
                                 key={meal.id}
                                 style={[styles.mealCard, { backgroundColor: colors.card, position: 'relative', height: 250 }]}
                                 onPress={() => {
-                                    console.log('Meal clicked:', meal);
+                                    console.log('🍽️ Meal clicked:', {
+                                        id: meal.id,
+                                        name: meal.tenMonAn,
+                                        hasIngredients: !!meal.nguyenLieu && meal.nguyenLieu.length > 0,
+                                        hasInstructions: !!meal.huongDanNau && meal.huongDanNau.length > 0,
+                                        hasVideo: !!meal.videoHuongDan,
+                                        ingredientsCount: meal.nguyenLieu?.length || 0,
+                                        instructionsCount: meal.huongDanNau?.length || 0,
+                                        videoUrl: meal.videoHuongDan
+                                    });
+
+                                    // Map meal data to match MealDetailScreen structure
+                                    const mealData = {
+                                        ...meal,
+                                        _id: meal.id,
+                                        name: meal.tenMonAn,
+                                        image: meal.hinhAnh,
+                                        description: meal.moTa,
+                                        nutrition: {
+                                            calories: meal.thongTinDinhDuong?.calories || 0,
+                                            protein: meal.thongTinDinhDuong?.protein || 0,
+                                            carbs: meal.thongTinDinhDuong?.carbohydrate || 0,
+                                            fat: meal.thongTinDinhDuong?.fat || 0,
+                                            fiber: meal.thongTinDinhDuong?.fiber || 0,
+                                        },
+                                        ingredients: meal.nguyenLieu || [],
+                                        instructions: meal.huongDanNau || [],
+                                        videoUrl: meal.videoHuongDan || null,
+                                        cookingTime: meal.thoiGianNau || 0,
+                                        difficulty: meal.mucDoKho || 'Trung bình',
+                                        rating: meal.danhGia || 0,
+                                    };
+
+                                    console.log('📦 Mapped meal data:', {
+                                        hasIngredients: mealData.ingredients.length > 0,
+                                        hasInstructions: mealData.instructions.length > 0,
+                                        hasVideo: !!mealData.videoUrl
+                                    });
+
+                                    navigation.navigate('MealDetail', { meal: mealData });
                                 }}
                             >
                                 <Image
@@ -1105,78 +1148,43 @@ const HomeScreen = () => {
                                     {exercise.tenBaiTap}
                                 </Text>
 
-                                {/* Difficulty badge */}
-                                <View style={[styles.difficultyBadge, { backgroundColor: '#1f2a3a' }]}>
-                                    <View style={[styles.difficultyDot, { backgroundColor: exercise.difficultyColor }]} />
-                                    <Text style={[styles.difficultyText]}>
-                                        {exercise.difficultyLabel}
-                                    </Text>
-                                </View>
-
                                 {/* Meta Information Row */}
                                 <View style={styles.exerciseMeta}>
                                     {/* Level */}
                                     {exercise.mucDoKho && (
                                         <>
                                             <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                                                {exercise.mucDoKho}
+                                                {exercise.mucDoKho === 'DE' ? 'Dễ' :
+                                                    exercise.mucDoKho === 'TRUNG_BINH' ? 'Trung bình' :
+                                                        exercise.mucDoKho === 'KHO' ? 'Khó' :
+                                                            exercise.mucDoKho}
                                             </Text>
                                             <Text style={[styles.metaDot, { color: colors.textSecondary }]}>•</Text>
                                         </>
                                     )}
 
                                     {/* Time */}
-                                    {exercise.duration ? (
+                                    {exercise.thoiGian && (
                                         <>
                                             <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                                                {exercise.duration}
+                                                {exercise.thoiGian}
                                             </Text>
                                             <Text style={[styles.metaText, { color: colors.textSecondary }]}>
                                                 {' phút'}
                                             </Text>
                                             <Text style={[styles.metaDot, { color: colors.textSecondary }]}>•</Text>
                                         </>
-                                    ) : null}
+                                    )}
 
-                                    {/* Calories */}
-                                    <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                                        {exercise.calories || 0}
-                                    </Text>
-                                    <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                                        {' kcal'}
-                                    </Text>
+                                    {/* Exercise Type */}
+                                    {exercise.loai && (
+                                        <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                                            {exercise.loai}
+                                        </Text>
+                                    )}
                                 </View>
 
-                                {/* Extra info (type + tags, unique) */}
-                                {(() => {
-                                    const tags = [];
-                                    const pushTag = (val) => {
-                                        if (!val) return;
-                                        const key = val.toString().trim().toLowerCase();
-                                        if (!key) return;
-                                        if (!tags.find(t => t.key === key)) {
-                                            tags.push({ key, label: val });
-                                        }
-                                    };
-                                    pushTag(exercise.loai); // loại buổi tập từ DB
-                                    pushTag(exercise.targetMuscle);
-                                    pushTag(exercise.equipment);
-                                    pushTag(exercise.goal);
-
-                                    if (tags.length === 0) return null;
-
-                                    return (
-                                        <View style={styles.exerciseExtra}>
-                                            {tags.map(tag => (
-                                                <View key={tag.key} style={[styles.extraTag]}>
-                                                    <Text style={[styles.extraText]} numberOfLines={1}>
-                                                        {tag.label}
-                                                    </Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    );
-                                })()}
+                                {/* Exercise Type Tags - Removed */}
                             </View>
                         </TouchableOpacity>
                     ))}
@@ -1611,12 +1619,13 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '700',
         fontFamily: 'Manrope',
-        marginBottom: 6,
+        marginBottom: 8,
     },
     exerciseMeta: {
         flexDirection: 'row',
         alignItems: 'center',
         flexWrap: 'wrap',
+        marginBottom: 8,
     },
     metaText: {
         fontSize: 14,
@@ -1629,6 +1638,22 @@ const styles = StyleSheet.create({
         fontFamily: 'Manrope',
         marginHorizontal: 4,
     },
+    exerciseExtra: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 4,
+    },
+    extraTag: {
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 8,
+    },
+    extraText: {
+        fontSize: 13,
+        fontWeight: '500',
+        fontFamily: 'Manrope',
+    },
     difficultyBadge: {
         alignSelf: 'flex-start',
         flexDirection: 'row',
@@ -1638,18 +1663,6 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         marginTop: 6,
         marginBottom: 8,
-    },
-    difficultyDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        marginRight: 6,
-    },
-    difficultyText: {
-        fontSize: 13,
-        fontWeight: '600',
-        fontFamily: 'Manrope',
-        color: '#f5f7ff',
     },
     exerciseExtra: {
         flexDirection: 'row',

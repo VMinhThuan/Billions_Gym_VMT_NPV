@@ -52,7 +52,7 @@ const MainTabNavigator = () => {
     const { colors } = useTheme();
     const tabLabels = {
         Home: 'Trang chủ',
-        Workout: 'Tập luyện',
+        Workout: 'Bài tập',
         Nutrition: 'Dinh dưỡng',
         Classes: 'Lịch tập',
         Profile: 'Hồ sơ',
