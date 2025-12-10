@@ -4,7 +4,9 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { AuthProvider } from './src/store/AuthContext';
 import { ThemeProvider } from './src/store/ThemeContext';
 import { useFonts } from 'expo-font';
-import { ActivityIndicator, View, Text, TextInput } from 'react-native';
+import { ActivityIndicator, View, Text, TextInput, Linking } from 'react-native';
+import { navigationRef } from './src/navigation/RootNavigation';
+import { parsePaymentDeepLink } from './src/utils/paymentDeepLink';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -33,6 +35,37 @@ export default function App() {
       console.warn('Could not set global default fontFamily:', e);
     }
   }, [fontsLoaded]);
+
+  React.useEffect(() => {
+    const handleDeepLink = (event) => {
+      const parsed = parsePaymentDeepLink(event?.url);
+      if (parsed) {
+        if (parsed.isError) {
+          navigationRef.current?.navigate('PaymentWebView');
+          return;
+        }
+        navigationRef.current?.navigate('PaymentSuccess', {
+          orderId: parsed.orderId,
+          paymentMethod: parsed.paymentMethod,
+          amount: parsed.amount,
+          packageName: parsed.packageName,
+          resultCode: parsed.resultCode,
+          fromDeepLink: true,
+        });
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    Linking.getInitialURL().then((initialUrl) => {
+      if (initialUrl) {
+        handleDeepLink({ url: initialUrl });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   if (!fontsLoaded) {
     return (

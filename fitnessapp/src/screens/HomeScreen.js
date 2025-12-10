@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet, ImageBackground, RefreshControl, Dimensions, Image, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuth } from "../hooks/useAuth";
 import { useTheme, DEFAULT_THEME } from "../hooks/useTheme";
@@ -12,6 +12,7 @@ const { width } = Dimensions.get('window');
 
 const HomeScreen = () => {
     const navigation = useNavigation();
+    const route = useRoute();
     const { logout, userInfo, userToken } = useAuth();
     const { colors } = useTheme();
     const isLightMode = colors?.background === DEFAULT_THEME.background;
@@ -47,6 +48,17 @@ const HomeScreen = () => {
     // Exercises
     const [exercises, setExercises] = useState([]);
     const [loadingExercises, setLoadingExercises] = useState(false);
+
+    // Hiển thị thông báo khi thanh toán thành công (được chuyển về từ cổng thanh toán)
+    useEffect(() => {
+        if (route?.params?.paymentSuccess) {
+            Alert.alert(
+                'Thanh toán thành công',
+                'Đơn hàng đã được thanh toán. Bạn có thể xem thông tin gói trong trang Hội viên.'
+            );
+            navigation.setParams({ paymentSuccess: undefined });
+        }
+    }, [route?.params?.paymentSuccess]);
 
     const getMealTypeName = (type) => {
         // Hỗ trợ cả format cũ (SANG, TRUA) và format mới (Bữa sáng, Bữa trưa)

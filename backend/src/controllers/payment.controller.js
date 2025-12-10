@@ -6,6 +6,16 @@ const { NguoiDung } = require('../models/NguoiDung');
 const { createPaymentSuccessNotification, createUpgradeSuccessNotification, createPartnerAddedNotification, createWorkflowNotification, createPartnerWorkflowNotification } = require('./notification.controller');
 const { addDuration } = require('../utils/duration.utils');
 
+const buildRedirectUrl = (orderId, paymentData = {}) => {
+    const defaultRedirect = `${process.env.FRONTEND_URL_CLIENT || 'http://localhost:3000'}/payment-success?orderId=${orderId}`;
+    const mobileRedirect = paymentData.appRedirectUrl || paymentData.mobileRedirectUrl;
+
+    if (!mobileRedirect) return defaultRedirect;
+
+    const separator = mobileRedirect.includes('?') ? '&' : '?';
+    return `${mobileRedirect}${separator}orderId=${orderId}`;
+};
+
 class PaymentController {
     /**
      * Tạo thanh toán MoMo
@@ -53,7 +63,7 @@ class PaymentController {
                 amount: amount,
                 orderId: orderId,
                 orderInfo: `Thanh toán gói tập: ${packageInfo.tenGoiTap}`,
-                redirectUrl: `${process.env.FRONTEND_URL_CLIENT || 'http://localhost:3000'}/payment-success?orderId=${orderId}`,
+                redirectUrl: buildRedirectUrl(orderId, paymentData),
                 ipnUrl: `${process.env.BACKEND_URL || 'http://localhost:4000'}/api/payment/momo/callback`,
                 extraData: JSON.stringify({
                     packageId: packageId,
@@ -240,7 +250,7 @@ class PaymentController {
                 amount: amount,
                 orderId: orderId,
                 orderInfo: `Thanh toán gói tập: ${packageInfo.tenGoiTap}`,
-                redirectUrl: `${process.env.FRONTEND_URL_CLIENT || 'http://localhost:3000'}/payment-success?orderId=${orderId}`,
+                redirectUrl: buildRedirectUrl(orderId, paymentData),
                 callbackUrl: `${process.env.BACKEND_URL || 'http://localhost:4000'}/api/payment/zalo/callback`,
                 userId: userInfo._id.toString(),
                 extraData: {
@@ -1063,6 +1073,118 @@ class PaymentController {
             return res.status(500).json({
                 success: false,
                 message: 'Lỗi cập nhật trạng thái thanh toán',
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Xác nhận thanh toán từ app khi detect success từ URL
+     * Endpoint này được gọi khi app phát hiện payment success từ URL params (resultCode=0)
+     */
+    async confirmPaymentFromApp(req, res) {
+        try {
+            const { orderId, resultCode, amount, paymentMethod = 'momo' } = req.body;
+
+            if (!orderId || !resultCode) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Thiếu orderId hoặc resultCode'
+                });
+            }
+
+            console.log(`📱 [APP CONFIRM] Confirming payment from app for orderId: ${orderId}, resultCode: ${resultCode}`);
+
+            // Kiểm tra xem đã được xác nhận chưa
+            const registration = await ChiTietGoiTap.findOne({
+                'thongTinThanhToan.orderId': orderId
+            });
+
+            if (!registration) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy đơn hàng'
+                });
+            }
+
+            // Nếu đã thanh toán rồi, không cần xử lý lại
+            if (registration.trangThaiThanhToan === 'DA_THANH_TOAN') {
+                console.log(`✅ [APP CONFIRM] Payment already confirmed for orderId: ${orderId}`);
+                return res.status(200).json({
+                    success: true,
+                    message: 'Thanh toán đã được xác nhận trước đó',
+                    data: {
+                        orderId: orderId,
+                        status: 'DA_THANH_TOAN'
+                    }
+                });
+            }
+
+            // Tạo callback data giống như MoMo gửi về
+            const normalizedResultCode = `${resultCode}`;
+            const callbackData = {
+                orderId: orderId,
+                resultCode: normalizedResultCode,
+                amount: amount || registration.thongTinThanhToan?.amount || registration.soTienThanhToan || 0,
+                partnerCode: paymentMethod === 'momo' ? 'MOMO' : 'ZALOPAY',
+                requestType: 'payWithMethod',
+                message: normalizedResultCode === '0' ? 'Successful.' : 'Failed.'
+            };
+
+            // Xử lý callback giống như MoMo callback
+            let result;
+            if (paymentMethod === 'momo') {
+                result = momoPaymentService.processCallback(callbackData);
+            } else {
+                result = zaloPaymentService.processCallback(callbackData);
+            }
+
+            if (result.success) {
+                // Cập nhật trạng thái đăng ký gói tập
+                try {
+                    if (paymentMethod === 'momo') {
+                        await this.updateRegistrationStatus(result.orderId, 'DA_THANH_TOAN', result);
+                    } else {
+                        await this.updateZaloRegistrationStatus(result.app_trans_id || orderId, 'DA_THANH_TOAN', result);
+                    }
+                } catch (updateError) {
+                    console.error('❌ [APP CONFIRM] Error updating registration, fallback manual update:', updateError);
+                    await ChiTietGoiTap.findOneAndUpdate(
+                        { 'thongTinThanhToan.orderId': orderId },
+                        {
+                            trangThaiThanhToan: 'DA_THANH_TOAN',
+                            thoiGianCapNhat: new Date(),
+                            'thongTinThanhToan.ketQuaThanhToan': result,
+                            'thongTinThanhToan.amount': callbackData.amount,
+                            'thongTinThanhToan.phuongThuc': paymentMethod
+                        }
+                    );
+                }
+
+                console.log(`✅ [APP CONFIRM] Payment confirmed successfully for order: ${orderId}`);
+
+                return res.status(200).json({
+                    success: true,
+                    message: 'Xác nhận thanh toán thành công',
+                    data: {
+                        orderId: orderId,
+                        status: 'DA_THANH_TOAN'
+                    }
+                });
+            } else {
+                console.log(`❌ [APP CONFIRM] Payment confirmation failed for order: ${orderId}`);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Xác nhận thanh toán thất bại',
+                    error: result.message || 'Invalid payment result'
+                });
+            }
+
+        } catch (error) {
+            console.error('❌ [APP CONFIRM] PaymentController.confirmPaymentFromApp error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Lỗi xác nhận thanh toán',
                 error: error.message
             });
         }

@@ -36,6 +36,9 @@ import PTScheduleScreen from '../screens/PTScheduleScreen';
 import PTStudentsScreen from '../screens/PTStudentsScreen';
 import PTRevenueScreen from '../screens/PTRevenueScreen';
 import PTPaymentScreen from '../screens/PTPaymentScreen';
+import PaymentWebViewScreen from '../screens/PaymentWebViewScreen';
+import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
+import { navigationRef } from './RootNavigation';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -271,7 +274,7 @@ const AppNavigator = () => {
     }
 
     return (
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
             <Stack.Navigator
                 initialRouteName={initialRouteName}
                 screenOptions={{ headerShown: false }}
@@ -289,6 +292,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="PackageDetail" component={PackageDetailScreen} />
                 <Stack.Screen name="PackageCompare" component={PackageCompareScreen} />
                 <Stack.Screen name="Checkout" component={CheckoutScreen} />
+                <Stack.Screen name="PaymentWebView" component={PaymentWebViewScreen} />
+                <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
                 <Stack.Screen name="EditProfile" component={EditProfileScreen} />
                 <Stack.Screen name="EditFitnessGoals" component={EditFitnessGoalsScreen} />
                 <Stack.Screen name="EditAvatar" component={EditAvatarScreen} />

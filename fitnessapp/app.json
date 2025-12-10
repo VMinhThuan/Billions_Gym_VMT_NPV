@@ -23,6 +23,7 @@
       "edgeToEdgeEnabled": true,
       "package": "com.vuthuan.fitnessapp"
     },
+    "scheme": "fitnessapp",
     "web": {
       "favicon": "./assets/favicon.png"
     },

@@ -10,6 +10,7 @@ import {
     Dimensions,
     Alert,
     Image,
+    Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -171,15 +172,54 @@ const CheckoutScreen = () => {
 
             console.log('🛒 Checkout Data:', checkoutData);
 
-            // TODO: Call payment API
-            Alert.alert('Thành công', 'Đang chuyển đến trang thanh toán...', [
-                {
-                    text: 'OK',
-                    onPress: () => {
-                        navigation.navigate('Home');
-                    }
-                }
-            ]);
+            // Lấy userId từ userInfo
+            const userId = userInfo?._id || userInfo?.id;
+            if (!userId) {
+                Alert.alert('Lỗi', 'Vui lòng đăng nhập để thanh toán');
+                setIsProcessing(false);
+                return;
+            }
+
+            // Gọi API tạo thanh toán (MoMo / ZaloPay) - format giống web version
+            const paymentResp = await apiService.createPayment({
+                packageId: checkoutData.packageId,
+                userId: userId,
+                branchId: checkoutData.branchId,
+                startDate: checkoutData.startDate,
+                paymentMethod: checkoutData.paymentMethod,
+                payload: {
+                    firstName: checkoutData.firstName,
+                    lastName: checkoutData.lastName,
+                    phone: checkoutData.phone,
+                    email: checkoutData.email,
+                    partnerPhone: checkoutData.partnerPhone,
+                    isUpgrade: false,
+                    upgradeAmount: 0,
+                    existingPackageId: null,
+                    giaGoiTapGoc: packageData?.donGia || 0,
+                    soTienBu: 0,
+                    keepPreviousInfo: false,
+                    previousBranchId: null,
+                    previousPtId: null
+                },
+            });
+
+            console.log('💳 Payment response:', paymentResp);
+
+            if (paymentResp?.success && paymentResp?.data?.paymentUrl) {
+                const url = paymentResp.data.paymentUrl;
+                const orderId = paymentResp.data.orderId;
+
+                // Navigate đến PaymentWebView screen để hiển thị thanh toán trong app
+                navigation.navigate('PaymentWebView', {
+                    paymentUrl: url,
+                    orderId: orderId,
+                    packageName: packageData?.tenGoiTap || 'Gói tập'
+                });
+            } else {
+                const msg = paymentResp?.message || 'Không tạo được thanh toán';
+                Alert.alert('Lỗi', msg);
+            }
 
         } catch (err) {
             console.error('❌ Checkout error:', err);

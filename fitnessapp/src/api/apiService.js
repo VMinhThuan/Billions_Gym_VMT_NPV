@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getPaymentRedirectUrl } from '../utils/paymentDeepLink';
 
 const API_URL = require('./ApiManagerPublic');
 
@@ -379,6 +380,49 @@ class ApiService {
         }
     }
 
+    // Payment creation (MoMo / ZaloPay)
+    async createPayment({ packageId, userId, branchId, startDate, paymentMethod, payload = {} }) {
+        try {
+            if (!paymentMethod) throw new Error('paymentMethod is required');
+            if (!userId) throw new Error('userId is required');
+
+            const endpoint = paymentMethod === 'zalopay' ? '/payment/zalo/create' : '/payment/momo/create';
+
+            // Format request body giống web version
+            const body = {
+                packageId: packageId,
+                userId: userId,
+                paymentData: {
+                    firstName: payload.firstName || '',
+                    lastName: payload.lastName || '',
+                    phone: payload.phone || '',
+                    email: payload.email || '',
+                    partnerPhone: payload.partnerPhone || null,
+                    branchId: branchId,
+                    startDate: startDate,
+                    isUpgrade: payload.isUpgrade || false,
+                    upgradeAmount: payload.upgradeAmount || 0,
+                    existingPackageId: payload.existingPackageId || null,
+                    giaGoiTapGoc: payload.giaGoiTapGoc || 0,
+                    soTienBu: payload.soTienBu || 0,
+                    keepPreviousInfo: payload.keepPreviousInfo || false,
+                    previousBranchId: payload.previousBranchId || null,
+                    previousPtId: payload.previousPtId || null,
+                    appRedirectUrl: getPaymentRedirectUrl(),
+                    platform: 'mobile'
+                }
+            };
+
+            console.log('💳 [createPayment] Request body:', JSON.stringify(body, null, 2));
+            const result = await this.apiCall(endpoint, 'POST', body, true);
+            console.log('💳 [createPayment] Response:', result);
+            return result;
+        } catch (error) {
+            console.error('❌ createPayment error:', error.message || error);
+            throw error;
+        }
+    }
+
     async completeWorkout(workoutId) {
         return this.apiCall(`/buoitap/${workoutId}/hoanthanh`, 'PUT');
     }
@@ -672,10 +716,6 @@ class ApiService {
     // Payment APIs
     async getMyPayments() {
         return this.apiCall('/thanhtoan/my');
-    }
-
-    async createPayment(data) {
-        return this.apiCall('/thanhtoan', 'POST', data);
     }
 
     async getCurrentUserId() {
