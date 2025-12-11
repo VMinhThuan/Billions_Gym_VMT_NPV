@@ -22,7 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebView } from 'react-native-webview';
 import apiService from '../api/apiService';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const VISIBLE_COUNT = 4;
 
 const WorkoutPlansScreen = () => {
@@ -41,6 +41,7 @@ const WorkoutPlansScreen = () => {
     const bannerFlatListRef = useRef(null);
     const [videoModalVisible, setVideoModalVisible] = useState(false);
     const [currentVideoUrl, setCurrentVideoUrl] = useState('');
+    const [currentVideoId, setCurrentVideoId] = useState('');
 
     useEffect(() => {
         loadData();
@@ -103,15 +104,10 @@ const WorkoutPlansScreen = () => {
 
             setTopExercises(sortedExercises);
 
-            // Load PTs
-            const ptsResponse = await apiService.apiCall('/user/pt', 'GET', null, false);
-            let ptsData = [];
-            if (Array.isArray(ptsResponse)) {
-                ptsData = ptsResponse;
-            } else if (ptsResponse?.data && Array.isArray(ptsResponse.data)) {
-                ptsData = ptsResponse.data;
-            }
-            setPts(ptsData);
+            // Bỏ qua API /user/pt vì thường xuyên timeout và không bắt buộc
+            // FlatList đã có ListEmptyComponent để hiển thị "Chưa có huấn luyện viên" khi rỗng
+            // Nếu cần load PT, có thể dùng getAllPT() từ HomeScreen sau này
+            setPts([]);
 
         } catch (error) {
             console.error('Error loading workout data:', error);
@@ -261,10 +257,7 @@ const WorkoutPlansScreen = () => {
 
             if (videoId) {
                 console.log('📹 Extracted video ID:', videoId);
-
-                // Tạo embed URL với các tham số cần thiết
-                const embedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`;
-                setCurrentVideoUrl(embedUrl);
+                setCurrentVideoId(videoId);
                 setVideoModalVisible(true);
             } else {
                 // Nếu không phải YouTube, thử mở link trực tiếp
@@ -730,54 +723,147 @@ const WorkoutPlansScreen = () => {
                             <MaterialIcons name="close" size={28} color="#fff" />
                         </TouchableOpacity>
                         <Text style={styles.videoModalTitle}>Video Player</Text>
-                        <TouchableOpacity
-                            onPress={() => {
-                                // Extract original YouTube URL from embed URL
-                                const videoId = currentVideoUrl.split('/embed/')[1]?.split('?')[0];
-                                if (videoId) {
-                                    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-                                    Linking.openURL(youtubeUrl).catch(err => {
-                                        console.error('Error opening YouTube:', err);
-                                        Alert.alert('Lỗi', 'Không thể mở YouTube');
-                                    });
-                                }
-                            }}
-                            style={styles.openYouTubeButton}
-                        >
-                            <MaterialIcons name="open-in-new" size={24} color="#fff" />
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    if (currentVideoId) {
+                                        // Thử mở YouTube app trước
+                                        const youtubeAppUrl = `vnd.youtube:${currentVideoId}`;
+                                        const youtubeWebUrl = `https://www.youtube.com/watch?v=${currentVideoId}`;
+
+                                        Linking.canOpenURL(youtubeAppUrl).then(supported => {
+                                            if (supported) {
+                                                return Linking.openURL(youtubeAppUrl);
+                                            } else {
+                                                return Linking.openURL(youtubeWebUrl);
+                                            }
+                                        }).catch(err => {
+                                            console.error('Error opening YouTube:', err);
+                                            // Fallback: mở web
+                                            Linking.openURL(youtubeWebUrl).catch(() => {
+                                                Alert.alert('Lỗi', 'Không thể mở YouTube');
+                                            });
+                                        });
+                                    }
+                                }}
+                                style={[styles.openYouTubeButton, { marginRight: 8 }]}
+                            >
+                                <MaterialIcons name="open-in-new" size={20} color="#fff" />
+                                <Text style={{ color: '#fff', marginLeft: 4, fontSize: 12 }}>YouTube</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                    {currentVideoUrl && (
-                        <WebView
-                            source={{ uri: currentVideoUrl }}
-                            style={styles.videoWebView}
-                            allowsFullscreenVideo
-                            mediaPlaybackRequiresUserAction={false}
-                            javaScriptEnabled
-                            domStorageEnabled
-                            onError={(syntheticEvent) => {
-                                const { nativeEvent } = syntheticEvent;
-                                console.error('WebView error:', nativeEvent);
-                                Alert.alert(
-                                    'Lỗi phát video',
-                                    'Không thể phát video trong app. Bạn có muốn mở trong YouTube?',
-                                    [
-                                        { text: 'Hủy', style: 'cancel' },
-                                        {
-                                            text: 'Mở YouTube',
-                                            onPress: () => {
-                                                const videoId = currentVideoUrl.split('/embed/')[1]?.split('?')[0];
-                                                if (videoId) {
-                                                    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-                                                    setVideoModalVisible(false);
-                                                    Linking.openURL(youtubeUrl);
+                    {currentVideoId && (
+                        <View style={styles.videoPlayerContainer}>
+                            <WebView
+                                source={{
+                                    html: `
+                                        <!DOCTYPE html>
+                                        <html>
+                                        <head>
+                                            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                                            <style>
+                                                * {
+                                                    margin: 0;
+                                                    padding: 0;
+                                                    box-sizing: border-box;
+                                                }
+                                                html, body {
+                                                    width: 100%;
+                                                    height: 100%;
+                                                    overflow: hidden;
+                                                    background-color: #000;
+                                                }
+                                                .video-wrapper {
+                                                    position: relative;
+                                                    width: 100%;
+                                                    height: 100%;
+                                                    display: flex;
+                                                    justify-content: center;
+                                                    align-items: center;
+                                                }
+                                                iframe {
+                                                    width: 100%;
+                                                    height: 100%;
+                                                    border: none;
+                                                }
+                                            </style>
+                                        </head>
+                                        <body>
+                                            <div class="video-wrapper">
+                                                <iframe
+                                                    id="youtube-iframe"
+                                                    src="https://www.youtube.com/embed/${currentVideoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&controls=1&fs=1&enablejsapi=1&iv_load_policy=3&cc_load_policy=0"
+                                                    frameborder="0"
+                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                                    allowfullscreen
+                                                    webkitallowfullscreen
+                                                    mozallowfullscreen
+                                                ></iframe>
+                                            </div>
+                                        </body>
+                                        </html>
+                                    `
+                                }}
+                                style={styles.videoWebView}
+                                allowsFullscreenVideo={true}
+                                mediaPlaybackRequiresUserAction={false}
+                                javaScriptEnabled={true}
+                                domStorageEnabled={true}
+                                startInLoadingState={true}
+                                scalesPageToFit={false}
+                                mixedContentMode="always"
+                                onError={(syntheticEvent) => {
+                                    const { nativeEvent } = syntheticEvent;
+                                    console.error('WebView error:', nativeEvent);
+                                    Alert.alert(
+                                        'Lỗi phát video',
+                                        'Không thể phát video trong app. Bạn có muốn mở trong YouTube?',
+                                        [
+                                            { text: 'Hủy', style: 'cancel' },
+                                            {
+                                                text: 'Mở YouTube',
+                                                onPress: () => {
+                                                    if (currentVideoId) {
+                                                        const youtubeUrl = `https://www.youtube.com/watch?v=${currentVideoId}`;
+                                                        setVideoModalVisible(false);
+                                                        Linking.openURL(youtubeUrl).catch(err => {
+                                                            console.error('Error opening YouTube:', err);
+                                                            Alert.alert('Lỗi', 'Không thể mở YouTube');
+                                                        });
+                                                    }
                                                 }
                                             }
-                                        }
-                                    ]
-                                );
-                            }}
-                        />
+                                        ]
+                                    );
+                                }}
+                                onHttpError={(syntheticEvent) => {
+                                    const { nativeEvent } = syntheticEvent;
+                                    console.error('WebView HTTP error:', nativeEvent);
+                                    if (nativeEvent.statusCode >= 400) {
+                                        Alert.alert(
+                                            'Lỗi phát video',
+                                            'Không thể tải video. Bạn có muốn mở trong YouTube?',
+                                            [
+                                                { text: 'Hủy', style: 'cancel' },
+                                                {
+                                                    text: 'Mở YouTube',
+                                                    onPress: () => {
+                                                        if (currentVideoId) {
+                                                            const youtubeUrl = `https://www.youtube.com/watch?v=${currentVideoId}`;
+                                                            setVideoModalVisible(false);
+                                                            Linking.openURL(youtubeUrl).catch(err => {
+                                                                console.error('Error opening YouTube:', err);
+                                                            });
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        );
+                                    }
+                                }}
+                            />
+                        </View>
                     )}
                 </SafeAreaView>
             </Modal>
@@ -1297,8 +1383,15 @@ const styles = StyleSheet.create({
         padding: 8,
         marginLeft: 8,
     },
+    videoPlayerContainer: {
+        flex: 1,
+        backgroundColor: '#000',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     videoWebView: {
         flex: 1,
+        width: '100%',
         backgroundColor: '#000',
     },
 });

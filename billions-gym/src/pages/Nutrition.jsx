@@ -472,7 +472,11 @@ const Nutrition = () => {
             let errorMessage = 'Không thể tạo kế hoạch dinh dưỡng';
 
             if (error.message) {
-                if (error.message.includes('CONNECTION_REFUSED') || error.message.includes('fetch')) {
+                if (error.message.includes('quota') || error.message.includes('hết quota') || error.message.includes('429')) {
+                    errorMessage = error.message + '\n\n💡 Giải pháp:\n- Đợi vài phút rồi thử lại\n- Hoặc đợi đến ngày mai (quota reset mỗi ngày)\n- Nếu cần sử dụng nhiều, vui lòng nâng cấp API key';
+                } else if (error.message.includes('overload') || error.message.includes('quá tải') || error.message.includes('503')) {
+                    errorMessage = error.message + '\n\n💡 Vui lòng đợi vài phút rồi thử lại.';
+                } else if (error.message.includes('CONNECTION_REFUSED') || error.message.includes('fetch')) {
                     errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra:\n1. Backend server có đang chạy không?\n2. Server có chạy ở port 4000 không?\n3. Kiểm tra console của backend để xem có lỗi gì không.';
                 } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
                     errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';

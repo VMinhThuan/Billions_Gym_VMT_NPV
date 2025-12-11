@@ -12,24 +12,37 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import apiService from '../api/apiService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PaymentSuccessScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
-    const { orderId, paymentMethod, amount, packageName } = route.params || {};
+    const { orderId, paymentMethod, amount, packageName, resultCode } = route.params || {};
 
     const [loading, setLoading] = useState(true);
     const [paymentStatus, setPaymentStatus] = useState(null);
     const [error, setError] = useState(null);
     const [confirming, setConfirming] = useState(false);
+    const [toastShown, setToastShown] = useState(false);
 
     useEffect(() => {
-        if (orderId) {
-            checkPaymentStatus();
-        } else {
+        if (!orderId) {
             setError('Không tìm thấy thông tin đơn hàng');
             setLoading(false);
+            return;
         }
+
+        // Optimistic success nếu resultCode=0 từ deep link (giống web)
+        if ((resultCode === '0' || resultCode === 0) && !paymentStatus) {
+            setPaymentStatus({
+                orderId,
+                status: 'DA_THANH_TOAN',
+                paymentMethod: paymentMethod || 'momo',
+                amount: amount || null,
+            });
+        }
+
+        checkPaymentStatus();
     }, [orderId]);
 
     const confirmPaymentIfNeeded = async () => {
@@ -59,6 +72,11 @@ const PaymentSuccessScreen = () => {
             if (response.success && response.data) {
                 setPaymentStatus(response.data);
                 console.log('✅ Payment status:', response.data);
+
+                if (response.data.status === 'DA_THANH_TOAN') {
+                    await handleSuccessSideEffects(response.data);
+                }
+
                 return response.data;
             } else {
                 // Nếu không có data từ API, tạo paymentStatus từ params
@@ -85,6 +103,50 @@ const PaymentSuccessScreen = () => {
         }
     };
 
+    const handleSuccessSideEffects = async (statusData) => {
+        if (!orderId) return;
+        const notificationKey = `payment_success_${orderId}`;
+        const updateKey = `payment_updated_${orderId}`;
+
+        // Hiển thị 2 thông báo giống web (mỗi order chỉ 1 lần)
+        if (!toastShown) {
+            try {
+                const shownRaw = await AsyncStorage.getItem(notificationKey);
+                const shown = shownRaw ? JSON.parse(shownRaw).shown === true : false;
+                if (!shown) {
+                    Alert.alert('Thanh toán thành công', 'Đơn hàng đã được thanh toán thành công.');
+                    Alert.alert('Vui lòng hoàn tất đăng ký gói', 'Hãy hoàn tất các bước tiếp theo để kích hoạt gói tập.');
+                    await AsyncStorage.setItem(notificationKey, JSON.stringify({ shown: true, timestamp: Date.now() }));
+                    setToastShown(true);
+                }
+            } catch (e) {
+                console.warn('⚠️ Cannot store notification flag:', e?.message || e);
+            }
+        }
+
+        // Gọi manual-update giống web (chỉ 1 lần)
+        try {
+            const updatedRaw = await AsyncStorage.getItem(updateKey);
+            const updated = updatedRaw ? JSON.parse(updatedRaw).updated === true : false;
+            if (!updated) {
+                const body = { orderId, status: 'DA_THANH_TOAN' };
+                try {
+                    await apiService.apiCall('/payment/manual-update', 'POST', body, true);
+                } catch (authErr) {
+                    // Thử không auth nếu cần (web gọi public)
+                    try {
+                        await apiService.apiCall('/payment/manual-update', 'POST', body, false);
+                    } catch (inner) {
+                        console.warn('⚠️ manual-update failed:', inner?.message || inner);
+                    }
+                }
+                await AsyncStorage.setItem(updateKey, JSON.stringify({ updated: true, timestamp: Date.now() }));
+            }
+        } catch (e) {
+            console.warn('⚠️ Cannot store update flag:', e?.message || e);
+        }
+    };
+
     // Nếu mở từ deep link và vẫn pending, thử confirm thủ công rồi check lại
     useEffect(() => {
         if (!route.params?.fromDeepLink) return;
@@ -94,6 +156,8 @@ const PaymentSuccessScreen = () => {
                 await confirmPaymentIfNeeded();
                 await checkPaymentStatus();
             })();
+        } else if (paymentStatus?.status === 'DA_THANH_TOAN') {
+            handleSuccessSideEffects(paymentStatus);
         }
     }, [paymentStatus, route.params?.fromDeepLink]);
 

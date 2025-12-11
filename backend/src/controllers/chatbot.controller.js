@@ -4,7 +4,7 @@ const authMiddleware = require('../middlewares/auth.middleware');
 // Gửi tin nhắn đến chatbot
 const sendMessage = async (req, res) => {
     try {
-        const { message } = req.body;
+        const { message, conversationHistory = [] } = req.body;
         const hoiVienId = req.user.id; // Từ auth middleware
 
         if (!message || message.trim().length === 0) {
@@ -14,17 +14,33 @@ const sendMessage = async (req, res) => {
             });
         }
 
-        const result = await chatbotService.processMessage(hoiVienId, message);
+        const result = await chatbotService.processMessage(hoiVienId, message, conversationHistory);
 
-        res.status(200).json({
-            success: result.success,
-            message: result.success ? 'Xử lý tin nhắn thành công' : 'Có lỗi xảy ra',
-            data: {
-                response: result.response,
-                context: result.context,
-                sessionId: result.sessionId
-            }
-        });
+        // Always return success: true if we have a response, even if result.success is false
+        // The response field will contain the actual message
+        if (result && result.response) {
+            res.status(200).json({
+                success: true,
+                message: 'Xử lý tin nhắn thành công',
+                data: {
+                    response: result.response,
+                    context: result.context || 'general',
+                    sessionId: result.sessionId,
+                    actions: result.actions || []
+                }
+            });
+        } else {
+            res.status(200).json({
+                success: false,
+                message: result?.response || 'Có lỗi xảy ra',
+                data: {
+                    response: result?.response || 'Xin lỗi, tôi không thể trả lời câu hỏi này.',
+                    context: result?.context || 'general',
+                    sessionId: result?.sessionId,
+                    actions: result?.actions || []
+                }
+            });
+        }
 
     } catch (error) {
         console.error('Lỗi gửi tin nhắn chatbot:', error);

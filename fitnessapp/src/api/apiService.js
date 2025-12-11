@@ -814,8 +814,12 @@ class ApiService {
     }
 
     // Chatbot API methods
-    async sendChatbotMessage(message) {
-        return this.apiCall('/chatbot/message', 'POST', { message });
+    async sendChatbotMessage(message, conversationHistory = []) {
+        const payload = { message };
+        if (conversationHistory && conversationHistory.length > 0) {
+            payload.conversationHistory = conversationHistory;
+        }
+        return this.apiCall('/chatbot/message', 'POST', payload);
     }
 
     async getChatHistory(limit = 50) {
@@ -891,6 +895,77 @@ class ApiService {
     // Cập nhật thời gian còn lại của hạng hội viên
     async updateMembershipTimeRemaining(userId, days) {
         return this.apiCall(`/hanghoivien/cap-nhat-thoi-gian-con-lai/${userId}`, 'PUT', { days });
+    }
+
+    // Check-in APIs
+    // Check if face is enrolled
+    async checkFaceEncoding() {
+        return this.apiCall('/face/check');
+    }
+
+    // Verify face
+    async verifyFace(encoding) {
+        if (!encoding || !Array.isArray(encoding) || encoding.length !== 128) {
+            throw new Error('Face encoding không hợp lệ');
+        }
+        return this.apiCall('/face/verify', 'POST', { encoding });
+    }
+
+    // Enroll face
+    async enrollFace(encodings) {
+        return this.apiCall('/face/enroll', 'POST', { encodings });
+    }
+
+    // Get today's sessions
+    async getTodaySessions() {
+        return this.apiCall('/checkin/today-sessions');
+    }
+
+    // Check-in with face
+    async checkIn(buoiTapId, faceEncoding, image) {
+        return this.apiCall('/checkin/checkin', 'POST', {
+            buoiTapId,
+            faceEncoding,
+            image
+        });
+    }
+
+    // Check-out with face
+    async checkOut(buoiTapId, faceEncoding, image) {
+        return this.apiCall('/checkin/checkout', 'POST', {
+            buoiTapId,
+            faceEncoding,
+            image
+        });
+    }
+
+    // Check-in with QR code
+    async checkInWithQR(buoiTapId, qrCode) {
+        return this.apiCall('/checkin/checkin-qr', 'POST', {
+            buoiTapId,
+            qrCode
+        });
+    }
+
+    // Check-out with QR code
+    async checkOutWithQR(buoiTapId, qrCode) {
+        return this.apiCall('/checkin/checkout-qr', 'POST', {
+            buoiTapId,
+            qrCode
+        });
+    }
+
+    // Get check-in history
+    async getCheckInHistory(limit = 50, startDate, endDate) {
+        const params = new URLSearchParams({ limit: limit.toString() });
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+        return this.apiCall(`/checkin/history?${params.toString()}`);
+    }
+
+    // Get QR code of current member
+    async getQRCode() {
+        return this.apiCall('/checkin/qr-code');
     }
 }
 

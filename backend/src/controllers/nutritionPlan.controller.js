@@ -8,21 +8,21 @@ const ChiSoCoThe = require('../models/ChiSoCoThe');
 
 // Helper function để validate và fix image URL
 const validateAndFixImageUrl = (imageUrl, mealName) => {
-    if (!imageUrl || imageUrl.trim() === '' || 
-        imageUrl.includes('placeholder') || 
+    if (!imageUrl || imageUrl.trim() === '' ||
+        imageUrl.includes('placeholder') ||
         imageUrl.includes('source.unsplash.com') ||
         imageUrl === '/placeholder-menu.jpg') {
-        
+
         // Tạo URL ảnh thật từ Pexels dựa trên tên món
         const name = (mealName || '').toLowerCase();
         let searchTerm = 'food';
-        
+
         // Phát hiện từ khóa chính - không cần searchTerm nữa vì dùng photoIds trực tiếp
-        
+
         // Sử dụng Pexels API search (free, không cần API key cho public images)
         // Format: https://images.pexels.com/photos/[photo-id]/pexels-photo-[photo-id].jpeg
         // Hoặc dùng Pixabay: https://pixabay.com/get/[hash]/[id].jpg
-        
+
         // Sử dụng photo IDs thật từ Pexels (ảnh food thực tế, đã kiểm tra)
         const pexelsPhotoIds = {
             'chicken': ['2252616', '1640777', '1068537', '1640774', '2252615'],
@@ -41,7 +41,7 @@ const validateAndFixImageUrl = (imageUrl, mealName) => {
             'quinoa': ['1640831', '1640832', '1640833', '1640834', '1640835'],
             'food': ['1640836', '1640837', '1640838', '1640839', '1640840', '2252616', '1640777', '1068537']
         };
-        
+
         // Chọn category phù hợp
         let category = 'food';
         if (name.includes('gà') || name.includes('chicken')) category = 'chicken';
@@ -58,19 +58,19 @@ const validateAndFixImageUrl = (imageUrl, mealName) => {
         else if (name.includes('sữa chua') || name.includes('yogurt')) category = 'yogurt';
         else if (name.includes('khoai lang') || name.includes('sweet potato')) category = 'sweet potato';
         else if (name.includes('quinoa')) category = 'quinoa';
-        
+
         const photoIds = pexelsPhotoIds[category] || pexelsPhotoIds['food'];
         const randomId = photoIds[Math.floor(Math.random() * photoIds.length)];
-        
+
         return `https://images.pexels.com/photos/${randomId}/pexels-photo-${randomId}.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop`;
     }
-    
+
     // Validate URL format
     if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
         // Invalid URL, generate new one
         return validateAndFixImageUrl('', mealName);
     }
-    
+
     return imageUrl;
 };
 
@@ -688,9 +688,32 @@ exports.generatePlan = async (req, res) => {
             mealType: req.body.mealType
         });
 
-        res.status(500).json({
+        // Phát hiện lỗi quota và trả về status code phù hợp
+        const errorMessage = error.message || 'Lỗi khi tạo kế hoạch dinh dưỡng';
+        const isQuotaError = errorMessage.includes('quota') || errorMessage.includes('429') || errorMessage.includes('hết quota');
+        const isOverloadError = errorMessage.includes('overload') || errorMessage.includes('503');
+
+        let statusCode = 500;
+        let userMessage = errorMessage;
+
+        if (isQuotaError) {
+            statusCode = 429; // Too Many Requests
+            // Extract retry time nếu có
+            const retryMatch = errorMessage.match(/(\d+)\s*giây/);
+            if (retryMatch) {
+                const seconds = retryMatch[1];
+                userMessage = `API đã hết quota (giới hạn 20 requests/ngày cho free tier). Vui lòng đợi ${seconds} giây hoặc thử lại sau. Nếu cần sử dụng nhiều hơn, vui lòng nâng cấp API key hoặc đợi đến ngày mai.`;
+            } else {
+                userMessage = `API đã hết quota (giới hạn 20 requests/ngày cho free tier). Vui lòng đợi vài phút hoặc thử lại sau. Nếu cần sử dụng nhiều hơn, vui lòng nâng cấp API key hoặc đợi đến ngày mai.`;
+            }
+        } else if (isOverloadError) {
+            statusCode = 503; // Service Unavailable
+            userMessage = `AI service đang quá tải. Vui lòng thử lại sau vài phút.`;
+        }
+
+        res.status(statusCode).json({
             success: false,
-            message: error.message || 'Lỗi khi tạo kế hoạch dinh dưỡng',
+            message: userMessage,
             error: process.env.NODE_ENV === 'development' ? error.stack : undefined,
             errorDetails: process.env.NODE_ENV === 'development' ? {
                 name: error.name,

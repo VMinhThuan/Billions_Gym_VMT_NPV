@@ -1,68 +1,147 @@
-graph TB
-    %% Actors
-    HoiVien[👤 Hội Viên]
-    PT[💪 Personal Trainer]
-    OngChu[👔 Chủ Phòng Gym]
-    System[⚙️ Hệ Thống]
-    
-    %% Hội Viên Use Cases
-    HoiVien --> UC1[Đăng ký/Đăng nhập]
-    HoiVien --> UC2[Xem danh sách gói tập]
-    HoiVien --> UC3[Đăng ký gói tập]
-    HoiVien --> UC4[Thanh toán gói tập]
-    HoiVien --> UC5[Xem lịch tập]
-    HoiVien --> UC6[Đăng ký buổi tập]
-    HoiVien --> UC7[Check-in/Check-out]
-    HoiVien --> UC8[Xem bài tập]
-    HoiVien --> UC9[Ghi nhận lịch sử tập]
-    HoiVien --> UC10[Xem thống kê cá nhân]
-    HoiVien --> UC11[Quản lý chỉ số cơ thể]
-    HoiVien --> UC12[Đặt lịch hẹn với PT]
-    HoiVien --> UC13[Chat với PT]
-    HoiVien --> UC14[Xem kế hoạch dinh dưỡng]
-    HoiVien --> UC15[Yêu cầu kế hoạch dinh dưỡng AI]
-    HoiVien --> UC16[Xem thông báo]
-    HoiVien --> UC17[Đánh giá buổi tập]
-    HoiVien --> UC18[Xem lịch sử thanh toán]
-    
-    %% PT Use Cases
-    PT --> UC1
-    PT --> UC19[Tạo buổi tập]
-    PT --> UC20[Quản lý lịch tập cho hội viên]
-    PT --> UC21[Thêm/sửa/xóa bài tập]
-    PT --> UC22[Xem danh sách hội viên]
-    PT --> UC23[Chat với hội viên]
-    PT --> UC24[Check-in PT]
-    PT --> UC25[Xem lịch làm việc]
-    PT --> UC26[Quản lý mục tiêu hội viên]
-    PT --> UC27[Tạo template buổi tập]
-    PT --> UC28[Xem thống kê PT]
-    PT --> UC29[Tạo báo cáo]
-    PT --> UC30[Quản lý ghi chú hội viên]
-    
-    %% Chủ Phòng Gym Use Cases
-    OngChu --> UC1
-    OngChu --> UC31[Quản lý gói tập CRUD]
-    OngChu --> UC32[Quản lý hội viên]
-    OngChu --> UC33[Quản lý PT]
-    OngChu --> UC34[Quản lý chi nhánh]
-    OngChu --> UC35[Xem báo cáo tổng hợp]
-    OngChu --> UC36[Quản lý thanh toán]
-    OngChu --> UC37[Quản lý hạng hội viên]
-    OngChu --> UC38[Quản lý bài tập]
-    OngChu --> UC39[Xem thống kê doanh thu]
-    
-    %% System Use Cases
-    System --> UC40[Tự động check-out hết hạn]
-    System --> UC41[Gửi thông báo buổi tập]
-    System --> UC42[Tạo kế hoạch dinh dưỡng AI]
-    System --> UC43[Dự đoán workout AI]
-    System --> UC44[Nhận diện khuôn mặt]
-    System --> UC45[Xử lý thanh toán]
-    System --> UC46[Gửi OTP]
-    
-    style HoiVien fill:#4CAF50
-    style PT fill:#2196F3
-    style OngChu fill:#FF9800
-    style System fill:#9E9E9E
+---
+config:
+  flowchart:
+    defaultRenderer: dagre
+    rankSpacing: 80
+    nodeSpacing: 65
+    padding: 24
+---
+flowchart LR
 
+classDef actor fill:#ECEFF1,stroke:#455A64,stroke-width:1px;
+classDef system fill:#E3F2FD,stroke:#1565C0,stroke-width:1.2px;
+classDef spacer fill:transparent,stroke:transparent;
+
+%% Bố cục: actor trái | hệ thống rộng 3 cột | actor phải (cùng hàng)
+subgraph Canvas[" "]
+  direction LR
+
+  subgraph LeftActors[" "]
+    direction TB
+    HoiVien["👤 Hội Viên"]:::actor
+    PT["💪 Personal Trainer"]:::actor
+  end
+
+  subgraph SystemRegion["Hệ thống"]
+    direction TB
+
+    %% Hàng 1-6
+    subgraph Row1[" "]
+      direction LR
+      UC1["Đăng ký/Đăng nhập"]
+      UC2["Xem danh sách gói tập"]
+      UC3["Đăng ký gói tập"]
+      OwnerAnchor(( )):::spacer
+      SysAnchor(( )):::spacer
+    end
+    subgraph Row2[" "]
+      direction LR
+      UC4["Thanh toán gói tập"]
+      UC5["Xem lịch tập"]
+      UC6["Đăng ký buổi tập"]
+    end
+    subgraph Row3[" "]
+      direction LR
+      UC7["Check-in/Check-out"]
+      UC8["Xem bài tập"]
+      UC9["Ghi nhận lịch sử tập"]
+    end
+    subgraph Row4[" "]
+      direction LR
+      UC10["Xem thống kê cá nhân"]
+      UC11["Quản lý chỉ số cơ thể"]
+      UC12["Đặt lịch hẹn với PT"]
+    end
+    subgraph Row5[" "]
+      direction LR
+      UC13["Chat với PT"]
+      UC14["Xem kế hoạch dinh dưỡng"]
+      UC15["Yêu cầu kế hoạch dinh dưỡng AI"]
+    end
+    subgraph Row6[" "]
+      direction LR
+      UC16["Xem thông báo"]
+      UC17["Đánh giá buổi tập"]
+      UC18["Xem lịch sử thanh toán"]
+    end
+
+    %% Hàng 7-12
+    subgraph Row7[" "]
+      direction LR
+      UC19["Tạo buổi tập"]
+      UC20["Quản lý lịch tập cho hội viên"]
+      UC21["Thêm/sửa/xóa bài tập"]
+    end
+    subgraph Row8[" "]
+      direction LR
+      UC22["Xem danh sách hội viên"]
+      UC23["Chat với hội viên"]
+      UC24["Check-in PT"]
+    end
+    subgraph Row9[" "]
+      direction LR
+      UC25["Xem lịch làm việc"]
+      UC26["Quản lý mục tiêu hội viên"]
+      UC27["Tạo template buổi tập"]
+    end
+    subgraph Row10[" "]
+      direction LR
+      UC28["Xem thống kê PT"]
+      UC29["Tạo báo cáo"]
+      UC30["Quản lý ghi chú hội viên"]
+    end
+    subgraph Row11[" "]
+      direction LR
+      UC31["Quản lý gói tập CRUD"]
+      UC32["Quản lý hội viên"]
+      UC33["Quản lý PT"]
+    end
+    subgraph Row12[" "]
+      direction LR
+      UC34["Quản lý chi nhánh"]
+      UC35["Xem báo cáo tổng hợp"]
+      UC36["Quản lý thanh toán"]
+    end
+
+    %% Hàng 13-16
+    subgraph Row13[" "]
+      direction LR
+      UC37["Quản lý hạng hội viên"]
+      UC38["Quản lý bài tập"]
+      UC39["Xem thống kê doanh thu"]
+    end
+    subgraph Row14[" "]
+      direction LR
+      UC40["Tự động check-out hết hạn"]
+      UC41["Gửi thông báo buổi tập"]
+      UC42["Tạo kế hoạch dinh dưỡng AI"]
+    end
+    subgraph Row15[" "]
+      direction LR
+      UC43["Dự đoán workout AI"]
+      UC44["Nhận diện khuôn mặt"]
+      UC45["Xử lý thanh toán"]
+    end
+    subgraph Row16[" "]
+      direction LR
+      UC46["Gửi OTP"]
+      Spacer1(( )):::spacer
+      Spacer2(( )):::spacer
+    end
+  end
+
+  subgraph RightActors[" "]
+    direction TB
+    OngChu["👔 Chủ Phòng Gym"]:::actor
+    SysActor["⚙️ Hệ Thống"]:::actor
+  end
+
+end
+
+%% Liên kết ngang từ actor đến các use case liên quan
+HoiVien --- UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 & UC8 & UC9 & UC10 & UC11 & UC12 & UC13 & UC14 & UC15 & UC16 & UC17 & UC18
+PT --- UC1 & UC19 & UC20 & UC21 & UC22 & UC23 & UC24 & UC25 & UC26 & UC27 & UC28 & UC29 & UC30
+OngChu --- OwnerAnchor
+OwnerAnchor --- UC1 & UC31 & UC32 & UC33 & UC34 & UC35 & UC36 & UC37 & UC38 & UC39
+SysActor --- SysAnchor
+SysAnchor --- UC40 & UC41 & UC42 & UC43 & UC44 & UC45 & UC46
