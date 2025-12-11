@@ -30,6 +30,9 @@ const HomeScreen = () => {
         weeklyGoal: 2000
     });
     const [hasPackage, setHasPackage] = useState(false);
+    const [hasIncompleteMembership, setHasIncompleteMembership] = useState(false);
+    const [hasUncompletedWorkflow, setHasUncompletedWorkflow] = useState(false);
+    const [currentRegistrationId, setCurrentRegistrationId] = useState(null);
     const [PTData, setPTData] = useState([]);
 
     // Upcoming classes 
@@ -96,14 +99,25 @@ const HomeScreen = () => {
 
     useEffect(() => {
         fetchDashboardData();
-        fetchPTData();
+        // fetchPTData sẽ được gọi sau khi fetchDashboardData hoàn thành và có thông tin gói tập
         // Tự động load món ăn theo thời gian hiện tại
         const currentMeal = getCurrentMealType();
         fetchHealthyMeals(currentMeal);
         fetchExercises();
     }, []);
 
-    // Re-fetch khi màn hình Home được focus (để lấy gói tập mới sau thanh toán)
+    // Fetch PT data sau khi đã có thông tin membership (để kiểm tra hết hạn, trạng thái đăng ký và workflow)
+    useEffect(() => {
+        if (!loading) {
+            // Đợi một chút để đảm bảo state đã được cập nhật từ fetchDashboardData
+            const timer = setTimeout(() => {
+                fetchPTData();
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [hasPackage, hasIncompleteMembership, hasUncompletedWorkflow, memberData.membershipDaysLeft, loading]);
+
+    // Re-fetch khi màn hình Home được focus (để lấy gói tập mới sau thanh toán hoặc sau khi hoàn tất workflow)
     useFocusEffect(
         React.useCallback(() => {
             fetchDashboardData();
@@ -271,6 +285,27 @@ const HomeScreen = () => {
                         })[0];
 
                     if (activeMembership) {
+                        // Có gói đã thanh toán → không có membership chưa hoàn tất
+                        setHasIncompleteMembership(false);
+
+                        // Kiểm tra xem gói đã thanh toán này đã hoàn tất workflow chưa
+                        // Workflow hoàn tất khi trangThaiDangKy là HOAN_THANH hoặc DA_TAO_LICH
+                        const isWorkflowCompleted = ['HOAN_THANH', 'DA_TAO_LICH'].includes(activeMembership.trangThaiDangKy);
+                        setHasUncompletedWorkflow(!isWorkflowCompleted);
+
+                        // Lưu registrationId để navigate đến workflow
+                        if (!isWorkflowCompleted && activeMembership._id) {
+                            setCurrentRegistrationId(activeMembership._id);
+                            console.log('⚠️ Gói tập đã thanh toán nhưng chưa hoàn tất workflow:', {
+                                id: activeMembership._id,
+                                registrationId: activeMembership._id,
+                                trangThaiDangKy: activeMembership.trangThaiDangKy,
+                                tenGoiTap: activeMembership.maGoiTap?.tenGoiTap || activeMembership.goiTapId?.tenGoiTap
+                            });
+                        } else {
+                            setCurrentRegistrationId(null);
+                        }
+
                         const startDate = activeMembership.ngayBatDau ? new Date(activeMembership.ngayBatDau) : new Date();
                         const endDate = activeMembership.ngayKetThuc ? new Date(activeMembership.ngayKetThuc) : null;
                         const today = new Date();
@@ -298,7 +333,9 @@ const HomeScreen = () => {
                             tenGoiTap: packageName,
                             ngayBatDau: startDate.toLocaleDateString('vi-VN'),
                             ngayKetThuc: endDate ? endDate.toLocaleDateString('vi-VN') : 'Không giới hạn',
-                            soNgayConLai: daysLeft
+                            soNgayConLai: daysLeft,
+                            workflowCompleted: isWorkflowCompleted,
+                            trangThaiDangKy: activeMembership.trangThaiDangKy
                         });
 
                         setMemberData(prev => ({
@@ -308,6 +345,29 @@ const HomeScreen = () => {
                         }));
                         setHasPackage(true);
                     } else {
+                        // Không có gói tập đã thanh toán → kiểm tra có membership chưa hoàn tất không
+                        const incompleteMembership = memberships.find(m => {
+                            const isPaid = paidStatuses.includes(m.trangThaiThanhToan);
+                            const notCancelled = !cancelStatuses.includes(m.trangThaiDangKy) &&
+                                !cancelStatuses.includes(m.trangThaiSuDung);
+                            // Có membership nhưng chưa thanh toán và chưa bị hủy
+                            return !isPaid && notCancelled;
+                        });
+
+                        if (incompleteMembership) {
+                            console.log('⚠️ Có membership chưa hoàn tất đăng ký:', {
+                                id: incompleteMembership._id,
+                                trangThaiThanhToan: incompleteMembership.trangThaiThanhToan,
+                                trangThaiDangKy: incompleteMembership.trangThaiDangKy
+                            });
+                            setHasIncompleteMembership(true);
+                        } else {
+                            setHasIncompleteMembership(false);
+                        }
+
+                        setHasUncompletedWorkflow(false);
+                        setCurrentRegistrationId(null);
+
                         // Không có gói tập hoạt động
                         console.log('❌ Không tìm thấy gói tập hoạt động');
                         setMemberData(prev => ({
@@ -320,10 +380,16 @@ const HomeScreen = () => {
                 } catch (error) {
                     console.error('Error processing membership data:', error);
                     setHasPackage(false);
+                    setHasIncompleteMembership(false);
+                    setHasUncompletedWorkflow(false);
+                    setCurrentRegistrationId(null);
                 }
             } else {
                 // Không có dữ liệu membership
                 setHasPackage(false);
+                setHasIncompleteMembership(false);
+                setHasUncompletedWorkflow(false);
+                setCurrentRegistrationId(null);
             }
 
             // Fetch upcoming classes (workout schedules)
@@ -378,6 +444,35 @@ const HomeScreen = () => {
     };
 
     const fetchPTData = async () => {
+        // Kiểm tra gói tập: chỉ fetch PT khi có gói và chưa hết hạn
+        const daysLeft = memberData.membershipDaysLeft;
+        const isExpired = hasPackage && daysLeft <= 0;
+
+        if (isExpired) {
+            console.log('⏸️ Gói tập đã hết hạn, không fetch PT list');
+            setPTData([]);
+            return;
+        }
+
+        // Nếu chưa hoàn tất đăng ký gói tập (chưa thanh toán), không fetch PT
+        if (hasIncompleteMembership) {
+            console.log('⏸️ Chưa hoàn tất đăng ký gói tập, không fetch PT list');
+            setPTData([]);
+            return;
+        }
+
+        // Nếu có gói đã thanh toán nhưng chưa hoàn tất workflow, không fetch PT
+        if (hasUncompletedWorkflow) {
+            console.log('⏸️ Gói tập đã thanh toán nhưng chưa hoàn tất workflow, không fetch PT list');
+            setPTData([]);
+            return;
+        }
+
+        // Nếu chưa có gói, vẫn cho phép xem PT (để đăng ký)
+        if (!hasPackage) {
+            console.log('ℹ️ Chưa có gói tập, vẫn fetch PT để đăng ký');
+        }
+
         try {
             console.log('🔄 HomeScreen - Fetching PT data...');
             const res = await apiService.getAllPT();
@@ -1197,6 +1292,161 @@ const HomeScreen = () => {
             return name.charAt(0).toUpperCase();
         };
 
+        // Kiểm tra gói tập hết hạn
+        const daysLeft = memberData.membershipDaysLeft;
+        const isExpired = hasPackage && daysLeft <= 0;
+
+        // Nếu chưa hoàn tất đăng ký gói tập (chưa thanh toán), hiển thị thông báo
+        if (hasIncompleteMembership) {
+            return (
+                <View style={styles.coachesContainer}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                        <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>
+                            Huấn luyện viên
+                        </Text>
+                    </View>
+                    <View style={{
+                        padding: 20,
+                        alignItems: 'center',
+                        backgroundColor: colors.card,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.primary,
+                        borderStyle: 'dashed'
+                    }}>
+                        <Ionicons name="information-circle-outline" size={48} color={colors.primary} style={{ marginBottom: 12 }} />
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 16,
+                            fontWeight: '600',
+                            textAlign: 'center',
+                            marginBottom: 8
+                        }}>
+                            Vui lòng hoàn tất đăng ký gói tập để xem danh sách HLV
+                        </Text>
+                        <TouchableOpacity
+                            style={{
+                                backgroundColor: colors.primary,
+                                borderRadius: 8,
+                                paddingVertical: 10,
+                                paddingHorizontal: 20,
+                                marginTop: 8
+                            }}
+                            onPress={() => navigation.navigate('Packages')}
+                        >
+                            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>
+                                Đăng ký ngay
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            );
+        }
+
+        // Nếu có gói đã thanh toán nhưng chưa hoàn tất workflow, hiển thị thông báo
+        if (hasUncompletedWorkflow) {
+            return (
+                <View style={styles.coachesContainer}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                        <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>
+                            Huấn luyện viên
+                        </Text>
+                    </View>
+                    <View style={{
+                        padding: 20,
+                        alignItems: 'center',
+                        backgroundColor: colors.card,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.primary,
+                        borderStyle: 'dashed'
+                    }}>
+                        <Ionicons name="information-circle-outline" size={48} color={colors.primary} style={{ marginBottom: 12 }} />
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 16,
+                            fontWeight: '600',
+                            textAlign: 'center',
+                            marginBottom: 8
+                        }}>
+                            Vui lòng hoàn tất workflow để xem được thông tin PT
+                        </Text>
+                        <TouchableOpacity
+                            style={{
+                                backgroundColor: colors.primary,
+                                borderRadius: 8,
+                                paddingVertical: 10,
+                                paddingHorizontal: 20,
+                                marginTop: 8
+                            }}
+                            onPress={() => {
+                                // Navigate đến workflow screen nếu có registrationId
+                                if (currentRegistrationId) {
+                                    navigation.navigate('PackageWorkflow', {
+                                        registrationId: currentRegistrationId
+                                    });
+                                } else {
+                                    // Nếu không có registrationId, navigate về Home để user bấm vào thông báo
+                                    navigation.navigate('Main', { screen: 'Home' });
+                                }
+                            }}
+                        >
+                            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>
+                                Hoàn tất workflow
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            );
+        }
+
+        // Nếu gói tập đã hết hạn, hiển thị thông báo
+        if (isExpired) {
+            return (
+                <View style={styles.coachesContainer}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                        <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>
+                            Huấn luyện viên
+                        </Text>
+                    </View>
+                    <View style={{
+                        padding: 20,
+                        alignItems: 'center',
+                        backgroundColor: colors.card,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.primary,
+                        borderStyle: 'dashed'
+                    }}>
+                        <Ionicons name="information-circle-outline" size={48} color={colors.primary} style={{ marginBottom: 12 }} />
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 16,
+                            fontWeight: '600',
+                            textAlign: 'center',
+                            marginBottom: 8
+                        }}>
+                            Vui lòng gia hạn hoặc đăng ký gói tập khác để sử dụng tiếp dịch vụ
+                        </Text>
+                        <TouchableOpacity
+                            style={{
+                                backgroundColor: colors.primary,
+                                borderRadius: 8,
+                                paddingVertical: 10,
+                                paddingHorizontal: 20,
+                                marginTop: 8
+                            }}
+                            onPress={() => navigation.navigate('Packages')}
+                        >
+                            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>
+                                Đăng ký ngay
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            );
+        }
+
         const displayData = PTData && Array.isArray(PTData) ? PTData.slice(0, 5) : [];
 
         return (
@@ -1336,7 +1586,15 @@ const HomeScreen = () => {
                             </Text>
                         </View>
                     </View>
-                    <NotificationBell />
+                    <View style={styles.headerRight}>
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('CheckInOut')}
+                            style={[styles.checkInButton, { backgroundColor: colors.primary }]}
+                        >
+                            <MaterialIcons name="camera-alt" size={20} color="#fff" />
+                        </TouchableOpacity>
+                        <NotificationBell />
+                    </View>
                 </View>
 
                 <ScrollView
@@ -1381,6 +1639,23 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
+    },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    checkInButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
     },
     welcomeText: {
         fontSize: 16,

@@ -43,6 +43,7 @@ import PTRevenueScreen from '../screens/PTRevenueScreen';
 import PTPaymentScreen from '../screens/PTPaymentScreen';
 import PaymentWebViewScreen from '../screens/PaymentWebViewScreen';
 import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
+import CheckInOutScreen from '../screens/CheckInOutScreen';
 import { navigationRef } from './RootNavigation';
 
 const Stack = createNativeStackNavigator();
@@ -303,6 +304,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="Checkout" component={CheckoutScreen} />
                 <Stack.Screen name="PaymentWebView" component={PaymentWebViewScreen} />
                 <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
+                <Stack.Screen name="CheckInOut" component={CheckInOutScreen} />
                 <Stack.Screen name="EditProfile" component={EditProfileScreen} />
                 <Stack.Screen name="EditFitnessGoals" component={EditFitnessGoalsScreen} />
                 <Stack.Screen name="EditAvatar" component={EditAvatarScreen} />

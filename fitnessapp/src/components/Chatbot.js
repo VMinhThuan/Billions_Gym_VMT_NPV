@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     View,
     Text,
@@ -12,20 +12,61 @@ import {
     Alert,
     PanResponder,
     Dimensions,
-    Image
+    Image,
+    ActivityIndicator
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, DEFAULT_THEME } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import ApiService from '../api/apiService';
+import { Animated } from 'react-native';
+
+// Typing indicator dot component with animation
+const TypingDot = ({ delay, color }) => {
+    const opacity = useRef(new Animated.Value(0.3)).current;
+
+    useEffect(() => {
+        const animate = () => {
+            Animated.sequence([
+                Animated.delay(delay),
+                Animated.timing(opacity, {
+                    toValue: 1,
+                    duration: 400,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(opacity, {
+                    toValue: 0.3,
+                    duration: 400,
+                    useNativeDriver: true,
+                }),
+            ]).start(() => animate());
+        };
+        animate();
+    }, [delay, opacity]);
+
+    return (
+        <Animated.View
+            style={[
+                styles.typingDot,
+                { backgroundColor: color, opacity }
+            ]}
+        />
+    );
+};
 
 const Chatbot = () => {
     const { colors } = useTheme();
     const { user } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [dragEnabled, setDragEnabled] = useState(false);
-    const [messages, setMessages] = useState([]);
+    const [messages, setMessages] = useState([
+        {
+            role: 'assistant',
+            content: 'Xin chào! 👋 Tôi là AI trợ lý của Billions Fitness & Gym. Tôi có thể giúp bạn về gói tập, lịch tập, bài tập, thanh toán, dinh dưỡng và nhiều hơn nữa. Bạn cần hỗ trợ gì hôm nay?',
+            timestamp: new Date().toISOString()
+        }
+    ]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [sessionId, setSessionId] = useState(null);
@@ -71,8 +112,15 @@ const Chatbot = () => {
     const loadChatHistory = async () => {
         try {
             const response = await ApiService.getChatHistory();
-            if (response.success) {
-                setMessages(response.data.messages || []);
+            if (response.success && response.data && response.data.messages) {
+                // Convert backend messages to frontend format
+                const formattedMessages = response.data.messages.map(msg => ({
+                    role: msg.role || (msg.type === 'user' ? 'user' : 'assistant'),
+                    content: msg.content || msg.message || msg.text || '',
+                    timestamp: msg.timestamp || new Date().toISOString(),
+                    actions: msg.actions || []
+                }));
+                setMessages(formattedMessages.length > 0 ? formattedMessages : messages);
                 setSessionId(response.data.sessionId);
             }
         } catch (error) {
@@ -83,10 +131,12 @@ const Chatbot = () => {
     const sendMessage = async () => {
         if (!inputText.trim() || isLoading) return;
 
+        const messageToSend = inputText.trim();
+
         const userMessage = {
-            type: 'user',
-            content: inputText.trim(),
-            timestamp: new Date()
+            role: 'user',
+            content: messageToSend,
+            timestamp: new Date().toISOString()
         };
 
         setMessages(prev => [...prev, userMessage]);
@@ -94,45 +144,134 @@ const Chatbot = () => {
         setIsLoading(true);
 
         try {
-            const response = await ApiService.sendChatbotMessage(inputText.trim());
+            // Build conversation history for context
+            const conversationHistory = messages.map(msg => ({
+                role: msg.role,
+                content: msg.content
+            }));
 
-            if (response.success) {
-                const botMessage = {
-                    type: 'bot',
-                    content: response.data.response,
-                    timestamp: new Date(),
-                    context: response.data.context
-                };
-                setMessages(prev => [...prev, botMessage]);
-                setSessionId(response.data.sessionId);
+            const response = await ApiService.sendChatbotMessage(messageToSend, conversationHistory);
+
+            console.log('[Chatbot] Response:', JSON.stringify(response, null, 2));
+
+            // Handle response - check both success field and data field
+            if (response) {
+                // If response has success field, check it
+                if (response.success === false) {
+                    throw new Error(response.message || response.data?.message || 'Có lỗi xảy ra');
+                }
+
+                // Extract response data
+                const responseData = response.data || response;
+
+                // Check if we have a valid response
+                if (responseData && (responseData.response || responseData.message || responseData.text)) {
+                    const assistantMessage = {
+                        role: 'assistant',
+                        content: responseData.response || responseData.message || responseData.text,
+                        actions: responseData.actions || [],
+                        timestamp: responseData.timestamp || new Date().toISOString()
+                    };
+                    setMessages(prev => [...prev, assistantMessage]);
+                    if (responseData.sessionId) {
+                        setSessionId(responseData.sessionId);
+                    }
+                } else {
+                    // If no valid response, use error message or default
+                    throw new Error(response.message || responseData?.message || 'Không nhận được phản hồi từ server');
+                }
             } else {
-                throw new Error(response.message || 'Có lỗi xảy ra');
+                throw new Error('Không nhận được phản hồi từ server');
             }
         } catch (error) {
             console.error('Lỗi gửi tin nhắn:', error);
-            Alert.alert('Lỗi', 'Không thể gửi tin nhắn. Vui lòng thử lại.');
+            const errorMessage = {
+                role: 'assistant',
+                content: 'Xin lỗi, đã có lỗi xảy ra khi xử lý tin nhắn của bạn. Vui lòng thử lại sau.',
+                timestamp: new Date().toISOString()
+            };
+            setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const toggleChatbot = () => {
-        setIsOpen(!isOpen);
-    };
-
     const scrollToBottom = () => {
         if (scrollViewRef.current) {
-            scrollViewRef.current.scrollToEnd({ animated: true });
+            setTimeout(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+            }, 100);
         }
     };
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages]);
+    }, [messages, isLoading]);
+
+    const renderMarkdown = (text) => {
+        if (!text) return null;
+
+        const lines = text.split('\n');
+        const elements = [];
+
+        lines.forEach((line, index) => {
+            // Headers
+            if (line.startsWith('## ')) {
+                elements.push(
+                    <Text key={index} style={styles.markdownH3}>
+                        {line.substring(3)}
+                    </Text>
+                );
+            } else if (line.startsWith('# ')) {
+                elements.push(
+                    <Text key={index} style={styles.markdownH2}>
+                        {line.substring(2)}
+                    </Text>
+                );
+            }
+            // Bold
+            else if (line.includes('**')) {
+                const parts = line.split(/(\*\*[^\*]+\*\*)/g);
+                elements.push(
+                    <Text key={index} style={{ color: '#1A1A1A' }}>
+                        {parts.map((part, i) =>
+                            part.startsWith('**') && part.endsWith('**')
+                                ? <Text key={i} style={styles.markdownBold}>{part.slice(2, -2)}</Text>
+                                : <Text key={i} style={{ color: '#1A1A1A' }}>{part}</Text>
+                        )}
+                    </Text>
+                );
+            }
+            // List items
+            else if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
+                elements.push(
+                    <Text key={index} style={styles.markdownLi}>
+                        • {line.trim().substring(2)}
+                    </Text>
+                );
+            }
+            // Code blocks
+            else if (line.includes('```')) {
+                elements.push(
+                    <Text key={index} style={styles.markdownCode}>{line}</Text>
+                );
+            }
+            // Regular text
+            else if (line.trim()) {
+                elements.push(
+                    <Text key={index} style={styles.markdownP}>{line}</Text>
+                );
+            } else {
+                elements.push(<Text key={index}>{'\n'}</Text>);
+            }
+        });
+
+        return <View style={styles.markdownContent}>{elements}</View>;
+    };
 
     const renderMessage = (message, index) => {
-        const isUser = message.type === 'user';
-        const isBot = message.type === 'bot';
+        const isUser = message.role === 'user';
+        const isBot = message.role === 'assistant';
 
         return (
             <View
@@ -147,21 +286,42 @@ const Chatbot = () => {
                     style={[
                         styles.messageBubble,
                         isUser && { backgroundColor: colors.primary },
-                        isBot && { backgroundColor: colors.card }
+                        isBot && { backgroundColor: '#F5F5F5' } // Light gray background for bot messages
                     ]}
                 >
-                    <Text
-                        style={[
-                            styles.messageText,
-                            isUser && { color: 'white' },
-                            isBot && { color: colors.text }
-                        ]}
-                    >
-                        {message.content}
-                    </Text>
-                    {isBot && message.context && (
-                        <Text style={[styles.contextText, { color: colors.textSecondary }]}>
-                            {getContextLabel(message.context)}
+                    {isBot ? renderMarkdown(message.content) : (
+                        <Text
+                            style={[
+                                styles.messageText,
+                                isUser && { color: '#FFFFFF' }, // White text for user messages
+                                isBot && { color: '#1A1A1A' } // Dark text for bot messages
+                            ]}
+                        >
+                            {message.content}
+                        </Text>
+                    )}
+                    {isBot && message.actions && message.actions.length > 0 && (
+                        <View style={styles.actionsContainer}>
+                            {message.actions.map((action, actionIndex) => (
+                                <TouchableOpacity
+                                    key={actionIndex}
+                                    style={[styles.actionButton, { backgroundColor: colors.primary }]}
+                                    onPress={() => handleActionClick(action)}
+                                >
+                                    <Text style={styles.actionButtonText}>{action.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    )}
+                    {message.timestamp && (
+                        <Text style={[
+                            styles.messageTime,
+                            isUser ? { color: 'rgba(255, 255, 255, 0.7)' } : { color: '#666666' }
+                        ]}>
+                            {new Date(message.timestamp).toLocaleTimeString('vi-VN', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })}
                         </Text>
                     )}
                 </View>
@@ -169,30 +329,41 @@ const Chatbot = () => {
         );
     };
 
-    const getContextLabel = (context) => {
-        const contextLabels = {
-            nutrition: '🍎 Dinh dưỡng',
-            workout: '💪 Tập luyện',
-            membership: '💳 Gói tập',
-            booking: '📅 Đặt lịch',
-            feedback: '📝 Phản hồi',
-            general: '💬 Hỗ trợ'
-        };
-        return contextLabels[context] || '💬 Hỗ trợ';
+    const handleActionClick = async (action) => {
+        if (action.type === 'link' && action.href) {
+            // Navigate to internal route - you can implement navigation here
+            Alert.alert('Thông báo', `Điều hướng đến: ${action.href}`);
+            setIsOpen(false);
+        } else if (action.type === 'run_query' && action.endpoint && action.payload) {
+            try {
+                setIsLoading(true);
+                // Handle query actions if needed
+                const resultMessage = {
+                    role: 'assistant',
+                    content: 'Tính năng này đang được phát triển. Vui lòng thử lại sau.',
+                    timestamp: new Date().toISOString()
+                };
+                setMessages(prev => [...prev, resultMessage]);
+            } catch (error) {
+                console.error('Error running query:', error);
+                const errorMessage = {
+                    role: 'assistant',
+                    content: 'Xin lỗi, không thể thực hiện truy vấn này.',
+                    timestamp: new Date().toISOString()
+                };
+                setMessages(prev => [...prev, errorMessage]);
+            } finally {
+                setIsLoading(false);
+            }
+        }
     };
 
-    const getQuickActions = () => {
-        return [
-            { text: '🍎 Tư vấn dinh dưỡng', context: 'nutrition' },
-            { text: '💪 Gợi ý bài tập', context: 'workout' },
-            { text: '💳 Gói tập', context: 'membership' },
-            { text: '📅 Đặt lịch', context: 'booking' }
-        ];
-    };
-
-    const handleQuickAction = (action) => {
-        setInputText(action.text);
-    };
+    const quickChips = [
+        { label: 'Gói của tôi', query: 'Gói hội viên của tôi còn bao lâu?' },
+        { label: 'Lịch hôm nay', query: 'Lịch tập của tôi hôm nay như thế nào?' },
+        { label: 'Bài tập', query: 'Cho tôi xem các bài tập có sẵn' },
+        { label: 'Thanh toán', query: 'Cho tôi xem lịch sử thanh toán' }
+    ];
 
     return (
         <>
@@ -219,7 +390,7 @@ const Chatbot = () => {
                         end={{ x: 1, y: 1 }}
                         style={styles.chatbotInner}
                     >
-                        <Image source={require('../../assets/images/icons/machine-learning.png')} style={styles.chatbotImage} />
+                        <Text style={styles.chatbotIcon}>💬</Text>
                     </LinearGradient>
                 </TouchableOpacity>
             </View>
@@ -239,8 +410,11 @@ const Chatbot = () => {
                         {/* Header */}
                         <View style={[styles.header, { backgroundColor: colors.primary }]}>
                             <View style={styles.headerContent}>
-                                <Image source={require('../../assets/images/icons/chatbot.png')} style={styles.chatbotImage} />
-                                <Text style={styles.headerTitle}>AI Trợ lý</Text>
+                                <Text style={styles.headerIcon}>🤖</Text>
+                                <View>
+                                    <Text style={styles.headerTitle}>AI Trợ lý</Text>
+                                    <Text style={styles.headerSubtitle}>Billions Fitness & Gym</Text>
+                                </View>
                             </View>
                             <TouchableOpacity
                                 onPress={() => setIsOpen(false)}
@@ -255,52 +429,56 @@ const Chatbot = () => {
                             ref={scrollViewRef}
                             style={styles.messagesContainer}
                             showsVerticalScrollIndicator={false}
+                            contentContainerStyle={styles.messagesContent}
                         >
-                            {messages.length === 0 ? (
-                                <View style={styles.welcomeContainer}>
-                                    <Text style={[styles.welcomeTitle, { color: colors.text }]}>
-                                        <Image source={require('../../assets/images/icons/hello-chatbot.png')} style={styles.chatbotImage} /> Xin chào!
-                                    </Text>
-                                    <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
-                                        Tôi là AI trợ lý của Billions Gym. Tôi có thể giúp gì cho bạn!
-                                    </Text>
-                                    <View style={styles.quickActionsContainer}>
-                                        {getQuickActions().map((action, index) => (
-                                            <TouchableOpacity
-                                                key={index}
-                                                style={[styles.quickActionButton, { backgroundColor: colors.card }]}
-                                                onPress={() => handleQuickAction(action)}
-                                            >
-                                                <Text style={[styles.quickActionText, { color: colors.text }]}>
-                                                    {action.text}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                </View>
-                            ) : (
-                                messages.map((message, index) => renderMessage(message, index))
-                            )}
+                            {messages.map((message, index) => renderMessage(message, index))}
 
                             {isLoading && (
                                 <View style={styles.loadingContainer}>
-                                    <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                                        AI đang suy nghĩ...
-                                    </Text>
+                                    <View style={[styles.messageBubble, { backgroundColor: '#F5F5F5' }]}>
+                                        <View style={styles.typingIndicator}>
+                                            <TypingDot delay={0} color="#666666" />
+                                            <TypingDot delay={200} color="#666666" />
+                                            <TypingDot delay={400} color="#666666" />
+                                        </View>
+                                    </View>
                                 </View>
                             )}
                         </ScrollView>
 
+                        {/* Quick Chips - only show when there's only the welcome message */}
+                        {messages.length === 1 && (
+                            <View style={styles.quickChipsContainer}>
+                                {quickChips.map((chip, index) => (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={[styles.quickChip, { backgroundColor: colors.card }]}
+                                        onPress={() => {
+                                            setInputText(chip.query);
+                                            setTimeout(() => sendMessage(), 100);
+                                        }}
+                                    >
+                                        <Text style={[styles.quickChipText, { color: '#1A1A1A' }]}>
+                                            {chip.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+
                         {/* Input */}
                         <View style={[styles.inputContainer, { backgroundColor: colors.card }]}>
                             <TextInput
-                                style={[styles.textInput, { color: colors.text }]}
-                                placeholder="Nhập tin nhắn..."
+                                style={[styles.textInput, { color: colors.text, borderColor: colors.textSecondary }]}
+                                placeholder="Nhập câu hỏi của bạn..."
                                 placeholderTextColor={colors.textSecondary}
                                 value={inputText}
                                 onChangeText={setInputText}
                                 multiline
                                 maxLength={500}
+                                onSubmitEditing={sendMessage}
+                                returnKeyType="send"
+                                editable={!isLoading}
                             />
                             <TouchableOpacity
                                 style={[
@@ -337,7 +515,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 10,
-        boxShadow: '0px 6px 6px rgba(0, 0, 0, 0.25)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
         backgroundColor: 'transparent'
     },
     chatbotInner: {
@@ -347,7 +528,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
-        borderColor: '#E0E0E0'
+        borderColor: '#E0E0E0',
+    },
+    chatbotIcon: {
+        fontSize: 24,
     },
     modalContainer: {
         flex: 1,
@@ -360,10 +544,6 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 20,
         overflow: 'hidden',
     },
-    chatbotImage: {
-        width: 26,
-        height: 26,
-    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -375,11 +555,18 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
+    headerIcon: {
+        fontSize: 28,
+        marginRight: 10,
+    },
     headerTitle: {
         color: 'white',
         fontSize: 18,
         fontWeight: 'bold',
-        marginLeft: 10,
+    },
+    headerSubtitle: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 12,
     },
     closeButton: {
         padding: 5,
@@ -387,6 +574,9 @@ const styles = StyleSheet.create({
     messagesContainer: {
         flex: 1,
         paddingHorizontal: 15,
+    },
+    messagesContent: {
+        paddingVertical: 10,
     },
     messageContainer: {
         marginVertical: 5,
@@ -407,46 +597,101 @@ const styles = StyleSheet.create({
         fontSize: 16,
         lineHeight: 22,
     },
-    contextText: {
-        fontSize: 12,
+    messageTime: {
+        fontSize: 10,
         marginTop: 5,
         fontStyle: 'italic',
     },
-    welcomeContainer: {
-        padding: 20,
-        alignItems: 'center',
+    markdownContent: {
+        flexDirection: 'column',
     },
-    welcomeTitle: {
-        fontSize: 24,
+    markdownH2: {
+        fontSize: 20,
         fontWeight: 'bold',
-        marginBottom: 10,
+        marginBottom: 8,
+        color: '#1A1A1A', // Dark text for headers
     },
-    welcomeText: {
+    markdownH3: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 6,
+        color: '#1A1A1A', // Dark text for headers
+    },
+    markdownBold: {
+        fontWeight: 'bold',
+        color: '#1A1A1A', // Dark text for bold
+    },
+    markdownLi: {
         fontSize: 16,
-        textAlign: 'center',
-        marginBottom: 20,
         lineHeight: 22,
+        marginBottom: 4,
+        color: '#1A1A1A', // Dark text for list items
     },
-    quickActionsContainer: {
-        width: '100%',
+    markdownCode: {
+        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+        backgroundColor: '#E0E0E0',
+        color: '#1A1A1A', // Dark text for code
+        padding: 8,
+        borderRadius: 4,
+        marginVertical: 4,
     },
-    quickActionButton: {
-        padding: 15,
-        borderRadius: 10,
-        marginVertical: 5,
-        alignItems: 'center',
-    },
-    quickActionText: {
+    markdownP: {
         fontSize: 16,
+        lineHeight: 22,
+        marginBottom: 4,
+        color: '#1A1A1A', // Dark text for paragraphs
+    },
+    actionsContainer: {
+        marginTop: 10,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    actionButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 15,
+        marginRight: 8,
+        marginBottom: 4,
+    },
+    actionButtonText: {
+        color: 'white',
+        fontSize: 12,
         fontWeight: '500',
     },
     loadingContainer: {
-        padding: 20,
-        alignItems: 'center',
+        marginVertical: 5,
+        alignItems: 'flex-start',
     },
-    loadingText: {
+    typingIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+    },
+    typingDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginHorizontal: 2,
+    },
+    quickChipsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        paddingHorizontal: 15,
+        paddingVertical: 10,
+        gap: 8,
+    },
+    quickChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginRight: 8,
+        marginBottom: 4,
+        backgroundColor: '#F5F5F5', // Light background for chips
+    },
+    quickChipText: {
         fontSize: 14,
-        fontStyle: 'italic',
+        fontWeight: '500',
     },
     inputContainer: {
         flexDirection: 'row',
@@ -459,7 +704,6 @@ const styles = StyleSheet.create({
     textInput: {
         flex: 1,
         borderWidth: 1,
-        borderColor: '#E0E0E0',
         borderRadius: 20,
         paddingHorizontal: 15,
         paddingVertical: 10,

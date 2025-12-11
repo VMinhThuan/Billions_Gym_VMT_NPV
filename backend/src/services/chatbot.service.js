@@ -1162,8 +1162,15 @@ const getUserProfile = async (hoiVienId) => {
     }
 };
 
+// Context hợp lệ theo schema ChatbotSession
+const ALLOWED_CONTEXTS = ['nutrition', 'workout', 'membership', 'general', 'booking', 'feedback'];
+const normalizeContext = (ctx) => {
+    const lowered = (ctx || '').toLowerCase();
+    return ALLOWED_CONTEXTS.includes(lowered) ? lowered : 'general';
+};
+
 // Xử lý tin nhắn chính
-const processMessage = async (hoiVienId, message) => {
+const processMessage = async (hoiVienId, message, conversationHistory = []) => {
     try {
         // Lấy session hiện tại
         const session = await getCurrentSession(hoiVienId);
@@ -1176,17 +1183,19 @@ const processMessage = async (hoiVienId, message) => {
 
         // Cải thiện phân tích dựa trên ngữ cảnh
         const enhancedAnalysis = enhanceIntentAnalysis(intentAnalysis, session, message);
+        const safeContext = normalizeContext(enhancedAnalysis.context);
 
         // Thêm tin nhắn người dùng vào session
         session.messages.push({
             type: 'user',
             content: message,
-            context: enhancedAnalysis.context,
+            context: safeContext,
             intent: enhancedAnalysis.intent
         });
 
         // Xử lý tin nhắn dựa trên intent
         let botResponse = '';
+        let actions = [];
 
         switch (enhancedAnalysis.intent) {
             case 'nutrition_advice':
@@ -1211,21 +1220,39 @@ const processMessage = async (hoiVienId, message) => {
                 botResponse = "Xin chào! 👋 Tôi là AI trợ lý của Billions Gym. Tôi có thể giúp bạn về dinh dưỡng, tập luyện, gói tập và nhiều hơn nữa. Bạn cần hỗ trợ gì hôm nay?";
                 break;
             default:
-                botResponse = await handleGeneralQuery(session, message);
+                // Sử dụng AI service cho các câu hỏi phức tạp nếu có conversationHistory
+                if (conversationHistory && conversationHistory.length > 0) {
+                    try {
+                        const aiService = require('./ai.service');
+                        const userContext = await aiService.getUserContext(hoiVienId, 'HoiVien');
+                        const aiResult = await aiService.processChatMessage(message, userContext, conversationHistory);
+                        if (aiResult && aiResult.success && aiResult.response) {
+                            botResponse = aiResult.response;
+                            actions = aiResult.actions || [];
+                        } else {
+                            botResponse = await handleGeneralQuery(session, message);
+                        }
+                    } catch (aiError) {
+                        console.error('Lỗi xử lý bằng AI service:', aiError);
+                        botResponse = await handleGeneralQuery(session, message);
+                    }
+                } else {
+                    botResponse = await handleGeneralQuery(session, message);
+                }
         }
 
         // Thêm phản hồi bot vào session
         session.messages.push({
             type: 'bot',
             content: botResponse,
-            context: enhancedAnalysis.context,
+            context: safeContext,
             intent: enhancedAnalysis.intent,
             confidence: enhancedAnalysis.confidence || 0.8,
             entities: enhancedAnalysis.entities || {}
         });
 
         // Cập nhật context hiện tại
-        session.currentContext = enhancedAnalysis.context;
+        session.currentContext = safeContext;
         session.lastActivity = new Date();
 
         // Lưu session
@@ -1234,17 +1261,21 @@ const processMessage = async (hoiVienId, message) => {
         return {
             success: true,
             response: botResponse,
-            context: enhancedAnalysis.context,
-            sessionId: session.sessionId
+            context: safeContext,
+            sessionId: session.sessionId,
+            actions: actions
         };
 
     } catch (error) {
         console.error('Lỗi xử lý tin nhắn chatbot:', error);
+        console.error('Error stack:', error.stack);
+        // Return a valid response even on error
         return {
-            success: false,
-            response: "Xin lỗi, tôi gặp sự cố kỹ thuật. Vui lòng thử lại sau.",
+            success: true, // Set to true so frontend can display the error message
+            response: error.message || "Xin lỗi, tôi gặp sự cố kỹ thuật. Vui lòng thử lại sau.",
             context: 'general',
-            sessionId: null
+            sessionId: null,
+            actions: []
         };
     }
 };

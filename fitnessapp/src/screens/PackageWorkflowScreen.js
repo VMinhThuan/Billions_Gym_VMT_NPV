@@ -29,6 +29,7 @@ const PackageWorkflowScreen = () => {
     const [currentStep, setCurrentStep] = useState(0);
     const [error, setError] = useState(null);
     const [isInitialLoad, setIsInitialLoad] = useState(true); // Track initial load
+    const [isExpired, setIsExpired] = useState(false); // Track if package is expired
 
     // Branch selection
     const [branches, setBranches] = useState([]);
@@ -82,10 +83,35 @@ const PackageWorkflowScreen = () => {
                     trangThaiDangKy: response.data.registration?.trangThaiDangKy,
                     isOwner: response.data.isOwner,
                     branchId: response.data.registration?.branchId?._id,
+                    ngayKetThuc: response.data.registration?.ngayKetThuc,
                 });
 
                 setWorkflowData(response.data);
                 setSelectedBranchId(response.data.registration?.branchId?._id);
+
+                // Kiểm tra gói tập đã hết hạn chưa
+                const registration = response.data.registration;
+                const isCompleted = response.data.currentStep === 'completed' ||
+                    registration?.trangThaiDangKy === 'HOAN_THANH';
+
+                if (!isCompleted && registration?.ngayKetThuc) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const endDate = new Date(registration.ngayKetThuc);
+                    endDate.setHours(0, 0, 0, 0);
+
+                    if (endDate < today) {
+                        console.log('⏰ Gói tập đã hết hạn:', {
+                            ngayKetThuc: endDate.toISOString(),
+                            today: today.toISOString(),
+                            trangThaiDangKy: registration.trangThaiDangKy
+                        });
+                        setIsExpired(true);
+                        return response;
+                    }
+                }
+
+                setIsExpired(false);
 
                 // Chỉ set currentStep khi lần đầu load
                 if (isInitialLoad) {
@@ -877,6 +903,58 @@ const PackageWorkflowScreen = () => {
         );
     };
 
+    const renderExpiredMessage = () => {
+        return (
+            <View style={styles.stepContent}>
+                <View style={styles.completedContainer}>
+                    <Text style={styles.expiredIcon}>⏰</Text>
+                    <Text style={styles.expiredTitle}>Đã quá hạn hoàn tất đăng ký gói tập</Text>
+                    <Text style={styles.expiredText}>
+                        Gói tập của bạn đã hết hạn. Vui lòng gia hạn hoặc đăng ký gói mới để tiếp tục sử dụng dịch vụ.
+                    </Text>
+
+                    {workflowData?.registration && (
+                        <View style={styles.summaryCard}>
+                            <Text style={styles.summaryTitle}>Thông tin gói tập</Text>
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryLabel}>Gói tập:</Text>
+                                <Text style={styles.summaryValue}>
+                                    {workflowData.registration.goiTapId?.tenGoiTap || workflowData.registration.maGoiTap?.tenGoiTap || 'N/A'}
+                                </Text>
+                            </View>
+                            {workflowData.registration.ngayKetThuc && (
+                                <View style={styles.summaryRow}>
+                                    <Text style={styles.summaryLabel}>Ngày hết hạn:</Text>
+                                    <Text style={[styles.summaryValue, { color: '#ff6b6b' }]}>
+                                        {new Date(workflowData.registration.ngayKetThuc).toLocaleDateString('vi-VN')}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    )}
+
+                    <TouchableOpacity
+                        style={[styles.btnNext, styles.btnSolid]}
+                        onPress={() => {
+                            navigation.navigate('Main', { screen: 'Packages' });
+                        }}
+                    >
+                        <Text style={styles.btnNextText}>Đăng ký gói mới</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.btnHome}
+                        onPress={() => {
+                            navigation.navigate('Main', { screen: 'Home' });
+                        }}
+                    >
+                        <Text style={styles.btnHomeText}>Về trang chủ</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    };
+
     const renderWorkflowComplete = () => {
         return (
             <View style={styles.stepContent}>
@@ -928,6 +1006,11 @@ const PackageWorkflowScreen = () => {
 
     const renderStepContent = () => {
         if (!workflowData) return null;
+
+        // Nếu gói tập đã hết hạn, hiển thị thông báo hết hạn
+        if (isExpired) {
+            return renderExpiredMessage();
+        }
 
         const { isOwner } = workflowData;
 
@@ -1087,6 +1170,9 @@ const styles = StyleSheet.create({
     completedIcon: { fontSize: 80, marginBottom: 20 },
     completedTitle: { fontSize: 24, fontWeight: 'bold', color: '#4ade80', marginBottom: 12, textAlign: 'center' },
     completedText: { fontSize: 16, color: '#ccc', textAlign: 'center', marginBottom: 32, paddingHorizontal: 20 },
+    expiredIcon: { fontSize: 80, marginBottom: 20 },
+    expiredTitle: { fontSize: 24, fontWeight: 'bold', color: '#ff6b6b', marginBottom: 12, textAlign: 'center' },
+    expiredText: { fontSize: 16, color: '#ccc', textAlign: 'center', marginBottom: 32, paddingHorizontal: 20 },
     summaryCard: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 20, width: '100%', marginBottom: 32, borderWidth: 1, borderColor: '#333' },
     summaryTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
     summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },

@@ -13,6 +13,8 @@
 
 // IP hiện tại (cập nhật ngày: 2025-01-XX)
 // const API_URL = 'http://172.20.10.7:4000/api';
-const API_URL = 'http://192.168.1.15:4000/api';
+// const API_URL = 'http://192.168.1.15:4000/api';
 // const API_URL = 'http://192.168.101.67:4000/api';
+// const API_URL = 'http://172.20.10.7:4000/api';
+const API_URL = 'http://192.168.0.140:4000/api';
 module.exports = API_URL;
