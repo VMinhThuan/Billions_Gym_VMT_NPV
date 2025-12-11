@@ -60,7 +60,7 @@ const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 
 // Groq API Configuration (Fallback cuối cùng khi cả Gemini và DeepSeek fail)
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GROQ_API_URL = process.env.GROQ_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_API_URL = process.env.GROQ_API_URL;
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'; // Updated: llama-3.1-70b-versatile đã bị decommissioned
 
 // Helper function để check xem Groq API có sẵn sàng không
