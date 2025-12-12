@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { useCrudNotifications } from '../../hooks/useNotification';
+import { useNotification } from '../../hooks/useNotification';
 import './MealManager.css';
 
 interface Meal {
@@ -48,7 +48,7 @@ const MealManager: React.FC = () => {
     const [showForm, setShowForm] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterMealType, setFilterMealType] = useState<string>('Tất cả');
-    const { showSuccess, showError } = useCrudNotifications();
+    const { showSuccess, showError } = useNotification();
 
     const mealTypes = ['Tất cả', 'Bữa sáng', 'Bữa trưa', 'Bữa tối', 'Phụ 1', 'Phụ 2', 'Phụ 3'];
 

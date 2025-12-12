@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { useCrudNotifications } from '../../hooks/useNotification';
+import { useNotification } from '../../hooks/useNotification';
 import './MemberMealPlanManager.css';
 
 interface Member {
@@ -57,7 +57,7 @@ const MemberMealPlanManager: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [showAddMealModal, setShowAddMealModal] = useState(false);
     const [selectedMealType, setSelectedMealType] = useState<string>('buaSang');
-    const { showSuccess, showError } = useCrudNotifications();
+    const { showSuccess, showError } = useNotification();
 
     const mealTypes = [
         { key: 'buaSang', label: 'Bữa sáng' },
