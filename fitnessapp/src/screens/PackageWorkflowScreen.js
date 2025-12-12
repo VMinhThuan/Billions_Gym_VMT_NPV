@@ -95,16 +95,16 @@ const PackageWorkflowScreen = () => {
                     registration?.trangThaiDangKy === 'HOAN_THANH';
 
                 if (!isCompleted && registration?.ngayKetThuc) {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
+                    const currentTime = new Date();
                     const endDate = new Date(registration.ngayKetThuc);
-                    endDate.setHours(0, 0, 0, 0);
 
-                    if (endDate < today) {
+                    // So sánh với thời gian đầy đủ (không chỉ ngày)
+                    if (endDate < currentTime) {
                         console.log('⏰ Gói tập đã hết hạn:', {
                             ngayKetThuc: endDate.toISOString(),
-                            today: today.toISOString(),
-                            trangThaiDangKy: registration.trangThaiDangKy
+                            currentTime: currentTime.toISOString(),
+                            trangThaiDangKy: registration.trangThaiDangKy,
+                            diff_ms: endDate.getTime() - currentTime.getTime()
                         });
                         setIsExpired(true);
                         return response;

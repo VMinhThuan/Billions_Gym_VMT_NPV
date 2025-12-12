@@ -16,10 +16,13 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { CameraView, Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { GLView } from 'expo-gl';
 import QRCode from 'react-native-qrcode-svg';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { captureRef } from 'react-native-view-shot';
+import jsQR from 'jsqr';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import apiService from '../api/apiService';
@@ -270,6 +273,46 @@ const CheckInOutScreen = () => {
         }
     };
 
+    // Helper function to decode QR code from image
+    const decodeQRFromImage = async (imageUri, base64Data, width, height) => {
+        // For web platform - use jsQR with canvas
+        if (typeof document !== 'undefined' && typeof Image !== 'undefined') {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const imageData = ctx.getImageData(0, 0, width, height);
+                        const qrCode = jsQR(imageData.data, imageData.width, imageData.height);
+                        resolve(qrCode);
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                img.onerror = reject;
+                img.src = `data:image/jpeg;base64,${base64Data}`;
+            });
+        } else {
+            // For React Native - use react-native-qr-decode-image-camera
+            try {
+                const QRDecode = require('react-native-qr-decode-image-camera');
+                const decoded = await QRDecode.decodeImage(imageUri);
+                if (decoded && decoded.data) {
+                    return { data: decoded.data };
+                }
+                return null;
+            } catch (err) {
+                console.error('Error decoding QR with react-native-qr-decode-image-camera:', err);
+                return null;
+            }
+        }
+    };
+
     const handlePickImage = async () => {
         if (!selectedSession) {
             setError('Vui lòng chọn buổi tập trước khi chọn ảnh');
@@ -284,100 +327,70 @@ const CheckInOutScreen = () => {
                 return;
             }
 
-            // Pick image
+            // Pick image with base64
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [4, 3],
-                quality: 0.8,
+                allowsEditing: false,
+                base64: true,
+                quality: 1.0,
             });
 
             if (!result.canceled && result.assets && result.assets.length > 0) {
-                const imageUri = result.assets[0].uri;
-                await handleCheckInWithImage(imageUri);
+                const asset = result.assets[0];
+                let imageUri = asset.uri;
+
+                // Resize image to ~800px width for better QR detection
+                let manipulatedImage;
+                try {
+                    manipulatedImage = await ImageManipulator.manipulateAsync(
+                        imageUri,
+                        [{ resize: { width: 800 } }],
+                        { base64: true, compress: 1.0 }
+                    );
+                } catch (manipulateError) {
+                    console.warn('Error manipulating image:', manipulateError);
+                    // If manipulation fails, try to get base64 from original
+                    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+                        encoding: 'base64',
+                    });
+                    manipulatedImage = {
+                        base64,
+                        width: asset.width || 800,
+                        height: asset.height || 800
+                    };
+                }
+
+                // Decode QR code from image
+                try {
+                    const base64Data = manipulatedImage.base64;
+                    const width = manipulatedImage.width;
+                    const height = manipulatedImage.height;
+
+                    // Decode QR code using appropriate method for platform
+                    const qrCode = await decodeQRFromImage(imageUri, base64Data, width, height);
+
+                    if (qrCode && qrCode.data) {
+                        console.log('[handlePickImage] ✅ Đã quét được QR code từ ảnh');
+                        // Use the same flow as camera scan
+                        await handleQRScanSuccess(qrCode.data);
+                    } else {
+                        // No QR code found
+                        setError('Không tìm thấy QR trong ảnh hoặc ảnh bị mờ/nén. Vui lòng thử lại với ảnh rõ hơn.');
+                        setCheckInStatus(null);
+                    }
+                } catch (decodeError) {
+                    console.error('Error decoding QR from image:', decodeError);
+                    setError('Không tìm thấy QR trong ảnh hoặc ảnh bị mờ/nén. Vui lòng thử lại với ảnh rõ hơn.');
+                    setCheckInStatus(null);
+                }
             }
         } catch (err) {
             console.error('Error picking image:', err);
             setError('Lỗi khi chọn ảnh. Vui lòng thử lại.');
-        }
-    };
-
-    const handleCheckInWithImage = async (imageUri) => {
-        if (!selectedSession) {
-            setError('Vui lòng chọn buổi tập');
-            return;
-        }
-
-        if (selectedSession.hasCheckedIn &&
-            selectedSession.checkInRecord &&
-            selectedSession.checkInRecord.checkOutTime) {
-            setError('Buổi tập này đã được hoàn thành. Không thể check-in/check-out lại.');
-            return;
-        }
-
-        try {
-            isProcessingRef.current = true;
-            setError(null);
-            setCheckInStatus('processing');
-            setShowQRScanner(false);
-
-            // Convert image to base64
-            const base64 = await FileSystem.readAsStringAsync(imageUri, {
-                encoding: 'base64',
-            });
-            const imageData = `data:image/jpeg;base64,${base64}`;
-
-            const isCheckOut = selectedSession.hasCheckedIn &&
-                selectedSession.checkInRecord &&
-                !selectedSession.checkInRecord.checkOutTime;
-
-            let result;
-            if (isCheckOut) {
-                // Check-out với ảnh (không cần faceEncoding, chỉ cần image)
-                // Backend sẽ tự động extract QR code từ ảnh nếu có
-                result = await apiService.checkOut(selectedSession._id, null, imageData);
-            } else {
-                // Check-in với ảnh (không cần faceEncoding, chỉ cần image)
-                // Backend sẽ tự động extract QR code từ ảnh nếu có
-                result = await apiService.checkIn(selectedSession._id, null, imageData);
-            }
-
-            if (result && result.success) {
-                setCheckInStatus('success');
-                setError(null);
-
-                if (isCheckOut) {
-                    setCheckOutSuccessData(result.data || null);
-                    setCheckInSuccessData(null);
-                } else {
-                    setCheckInSuccessData(result.data || null);
-                    setCheckOutSuccessData(null);
-                }
-
-                await loadTodaySessions();
-
-                setTimeout(() => {
-                    setCheckInStatus(null);
-                    setCheckInSuccessData(null);
-                    setCheckOutSuccessData(null);
-                }, 5000);
-            } else {
-                const errorMessage = result?.message || 'Check-in/Check-out thất bại. Vui lòng đảm bảo ảnh chứa mã QR code hoặc khuôn mặt rõ ràng.';
-                setError(errorMessage);
-                setCheckInStatus(null);
-            }
-        } catch (err) {
-            console.error('Exception in handleCheckInWithImage:', err);
-            let errorMessage = 'Lỗi khi check-in/check-out bằng ảnh';
-            if (err.message) {
-                errorMessage = err.message;
-            }
-            setError(errorMessage);
             setCheckInStatus(null);
-        } finally {
-            isProcessingRef.current = false;
         }
     };
+
 
     const handleSaveQRCode = async () => {
         if (!qrCode || !qrCodeRef.current) {

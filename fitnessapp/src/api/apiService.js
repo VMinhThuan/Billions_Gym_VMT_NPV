@@ -967,6 +967,13 @@ class ApiService {
     async getQRCode() {
         return this.apiCall('/checkin/qr-code');
     }
+
+    // Scan QR code from image
+    async scanQRFromImage(image) {
+        return this.apiCall('/checkin/scan-qr-from-image', 'POST', {
+            image
+        });
+    }
 }
 
 export default new ApiService();

@@ -360,6 +360,30 @@ const ScheduleScreen = () => {
         });
     };
 
+    // Kiểm tra xem hội viên đã đăng ký ca này chưa
+    const isTimeSlotRegistered = (dayDate, timeSlot) => {
+        const dayDateObj = new Date(dayDate);
+        const dayDateOnly = new Date(dayDateObj.getFullYear(), dayDateObj.getMonth(), dayDateObj.getDate());
+
+        return scheduleData.some(session => {
+            const sessionDateOnly = new Date(session.date.getFullYear(), session.date.getMonth(), session.date.getDate());
+
+            if (sessionDateOnly.getTime() !== dayDateOnly.getTime()) {
+                return false;
+            }
+
+            const sessionStart = session.gioBatDau ? session.gioBatDau.substring(0, 5) : '';
+            const sessionEnd = session.gioKetThuc ? session.gioKetThuc.substring(0, 5) : '';
+
+            if (!sessionStart || !sessionEnd) return false;
+
+            // Kiểm tra xem time slot có overlap với session đã đăng ký không
+            return (sessionStart >= timeSlot.start && sessionStart < timeSlot.end) ||
+                (timeSlot.start >= sessionStart && timeSlot.start < sessionEnd) ||
+                (sessionStart <= timeSlot.start && sessionEnd > timeSlot.start);
+        });
+    };
+
     // Get time slot status
     const getTimeSlotStatus = (dayDate, timeSlot) => {
         const now = new Date();
@@ -368,6 +392,11 @@ const ScheduleScreen = () => {
         slotDateTime.setHours(parseInt(hours), 0, 0, 0);
 
         if (slotDateTime < now) return 'past';
+
+        // Kiểm tra xem hội viên đã đăng ký ca này chưa
+        if (isTimeSlotRegistered(dayDate, timeSlot)) {
+            return 'registered';
+        }
 
         const sessionsInSlot = getSessionsForTimeSlot(dayDate, timeSlot);
         if (sessionsInSlot.length === 0) return 'empty';
@@ -1132,9 +1161,10 @@ const ScheduleScreen = () => {
                                                                     status === 'empty' && styles.timeSlotEmpty,
                                                                     status === 'available' && styles.timeSlotAvailable,
                                                                     status === 'selected' && styles.timeSlotSelected,
+                                                                    status === 'registered' && styles.timeSlotRegistered,
                                                                 ]}
                                                                 onPress={() => handleTimeSlotClick(day.date, timeSlot)}
-                                                                disabled={status === 'past' || status === 'empty'}
+                                                                disabled={status === 'past' || status === 'empty' || status === 'registered'}
                                                             >
                                                                 <Text style={styles.timeSlotTime}>{timeSlot.label}</Text>
                                                                 {status === 'past' && (
@@ -1142,6 +1172,9 @@ const ScheduleScreen = () => {
                                                                 )}
                                                                 {status === 'empty' && (
                                                                     <Text style={styles.timeSlotStatusText}>Trống</Text>
+                                                                )}
+                                                                {status === 'registered' && (
+                                                                    <Text style={[styles.timeSlotStatusText, styles.registeredText]}>Đã đăng ký</Text>
                                                                 )}
                                                                 {status === 'available' && (
                                                                     <Text style={[styles.timeSlotStatusText, styles.availableText]}>
@@ -1815,6 +1848,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(218, 33, 40, 0.1)',
         borderWidth: 2,
     },
+    timeSlotRegistered: {
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderWidth: 2,
+    },
     timeSlotTime: {
         fontSize: 13,
         fontWeight: '600',
@@ -1831,6 +1869,10 @@ const styles = StyleSheet.create({
     },
     selectedText: {
         color: '#da2128',
+        fontWeight: '600',
+    },
+    registeredText: {
+        color: '#3b82f6',
         fontWeight: '600',
     },
     scheduleSummary: {
