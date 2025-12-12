@@ -1520,7 +1520,7 @@ const HomeScreen = () => {
                     <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 24, flex: 1, marginBottom: 0 }]}>
                         Huấn luyện viên
                     </Text>
-                    <TouchableOpacity>
+                    <TouchableOpacity onPress={() => navigation.navigate('AllPT')}>
                         <Text style={{ color: colors.primary, fontSize: 15, textAlign: 'right' }}>Xem tất cả</Text>
                     </TouchableOpacity>
                 </View>
