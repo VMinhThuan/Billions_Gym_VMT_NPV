@@ -20,6 +20,7 @@ import ActivePackage from './pages/ActivePackage'
 import Schedule from './pages/Schedule'
 import CheckInOut from './pages/CheckInOut'
 import Exercises from './pages/Exercises'
+import ChatWithPT from './pages/ChatWithPT'
 import BodyMetrics from './pages/BodyMetrics'
 import Nutrition from './pages/Nutrition'
 import MyMeals from './pages/MyMeals'
@@ -141,7 +142,7 @@ const AppContent = () => {
             <Route path='/schedule' element={<Schedule />} />
             <Route path='/checkin-out' element={<CheckInOut />} />
             <Route path='/workouts' element={<Exercises />} />
-            <Route path='/exercises' element={<Exercises />} />
+            <Route path='/chat-with-pt' element={<ChatWithPT />} />
             <Route path='/body-metrics' element={<BodyMetrics />} />
             <Route path='/nutrition' element={<Nutrition />} />
             <Route path='/my-meals' element={<MyMeals />} />

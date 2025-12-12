@@ -26,7 +26,10 @@ exports.getAvailableSessions = async (req, res) => {
 
             // Kiểm tra gói tập của user có còn hạn không
             if (userId) {
-                const activePackage = await ChiTietGoiTap.findOne({
+                const currentTime = new Date();
+
+                // Ưu tiên lấy gói tập chưa hết hạn (ngayKetThuc >= currentTime)
+                let activePackage = await ChiTietGoiTap.findOne({
                     $and: [
                         {
                             $or: [
@@ -40,15 +43,46 @@ exports.getAvailableSessions = async (req, res) => {
                                 { trangThaiDangKy: 'HOAN_THANH' },
                                 { trangThaiSuDung: { $in: ['DANG_HOAT_DONG', 'DANG_SU_DUNG'] } }
                             ]
+                        },
+                        {
+                            $or: [
+                                { ngayKetThuc: { $gte: currentTime } }, // Chưa hết hạn
+                                { ngayKetThuc: null }, // Không có ngày kết thúc
+                                { ngayKetThuc: { $exists: false } } // Không có field ngayKetThuc
+                            ]
                         }
                     ]
                 })
                     .populate('goiTapId')
                     .populate('maGoiTap')
-                    .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+                    .sort({ ngayKetThuc: -1, ngayDangKy: -1 }); // Ưu tiên gói có ngày kết thúc xa nhất
+
+                // Nếu không có gói chưa hết hạn, lấy gói mới nhất (có thể đã hết hạn)
+                if (!activePackage) {
+                    activePackage = await ChiTietGoiTap.findOne({
+                        $and: [
+                            {
+                                $or: [
+                                    { maHoiVien: userId },
+                                    { nguoiDungId: userId }
+                                ]
+                            },
+                            {
+                                $or: [
+                                    { trangThaiThanhToan: 'DA_THANH_TOAN' },
+                                    { trangThaiDangKy: 'HOAN_THANH' },
+                                    { trangThaiSuDung: { $in: ['DANG_HOAT_DONG', 'DANG_SU_DUNG'] } }
+                                ]
+                            }
+                        ]
+                    })
+                        .populate('goiTapId')
+                        .populate('maGoiTap')
+                        .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
+                }
 
                 if (activePackage) {
-                    const currentTime = new Date();
+                    // Kiểm tra lại nếu gói này đã hết hạn
                     if (activePackage.ngayKetThuc && new Date(activePackage.ngayKetThuc) < currentTime) {
                         return res.status(400).json({
                             success: false,
@@ -696,15 +730,44 @@ exports.getAvailableSessionsThisWeek = async (req, res) => {
                 .populate('branchId')
                 .sort({ ngayDangKy: -1, thoiGianDangKy: -1 });
 
-            // Gói hợp lệ: đã thanh toán + đang hoạt động + chưa hết hạn
+            // Gói hợp lệ: đã thanh toán + đang hoạt động
             const validPackages = allUserPackages.filter(pkg => {
                 const isPaid = pkg.trangThaiThanhToan === 'DA_THANH_TOAN' || pkg.trangThaiDangKy === 'HOAN_THANH';
                 const isActive = !pkg.trangThaiSuDung || ['DANG_HOAT_DONG', 'DANG_SU_DUNG', 'DANG_KICH_HOAT'].includes(pkg.trangThaiSuDung);
-                const notExpired = !pkg.ngayKetThuc || new Date(pkg.ngayKetThuc) >= currentTime;
-                return isPaid && isActive && notExpired;
+                return isPaid && isActive;
             });
 
-            const activePackage = validPackages[0] || allUserPackages[0] || null;
+            // Tách thành 2 nhóm: chưa hết hạn và đã hết hạn
+            const activePackages = validPackages.filter(pkg => {
+                if (!pkg.ngayKetThuc) return true; // Không có ngày kết thúc = chưa hết hạn
+                return new Date(pkg.ngayKetThuc) >= currentTime;
+            });
+
+            const expiredPackages = validPackages.filter(pkg => {
+                if (!pkg.ngayKetThuc) return false;
+                return new Date(pkg.ngayKetThuc) < currentTime;
+            });
+
+            // Ưu tiên lấy gói chưa hết hạn, nếu không có mới lấy gói đã hết hạn
+            let activePackage = null;
+            if (activePackages.length > 0) {
+                // Lấy gói chưa hết hạn có ngày kết thúc xa nhất
+                activePackage = activePackages.sort((a, b) => {
+                    const endA = a.ngayKetThuc ? new Date(a.ngayKetThuc).getTime() : Number.MAX_SAFE_INTEGER;
+                    const endB = b.ngayKetThuc ? new Date(b.ngayKetThuc).getTime() : Number.MAX_SAFE_INTEGER;
+                    return endB - endA;
+                })[0];
+            } else if (expiredPackages.length > 0) {
+                // Nếu không có gói chưa hết hạn, lấy gói đã hết hạn mới nhất
+                activePackage = expiredPackages.sort((a, b) => {
+                    const endA = a.ngayKetThuc ? new Date(a.ngayKetThuc).getTime() : 0;
+                    const endB = b.ngayKetThuc ? new Date(b.ngayKetThuc).getTime() : 0;
+                    return endB - endA;
+                })[0];
+            } else {
+                // Fallback: lấy gói mới nhất nếu không có gói hợp lệ
+                activePackage = allUserPackages[0] || null;
+            }
 
             console.log('📦 [available-sessions-this-week] Active package for fallback:', activePackage ? {
                 _id: activePackage._id,

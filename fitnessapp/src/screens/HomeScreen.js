@@ -268,21 +268,47 @@ const HomeScreen = () => {
                         }))
                     });
 
-                    // Tìm gói tập ưu tiên đã thanh toán (giống web - không chặn khi ngày hết hạn lệch giờ)
+                    // Tìm gói tập ưu tiên đã thanh toán (ưu tiên gói chưa hết hạn)
                     const paidStatuses = ['DA_THANH_TOAN', 'DA_TT', 'THANH_CONG', 'SUCCESS'];
                     const cancelStatuses = ['DA_HUY', 'HUY'];
-                    const activeMembership = memberships
-                        .filter(m => {
-                            const isPaid = paidStatuses.includes(m.trangThaiThanhToan);
-                            const notCancelled = !cancelStatuses.includes(m.trangThaiDangKy) &&
-                                !cancelStatuses.includes(m.trangThaiSuDung);
-                            return isPaid && notCancelled;
-                        })
-                        .sort((a, b) => {
+                    const today = new Date();
+
+                    // Lọc các gói đã thanh toán và chưa bị hủy
+                    const paidMemberships = memberships.filter(m => {
+                        const isPaid = paidStatuses.includes(m.trangThaiThanhToan);
+                        const notCancelled = !cancelStatuses.includes(m.trangThaiDangKy) &&
+                            !cancelStatuses.includes(m.trangThaiSuDung);
+                        return isPaid && notCancelled;
+                    });
+
+                    // Tách thành 2 nhóm: chưa hết hạn và đã hết hạn
+                    const activeMemberships = paidMemberships.filter(m => {
+                        if (!m.ngayKetThuc) return true; // Không có ngày kết thúc = chưa hết hạn
+                        return new Date(m.ngayKetThuc) >= today;
+                    });
+
+                    const expiredMemberships = paidMemberships.filter(m => {
+                        if (!m.ngayKetThuc) return false;
+                        return new Date(m.ngayKetThuc) < today;
+                    });
+
+                    // Ưu tiên lấy gói chưa hết hạn, nếu không có mới lấy gói đã hết hạn
+                    let activeMembership = null;
+                    if (activeMemberships.length > 0) {
+                        // Lấy gói chưa hết hạn có ngày kết thúc xa nhất
+                        activeMembership = activeMemberships.sort((a, b) => {
+                            const endA = a.ngayKetThuc ? new Date(a.ngayKetThuc).getTime() : Number.MAX_SAFE_INTEGER;
+                            const endB = b.ngayKetThuc ? new Date(b.ngayKetThuc).getTime() : Number.MAX_SAFE_INTEGER;
+                            return endB - endA;
+                        })[0];
+                    } else if (expiredMemberships.length > 0) {
+                        // Nếu không có gói chưa hết hạn, lấy gói đã hết hạn mới nhất
+                        activeMembership = expiredMemberships.sort((a, b) => {
                             const endA = a.ngayKetThuc ? new Date(a.ngayKetThuc).getTime() : 0;
                             const endB = b.ngayKetThuc ? new Date(b.ngayKetThuc).getTime() : 0;
                             return endB - endA;
                         })[0];
+                    }
 
                     if (activeMembership) {
                         // Có gói đã thanh toán → không có membership chưa hoàn tất
@@ -320,9 +346,36 @@ const HomeScreen = () => {
                         });
 
                         // Tính số ngày còn lại
-                        const daysLeft = endDate
-                            ? Math.ceil((endDate - today) / (1000 * 60 * 60 * 24))
-                            : 999; // Không có ngày kết thúc
+                        let daysLeft = 999; // Mặc định không giới hạn
+                        if (endDate) {
+                            const diffMs = endDate - today;
+                            const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+                            // Kiểm tra xem gói có cùng ngày với hôm nay không
+                            const endDateOnly = new Date(endDate);
+                            endDateOnly.setHours(0, 0, 0, 0);
+                            const todayOnly = new Date(today);
+                            todayOnly.setHours(0, 0, 0, 0);
+                            const isSameDay = endDateOnly.getTime() === todayOnly.getTime();
+
+                            // Nếu cùng ngày và chưa quá thời gian kết thúc, vẫn còn hiệu lực
+                            if (isSameDay && diffMs >= 0) {
+                                daysLeft = 1; // Còn hiệu lực trong ngày
+                            } else if (isSameDay && diffMs < 0) {
+                                // Đã quá thời gian kết thúc trong ngày, nhưng vẫn trong ngày hết hạn
+                                // Với gói ngắn hạn (5 phút), có thể vẫn cho phép sử dụng trong ngày
+                                const packageDuration = endDate - startDate;
+                                const isShortPackage = packageDuration <= 24 * 60 * 60 * 1000; // Gói ≤ 24 giờ
+
+                                if (isShortPackage) {
+                                    daysLeft = 0; // Hết hạn nhưng vẫn trong ngày
+                                } else {
+                                    daysLeft = Math.ceil(diffDays);
+                                }
+                            } else {
+                                daysLeft = Math.ceil(diffDays);
+                            }
+                        }
 
                         // Lấy tên gói tập từ maGoiTap hoặc goiTapId
                         const packageName = activeMembership.maGoiTap?.tenGoiTap ||
@@ -446,7 +499,9 @@ const HomeScreen = () => {
     const fetchPTData = async () => {
         // Kiểm tra gói tập: chỉ fetch PT khi có gói và chưa hết hạn
         const daysLeft = memberData.membershipDaysLeft;
-        const isExpired = hasPackage && daysLeft <= 0;
+        // Chỉ coi là hết hạn nếu daysLeft < 0 (đã qua ngày hết hạn)
+        // daysLeft = 0 có thể là gói ngắn hạn vẫn còn hiệu lực trong ngày
+        const isExpired = hasPackage && daysLeft < 0;
 
         if (isExpired) {
             console.log('⏸️ Gói tập đã hết hạn, không fetch PT list');
@@ -701,7 +756,10 @@ const HomeScreen = () => {
         const daysLeft = memberData.membershipDaysLeft;
         const totalDays = 30;
         const progress = Math.min(daysLeft / totalDays, 1);
-        const isExpired = hasPackage && daysLeft <= 0;
+
+        // Với gói ngắn hạn (5 phút), nếu daysLeft = 0 nhưng vẫn trong ngày hết hạn, không coi là hết hạn
+        // Chỉ coi là hết hạn nếu daysLeft < 0 (đã qua ngày hết hạn)
+        const isExpired = hasPackage && daysLeft < 0;
 
         // Nếu đang loading, hiển thị loading state
         if (loading) {
@@ -730,7 +788,13 @@ const HomeScreen = () => {
                         {hasPackage ? memberData.packageName : 'Trạng thái hội viên'}
                     </Text>
                     <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
-                        {hasPackage ? (isExpired ? 'Đã hết hạn' : `${daysLeft} Ngày còn lại`) : 'Chưa đăng ký'}
+                        {hasPackage ? (
+                            isExpired
+                                ? 'Đã hết hạn'
+                                : daysLeft === 0
+                                    ? 'Còn hiệu lực'
+                                    : `${daysLeft} Ngày còn lại`
+                        ) : 'Chưa đăng ký'}
                     </Text>
                 </View>
                 {hasPackage && (
@@ -1294,7 +1358,8 @@ const HomeScreen = () => {
 
         // Kiểm tra gói tập hết hạn
         const daysLeft = memberData.membershipDaysLeft;
-        const isExpired = hasPackage && daysLeft <= 0;
+        // Chỉ coi là hết hạn nếu daysLeft < 0 (đã qua ngày hết hạn)
+        const isExpired = hasPackage && daysLeft < 0;
 
         // Nếu chưa hoàn tất đăng ký gói tập (chưa thanh toán), hiển thị thông báo
         if (hasIncompleteMembership) {

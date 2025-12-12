@@ -3,6 +3,8 @@ const BuoiTap = require('../models/BuoiTap');
 const FaceEncoding = require('../models/FaceEncoding');
 const { HoiVien } = require('../models/NguoiDung');
 const mongoose = require('mongoose');
+const jsQR = require('jsqr');
+const Jimp = require('jimp');
 
 // Helper function to parse time string (HH:mm) to Date
 const parseTime = (timeString, date) => {
@@ -1125,6 +1127,102 @@ exports.checkOutWithQR = async (req, res) => {
             success: false,
             message: 'Lỗi server khi check-out bằng QR code',
             error: error.message
+        });
+    }
+};
+
+// Scan QR code from image
+exports.scanQRFromImage = async (req, res) => {
+    try {
+        const { image } = req.body;
+
+        if (!image) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng cung cấp ảnh để quét QR code'
+            });
+        }
+
+        // Extract base64 data from data URL
+        let base64Data = image;
+        if (image.startsWith('data:image')) {
+            base64Data = image.split(',')[1];
+        }
+
+        // Convert base64 to buffer
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+
+        // Process image with Jimp to improve QR code detection
+        let processedImage;
+        try {
+            processedImage = await Jimp.read(imageBuffer);
+
+            // Enhance image for better QR code detection
+            // Resize if too large (max 1000px on longest side)
+            const maxDimension = 1000;
+            if (processedImage.bitmap.width > maxDimension || processedImage.bitmap.height > maxDimension) {
+                if (processedImage.bitmap.width > processedImage.bitmap.height) {
+                    processedImage = processedImage.resize(maxDimension, Jimp.AUTO);
+                } else {
+                    processedImage = processedImage.resize(Jimp.AUTO, maxDimension);
+                }
+            }
+
+            // Convert to grayscale for better QR detection
+            processedImage = processedImage.greyscale();
+
+            // Increase contrast slightly
+            processedImage = processedImage.contrast(0.2);
+        } catch (jimpError) {
+            console.error('Error processing image with Jimp:', jimpError);
+            // If Jimp fails, try with original image
+            processedImage = await Jimp.read(imageBuffer);
+        }
+
+        // Get image data for jsQR
+        const imageData = {
+            data: new Uint8ClampedArray(processedImage.bitmap.data),
+            width: processedImage.bitmap.width,
+            height: processedImage.bitmap.height
+        };
+
+        // Try to decode QR code
+        const qrCode = jsQR(imageData.data, imageData.width, imageData.height);
+
+        if (qrCode && qrCode.data) {
+            console.log('[scanQRFromImage] ✅ QR code detected:', qrCode.data.substring(0, 20) + '...');
+
+            // Validate QR code format (should be hex string, at least 32 characters)
+            const qrCodeData = qrCode.data.trim();
+            if (qrCodeData.length >= 32 && /^[0-9a-fA-F]+$/.test(qrCodeData)) {
+                return res.status(200).json({
+                    success: true,
+                    qrCode: qrCodeData,
+                    message: 'Quét QR code thành công'
+                });
+            } else {
+                console.warn('[scanQRFromImage] ⚠️ QR code format invalid:', qrCodeData.substring(0, 50));
+                return res.status(200).json({
+                    success: false,
+                    message: 'Mã QR không đúng định dạng',
+                    qrCode: null
+                });
+            }
+        } else {
+            console.log('[scanQRFromImage] ❌ No QR code detected in image');
+            return res.status(200).json({
+                success: false,
+                message: 'Không tìm thấy mã QR trong ảnh. Vui lòng đảm bảo ảnh chứa mã QR code rõ ràng.',
+                qrCode: null
+            });
+        }
+    } catch (error) {
+        console.error('Error in scanQRFromImage:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi quét QR code từ ảnh',
+            error: error.message,
+            qrCode: null
         });
     }
 };

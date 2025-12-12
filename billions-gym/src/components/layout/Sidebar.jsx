@@ -85,11 +85,11 @@ const Sidebar = ({ isOpen, onClose }) => {
             description: 'Xem video và bài tập theo playlist'
         },
         {
-            id: 'exercises',
-            label: 'Bài tập',
-            icon: 'barbell',
-            path: '/exercises',
-            description: 'Thư viện bài tập và video hướng dẫn'
+            id: 'chat-with-pt',
+            label: 'Chat với PT',
+            icon: 'message',
+            path: '/chat-with-pt',
+            description: 'Chat với PT phụ trách buổi tập của bạn'
         },
         {
             id: 'nutrition',
