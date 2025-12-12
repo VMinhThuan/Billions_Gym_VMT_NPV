@@ -27,5 +27,8 @@ router.post('/checkin-qr', checkinController.checkInWithQR);
 // Check-out with QR code
 router.post('/checkout-qr', checkinController.checkOutWithQR);
 
+// Scan QR code from image
+router.post('/scan-qr-from-image', checkinController.scanQRFromImage);
+
 module.exports = router;
 
