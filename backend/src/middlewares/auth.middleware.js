@@ -2,6 +2,10 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 
 module.exports = function (req, res, next) {
+    if (req.method === 'OPTIONS') {
+        return next();
+    }
+
     let token = req.headers.authorization;
     if (!token) return res.status(401).json({ message: 'Chưa đăng nhập' });
     if (token.startsWith('Bearer ')) {
